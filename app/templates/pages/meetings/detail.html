@@ -43,6 +43,28 @@
             {% endif %}
           </div>
 
+          <!-- Séquence des degrés -->
+          {% if meeting.degrees %}
+          <div class="mt-4 flex flex-wrap gap-2">
+            {% for deg in meeting.degrees %}
+            <div class="flex items-center gap-1.5 bg-white/10 rounded-lg px-3 py-1.5 text-sm">
+              <span class="w-5 h-5 bg-white/20 rounded-full text-xs flex items-center justify-center font-bold">
+                {{ deg.order_position }}
+              </span>
+              <span>
+                {% if deg.grade.value == 'APPRENTI' %}1er degré
+                {% elif deg.grade.value == 'COMPAGNON' %}2e degré
+                {% elif deg.grade.value == 'MAITRE' %}3e degré
+                {% else %}Toutes loges{% endif %}
+              </span>
+              {% if deg.description %}
+              <span class="text-loge-300 text-xs">— {{ deg.description }}</span>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+          {% endif %}
+
           <!-- Infos pratiques -->
           <div class="mt-4 flex flex-wrap gap-4 text-sm text-loge-200">
             <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>

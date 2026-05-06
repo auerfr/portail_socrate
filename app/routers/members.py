@@ -13,7 +13,11 @@ from app.dependencies import (
     get_current_user, require_auth, require_admin,
     hash_password, can_manage_members,
 )
-from app.models.identity import Member, User, MasonicGrade, MemberStatus, LodgeFunction
+from app.models.identity import (
+    Member, User, MasonicGrade, MemberStatus, LodgeFunction,
+    MemberResponsibility, ResponsibilityType,
+)
+from app.models.lodge import MasonicYear
 
 router = APIRouter(prefix="/members", tags=["members"])
 templates = Jinja2Templates(directory="app/templates")
@@ -23,23 +27,39 @@ def _grade_label(g: MasonicGrade) -> str:
     return {"APPRENTI": "Apprenti", "COMPAGNON": "Compagnon", "MAITRE": "Maître"}.get(g, g)
 
 
-def _function_label(f: LodgeFunction) -> str:
+def _function_label(f) -> str:
     labels = {
-        "VM": "Vénérable Maître",
-        "PREMIER_S": "1er Surveillant",
-        "SECOND_S": "2e Surveillant",
-        "ORATEUR": "Orateur",
-        "SECRETAIRE": "Secrétaire",
-        "TRESORIER": "Trésorier",
-        "EXPERT": "Expert",
+        "VM":                "Vénérable Maître",
+        "PREMIER_S":         "1er Surveillant",
+        "SECOND_S":          "2e Surveillant",
+        "ORATEUR":           "Orateur",
+        "SECRETAIRE":        "Secrétaire",
+        "TRESORIER":         "Trésorier",
+        "EXPERT":            "Expert",
         "MAITRE_CEREMONIES": "Maître des Cérémonies",
-        "HOSPITALIER": "Hospitalier",
-        "TUILEUR": "Tuileur",
-        "ARCHITECTE": "Architecte",
-        "MAITRE_BANQUETS": "Maître des Banquets",
-        "FRERE": "Frère",
+        "HARMONISTE":        "Maître Harmoniste",
+        "HOSPITALIER":       "Hospitalier",
+        "TUILEUR":           "Tuileur",
+        "ARCHITECTE":        "Architecte",
+        "MAITRE_BANQUETS":   "Maître des Banquets",
+        "FRERE":             "Frère",
     }
-    return labels.get(f, f)
+    v = f.value if hasattr(f, "value") else str(f)
+    return labels.get(v, v)
+
+
+def _responsibility_label(t) -> str:
+    labels = {
+        "OFFICE_SECOND":   "Office cumulé",
+        "DELEGUE_CONGRES": "Délégué au Congrès",
+        "DELEGUE_CONVENT": "Délégué au Convent",
+        "DELEGUE_AUTRE":   "Délégué (autre)",
+        "COMMISSION":      "Commission",
+        "REPRESENTANT":    "Représentant",
+        "OTHER":           "Autre responsabilité",
+    }
+    v = t.value if hasattr(t, "value") else str(t)
+    return labels.get(v, v)
 
 
 def _status_label(s: MemberStatus) -> str:
@@ -106,7 +126,12 @@ async def member_detail(
 ):
     user, current_member = ctx
 
-    result = await db.execute(select(Member).where(Member.id == member_id))
+    from sqlalchemy.orm import selectinload
+    result = await db.execute(
+        select(Member)
+        .options(selectinload(Member.responsibilities))
+        .where(Member.id == member_id)
+    )
     target = result.scalar_one_or_none()
     if not target:
         raise HTTPException(status_code=404, detail="Membre introuvable")
@@ -391,3 +416,145 @@ async def toggle_user_account(
         await db.commit()
 
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
+
+
+# ── Responsabilités ───────────────────────────────────────────────────────────
+
+@router.get("/{member_id}/responsibilities", response_class=HTMLResponse)
+async def responsibilities_page(
+    request: Request,
+    member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, current_member = ctx
+    if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
+        raise HTTPException(status_code=403)
+
+    result = await db.execute(select(Member).where(Member.id == member_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404)
+
+    # Charger les responsabilités avec l'année maçonnique
+    resp_result = await db.execute(
+        select(MemberResponsibility)
+        .where(MemberResponsibility.member_id == member_id)
+        .order_by(MemberResponsibility.is_active.desc(), MemberResponsibility.type)
+    )
+    responsibilities = resp_result.scalars().all()
+
+    # Années maçonniques pour le sélecteur
+    years_result = await db.execute(
+        select(MasonicYear).order_by(MasonicYear.start_date.desc())
+    )
+    years = years_result.scalars().all()
+    current_year = next((y for y in years if y.is_current), years[0] if years else None)
+
+    return templates.TemplateResponse(request, "pages/members/responsibilities.html", {
+        "current_member": current_member,
+        "current_user": user,
+        "target": target,
+        "responsibilities": responsibilities,
+        "years": years,
+        "current_year": current_year,
+        "ResponsibilityType": ResponsibilityType,
+        "LodgeFunction": LodgeFunction,
+        "responsibility_label": _responsibility_label,
+        "function_label": _function_label,
+        "can_manage": can_manage_members(current_member) or user.is_admin,
+    })
+
+
+@router.post("/{member_id}/responsibilities/add", response_class=HTMLResponse)
+async def responsibility_add(
+    request: Request,
+    member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    resp_type:       str = Form(...),
+    label:           str = Form(...),
+    lodge_function:  str = Form(""),
+    masonic_year_id: str = Form(""),
+    start_date:      str = Form(""),
+    end_date:        str = Form(""),
+    notes:           str = Form(""),
+):
+    user, current_member = ctx
+    if not (can_manage_members(current_member) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    def parse_date(s: str):
+        if s:
+            try:
+                return date.fromisoformat(s)
+            except ValueError:
+                return None
+        return None
+
+    resp = MemberResponsibility(
+        member_id=member_id,
+        type=ResponsibilityType(resp_type),
+        label=label.strip(),
+        lodge_function=LodgeFunction(lodge_function) if lodge_function else None,
+        masonic_year_id=int(masonic_year_id) if masonic_year_id else None,
+        start_date=parse_date(start_date),
+        end_date=parse_date(end_date),
+        notes=notes or None,
+        is_active=True,
+    )
+    db.add(resp)
+    await db.commit()
+    return RedirectResponse(url=f"/members/{member_id}/responsibilities", status_code=302)
+
+
+@router.post("/{member_id}/responsibilities/{resp_id}/toggle", response_class=HTMLResponse)
+async def responsibility_toggle(
+    request: Request,
+    member_id: int,
+    resp_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, current_member = ctx
+    if not (can_manage_members(current_member) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    result = await db.execute(
+        select(MemberResponsibility).where(
+            MemberResponsibility.id == resp_id,
+            MemberResponsibility.member_id == member_id,
+        )
+    )
+    resp = result.scalar_one_or_none()
+    if resp:
+        resp.is_active = not resp.is_active
+        await db.commit()
+
+    return RedirectResponse(url=f"/members/{member_id}/responsibilities", status_code=302)
+
+
+@router.post("/{member_id}/responsibilities/{resp_id}/delete", response_class=HTMLResponse)
+async def responsibility_delete(
+    request: Request,
+    member_id: int,
+    resp_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, current_member = ctx
+    if not (can_manage_members(current_member) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    result = await db.execute(
+        select(MemberResponsibility).where(
+            MemberResponsibility.id == resp_id,
+            MemberResponsibility.member_id == member_id,
+        )
+    )
+    resp = result.scalar_one_or_none()
+    if resp:
+        await db.delete(resp)
+        await db.commit()
+
+    return RedirectResponse(url=f"/members/{member_id}/responsibilities", status_code=302)

@@ -19,15 +19,16 @@ class MeetingGrade(str, enum.Enum):
 
 
 class MeetingType(str, enum.Enum):
-    BLANCHE      = "BLANCHE"
-    INSTRUCTION  = "INSTRUCTION"
-    INITIATION   = "INITIATION"
-    INSTALLATION = "INSTALLATION"
-    ELECTION     = "ELECTION"
-    PASSAGE      = "PASSAGE"     # Passage Compagnon
-    ELEVATION    = "ELEVATION"   # Élévation Maître
-    FETE         = "FETE"        # Saint-Jean, etc.
-    EXTRA        = "EXTRA"       # Extraordinaire
+    BLANCHE      = "BLANCHE"      # Tenue ordinaire
+    SOLENNELLE   = "SOLENNELLE"   # Tenue solennelle (cérémonieuse, avec visiteurs)
+    INSTRUCTION  = "INSTRUCTION"  # Tenue d'instruction
+    INITIATION   = "INITIATION"   # Initiation d'un profane
+    INSTALLATION = "INSTALLATION" # Installation des officiers
+    ELECTION     = "ELECTION"     # Élection du VM
+    PASSAGE      = "PASSAGE"      # Passage au 2e degré (Compagnon)
+    ELEVATION    = "ELEVATION"    # Élévation au 3e degré (Maître)
+    FETE         = "FETE"         # Saint-Jean d'été / d'hiver, etc.
+    EXTRA        = "EXTRA"        # Tenue extraordinaire
 
 
 class AttendanceStatus(str, enum.Enum):
@@ -62,6 +63,13 @@ class WaitlistStatus(str, enum.Enum):
     EXPIRED   = "EXPIRED"
 
 
+class DegreeAttended(str, enum.Enum):
+    """Jusqu'à quel degré le frère a-t-il participé lors d'une tenue multi-degrés."""
+    PREMIER  = "PREMIER"   # Présent uniquement au 1er degré
+    DEUXIEME = "DEUXIEME"  # Présent jusqu'au 2e degré
+    TROISIEME = "TROISIEME" # Présent jusqu'au 3e degré (toute la tenue)
+
+
 # ── Meetings ───────────────────────────────────────────────────────────────
 
 class Meeting(Base):
@@ -79,6 +87,10 @@ class Meeting(Base):
     type: Mapped[MeetingType]         = mapped_column(Enum(MeetingType), default=MeetingType.BLANCHE)
     location: Mapped[Optional[str]]   = mapped_column(String(300))
     address: Mapped[Optional[str]]    = mapped_column(Text)
+
+    # Degrés travaillés — si NULL : tenue à un seul degré (= `grade` ci-dessous)
+    # Relation vers MeetingDegree pour les tenues multi-degrés
+    # Le champ `grade` reste le degré d'ouverture / minimum requis pour s'inscrire.
 
     # Contenu
     agenda_html: Mapped[Optional[str]]   = mapped_column(Text)   # Ordre du jour
@@ -110,13 +122,31 @@ class Meeting(Base):
     )
 
     # Relations
-    attendances: Mapped[list["Attendance"]]       = relationship(back_populates="meeting")
-    meeting_visitors: Mapped[list["MeetingVisitor"]] = relationship(back_populates="meeting")
-    meeting_guests: Mapped[list["MeetingGuest"]]    = relationship(back_populates="meeting")
-    waitlist: Mapped[list["MeetingWaitlist"]]        = relationship(back_populates="meeting")
+    attendances: Mapped[list["Attendance"]]          = relationship(back_populates="meeting", cascade="all, delete-orphan")
+    meeting_visitors: Mapped[list["MeetingVisitor"]] = relationship(back_populates="meeting", cascade="all, delete-orphan")
+    meeting_guests: Mapped[list["MeetingGuest"]]     = relationship(back_populates="meeting", cascade="all, delete-orphan")
+    waitlist: Mapped[list["MeetingWaitlist"]]         = relationship(back_populates="meeting", cascade="all, delete-orphan")
+    degrees: Mapped[list["MeetingDegree"]]            = relationship(
+        back_populates="meeting",
+        order_by="MeetingDegree.order_position",
+        cascade="all, delete-orphan",
+    )
     tracing_sections: Mapped[list["TracingSection"]] = relationship(
         "TracingSection", back_populates="meeting"
     )
+
+    @property
+    def is_multi_degree(self) -> bool:
+        """Vrai si la tenue travaille à plusieurs degrés."""
+        return len(self.degrees) > 1
+
+    @property
+    def highest_degree(self) -> "MeetingGrade":
+        """Degré le plus élevé travaillé dans la tenue."""
+        if self.degrees:
+            order = {MeetingGrade.APPRENTI: 1, MeetingGrade.COMPAGNON: 2, MeetingGrade.MAITRE: 3, MeetingGrade.ALL: 0}
+            return max(self.degrees, key=lambda d: order.get(d.grade, 0)).grade
+        return self.grade
 
     def __repr__(self) -> str:
         return f"<Meeting {self.meeting_date} [{self.grade}]>"
@@ -137,6 +167,11 @@ class Attendance(Base):
     # Agapes
     agape: Mapped[bool] = mapped_column(Boolean, default=False)
     agape_guests: Mapped[int] = mapped_column(Integer, default=0)
+
+    # Pour les tenues multi-degrés : jusqu'à quel degré le frère a-t-il participé ?
+    degree_attended: Mapped[Optional[DegreeAttended]] = mapped_column(
+        Enum(DegreeAttended), nullable=True
+    )
 
     comment: Mapped[Optional[str]] = mapped_column(Text)
     registered_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -214,6 +249,37 @@ class MeetingGuest(Base):
 
     meeting: Mapped["Meeting"]   = relationship(back_populates="meeting_guests")
     invited_by: Mapped["Member"] = relationship()
+
+
+class MeetingDegree(Base):
+    """
+    Séquence des degrés travaillés lors d'une tenue.
+
+    Exemples :
+      - Tenue blanche ordinaire au 3e degré → 1 ligne : order=1, grade=MAITRE
+      - Tenue multi-degrés :
+          order=1, grade=APPRENTI,  description="Ouverture — lecture planche Apprenti"
+          order=2, grade=COMPAGNON, description="Élévation — réception du F∴ Dupont"
+          order=3, grade=MAITRE,    description="Travaux de Maîtres"
+      - Initiation :
+          order=1, grade=ALL,       description="Ouverture à toutes loges réunies"
+          order=2, grade=MAITRE,    description="Chambre du Milieu — délibération"
+          order=3, grade=APPRENTI,  description="Initiation en chambre d'Apprenti"
+    """
+    __tablename__ = "meeting_degrees"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    meeting_id: Mapped[int] = mapped_column(
+        ForeignKey("meetings.id", ondelete="CASCADE"), index=True
+    )
+    order_position: Mapped[int] = mapped_column(Integer, default=1)
+    grade: Mapped["MeetingGrade"] = mapped_column(Enum(MeetingGrade))
+    description: Mapped[Optional[str]] = mapped_column(String(300))  # annotation libre
+
+    meeting: Mapped["Meeting"] = relationship(back_populates="degrees")
+
+    def __repr__(self) -> str:
+        return f"<Degree {self.order_position}: {self.grade}>"
 
 
 class MeetingWaitlist(Base):

@@ -15,8 +15,8 @@ from app.dependencies import (
     require_auth, can_manage_meeting, can_lock_meeting,
 )
 from app.models.meetings import (
-    Meeting, Attendance, AttendanceStatus,
-    MeetingGrade, MeetingType,
+    Meeting, Attendance, AttendanceStatus, DegreeAttended,
+    MeetingGrade, MeetingType, MeetingDegree,
     Visitor, MeetingVisitor, MeetingGuest, MeetingWaitlist,
     DietaryRestriction, GuestStatus,
 )
@@ -27,18 +27,21 @@ router = APIRouter(prefix="/meetings", tags=["meetings"])
 templates = Jinja2Templates(directory="app/templates")
 
 
-def _type_label(t: MeetingType) -> str:
-    return {
-        "BLANCHE": "Tenue blanche",
-        "INSTRUCTION": "Tenue d'instruction",
-        "INITIATION": "Initiation",
-        "INSTALLATION": "Installation",
-        "ELECTION": "Élection",
-        "PASSAGE": "Passage au grade de Compagnon",
-        "ELEVATION": "Élévation au grade de Maître",
-        "FETE": "Fête maçonnique",
-        "EXTRA": "Tenue extraordinaire",
-    }.get(t, t)
+def _type_label(t) -> str:
+    labels = {
+        "BLANCHE":      "Tenue blanche",
+        "SOLENNELLE":   "Tenue solennelle",
+        "INSTRUCTION":  "Tenue d'instruction",
+        "INITIATION":   "Initiation",
+        "INSTALLATION": "Installation des officiers",
+        "ELECTION":     "Élection du Vénérable",
+        "PASSAGE":      "Passage au 2e degré",
+        "ELEVATION":    "Élévation au 3e degré",
+        "FETE":         "Fête maçonnique",
+        "EXTRA":        "Tenue extraordinaire",
+    }
+    v = t.value if hasattr(t, "value") else str(t)
+    return labels.get(v, v)
 
 
 def _grade_label(g: MeetingGrade) -> str:
@@ -146,6 +149,7 @@ async def meeting_detail(
             selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
             selectinload(Meeting.meeting_guests),
             selectinload(Meeting.waitlist),
+            selectinload(Meeting.degrees),
         )
         .where(Meeting.id == meeting_id)
     )
@@ -219,6 +223,12 @@ async def meeting_new_form(
         "errors": {},
         "is_new": True,
         "form_action": "/meetings/new/form",
+        "degree_labels": {
+            "APPRENTI": "1er degré — Apprentis",
+            "COMPAGNON": "2e degré — Compagnons",
+            "MAITRE": "3e degré — Maîtres",
+            "ALL": "Toutes loges réunies",
+        },
     })
 
 
@@ -239,6 +249,9 @@ async def meeting_create(
     agape_capacity:  str = Form(""),
     agape_location:  str = Form(""),
     visio_url:       str = Form(""),
+    # Multi-degrés : liste de degrés séparés par virgule + descriptions
+    degrees_grades:  str = Form(""),  # ex: "APPRENTI,COMPAGNON,MAITRE"
+    degrees_descs:   str = Form(""),  # ex: "Ouverture,Passage,Travaux"
 ):
     user, member = ctx
     if not (can_manage_meeting(member) or user.is_admin):
@@ -279,8 +292,27 @@ async def meeting_create(
         created_by_id=member.id,
     )
     db.add(new_meeting)
+    await db.flush()  # obtenir l'ID
+
+    # Enregistrer la séquence des degrés si multi-degrés
+    if degrees_grades.strip():
+        grades_list = [g.strip() for g in degrees_grades.split(",") if g.strip()]
+        descs_list  = [d.strip() for d in degrees_descs.split("|") if True]  # séparateur |
+        for i, grade_str in enumerate(grades_list):
+            try:
+                g = MeetingGrade(grade_str)
+            except ValueError:
+                continue
+            desc = descs_list[i] if i < len(descs_list) else ""
+            deg = MeetingDegree(
+                meeting_id=new_meeting.id,
+                order_position=i + 1,
+                grade=g,
+                description=desc or None,
+            )
+            db.add(deg)
+
     await db.commit()
-    await db.refresh(new_meeting)
     return RedirectResponse(url=f"/meetings/{new_meeting.id}", status_code=302)
 
 

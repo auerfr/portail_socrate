@@ -1,6 +1,6 @@
 """Domaine 1 — Identité & Accès"""
 import enum
-from datetime import datetime
+from datetime import datetime, date as date_type
 from typing import Optional
 from sqlalchemy import String, Enum, Boolean, DateTime, Date, Integer, ForeignKey, Text, UniqueConstraint, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -22,19 +22,32 @@ class MemberStatus(str, enum.Enum):
 
 
 class LodgeFunction(str, enum.Enum):
-    VM               = "VM"
-    PREMIER_S        = "PREMIER_S"
-    SECOND_S         = "SECOND_S"
-    ORATEUR          = "ORATEUR"
-    SECRETAIRE       = "SECRETAIRE"
-    TRESORIER        = "TRESORIER"
-    EXPERT           = "EXPERT"
-    MAITRE_CEREMONIES = "MAITRE_CEREMONIES"
-    HOSPITALIER      = "HOSPITALIER"
-    TUILEUR          = "TUILEUR"
-    ARCHITECTE       = "ARCHITECTE"
-    MAITRE_BANQUETS  = "MAITRE_BANQUETS"
-    FRERE            = "FRERE"
+    """Offices rituels de la loge — un frère peut en cumuler plusieurs."""
+    VM                = "VM"
+    PREMIER_S         = "PREMIER_S"
+    SECOND_S          = "SECOND_S"
+    ORATEUR           = "ORATEUR"
+    SECRETAIRE        = "SECRETAIRE"
+    TRESORIER         = "TRESORIER"
+    EXPERT            = "EXPERT"
+    MAITRE_CEREMONIES  = "MAITRE_CEREMONIES"
+    HARMONISTE        = "HARMONISTE"       # Maître Harmoniste ← ajout
+    HOSPITALIER       = "HOSPITALIER"
+    TUILEUR           = "TUILEUR"
+    ARCHITECTE        = "ARCHITECTE"
+    MAITRE_BANQUETS   = "MAITRE_BANQUETS"
+    FRERE             = "FRERE"            # Pas d'office particulier
+
+
+class ResponsibilityType(str, enum.Enum):
+    """Type de responsabilité hors office rituel principal."""
+    OFFICE_SECOND     = "OFFICE_SECOND"      # Deuxième office rituel cumulé
+    DELEGUE_CONGRES   = "DELEGUE_CONGRES"    # Délégué au Congrès obédientiel
+    DELEGUE_CONVENT   = "DELEGUE_CONVENT"    # Délégué au Convent
+    DELEGUE_AUTRE     = "DELEGUE_AUTRE"      # Toute autre délégation
+    COMMISSION        = "COMMISSION"         # Membre d'une commission
+    REPRESENTANT      = "REPRESENTANT"       # Représentant de la loge
+    OTHER             = "OTHER"              # Autre responsabilité libre
 
 
 class GroupType(str, enum.Enum):
@@ -79,14 +92,21 @@ class Member(Base):
     birth_date: Mapped[Optional[datetime]] = mapped_column(Date)
     photo_url: Mapped[Optional[str]]       = mapped_column(String(500))
 
-    masonic_grade: Mapped[MasonicGrade] = mapped_column(Enum(MasonicGrade), default=MasonicGrade.APPRENTI, index=True)
-    status: Mapped[MemberStatus]        = mapped_column(Enum(MemberStatus), default=MemberStatus.ACTIVE, index=True)
+    masonic_grade: Mapped[MasonicGrade] = mapped_column(
+        Enum(MasonicGrade), default=MasonicGrade.APPRENTI, index=True
+    )
+    status: Mapped[MemberStatus] = mapped_column(
+        Enum(MemberStatus), default=MemberStatus.ACTIVE, index=True
+    )
     status_date: Mapped[Optional[datetime]]     = mapped_column(Date)
     initiation_date: Mapped[Optional[datetime]] = mapped_column(Date)
     companion_date: Mapped[Optional[datetime]]  = mapped_column(Date)
     master_date: Mapped[Optional[datetime]]     = mapped_column(Date)
 
-    lodge_function: Mapped[LodgeFunction]       = mapped_column(Enum(LodgeFunction), default=LodgeFunction.FRERE)
+    # Fonction principale (titre affiché dans le tableau de la loge)
+    lodge_function: Mapped[LodgeFunction] = mapped_column(
+        Enum(LodgeFunction), default=LodgeFunction.FRERE
+    )
     function_start_date: Mapped[Optional[datetime]] = mapped_column(Date)
     function_end_date: Mapped[Optional[datetime]]   = mapped_column(Date)
 
@@ -94,10 +114,18 @@ class Member(Base):
     program_optin: Mapped[bool]          = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
 
-    user: Mapped[Optional["User"]]                  = relationship(back_populates="member", uselist=False)
-    group_memberships: Mapped[list["GroupMember"]]  = relationship(back_populates="member")
+    # Relations
+    user: Mapped[Optional["User"]]                       = relationship(back_populates="member", uselist=False)
+    group_memberships: Mapped[list["GroupMember"]]       = relationship(back_populates="member")
+    responsibilities: Mapped[list["MemberResponsibility"]] = relationship(
+        back_populates="member",
+        order_by="MemberResponsibility.type",
+        cascade="all, delete-orphan",
+    )
 
     @property
     def full_name(self) -> str:
@@ -106,6 +134,53 @@ class Member(Base):
     @property
     def is_active(self) -> bool:
         return self.status == MemberStatus.ACTIVE
+
+    @property
+    def active_responsibilities(self) -> list["MemberResponsibility"]:
+        return [r for r in self.responsibilities if r.is_active]
+
+
+class MemberResponsibility(Base):
+    """
+    Responsabilités complémentaires d'un frère :
+    - Office rituel cumulé (ex: VM + Expert par intérim)
+    - Délégation au Congrès ou au Convent
+    - Membre d'une commission de la loge
+    - Toute autre responsabilité
+    Un frère peut en avoir autant qu'il veut.
+    """
+    __tablename__ = "member_responsibilities"
+
+    id: Mapped[int]        = mapped_column(primary_key=True)
+    member_id: Mapped[int] = mapped_column(
+        ForeignKey("members.id", ondelete="CASCADE"), index=True
+    )
+    masonic_year_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("masonic_years.id"), index=True
+    )
+
+    type: Mapped[ResponsibilityType] = mapped_column(Enum(ResponsibilityType))
+
+    # Label libre — ex: "Délégué au Congrès GLNF 2026", "Commission rituels"
+    label: Mapped[str] = mapped_column(String(300))
+
+    # Si office cumulé : quel office ?
+    lodge_function: Mapped[Optional[LodgeFunction]] = mapped_column(Enum(LodgeFunction))
+
+    # Si commission/groupe : lien vers le groupe
+    group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("groups.id"), nullable=True)
+
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    start_date: Mapped[Optional[date_type]] = mapped_column(Date)
+    end_date: Mapped[Optional[date_type]]   = mapped_column(Date)
+    notes: Mapped[Optional[str]]            = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    member: Mapped["Member"] = relationship(back_populates="responsibilities")
+
+    def __repr__(self) -> str:
+        return f"<Responsibility {self.type} — {self.label}>"
 
 
 class User(Base):
@@ -118,7 +193,7 @@ class User(Base):
     is_active: Mapped[bool]    = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool]     = mapped_column(Boolean, default=False)
     last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    created_at: Mapped[datetime]              = mapped_column(DateTime, server_default=func.now())
 
     member: Mapped["Member"] = relationship(back_populates="user")
 
@@ -131,11 +206,11 @@ class Group(Base):
     description: Mapped[Optional[str]] = mapped_column(Text)
     type: Mapped[GroupType] = mapped_column(Enum(GroupType))
 
-    grade_filter: Mapped[Optional[str]]    = mapped_column(String(50))
-    function_filter: Mapped[Optional[str]] = mapped_column(String(50))
-    cpanel_address: Mapped[Optional[str]]  = mapped_column(String(200))
+    grade_filter: Mapped[Optional[str]]      = mapped_column(String(50))
+    function_filter: Mapped[Optional[str]]   = mapped_column(String(50))
+    cpanel_address: Mapped[Optional[str]]    = mapped_column(String(200))
     last_sync_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    is_auto: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_auto: Mapped[bool]                    = mapped_column(Boolean, default=False)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 

@@ -109,6 +109,103 @@
       </div>
     </div>
 
+    <!-- Degrés travaillés -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+         x-data="{
+           degrees: [{ grade: 'MAITRE', desc: '' }],
+           addDegree() { this.degrees.push({ grade: 'APPRENTI', desc: '' }) },
+           removeDegree(i) { if (this.degrees.length > 1) this.degrees.splice(i, 1) },
+           gradesValue() { return this.degrees.map(d => d.grade).join(',') },
+           descsValue() { return this.degrees.map(d => d.desc).join('|') }
+         }">
+      <div class="flex items-center justify-between mb-4">
+        <div>
+          <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Degrés travaillés</h2>
+          <p class="text-xs text-gray-400 mt-1">
+            Par défaut : une tenue à un seul degré. Ajouter des lignes pour les tenues multi-degrés.
+          </p>
+        </div>
+        <button type="button" @click="addDegree()"
+                class="text-xs text-loge-700 border border-loge-200 px-3 py-1.5 rounded-lg hover:bg-loge-50">
+          + Ajouter un degré
+        </button>
+      </div>
+
+      <!-- Champs cachés transmis au serveur -->
+      <input type="hidden" name="degrees_grades" :value="gradesValue()">
+      <input type="hidden" name="degrees_descs"  :value="descsValue()">
+
+      <div class="space-y-3">
+        <template x-for="(deg, i) in degrees" :key="i">
+          <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
+
+            <!-- Numéro de séquence -->
+            <div class="w-6 h-6 rounded-full bg-loge-700 text-white text-xs flex items-center justify-center shrink-0 font-bold"
+                 x-text="i + 1"></div>
+
+            <!-- Grade -->
+            <select x-model="deg.grade"
+                    class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+              <option value="APPRENTI">1er degré — Apprentis</option>
+              <option value="COMPAGNON">2e degré — Compagnons</option>
+              <option value="MAITRE">3e degré — Maîtres</option>
+              <option value="ALL">Toutes loges réunies</option>
+            </select>
+
+            <!-- Description optionnelle -->
+            <input type="text" x-model="deg.desc"
+                   placeholder="Description (ex: Ouverture, Initiation…)"
+                   class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+
+            <!-- Supprimer -->
+            <button type="button" @click="removeDegree(i)"
+                    x-show="degrees.length > 1"
+                    class="text-gray-400 hover:text-red-500 p-1 rounded">
+              ✕
+            </button>
+          </div>
+        </template>
+      </div>
+
+      <!-- Exemples prédéfinis -->
+      <div class="mt-4 pt-4 border-t border-gray-100">
+        <p class="text-xs text-gray-400 mb-2">Modèles rapides :</p>
+        <div class="flex flex-wrap gap-2">
+          <button type="button"
+                  @click="degrees = [{ grade: 'MAITRE', desc: 'Tenue au 3e degré' }]"
+                  class="text-xs border border-gray-200 rounded px-2 py-1 hover:bg-gray-50">
+            Maîtres uniquement
+          </button>
+          <button type="button"
+                  @click="degrees = [
+                    { grade: 'APPRENTI', desc: 'Ouverture au 1er degré' },
+                    { grade: 'MAITRE', desc: 'Passage au 3e degré' }
+                  ]"
+                  class="text-xs border border-gray-200 rounded px-2 py-1 hover:bg-gray-50">
+            1er → 3e degré
+          </button>
+          <button type="button"
+                  @click="degrees = [
+                    { grade: 'ALL', desc: 'Ouverture à toutes loges réunies' },
+                    { grade: 'APPRENTI', desc: 'Chambre d\'initiation' },
+                    { grade: 'MAITRE', desc: 'Chambre du Milieu' }
+                  ]"
+                  class="text-xs border border-gray-200 rounded px-2 py-1 hover:bg-gray-50">
+            Initiation (3 temps)
+          </button>
+          <button type="button"
+                  @click="degrees = [
+                    { grade: 'APPRENTI', desc: 'Ouverture au 1er degré' },
+                    { grade: 'COMPAGNON', desc: 'Élévation au 2e degré' },
+                    { grade: 'MAITRE', desc: 'Travaux au 3e degré' }
+                  ]"
+                  class="text-xs border border-gray-200 rounded px-2 py-1 hover:bg-gray-50">
+            1er → 2e → 3e
+          </button>
+        </div>
+      </div>
+    </div>
+
     <!-- Agapes -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Agapes</h2>
