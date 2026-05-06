@@ -1,0 +1,292 @@
+{% extends "base.html" %}
+{% block title %}Cotisations — Finance{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-6xl mx-auto">
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/finance/" class="hover:text-loge-700">Finance</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Cotisations</span>
+  </nav>
+
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Cotisations</h1>
+      {% if selected_year %}
+      <p class="text-sm text-gray-500">Année {{ selected_year.label }}</p>
+      {% endif %}
+    </div>
+
+    <div class="flex gap-2 flex-wrap">
+      <!-- Sélecteur d'année -->
+      <form method="get" class="flex items-center gap-2">
+        <select name="year_id" onchange="this.form.submit()"
+                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          {% for y in years %}
+          <option value="{{ y.id }}" {% if selected_year and y.id == selected_year.id %}selected{% endif %}>
+            {{ y.label }}{% if y.is_current %} ★{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+
+      {% if is_admin and selected_year %}
+      <!-- Initialiser tout en T3 -->
+      <form method="post" action="/finance/cotisations/assign-all"
+            onsubmit="return confirm('Assigner T3 à tous les membres non affectés ?')">
+        <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+        <button type="submit"
+                class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+          Initialiser en T3
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
+  {% if not selected_year %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-800">
+    Aucune année maçonnique configurée.
+  </div>
+  {% elif not members_list %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-10 text-center text-gray-400 text-sm">
+    Aucun membre actif.
+  </div>
+  {% else %}
+
+  <!-- Filtre statut -->
+  <div class="flex gap-2 mb-4 flex-wrap">
+    <a href="/finance/cotisations?year_id={{ selected_year.id }}"
+       class="px-3 py-1 rounded-full text-xs font-medium border
+              {% if not status_filter %}bg-loge-700 text-white border-loge-700{% else %}bg-white text-gray-600 border-gray-200 hover:border-loge-300{% endif %}">
+      Tous ({{ members_list|length }})
+    </a>
+    <a href="/finance/cotisations?year_id={{ selected_year.id }}&status_filter=PENDING"
+       class="px-3 py-1 rounded-full text-xs font-medium border
+              {% if status_filter == 'PENDING' %}bg-amber-500 text-white border-amber-500{% else %}bg-white text-gray-600 border-gray-200 hover:border-amber-300{% endif %}">
+      En attente
+    </a>
+    <a href="/finance/cotisations?year_id={{ selected_year.id }}&status_filter=PARTIAL"
+       class="px-3 py-1 rounded-full text-xs font-medium border
+              {% if status_filter == 'PARTIAL' %}bg-blue-500 text-white border-blue-500{% else %}bg-white text-gray-600 border-gray-200 hover:border-blue-300{% endif %}">
+      Partiel
+    </a>
+    <a href="/finance/cotisations?year_id={{ selected_year.id }}&status_filter=PAID"
+       class="px-3 py-1 rounded-full text-xs font-medium border
+              {% if status_filter == 'PAID' %}bg-green-600 text-white border-green-600{% else %}bg-white text-gray-600 border-gray-200 hover:border-green-300{% endif %}">
+      Soldé
+    </a>
+    <a href="/finance/cotisations?year_id={{ selected_year.id }}&status_filter=UNASSIGNED"
+       class="px-3 py-1 rounded-full text-xs font-medium border
+              {% if status_filter == 'UNASSIGNED' %}bg-gray-700 text-white border-gray-700{% else %}bg-white text-gray-600 border-gray-200 hover:border-gray-400{% endif %}">
+      Non affectés
+    </a>
+  </div>
+
+  <!-- Tableau -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100 bg-gray-50">
+            <th class="text-left px-5 py-3 font-medium text-xs text-gray-500">Frère</th>
+            <th class="text-center px-3 py-3 font-medium text-xs text-gray-500">Tranche</th>
+            <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Total dû</th>
+            <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Encaissé</th>
+            <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Solde</th>
+            <th class="text-center px-3 py-3 font-medium text-xs text-gray-500">Statut</th>
+            {% if is_admin %}
+            <th class="px-5 py-3 font-medium text-xs text-gray-500">Actions</th>
+            {% endif %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for m in members_list %}
+          {% set contrib = contributions_map.get(m.id) %}
+
+          {# Calculer si la ligne doit être affichée selon le filtre #}
+          {% set show = true %}
+          {% if status_filter == 'PENDING' and (not contrib or contrib.status.value != 'PENDING') %}{% set show = false %}{% endif %}
+          {% if status_filter == 'PARTIAL' and (not contrib or contrib.status.value != 'PARTIAL') %}{% set show = false %}{% endif %}
+          {% if status_filter == 'PAID' and (not contrib or contrib.status.value not in ['PAID','EXEMPT']) %}{% set show = false %}{% endif %}
+          {% if status_filter == 'UNASSIGNED' and contrib %}{% set show = false %}{% endif %}
+
+          {% if show %}
+          <tr class="hover:bg-gray-50 group"
+              x-data="{ openPay: false, openAssign: false }">
+
+            <!-- Nom -->
+            <td class="px-5 py-3">
+              <a href="/members/{{ m.id }}" class="font-medium text-gray-800 hover:text-loge-700">
+                {{ m.last_name }} {{ m.first_name }}
+              </a>
+            </td>
+
+            <!-- Tranche -->
+            <td class="text-center px-3 py-3">
+              {% if contrib %}
+              {% set tn = tiers | selectattr('id', 'equalto', contrib.tier_id) | list | first %}
+              <span class="inline-block w-8 h-8 rounded-full text-xs font-bold flex items-center justify-center
+                {% if tn and tn.tier_number <= 2 %}bg-blue-100 text-blue-700
+                {% elif tn and tn.tier_number == 3 %}bg-loge-100 text-loge-800
+                {% else %}bg-amber-100 text-amber-700{% endif %}">
+                {% if tn %}T{{ tn.tier_number }}{% else %}?{% endif %}
+              </span>
+              {% else %}
+              <span class="text-xs text-gray-300">—</span>
+              {% endif %}
+            </td>
+
+            <!-- Total dû -->
+            <td class="text-right px-3 py-3 font-medium text-gray-800 tabular-nums">
+              {% if contrib %}{{ "%.2f"|format(contrib.total_amount) }} €{% else %}—{% endif %}
+            </td>
+
+            <!-- Encaissé -->
+            <td class="text-right px-3 py-3 text-gray-600 tabular-nums">
+              {% if contrib %}{{ "%.2f"|format(contrib.amount_paid) }} €{% else %}—{% endif %}
+            </td>
+
+            <!-- Solde -->
+            <td class="text-right px-3 py-3 tabular-nums font-semibold">
+              {% if contrib %}
+              {% set remaining = contrib.amount_remaining %}
+              <span class="{% if remaining <= 0 %}text-green-600{% elif remaining < contrib.total_amount %}text-amber-600{% else %}text-red-600{% endif %}">
+                {% if contrib.status.value == 'EXEMPT' %}Exempté
+                {% elif remaining <= 0 %}Soldé
+                {% else %}{{ "%.2f"|format(remaining) }} €{% endif %}
+              </span>
+              {% else %}—{% endif %}
+            </td>
+
+            <!-- Statut badge -->
+            <td class="text-center px-3 py-3">
+              {% if not contrib %}
+              <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Non affecté</span>
+              {% elif contrib.status.value == 'PAID' %}
+              <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✓ Soldé</span>
+              {% elif contrib.status.value == 'EXEMPT' %}
+              <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Exempté</span>
+              {% elif contrib.status.value == 'PARTIAL' %}
+              <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Partiel</span>
+              {% else %}
+              <span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">En attente</span>
+              {% endif %}
+            </td>
+
+            <!-- Actions admin -->
+            {% if is_admin %}
+            <td class="px-5 py-3">
+              <div class="flex gap-1 items-center">
+
+                <!-- Bouton affecter tranche -->
+                <button @click="openAssign = !openAssign; openPay = false"
+                        class="text-xs border border-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">
+                  Tranche
+                </button>
+
+                <!-- Bouton enregistrer paiement -->
+                {% if contrib and contrib.status.value not in ['PAID','EXEMPT'] %}
+                <button @click="openPay = !openPay; openAssign = false"
+                        class="text-xs border border-loge-200 text-loge-700 px-2 py-1 rounded hover:bg-loge-50">
+                  Paiement
+                </button>
+                {% endif %}
+
+                <!-- Exempter -->
+                {% if contrib and contrib.status.value not in ['PAID','EXEMPT'] %}
+                <form method="post" action="/finance/cotisations/{{ contrib.id }}/exempt"
+                      onsubmit="return confirm('Marquer ce frère comme exempté ?')">
+                  <button type="submit" class="text-xs text-gray-400 hover:text-purple-600 px-1 py-1">⊘</button>
+                </form>
+                {% endif %}
+              </div>
+
+              <!-- Form affecter tranche (dropdown inline) -->
+              <div x-show="openAssign" x-cloak
+                   class="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50 text-xs space-y-2">
+                <form method="post" action="/finance/cotisations/assign" class="space-y-2">
+                  <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+                  <input type="hidden" name="member_id" value="{{ m.id }}">
+                  <div class="flex gap-1 flex-wrap">
+                    {% for tier in tiers %}
+                    <label class="cursor-pointer">
+                      <input type="radio" name="tier_number" value="{{ tier.tier_number }}"
+                             {% if contrib %}
+                             {% set cur_tier = tiers | selectattr('id','equalto',contrib.tier_id)|list|first %}
+                             {% if cur_tier and cur_tier.tier_number == tier.tier_number %}checked{% endif %}
+                             {% elif tier.tier_number == 3 %}checked{% endif %}
+                             class="sr-only peer">
+                      <span class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-200
+                                   peer-checked:border-loge-600 peer-checked:bg-loge-100 peer-checked:text-loge-800
+                                   text-gray-600 hover:bg-gray-100 font-bold transition-colors">
+                        T{{ tier.tier_number }}
+                      </span>
+                    </label>
+                    {% endfor %}
+                  </div>
+                  <button type="submit"
+                          class="w-full bg-loge-700 text-white py-1.5 rounded text-xs font-semibold hover:bg-loge-800">
+                    Valider
+                  </button>
+                </form>
+              </div>
+
+              <!-- Form paiement (dropdown inline) -->
+              {% if contrib %}
+              <div x-show="openPay" x-cloak
+                   class="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50 text-xs space-y-2">
+                <form method="post" action="/finance/cotisations/{{ contrib.id }}/pay" class="space-y-2">
+                  <div class="grid grid-cols-2 gap-2">
+                    <div>
+                      <label class="block text-gray-600 mb-1">Montant (€)</label>
+                      <input type="number" name="amount" step="0.01" min="0"
+                             value="{{ "%.2f"|format(contrib.amount_remaining) }}"
+                             class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                    </div>
+                    <div>
+                      <label class="block text-gray-600 mb-1">Date</label>
+                      <input type="date" name="payment_date"
+                             value="{{ now.strftime('%Y-%m-%d') if now else '' }}"
+                             class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                    </div>
+                  </div>
+                  <div>
+                    <label class="block text-gray-600 mb-1">Mode</label>
+                    <select name="method" class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                      {% for val, lbl in method_labels.items() %}
+                      <option value="{{ val }}">{{ lbl }}</option>
+                      {% endfor %}
+                    </select>
+                  </div>
+                  <input type="text" name="reference" placeholder="Référence (optionnel)"
+                         class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                  <button type="submit"
+                          class="w-full bg-green-700 text-white py-1.5 rounded text-xs font-semibold hover:bg-green-800">
+                    Enregistrer le paiement
+                  </button>
+                </form>
+              </div>
+              {% endif %}
+
+            </td>
+            {% endif %}
+          </tr>
+          {% endif %}{# end show #}
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+  </div>
+
+  {% endif %}
+
+  <div class="mt-6">
+    <a href="/finance/" class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">
+      ← Retour Finance
+    </a>
+  </div>
+</div>
+{% endblock %}
