@@ -13,145 +13,190 @@
     <span class="text-gray-800">Responsabilités</span>
   </nav>
 
-  <div class="flex items-center justify-between mb-6">
-    <div>
-      <h1 class="text-2xl font-bold text-gray-900">Responsabilités</h1>
-      <p class="text-sm text-gray-500 mt-1">F∴ {{ target.first_name }} {{ target.last_name }}</p>
-    </div>
-  </div>
+  <h1 class="text-2xl font-bold text-gray-900 mb-1">Responsabilités</h1>
+  <p class="text-sm text-gray-500 mb-6">F∴ {{ target.first_name }} {{ target.last_name }} — {{ function_label(target.lodge_function) }}</p>
 
   <div class="grid lg:grid-cols-2 gap-6">
 
-    <!-- Liste des responsabilités -->
+    <!-- ── Colonne gauche : responsabilités actuelles ───────────────────── -->
     <div class="space-y-4">
 
-      <!-- Actives -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
-          <h2 class="text-sm font-semibold text-gray-700">Responsabilités actives</h2>
-        </div>
+      {# Regrouper par catégorie #}
+      {% set cats = [
+        ('OFFICE_SECOND',     'Office rituel cumulé',       'loge'),
+        ('DELEGUE_CONVENT',   'Délégué au Convent',         'amber'),
+        ('DELEGUE_CONGRES',   'Délégué au Congrès',         'amber'),
+        ('WEBMESTRE',         'Webmestre',                  'indigo'),
+        ('CORRESPONDANT_NUM', 'Correspondant numérique',    'indigo'),
+        ('COMMISSION',        'Commissions',                'green'),
+        ('OTHER',             'Autres',                     'gray'),
+      ] %}
 
-        {% set active = responsibilities | selectattr("is_active") | list %}
-        {% if active %}
-        <div class="divide-y divide-gray-50">
-          {% for r in active %}
-          <div class="flex items-start gap-3 px-5 py-3">
-            <div class="flex-1 min-w-0">
-              <!-- Badge type -->
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-xs font-medium rounded-full px-2 py-0.5
-                  {% if r.type.value == 'OFFICE_SECOND' %}bg-loge-100 text-loge-800
-                  {% elif 'DELEGUE' in r.type.value %}bg-amber-100 text-amber-800
-                  {% elif r.type.value == 'COMMISSION' %}bg-green-100 text-green-800
-                  {% else %}bg-gray-100 text-gray-700{% endif %}">
-                  {{ responsibility_label(r.type) }}
-                </span>
-                {% if r.lodge_function %}
-                <span class="text-xs text-gray-500">{{ function_label(r.lodge_function) }}</span>
+      {% set active = responsibilities | selectattr("is_active") | list %}
+
+      {% for cat_key, cat_label, color in cats %}
+        {% set cat_items = active | selectattr("type.value", "equalto", cat_key) | list %}
+        {% if cat_items %}
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full
+              {% if color == 'loge' %}bg-loge-600
+              {% elif color == 'amber' %}bg-amber-500
+              {% elif color == 'indigo' %}bg-indigo-500
+              {% elif color == 'green' %}bg-green-500
+              {% else %}bg-gray-400{% endif %}"></span>
+            <h2 class="text-sm font-semibold text-gray-700">{{ cat_label }}</h2>
+          </div>
+          <div class="divide-y divide-gray-50">
+            {% for r in cat_items | sort(attribute='qualifier.value', reverse=False) %}
+            <div class="flex items-start gap-3 px-5 py-3">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <!-- Qualifier badge -->
+                  {% if r.qualifier %}
+                  <span class="text-xs font-semibold rounded px-1.5 py-0.5
+                    {% if r.qualifier.value == 'TITULAIRE' %}bg-loge-100 text-loge-800
+                    {% elif r.qualifier.value == 'PRESIDENT' %}bg-purple-100 text-purple-800
+                    {% elif 'SUPPLEANT' in r.qualifier.value %}bg-yellow-100 text-yellow-800
+                    {% else %}bg-gray-100 text-gray-600{% endif %}">
+                    {{ qualifier_label(r.qualifier) }}
+                  </span>
+                  {% endif %}
+                  <!-- Office cumulé -->
+                  {% if r.lodge_function %}
+                  <span class="text-xs text-loge-700 font-medium">{{ function_label(r.lodge_function) }}</span>
+                  {% endif %}
+                </div>
+                <div class="text-sm text-gray-900 mt-0.5 font-medium">{{ r.label }}</div>
+                {% if r.notes %}<div class="text-xs text-gray-400 italic">{{ r.notes }}</div>{% endif %}
+                {% if r.start_date or r.end_date %}
+                <div class="text-xs text-gray-400 mt-0.5">
+                  {% if r.start_date %}{{ r.start_date.strftime('%d/%m/%Y') }}{% endif %}
+                  {% if r.end_date %} → {{ r.end_date.strftime('%d/%m/%Y') }}{% endif %}
+                </div>
                 {% endif %}
               </div>
-              <div class="font-medium text-gray-900 text-sm mt-1">{{ r.label }}</div>
-              {% if r.start_date or r.end_date %}
-              <div class="text-xs text-gray-400 mt-0.5">
-                {% if r.start_date %}Depuis le {{ r.start_date.strftime('%d/%m/%Y') }}{% endif %}
-                {% if r.end_date %} — jusqu'au {{ r.end_date.strftime('%d/%m/%Y') }}{% endif %}
+              {% if can_manage %}
+              <div class="flex gap-1 shrink-0 pt-0.5">
+                <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/toggle">
+                  <button type="submit" title="Désactiver" class="text-gray-400 hover:text-yellow-600 p-1 rounded hover:bg-yellow-50 text-xs">⏸</button>
+                </form>
+                <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/delete"
+                      onsubmit="return confirm('Supprimer ?')">
+                  <button type="submit" class="text-gray-400 hover:text-red-600 p-1 rounded hover:bg-red-50 text-xs">✕</button>
+                </form>
               </div>
               {% endif %}
-              {% if r.notes %}
-              <div class="text-xs text-gray-400 italic mt-1">{{ r.notes }}</div>
-              {% endif %}
             </div>
-            {% if can_manage %}
-            <div class="flex gap-1 shrink-0">
-              <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/toggle">
-                <button type="submit" title="Désactiver"
-                        class="text-xs text-gray-400 hover:text-yellow-600 px-2 py-1 rounded hover:bg-yellow-50">
-                  ⏸
-                </button>
-              </form>
-              <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/delete"
-                    onsubmit="return confirm('Supprimer cette responsabilité ?')">
-                <button type="submit" title="Supprimer"
-                        class="text-xs text-gray-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">
-                  ✕
-                </button>
-              </form>
-            </div>
-            {% endif %}
+            {% endfor %}
           </div>
-          {% endfor %}
-        </div>
-        {% else %}
-        <div class="px-5 py-8 text-center text-gray-400 text-sm">
-          Aucune responsabilité active
         </div>
         {% endif %}
-      </div>
+      {% endfor %}
 
-      <!-- Inactives / historique -->
+      {% if not active %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-10 text-center text-gray-400 text-sm">
+        Aucune responsabilité active
+      </div>
+      {% endif %}
+
+      <!-- Historique -->
       {% set inactive = responsibilities | rejectattr("is_active") | list %}
       {% if inactive %}
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
-        <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
-          <h2 class="text-sm font-semibold text-gray-500">Historique</h2>
-        </div>
+      <details class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        <summary class="px-5 py-3 text-sm text-gray-500 cursor-pointer hover:bg-gray-50 select-none">
+          Historique ({{ inactive|length }})
+        </summary>
         <div class="divide-y divide-gray-50">
           {% for r in inactive %}
-          <div class="flex items-start gap-3 px-5 py-3 opacity-60">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="text-xs bg-gray-100 text-gray-600 rounded-full px-2 py-0.5">
-                  {{ responsibility_label(r.type) }}
-                </span>
-              </div>
-              <div class="text-sm text-gray-600 mt-1 line-through">{{ r.label }}</div>
-            </div>
+          <div class="flex items-center gap-3 px-5 py-2.5 opacity-50">
+            <div class="flex-1 text-sm text-gray-600 line-through">{{ r.label }}</div>
             {% if can_manage %}
-            <div class="flex gap-1 shrink-0">
-              <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/toggle">
-                <button type="submit" title="Réactiver"
-                        class="text-xs text-green-600 hover:text-green-800 px-2 py-1 rounded hover:bg-green-50">
-                  ▶
-                </button>
-              </form>
-              <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/delete"
-                    onsubmit="return confirm('Supprimer ?')">
-                <button type="submit"
-                        class="text-xs text-gray-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">
-                  ✕
-                </button>
-              </form>
-            </div>
+            <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/toggle">
+              <button type="submit" class="text-xs text-green-600 hover:text-green-800 px-2 py-0.5 rounded border border-green-200 hover:bg-green-50">Réactiver</button>
+            </form>
+            <form method="post" action="/members/{{ target.id }}/responsibilities/{{ r.id }}/delete"
+                  onsubmit="return confirm('Supprimer ?')">
+              <button type="submit" class="text-xs text-gray-400 hover:text-red-600 px-1 py-0.5">✕</button>
+            </form>
             {% endif %}
           </div>
           {% endfor %}
         </div>
-      </div>
+      </details>
       {% endif %}
 
     </div>
 
-    <!-- Formulaire d'ajout -->
+    <!-- ── Colonne droite : formulaire d'ajout ──────────────────────────── -->
     {% if can_manage %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5" x-data="{ rtype: 'COMMISSION' }">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5"
+         x-data="{ rtype: 'DELEGUE_CONVENT' }">
+
       <h2 class="font-semibold text-gray-800 mb-4">Ajouter une responsabilité</h2>
 
       <form method="post" action="/members/{{ target.id }}/responsibilities/add" class="space-y-4">
 
-        <!-- Type -->
+        <!-- Catégorie -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Catégorie</label>
           <select name="resp_type" x-model="rtype"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            {% for t in ResponsibilityType %}
-            <option value="{{ t.value }}">{{ responsibility_label(t) }}</option>
-            {% endfor %}
+            <optgroup label="Offices">
+              <option value="OFFICE_SECOND">Office rituel cumulé</option>
+            </optgroup>
+            <optgroup label="Délégations">
+              <option value="DELEGUE_CONVENT">Délégué au Convent</option>
+              <option value="DELEGUE_CONGRES">Délégué au Congrès</option>
+            </optgroup>
+            <optgroup label="Postes numériques">
+              <option value="WEBMESTRE">Webmestre</option>
+              <option value="CORRESPONDANT_NUM">Correspondant numérique</option>
+            </optgroup>
+            <optgroup label="Commissions">
+              <option value="COMMISSION">Commission</option>
+            </optgroup>
+            <option value="OTHER">Autre</option>
           </select>
         </div>
 
-        <!-- Office cumulé : quel office ? -->
+        <!-- Rang (titulaire / suppléant) — pour délégations -->
+        <div x-show="['DELEGUE_CONVENT','DELEGUE_CONGRES'].includes(rtype)">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Rang</label>
+          <div class="flex gap-2">
+            {% for val, lbl in [('TITULAIRE','Titulaire'),('SUPPLEANT_1','1er suppléant'),('SUPPLEANT_2','2e suppléant')] %}
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" name="qualifier" value="{{ val }}"
+                     {% if loop.first %}checked{% endif %}
+                     class="sr-only peer">
+              <div class="text-center text-xs py-2 border border-gray-200 rounded-lg peer-checked:border-loge-600 peer-checked:bg-loge-50 peer-checked:text-loge-800 font-medium hover:bg-gray-50 transition-colors">
+                {{ lbl }}
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Rang pour commission -->
+        <div x-show="rtype === 'COMMISSION'">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Rôle dans la commission</label>
+          <div class="flex gap-2">
+            {% for val, lbl in [('MEMBRE','Membre'),('PRESIDENT','Président')] %}
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" name="qualifier" value="{{ val }}"
+                     {% if loop.first %}checked{% endif %}
+                     class="sr-only peer">
+              <div class="text-center text-xs py-2 border border-gray-200 rounded-lg peer-checked:border-loge-600 peer-checked:bg-loge-50 peer-checked:text-loge-800 font-medium hover:bg-gray-50">
+                {{ lbl }}
+              </div>
+            </label>
+            {% endfor %}
+          </div>
+        </div>
+
+        <!-- Office rituel cumulé -->
         <div x-show="rtype === 'OFFICE_SECOND'">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Office rituel</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Quel office ?</label>
           <select name="lodge_function"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             <option value="">— Choisir —</option>
@@ -163,15 +208,23 @@
           </select>
         </div>
 
-        <!-- Label libre -->
+        <!-- Commission -->
+        <div x-show="rtype === 'COMMISSION'">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Commission</label>
+          <select name="group_id"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="">— Choisir —</option>
+            {% for c in commissions %}
+            <option value="{{ c.id }}">{{ c.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <!-- Label descriptif -->
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">
-            Description
-            <span class="text-xs font-normal text-gray-400 ml-1">
-              (ex: Délégué au Congrès GLNF 2026, Commission Rituels, etc.)
-            </span>
-          </label>
-          <input type="text" name="label" required placeholder="Description courte…"
+          <label class="block text-sm font-medium text-gray-700 mb-1">Intitulé précis</label>
+          <input type="text" name="label" required
+                 placeholder="Ex: Convent GLNF Paris 6026, Commission Finances…"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
 
@@ -184,37 +237,24 @@
             <option value="">— Toutes années —</option>
             {% for y in years %}
             <option value="{{ y.id }}" {% if current_year and y.id == current_year.id %}selected{% endif %}>
-              {{ y.label }}{% if y.is_current %} (en cours){% endif %}
+              {{ y.label }}{% if y.is_current %} ★{% endif %}
             </option>
             {% endfor %}
           </select>
         </div>
         {% endif %}
 
-        <!-- Dates -->
-        <div class="grid grid-cols-2 gap-3">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Début</label>
-            <input type="date" name="start_date"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Fin</label>
-            <input type="date" name="end_date"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-        </div>
-
         <!-- Notes -->
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Notes (optionnel)</label>
-          <textarea name="notes" rows="2" placeholder="Précisions…"
-                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"></textarea>
+          <textarea name="notes" rows="2"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"
+                    placeholder="Précisions…"></textarea>
         </div>
 
         <button type="submit"
-                class="w-full bg-loge-700 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-loge-800">
-          Ajouter la responsabilité
+                class="w-full bg-loge-700 text-white py-2.5 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
+          Ajouter
         </button>
 
       </form>
@@ -223,7 +263,6 @@
 
   </div>
 
-  <!-- Retour -->
   <div class="mt-6">
     <a href="/members/{{ target.id }}"
        class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">

@@ -40,14 +40,37 @@ class LodgeFunction(str, enum.Enum):
 
 
 class ResponsibilityType(str, enum.Enum):
-    """Type de responsabilité hors office rituel principal."""
-    OFFICE_SECOND     = "OFFICE_SECOND"      # Deuxième office rituel cumulé
-    DELEGUE_CONGRES   = "DELEGUE_CONGRES"    # Délégué au Congrès obédientiel
-    DELEGUE_CONVENT   = "DELEGUE_CONVENT"    # Délégué au Convent
-    DELEGUE_AUTRE     = "DELEGUE_AUTRE"      # Toute autre délégation
-    COMMISSION        = "COMMISSION"         # Membre d'une commission
-    REPRESENTANT      = "REPRESENTANT"       # Représentant de la loge
-    OTHER             = "OTHER"              # Autre responsabilité libre
+    """
+    Catégorie de responsabilité complémentaire.
+
+    OFFICE_SECOND      → un frère cumule deux offices rituels (ex: VM qui assure
+                         l'intérim de l'Architecte)
+    DELEGUE_CONVENT    → délégué au Convent (1 titulaire + 2 suppléants)
+    DELEGUE_CONGRES    → délégué au Congrès (1 titulaire + 2 suppléants)
+    WEBMESTRE          → responsable du site web / outils numériques
+    CORRESPONDANT_NUM  → correspondant numérique (interlocuteur obédience)
+    COMMISSION         → membre d'une commission de la loge (Finance, Solidarité…)
+    OTHER              → toute autre responsabilité libre
+    """
+    OFFICE_SECOND      = "OFFICE_SECOND"
+    DELEGUE_CONVENT    = "DELEGUE_CONVENT"
+    DELEGUE_CONGRES    = "DELEGUE_CONGRES"
+    WEBMESTRE          = "WEBMESTRE"
+    CORRESPONDANT_NUM  = "CORRESPONDANT_NUM"
+    COMMISSION         = "COMMISSION"
+    OTHER              = "OTHER"
+
+
+class RoleQualifier(str, enum.Enum):
+    """
+    Précise le rang au sein d'un mandat.
+    Utilisé principalement pour les délégations et les commissions.
+    """
+    TITULAIRE   = "TITULAIRE"    # Délégué titulaire
+    SUPPLEANT_1 = "SUPPLEANT_1"  # 1er suppléant
+    SUPPLEANT_2 = "SUPPLEANT_2"  # 2e suppléant
+    PRESIDENT   = "PRESIDENT"    # Président de commission
+    MEMBRE      = "MEMBRE"       # Membre de commission (défaut)
 
 
 class GroupType(str, enum.Enum):
@@ -161,13 +184,18 @@ class MemberResponsibility(Base):
 
     type: Mapped[ResponsibilityType] = mapped_column(Enum(ResponsibilityType))
 
-    # Label libre — ex: "Délégué au Congrès GLNF 2026", "Commission rituels"
+    # Rang dans le mandat (titulaire / suppléant 1 / suppléant 2 / membre / président)
+    qualifier: Mapped[Optional[RoleQualifier]] = mapped_column(
+        Enum(RoleQualifier), nullable=True
+    )
+
+    # Label libre — ex: "Convent GLNF 6026", "Commission Finances"
     label: Mapped[str] = mapped_column(String(300))
 
     # Si office cumulé : quel office ?
     lodge_function: Mapped[Optional[LodgeFunction]] = mapped_column(Enum(LodgeFunction))
 
-    # Si commission/groupe : lien vers le groupe
+    # Si commission : lien vers le groupe (Group.type == COMMISSION)
     group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("groups.id"), nullable=True)
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)

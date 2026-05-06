@@ -15,7 +15,8 @@ from app.dependencies import (
 )
 from app.models.identity import (
     Member, User, MasonicGrade, MemberStatus, LodgeFunction,
-    MemberResponsibility, ResponsibilityType,
+    MemberResponsibility, ResponsibilityType, RoleQualifier,
+    Group, GroupType,
 )
 from app.models.lodge import MasonicYear
 
@@ -50,15 +51,29 @@ def _function_label(f) -> str:
 
 def _responsibility_label(t) -> str:
     labels = {
-        "OFFICE_SECOND":   "Office cumulé",
-        "DELEGUE_CONGRES": "Délégué au Congrès",
-        "DELEGUE_CONVENT": "Délégué au Convent",
-        "DELEGUE_AUTRE":   "Délégué (autre)",
-        "COMMISSION":      "Commission",
-        "REPRESENTANT":    "Représentant",
-        "OTHER":           "Autre responsabilité",
+        "OFFICE_SECOND":     "Office rituel cumulé",
+        "DELEGUE_CONVENT":   "Délégué au Convent",
+        "DELEGUE_CONGRES":   "Délégué au Congrès",
+        "WEBMESTRE":         "Webmestre",
+        "CORRESPONDANT_NUM": "Correspondant numérique",
+        "COMMISSION":        "Commission",
+        "OTHER":             "Autre",
     }
     v = t.value if hasattr(t, "value") else str(t)
+    return labels.get(v, v)
+
+
+def _qualifier_label(q) -> str:
+    if q is None:
+        return ""
+    labels = {
+        "TITULAIRE":   "Titulaire",
+        "SUPPLEANT_1": "1er suppléant",
+        "SUPPLEANT_2": "2e suppléant",
+        "PRESIDENT":   "Président",
+        "MEMBRE":      "Membre",
+    }
+    v = q.value if hasattr(q, "value") else str(q)
     return labels.get(v, v)
 
 
@@ -451,6 +466,12 @@ async def responsibilities_page(
     years = years_result.scalars().all()
     current_year = next((y for y in years if y.is_current), years[0] if years else None)
 
+    # Commissions existantes
+    groups_result = await db.execute(
+        select(Group).where(Group.type == GroupType.COMMISSION).order_by(Group.name)
+    )
+    commissions = groups_result.scalars().all()
+
     return templates.TemplateResponse(request, "pages/members/responsibilities.html", {
         "current_member": current_member,
         "current_user": user,
@@ -458,9 +479,12 @@ async def responsibilities_page(
         "responsibilities": responsibilities,
         "years": years,
         "current_year": current_year,
+        "commissions": commissions,
         "ResponsibilityType": ResponsibilityType,
+        "RoleQualifier": RoleQualifier,
         "LodgeFunction": LodgeFunction,
         "responsibility_label": _responsibility_label,
+        "qualifier_label": _qualifier_label,
         "function_label": _function_label,
         "can_manage": can_manage_members(current_member) or user.is_admin,
     })
@@ -473,8 +497,10 @@ async def responsibility_add(
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     resp_type:       str = Form(...),
+    qualifier:       str = Form(""),
     label:           str = Form(...),
     lodge_function:  str = Form(""),
+    group_id:        str = Form(""),
     masonic_year_id: str = Form(""),
     start_date:      str = Form(""),
     end_date:        str = Form(""),
@@ -495,8 +521,10 @@ async def responsibility_add(
     resp = MemberResponsibility(
         member_id=member_id,
         type=ResponsibilityType(resp_type),
+        qualifier=RoleQualifier(qualifier) if qualifier else None,
         label=label.strip(),
         lodge_function=LodgeFunction(lodge_function) if lodge_function else None,
+        group_id=int(group_id) if group_id else None,
         masonic_year_id=int(masonic_year_id) if masonic_year_id else None,
         start_date=parse_date(start_date),
         end_date=parse_date(end_date),

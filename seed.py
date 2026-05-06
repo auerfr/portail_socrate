@@ -1,8 +1,10 @@
 """
 Script de démarrage — crée les données initiales :
   - Année maçonnique courante
-  - Membre admin
-  - Utilisateur admin (login: admin / mdp: admin)
+  - Config loge
+  - Membre admin (login: admin / mdp: admin)
+  - Groupes : Commission Finances, Commission Solidarité
+  - (idempotent : peut être relancé sans dupliquer)
 
 Usage : python seed.py
 """
@@ -11,16 +13,16 @@ import os
 import sys
 from datetime import date
 
-# Charger .env avant les imports app
 from dotenv import load_dotenv
 load_dotenv()
 
 sys.path.insert(0, os.path.dirname(__file__))
 
+from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from app.config import get_settings
 from app.database import Base
-from app.models.identity import Member, User, MasonicGrade, MemberStatus, LodgeFunction
+from app.models.identity import Member, User, MasonicGrade, MemberStatus, LodgeFunction, Group, GroupType
 from app.models.lodge import MasonicYear, LodgeSettings
 from app.dependencies import hash_password
 
@@ -37,13 +39,11 @@ async def seed():
         await conn.run_sync(Base.metadata.create_all)
 
     async with SessionLocal() as db:
-        # -- Annee maconnique courante
-        from sqlalchemy import select
+
+        # ── Année maçonnique courante ──────────────────────────────────────────
         existing_year = await db.execute(select(MasonicYear).limit(1))
         if not existing_year.scalar_one_or_none():
             today = date.today()
-            # Annee maconnique : sept -> juin
-            # Annee maconnique : sept -> juin (Vraie Lumiere = annee + 4000)
             if today.month >= 9:
                 start = date(today.year, 9, 1)
                 end   = date(today.year + 1, 6, 30)
@@ -53,16 +53,12 @@ async def seed():
                 end   = date(today.year, 6, 30)
                 label = f"{today.year + 3999}-{today.year + 4000}"
 
-            year = MasonicYear(
-                label=label,
-                start_date=start,
-                end_date=end,
-                is_current=True,
-            )
+            year = MasonicYear(label=label, start_date=start, end_date=end, is_current=True)
             db.add(year)
+            await db.flush()
             print(f"Annee maconnique creee : {label}")
 
-        # -- Config loge
+        # ── Config loge ───────────────────────────────────────────────────────
         existing_lodge = await db.execute(select(LodgeSettings).limit(1))
         if not existing_lodge.scalar_one_or_none():
             lodge = LodgeSettings(
@@ -73,7 +69,19 @@ async def seed():
             db.add(lodge)
             print(f"Config loge creee : {settings.lodge_name}")
 
-        # -- Membre admin
+        # ── Groupes / Commissions ─────────────────────────────────────────────
+        commissions = [
+            ("Commission Finances",    "Gestion financière et budget de la loge — 5 membres", 5),
+            ("Commission Solidarité",  "Entraide et solidarité fraternelle — 5 membres",      5),
+        ]
+        for name, desc, _ in commissions:
+            existing = await db.execute(select(Group).where(Group.name == name))
+            if not existing.scalar_one_or_none():
+                g = Group(name=name, description=desc, type=GroupType.COMMISSION)
+                db.add(g)
+                print(f"Commission creee : {name}")
+
+        # ── Membre & utilisateur admin ────────────────────────────────────────
         existing_member = await db.execute(select(Member).where(Member.email == "admin@loge.local"))
         if not existing_member.scalar_one_or_none():
             member = Member(
