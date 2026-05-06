@@ -2,154 +2,313 @@
 <html lang="fr" class="h-full bg-gray-50">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
   <title>Inscription — {{ meeting.title or type_label(meeting.type) }}</title>
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
       theme: { extend: { colors: {
-        loge: { 50:'#f0f4ff', 100:'#e0e9ff', 300:'#93a8f0', 500:'#3b5bdb', 600:'#2f4ac5', 700:'#2340b0', 800:'#1e3699', 900:'#1a2d82' }
+        loge: { 50:'#f0f4ff',100:'#e0e9ff',300:'#93a8f0',500:'#3b5bdb',600:'#2f4ac5',700:'#2340b0',800:'#1e3699',900:'#1a2d82' }
       }}}
     }
   </script>
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
 </head>
-<body class="min-h-full py-8 px-4">
+<body class="min-h-full py-8 px-4" style="padding-bottom: env(safe-area-inset-bottom, 24px);">
 
-  <div class="max-w-lg mx-auto">
+<div class="max-w-lg mx-auto">
 
-    <!-- Header -->
-    <div class="text-center mb-8">
-      <div class="text-4xl mb-3">⚜</div>
-      <h1 class="text-xl font-bold text-gray-900">Inscription</h1>
-      <p class="text-gray-600 mt-1">Loge Socrate Raison et Progrès</p>
+  <!-- Header -->
+  <div class="text-center mb-6">
+    {% if lodge and lodge.logo_url %}
+    <img src="{{ lodge.logo_url }}" alt="Logo"
+         class="h-24 w-24 mx-auto mb-3 object-contain drop-shadow-sm">
+    {% else %}
+    <img src="/static/img/sceau-socrate-transparent.png" alt="Logo"
+         class="h-24 w-24 mx-auto mb-3 object-contain drop-shadow-sm">
+    {% endif %}
+    <h1 class="text-xl font-bold text-gray-900">Inscription</h1>
+    <p class="text-gray-500 text-sm mt-0.5">
+      {% if lodge and lodge.name %}{{ lodge.name }}{% else %}Loge Socrate Raison et Progrès{% endif %}
+    </p>
+  </div>
+
+  <!-- Carte tenue -->
+  <div class="rounded-2xl text-white p-5 mb-5" style="background:linear-gradient(135deg,#1e3699,#2340b0);">
+    <div class="text-xs font-medium opacity-70 uppercase tracking-wider mb-1">{{ type_label(meeting.type) }}</div>
+    <h2 class="text-lg font-bold leading-tight">{{ meeting.title or type_label(meeting.type) }}</h2>
+    <div class="mt-3 flex flex-wrap gap-x-4 gap-y-1 text-sm opacity-80">
+      <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>
+      {% if meeting.meeting_time %}<span>⏰ {{ meeting.meeting_time }}</span>{% endif %}
+      {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
     </div>
 
-    <!-- Carte tenue -->
-    <div class="bg-loge-800 text-white rounded-2xl p-5 mb-6">
-      <div class="text-xs text-loge-300 uppercase tracking-wider mb-1">{{ type_label(meeting.type) }}</div>
-      <h2 class="text-lg font-bold">{{ meeting.title or type_label(meeting.type) }}</h2>
-      <div class="mt-3 flex flex-wrap gap-3 text-sm text-loge-200">
-        <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>
-        {% if meeting.meeting_time %}<span>⏰ {{ meeting.meeting_time }}</span>{% endif %}
-        {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
+    <!-- Jauge agapes -->
+    {% if meeting.agape_enabled and meeting.agape_capacity %}
+    {% set pct = [(agape_count * 100 // meeting.agape_capacity), 100] | min %}
+    {% set remaining = meeting.agape_capacity - agape_count %}
+    <div class="mt-4">
+      <div class="flex justify-between text-xs opacity-80 mb-1">
+        <span>🍽 Agapes — {{ agape_count }} / {{ meeting.agape_capacity }} couverts</span>
+        <span>{% if remaining > 0 %}{{ remaining }} place(s){% else %}Complet{% endif %}</span>
+      </div>
+      <div class="h-2 bg-white/20 rounded-full overflow-hidden">
+        <div class="h-full rounded-full transition-all"
+             style="width:{{ pct }}%; background:{% if pct >= 90 %}#ef4444{% elif pct >= 70 %}#f59e0b{% else %}#34d399{% endif %};">
+        </div>
       </div>
     </div>
+    {% elif meeting.agape_enabled %}
+    <div class="mt-3 text-xs opacity-70">🍽 Agapes — {{ agape_count }} inscrit(s)</div>
+    {% endif %}
+  </div>
 
-    <!-- Formulaire -->
-    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6" x-data="{ visitorType: 'visitor' }">
+  <!-- Formulaire principal -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden"
+       x-data="{
+         tab: '{{ 'member' if not pin_error else 'member' }}',
+         agape: {{ 'true' if meeting.agape_enabled else 'false' }},
+         full: {{ 'true' if meeting.agape_capacity and agape_count >= meeting.agape_capacity else 'false' }}
+       }">
 
-      <form method="post" action="/meetings/public/{{ token }}" class="space-y-5">
+    <!-- Onglets -->
+    <div class="flex border-b border-gray-100">
+      <button type="button" @click="tab='member'"
+              class="flex-1 py-3.5 text-sm font-medium transition-colors"
+              :class="tab==='member'
+                ? 'text-loge-700 border-b-2 border-loge-600 bg-loge-50/50'
+                : 'text-gray-400 hover:text-gray-600'">
+        👤 Membre de la loge
+      </button>
+      <button type="button" @click="tab='visitor'"
+              class="flex-1 py-3.5 text-sm font-medium transition-colors"
+              :class="tab==='visitor'
+                ? 'text-loge-700 border-b-2 border-loge-600 bg-loge-50/50'
+                : 'text-gray-400 hover:text-gray-600'">
+        🤝 Maçon passant
+      </button>
+    </div>
 
-        <!-- Type de participant -->
-        <div>
-          <label class="block text-sm font-semibold text-gray-700 mb-3">Vous êtes :</label>
-          <div class="space-y-2">
-            <label class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors"
-                   :class="visitorType === 'visitor' ? 'border-loge-600 bg-loge-50' : 'border-gray-100 hover:border-gray-200'">
-              <input type="radio" name="visitor_type" value="visitor" x-model="visitorType"
-                     class="text-loge-600 focus:ring-loge-500">
+    <!-- ── ONGLET MEMBRE ─────────────────────────────────── -->
+    <form x-show="tab==='member'" method="post" action="/meetings/public/{{ token }}"
+          class="p-5 space-y-4">
+      <input type="hidden" name="visitor_type" value="member">
+
+      {% if pin_error %}
+      <div class="bg-red-50 border border-red-200 text-red-700 text-sm px-4 py-3 rounded-xl">
+        ⚠ {{ pin_error }}
+      </div>
+      {% endif %}
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Votre nom <span class="text-red-500">*</span></label>
+        <select name="member_id" required
+                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+          <option value="">— Sélectionner votre nom —</option>
+          {% for m in active_members %}
+          <option value="{{ m.id }}"
+            {% if prefill_member_id and prefill_member_id == m.id|string %}selected{% endif %}>
+            {% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}
+            — {{ m.masonic_grade.value | capitalize }}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Code PIN <span class="text-red-500">*</span>
+          <span class="text-gray-400 font-normal text-xs">(4 chiffres — fourni par le secrétaire)</span>
+        </label>
+        <input type="password" name="pin_code" required
+               maxlength="6" pattern="\d{4,6}" inputmode="numeric"
+               placeholder="••••"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 tracking-widest text-center text-lg">
+      </div>
+
+      <!-- Agapes (membre) -->
+      {% if meeting.agape_enabled %}
+      <div class="border-t border-gray-100 pt-4">
+        <template x-if="!full">
+          <div class="space-y-3">
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-100 cursor-pointer hover:border-loge-200 transition-colors"
+                   :class="agape ? 'border-loge-300 bg-loge-50' : ''">
+              <input type="checkbox" name="agape" value="1" x-model="agape"
+                     class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
               <div>
-                <div class="font-medium text-gray-800 text-sm">Frère visiteur</div>
-                <div class="text-xs text-gray-500">Maçon d'une autre loge</div>
+                <div class="text-sm font-medium text-gray-800">🍽 Je participe aux agapes</div>
+                {% if meeting.agape_location %}
+                <div class="text-xs text-gray-400 mt-0.5">{{ meeting.agape_location }}</div>
+                {% endif %}
               </div>
             </label>
-            {% if meeting.agape_enabled %}
-            <label class="flex items-center gap-3 p-3 rounded-xl border-2 cursor-pointer transition-colors"
-                   :class="visitorType === 'guest' ? 'border-loge-600 bg-loge-50' : 'border-gray-100 hover:border-gray-200'">
-              <input type="radio" name="visitor_type" value="guest" x-model="visitorType"
-                     class="text-loge-600 focus:ring-loge-500">
-              <div>
-                <div class="font-medium text-gray-800 text-sm">Invité aux agapes</div>
-                <div class="text-xs text-gray-500">Non-maçon, convié par un frère</div>
+            <div x-show="agape" class="flex items-center gap-3 px-1">
+              <label class="text-sm text-gray-600">Convives supplémentaires :</label>
+              <div class="flex items-center gap-2 ml-auto">
+                <button type="button" onclick="this.nextElementSibling.value=Math.max(0,+this.nextElementSibling.value-1)"
+                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg leading-none flex items-center justify-center">−</button>
+                <input type="number" name="agape_guests" min="0" max="5" value="0"
+                       class="w-12 text-center border border-gray-200 rounded-lg py-1 text-sm">
+                <button type="button" onclick="this.previousElementSibling.value=Math.min(5,+this.previousElementSibling.value+1)"
+                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg leading-none flex items-center justify-center">+</button>
               </div>
-            </label>
-            {% endif %}
-          </div>
-        </div>
-
-        <!-- Identité -->
-        <div class="grid sm:grid-cols-2 gap-4 border-t border-gray-100 pt-5">
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Prénom <span class="text-red-500">*</span></label>
-            <input type="text" name="first_name" required
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-          <div>
-            <label class="block text-sm font-medium text-gray-700 mb-1">Nom <span class="text-red-500">*</span></label>
-            <input type="text" name="last_name" required
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-          <div class="sm:col-span-2">
-            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
-            <input type="email" name="email"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-        </div>
-
-        <!-- Infos maçonniques (visiteur uniquement) -->
-        <div x-show="visitorType === 'visitor'" class="border-t border-gray-100 pt-5 space-y-4">
-          <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Appartenance maçonnique</p>
-          <div class="grid sm:grid-cols-2 gap-4">
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Loge</label>
-              <input type="text" name="lodge_name"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Orient</label>
-              <input type="text" name="orient_city"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Obédience</label>
-              <input type="text" name="obedience" placeholder="GLNF, GOF…"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            </div>
-            <div>
-              <label class="block text-sm font-medium text-gray-700 mb-1">Grade</label>
-              <select name="masonic_grade_str" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-                <option value="">—</option>
-                <option value="Apprenti">Apprenti</option>
-                <option value="Compagnon">Compagnon</option>
-                <option value="Maître">Maître</option>
-              </select>
             </div>
           </div>
-        </div>
+        </template>
+        <template x-if="full">
+          <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            🍽 Les agapes sont complètes — vous serez mis en liste d'attente.
+          </div>
+        </template>
+      </div>
+      {% endif %}
 
-        <!-- Restrictions alimentaires (invité) -->
-        <div x-show="visitorType === 'guest'" class="border-t border-gray-100 pt-5">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Régime alimentaire</label>
-          <select name="dietary" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            {% for d in DietaryRestriction %}
-            <option value="{{ d.value }}">
-              {{ {'NONE': 'Aucun', 'VEGETARIAN': 'Végétarien', 'NO_PORK': 'Sans porc', 'VEGAN': 'Vegan', 'OTHER': 'Autre'}.get(d.value, d.value) }}
-            </option>
-            {% endfor %}
-          </select>
-        </div>
+      <button type="submit"
+              class="w-full bg-loge-700 text-white py-3 rounded-xl text-sm font-semibold hover:bg-loge-800 transition-colors">
+        Confirmer ma présence
+      </button>
+    </form>
 
-        <!-- Agapes -->
-        {% if meeting.agape_enabled %}
-        <div class="border-t border-gray-100 pt-5">
-          <label class="flex items-center gap-2 cursor-pointer">
-            <input type="checkbox" name="agape" value="1" checked
-                   class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
-            <span class="text-sm text-gray-700">Je participe aux agapes</span>
+    <!-- ── ONGLET VISITEUR ───────────────────────────────── -->
+    <form x-show="tab==='visitor'" method="post" action="/meetings/public/{{ token }}"
+          class="p-5 space-y-4" x-data="{ civ: 'F' }">
+      <input type="hidden" name="visitor_type" value="visitor">
+
+      <!-- Civilité -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-2">Vous êtes</label>
+        <div class="flex gap-3">
+          <label class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 cursor-pointer text-sm font-medium transition-colors"
+                 :class="civ==='F' ? 'border-loge-600 bg-loge-50 text-loge-800' : 'border-gray-200 text-gray-600'">
+            <input type="radio" name="civility" value="F" x-model="civ" class="sr-only"> F∴ Frère
+          </label>
+          <label class="flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl border-2 cursor-pointer text-sm font-medium transition-colors"
+                 :class="civ==='S' ? 'border-loge-600 bg-loge-50 text-loge-800' : 'border-gray-200 text-gray-600'">
+            <input type="radio" name="civility" value="S" x-model="civ" class="sr-only"> S∴ Sœur
           </label>
         </div>
-        {% endif %}
+      </div>
 
-        <button type="submit"
-                class="w-full bg-loge-700 text-white py-3 rounded-xl text-sm font-semibold hover:bg-loge-800 transition-colors">
-          Confirmer mon inscription
-        </button>
+      <!-- Identité -->
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Prénom <span class="text-red-500">*</span></label>
+          <input type="text" name="first_name" required
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nom <span class="text-red-500">*</span></label>
+          <input type="text" name="last_name" required
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div class="col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" name="email"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
 
-      </form>
-    </div>
+      <!-- Appartenance maçonnique -->
+      <div class="border-t border-gray-100 pt-4">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Appartenance maçonnique</p>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Loge</label>
+            <input type="text" name="lodge_name"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Orient</label>
+            <input type="text" name="orient_city"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Obédience</label>
+            <input type="text" name="obedience" placeholder="GOF, GLNF…"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Grade</label>
+            <select name="masonic_grade_str"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+              <option value="">—</option>
+              <option value="Apprenti">Apprenti</option>
+              <option value="Compagnon">Compagnon</option>
+              <option value="Maître">Maître</option>
+            </select>
+          </div>
+        </div>
+
+        <!-- V∴M∴ -->
+        <label class="mt-3 flex items-center gap-3 p-3 rounded-xl border border-amber-200 bg-amber-50 cursor-pointer">
+          <input type="checkbox" name="is_vm" value="1"
+                 class="rounded border-gray-300 text-amber-600 focus:ring-amber-500">
+          <div>
+            <div class="text-sm font-medium text-gray-800">Je suis V∴M∴ de ma loge</div>
+            <div class="text-xs text-gray-500">Vénérable Maître en exercice</div>
+          </div>
+        </label>
+
+        <!-- Commentaire -->
+        <div class="mt-3">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Message à la loge
+            <span class="text-gray-400 font-normal">(lu par le V∴M∴, Sec∴, M∴B∴ et admin)</span>
+          </label>
+          <textarea name="comment" rows="2"
+                    placeholder="Planches portées, grades conférés…"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"></textarea>
+        </div>
+      </div>
+
+      <!-- Agapes (visiteur) -->
+      {% if meeting.agape_enabled %}
+      <div class="border-t border-gray-100 pt-4">
+        <template x-if="!full">
+          <div class="space-y-3">
+            <label class="flex items-start gap-3 p-3 rounded-xl border border-gray-100 cursor-pointer hover:border-loge-200 transition-colors"
+                   :class="agape ? 'border-loge-300 bg-loge-50' : ''">
+              <input type="checkbox" name="agape" value="1" x-model="agape"
+                     class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+              <div>
+                <div class="text-sm font-medium text-gray-800">🍽 Je participe aux agapes</div>
+                {% if meeting.agape_location %}
+                <div class="text-xs text-gray-400 mt-0.5">{{ meeting.agape_location }}</div>
+                {% endif %}
+              </div>
+            </label>
+            <div x-show="agape" class="flex items-center gap-3 px-1">
+              <label class="text-sm text-gray-600">Convives supplémentaires :</label>
+              <div class="flex items-center gap-2 ml-auto">
+                <button type="button" onclick="this.nextElementSibling.value=Math.max(0,+this.nextElementSibling.value-1)"
+                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center justify-center">−</button>
+                <input type="number" name="agape_guests" min="0" max="5" value="0"
+                       class="w-12 text-center border border-gray-200 rounded-lg py-1 text-sm">
+                <button type="button" onclick="this.previousElementSibling.value=Math.min(5,+this.previousElementSibling.value+1)"
+                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center justify-center">+</button>
+              </div>
+            </div>
+          </div>
+        </template>
+        <template x-if="full">
+          <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-xl p-3 text-center">
+            🍽 Les agapes sont complètes — vous serez mis en liste d'attente.
+          </div>
+        </template>
+      </div>
+      {% endif %}
+
+      <button type="submit"
+              class="w-full bg-loge-700 text-white py-3 rounded-xl text-sm font-semibold hover:bg-loge-800 transition-colors">
+        Confirmer mon inscription
+      </button>
+    </form>
 
   </div>
 
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <p class="text-center text-xs text-gray-400 mt-4">
+    Inscription clôturée automatiquement la veille à 8h
+  </p>
+</div>
 </body>
 </html>

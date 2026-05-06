@@ -54,11 +54,12 @@ class BudgetLine(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"))
-    label: Mapped[str]           = mapped_column(String(300))
-    type: Mapped[BudgetLineType] = mapped_column(Enum(BudgetLineType))
-    amount: Mapped[float]        = mapped_column(Numeric(10, 2))
-    order_position: Mapped[int]  = mapped_column(Integer, default=0)
-    notes: Mapped[Optional[str]] = mapped_column(Text)
+    label: Mapped[str]                    = mapped_column(String(300))
+    type: Mapped[BudgetLineType]          = mapped_column(Enum(BudgetLineType))
+    category_label: Mapped[Optional[str]] = mapped_column(String(200))  # catégorie libre
+    amount: Mapped[float]                 = mapped_column(Numeric(10, 2))
+    order_position: Mapped[int]           = mapped_column(Integer, default=0)
+    notes: Mapped[Optional[str]]          = mapped_column(Text)
 
     def __repr__(self) -> str:
         return f"<BudgetLine {self.label} {self.amount}€>"
@@ -79,11 +80,15 @@ class ContributionConfig(Base):
     national_capitation_rate: Mapped[float] = mapped_column(Numeric(10, 2))
     regional_capitation_rate: Mapped[float] = mapped_column(Numeric(10, 2))
     active_members_count: Mapped[int]        = mapped_column(Integer, default=0)
+    initial_treasury: Mapped[float]          = mapped_column(Numeric(10, 2), default=0)  # solde initial année
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
+
+    # Appel à tranche : fenêtre d'ouverture pour que les membres choisissent leur tranche
+    tier_selection_open: Mapped[bool] = mapped_column(Boolean, default=False)
 
     tiers: Mapped[list["ContributionTier"]] = relationship(back_populates="config")
 

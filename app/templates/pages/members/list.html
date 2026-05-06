@@ -61,8 +61,8 @@
           {{ m.first_name[0] }}{{ m.last_name[0] }}
         </div>
         <div class="flex-1 min-w-0">
-          <div class="font-medium text-gray-900 truncate">F∴ {{ m.first_name }} {{ m.last_name }}</div>
-          <div class="text-xs text-gray-500">{{ grade_label(m.masonic_grade) }} · {{ function_label(m.lodge_function) }}</div>
+          <div class="font-medium text-gray-900 truncate">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}</div>
+          <div class="text-xs text-gray-500">{{ grade_label(m.masonic_grade) }}{% if office_by_member.get(m.id) %} · {{ office_by_member.get(m.id) }}{% endif %}</div>
         </div>
         <div class="flex-shrink-0">
           {% if m.status == 'ACTIVE' %}
@@ -79,9 +79,9 @@
     <table class="hidden lg:table w-full text-sm">
       <thead class="bg-gray-50 border-b border-gray-100">
         <tr>
-          <th class="text-left px-6 py-3 font-medium text-gray-600">Frère</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">Membre</th>
           <th class="text-left px-6 py-3 font-medium text-gray-600">Grade</th>
-          <th class="text-left px-6 py-3 font-medium text-gray-600">Fonction</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">Office</th>
           <th class="text-left px-6 py-3 font-medium text-gray-600">Email</th>
           <th class="text-left px-6 py-3 font-medium text-gray-600">Statut</th>
         </tr>
@@ -94,11 +94,11 @@
               <div class="w-8 h-8 rounded-full bg-loge-700 flex items-center justify-center text-white text-xs font-semibold">
                 {{ m.first_name[0] }}{{ m.last_name[0] }}
               </div>
-              <span class="font-medium text-gray-900">F∴ {{ m.first_name }} {{ m.last_name }}</span>
+              <span class="font-medium text-gray-900">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}</span>
             </div>
           </td>
           <td class="px-6 py-3 text-gray-600">{{ grade_label(m.masonic_grade) }}</td>
-          <td class="px-6 py-3 text-gray-600">{{ function_label(m.lodge_function) }}</td>
+          <td class="px-6 py-3 text-gray-600">{{ office_by_member.get(m.id, '—') }}</td>
           <td class="px-6 py-3 text-gray-500">{{ m.email }}</td>
           <td class="px-6 py-3">
             {% if m.status.value == 'ACTIVE' %}

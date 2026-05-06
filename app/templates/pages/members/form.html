@@ -30,8 +30,8 @@
           <label class="block text-sm font-medium text-gray-700 mb-1">Civilité</label>
           <select name="civility" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             <option value="">—</option>
-            <option value="M." {% if (target and target.civility == 'M.') or (form_data and form_data.civility == 'M.') %}selected{% endif %}>M.</option>
-            <option value="Mme" {% if (target and target.civility == 'Mme') or (form_data and form_data.civility == 'Mme') %}selected{% endif %}>Mme</option>
+            <option value="F" {% if (target and target.civility == 'F') or (form_data and form_data.civility == 'F') %}selected{% endif %}>F∴ — Frère</option>
+            <option value="S" {% if (target and target.civility == 'S') or (form_data and form_data.civility == 'S') %}selected{% endif %}>S∴ — Sœur</option>
           </select>
         </div>
 
@@ -106,12 +106,12 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Fonction</label>
-          <select name="lodge_function" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            {% for f in LodgeFunction %}
-            <option value="{{ f.value }}"
-              {% if (form_data and form_data.lodge_function == f.value) or (target and target.lodge_function == f) %}selected{% endif %}>
-              {{ function_label(f) }}
+          <label class="block text-sm font-medium text-gray-700 mb-1">Office rituel</label>
+          <select name="office_id" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="">— Aucun —</option>
+            {% for o in offices %}
+            <option value="{{ o.id }}" {% if current_office_id == o.id %}selected{% endif %}>
+              {{ o.label }}
             </option>
             {% endfor %}
           </select>
@@ -149,6 +149,22 @@
 
       </div>
     </div>
+
+    <!-- Code PIN agapes -->
+    {% if current_user.is_admin or can_manage %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-1">Code PIN agapes</h2>
+      <p class="text-xs text-gray-500 mb-4">Permet au membre de s'inscrire aux agapes via le lien public sans compte.</p>
+      <div class="max-w-xs">
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Nouveau PIN <span class="text-gray-400 font-normal">(4 chiffres — laisser vide pour ne pas changer)</span>
+        </label>
+        <input type="password" name="pin_code" inputmode="numeric" maxlength="6" pattern="\d{4,6}"
+               placeholder="••••"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 tracking-widest text-center text-lg">
+      </div>
+    </div>
+    {% endif %}
 
     <!-- Compte d'accès (uniquement pour nouveau membre) -->
     {% if is_new %}

@@ -1,0 +1,321 @@
+{% extends "base.html" %}
+{% block title %}Paramètres — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto">
+
+  <div class="flex items-center justify-between mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Paramètres de la loge</h1>
+    {% if saved %}
+    <span class="text-sm text-green-600 font-medium bg-green-50 border border-green-200 px-3 py-1.5 rounded-lg">✓ Enregistré</span>
+    {% endif %}
+  </div>
+
+  <form method="post" action="/settings/lodge" class="space-y-6">
+
+    <!-- Identité -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Identité de la loge</h2>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nom de la loge</label>
+          <input type="text" name="name" value="{{ lodge.name if lodge else '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Orient (ville)</label>
+          <input type="text" name="orient_city" value="{{ lodge.orient_city if lodge else '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">N° de loge</label>
+          <input type="text" name="loge_number" value="{{ lodge.loge_number if lodge else '' }}"
+                 placeholder="4276"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Obédience</label>
+          <input type="text" name="obedience" value="{{ lodge.obedience if lodge else '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Rite</label>
+          <input type="text" name="rite" value="{{ lodge.rite if lodge else '' }}"
+                 placeholder="Rite Français Philosophique"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+    </div>
+
+    <!-- Temple -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Temple</h2>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Nom du lieu</label>
+          <input type="text" name="temple_name" value="{{ lodge.temple_name if lodge else '' }}"
+                 placeholder='Salle "la Colonie"'
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Note <span class="text-gray-400 font-normal">(ex: lieu profane)</span></label>
+          <input type="text" name="temple_note" value="{{ lodge.temple_note if lodge else '' }}"
+                 placeholder="lieu profane"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Adresse complète</label>
+          <input type="text" name="temple_address"
+                 value="{{ lodge.temple_address if lodge else '' }}"
+                 placeholder="Av. Général Patton, 54700 MOUSSON"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          {% if lodge and lodge.temple_address %}
+          <a href="https://maps.google.com/?q={{ lodge.temple_address | urlencode }}"
+             target="_blank"
+             class="text-xs text-loge-600 hover:underline mt-1 inline-block">
+            📍 Voir sur Google Maps
+          </a>
+          {% endif %}
+        </div>
+      </div>
+    </div>
+
+    <!-- Vénérable Maître -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Vénérable Maître</h2>
+
+      <div x-data="{ mode: '{{ 'member' if lodge and lodge.vm_member_id else 'manual' }}' }">
+        <div class="flex gap-3 mb-4">
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="_vm_mode" value="member" x-model="mode" class="text-loge-600">
+            Choisir parmi les membres
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="_vm_mode" value="manual" x-model="mode" class="text-loge-600">
+            Saisie libre
+          </label>
+        </div>
+
+        <!-- Sélection membre -->
+        <div x-show="mode === 'member'" class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Membre V∴M∴</label>
+          <select name="vm_member_id"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"
+                  x-on:change="mode='member'">
+            <option value="">— Choisir un membre —</option>
+            {% for m in members %}
+            <option value="{{ m.id }}"
+              {% if lodge and lodge.vm_member_id == m.id %}selected{% endif %}>
+              {{ m.first_name }} {{ m.last_name }} — {{ m.masonic_grade.value }}
+            </option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-400 mt-1">Le nom et l'email seront pré-remplis depuis le profil du membre.</p>
+        </div>
+
+        <!-- Champs libres -->
+        <div class="grid sm:grid-cols-3 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nom affiché <span class="text-gray-400">(ex: Alain FVR∴)</span></label>
+            <input type="text" name="vm_name_display"
+                   value="{{ lodge.vm_name_display if lodge else '' }}"
+                   placeholder="Alain FVR∴"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" name="vm_email_display"
+                   value="{{ lodge.vm_email_display if lodge else '' }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Téléphone</label>
+            <input type="text" name="vm_phone"
+                   value="{{ lodge.vm_phone if lodge else '' }}"
+                   placeholder="06 82 35 32 23"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Secrétaire -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Secrétaire</h2>
+
+      <div x-data="{ mode: '{{ 'member' if lodge and lodge.secretary_member_id else 'manual' }}' }">
+        <div class="flex gap-3 mb-4">
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="_sec_mode" value="member" x-model="mode" class="text-loge-600">
+            Choisir parmi les membres
+          </label>
+          <label class="flex items-center gap-2 cursor-pointer text-sm">
+            <input type="radio" name="_sec_mode" value="manual" x-model="mode" class="text-loge-600">
+            Saisie libre
+          </label>
+        </div>
+
+        <div x-show="mode === 'member'" class="mb-4">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Membre Secrétaire</label>
+          <select name="secretary_member_id"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="">— Choisir un membre —</option>
+            {% for m in members %}
+            <option value="{{ m.id }}"
+              {% if lodge and lodge.secretary_member_id == m.id %}selected{% endif %}>
+              {{ m.first_name }} {{ m.last_name }} — {{ m.masonic_grade.value }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-3">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Nom affiché <span class="text-gray-400">(ex: Aline CNL∴)</span></label>
+            <input type="text" name="secretary_name_display"
+                   value="{{ lodge.secretary_name_display if lodge else '' }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Email</label>
+            <input type="email" name="secretary_email_display"
+                   value="{{ lodge.secretary_email_display if lodge else '' }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- OJ commun & horaires -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Programmes — textes récurrents</h2>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Ordre du jour commun
+          <span class="text-gray-400 font-normal">(les lignes commençant par ex. "19H30" seront affichées en gras comme horaire)</span>
+        </label>
+        <textarea name="common_agenda" rows="12"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y">{{ lodge.common_agenda if lodge and lodge.common_agenda else '' }}</textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Calendrier des tenues <span class="text-gray-400 font-normal">(affiché en pied de programme)</span>
+        </label>
+        <textarea name="standard_schedule" rows="5"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y">{{ lodge.standard_schedule if lodge and lodge.standard_schedule else '' }}</textarea>
+      </div>
+    </div>
+
+    <!-- Boutons -->
+    <div class="flex gap-3">
+      <button type="submit"
+              class="flex-1 bg-loge-700 text-white py-3 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
+        Enregistrer les paramètres
+      </button>
+    </div>
+
+  </form>
+
+  <!-- ═══════════════════════════════════════════
+       SECTION OFFICIERS (formulaire séparé)
+  ════════════════════════════════════════════ -->
+  <form method="post" action="/settings/officers" class="space-y-6 mt-8"
+        x-data="{
+          newOffices: [],
+          addOffice() { this.newOffices.push({ label: '', member_id: '' }) },
+          removeNew(i) { this.newOffices.splice(i, 1) }
+        }">
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Officiers de la loge</h2>
+        <span class="text-xs text-gray-400">Libellé modifiable · membre assignable</span>
+      </div>
+
+      <!-- Offices existants -->
+      <div class="space-y-2" id="offices-list">
+        {% for o in offices %}
+        <div x-data="{ deleted: false }"
+             :class="deleted ? 'opacity-40 bg-red-50 border-red-200' : 'border-gray-100 hover:border-gray-200'"
+             class="flex items-center gap-2 p-2 rounded-lg border transition-colors">
+          <input type="hidden" name="office_id" value="{{ o.id }}">
+          <input type="hidden" name="delete_{{ o.id }}" :value="deleted ? '1' : ''">
+
+          <!-- Label éditable -->
+          <input type="text" name="label_{{ o.id }}" value="{{ o.label }}"
+                 placeholder="Libellé de l'office"
+                 :disabled="deleted"
+                 class="w-44 shrink-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 disabled:bg-gray-100">
+
+          <!-- Membre assigné -->
+          <select name="member_{{ o.id }}"
+                  :disabled="deleted"
+                  class="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 disabled:bg-gray-100">
+            <option value="">— Aucun —</option>
+            {% for m in members %}
+            <option value="{{ m.id }}" {% if o.member_id == m.id %}selected{% endif %}>
+              {{ m.first_name }} {{ m.last_name }}
+            </option>
+            {% endfor %}
+          </select>
+
+          <!-- Supprimer / Annuler -->
+          <button type="button" @click="deleted = !deleted"
+                  :title="deleted ? 'Annuler la suppression' : 'Supprimer cet office'"
+                  class="shrink-0 w-7 h-7 flex items-center justify-center rounded-md transition-colors"
+                  :class="deleted ? 'text-loge-600 hover:text-loge-800 bg-loge-100' : 'text-red-400 hover:text-red-600 hover:bg-red-50'">
+            <span x-text="deleted ? '↩' : '🗑'" class="text-base leading-none"></span>
+          </button>
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 italic">Aucun office configuré. Ajoutez-en ci-dessous.</p>
+        {% endfor %}
+      </div>
+
+      <!-- Nouveaux offices (Alpine.js) -->
+      <template x-for="(off, i) in newOffices" :key="i">
+        <div class="flex items-center gap-2 p-2 mt-2 rounded-lg border border-loge-200 bg-loge-50 transition-colors">
+          <input type="text" name="new_label" x-model="off.label"
+                 placeholder="Nom de l'office (ex: Couvreur)"
+                 class="w-44 shrink-0 border border-loge-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+          <select name="new_member" x-model="off.member_id"
+                  class="flex-1 border border-loge-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            <option value="">— Aucun —</option>
+            {% for m in members %}
+            <option value="{{ m.id }}">{{ m.first_name }} {{ m.last_name }}</option>
+            {% endfor %}
+          </select>
+          <button type="button" @click="removeNew(i)"
+                  class="shrink-0 text-red-400 hover:text-red-600 text-lg leading-none transition-colors"
+                  title="Annuler">×</button>
+        </div>
+      </template>
+
+      <!-- Bouton Ajouter un office -->
+      <div class="mt-4">
+        <button type="button" @click="addOffice()"
+                class="flex items-center gap-2 text-sm text-loge-700 hover:text-loge-900 font-medium transition-colors">
+          <svg class="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" stroke-width="2">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4v16m8-8H4"/>
+          </svg>
+          Ajouter un office
+        </button>
+      </div>
+
+      <div class="mt-5 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+        💡 Cochez 🗑 pour marquer un office à supprimer — la suppression est confirmée à l'enregistrement.
+      </div>
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+              class="flex-1 bg-loge-700 text-white py-3 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
+        Enregistrer les officiers
+      </button>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

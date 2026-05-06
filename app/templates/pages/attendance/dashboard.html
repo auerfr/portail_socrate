@@ -1,0 +1,253 @@
+{% extends "base.html" %}
+{% block title %}Assiduité — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-full mx-auto space-y-8">
+
+  <!-- En-tête + sélecteur d'année -->
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Présences &amp; Assiduité</h1>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {{ total_meetings }} tenue{{ 's' if total_meetings != 1 else '' }} passée{{ 's' if total_meetings != 1 else '' }}
+        {% if selected_year %}· {{ selected_year.label }}{% endif %}
+      </p>
+    </div>
+    {% if years %}
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Année :</label>
+      <select onchange="window.location='/attendance/?year_id='+this.value"
+              class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+        {% for y in years %}
+        <option value="{{ y.id }}" {% if selected_year and y.id == selected_year.id %}selected{% endif %}>
+          {{ y.label }}{% if y.is_current %} (en cours){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 1 — TENUES À VENIR
+  ════════════════════════════════════════════════════════ -->
+  {% if upcoming_meetings %}
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+      <svg class="w-4 h-4 text-loge-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+      </svg>
+      Tenues à venir
+    </h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3">
+      {% for m in upcoming_meetings %}
+      {% set nb_members  = upcoming_members_count.get(m.id, 0) %}
+      {% set nb_visitors = upcoming_visitors_count.get(m.id, 0) %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden hover:border-loge-200 hover:shadow-md transition-all">
+        <!-- Bande couleur + date -->
+        <div class="bg-gradient-to-r from-loge-700 to-loge-600 px-4 py-3 flex items-center gap-3">
+          <div class="text-center text-white flex-shrink-0 w-10">
+            <div class="text-xl font-bold leading-none">{{ m.meeting_date.strftime('%d') }}</div>
+            <div class="text-xs text-loge-200 uppercase tracking-wide">{{ m.meeting_date.strftime('%b') }}</div>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-white truncate">{{ m.title or m.type.value }}</div>
+            {% if m.location %}<div class="text-xs text-loge-200 truncate">📍 {{ m.location }}</div>{% endif %}
+          </div>
+        </div>
+        <!-- Stats inscriptions -->
+        <div class="px-4 py-3 flex items-center gap-4">
+          <div class="flex items-center gap-1.5 text-sm">
+            <svg class="w-4 h-4 text-green-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+            </svg>
+            <span class="font-semibold text-gray-800">{{ nb_members }}</span>
+            <span class="text-gray-400 text-xs">membres</span>
+          </div>
+          {% if nb_visitors > 0 %}
+          <div class="flex items-center gap-1.5 text-sm">
+            <svg class="w-4 h-4 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+            </svg>
+            <span class="font-semibold text-gray-800">{{ nb_visitors }}</span>
+            <span class="text-gray-400 text-xs">passant{{ 's' if nb_visitors > 1 }}</span>
+          </div>
+          {% endif %}
+          <a href="/meetings/{{ m.id }}" class="ml-auto text-xs text-loge-600 hover:text-loge-800 font-medium">Détail →</a>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+
+  <!-- ════════════════════════════════════════════════════════
+       SECTION 2 — ASSIDUITÉ (TENUES PASSÉES)
+  ════════════════════════════════════════════════════════ -->
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3 flex items-center gap-2">
+      <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+      </svg>
+      Assiduité — tenues passées
+    </h2>
+
+    {% if not meetings %}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
+      <svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+      </svg>
+      <p class="text-sm">Aucune tenue passée pour cette année maçonnique</p>
+    </div>
+    {% else %}
+
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="text-sm border-collapse" style="min-width:100%;">
+          <thead>
+            <tr style="background:#f8fafc; border-bottom:2px solid #e5e7eb;">
+              <th class="text-left px-5 py-3 font-semibold text-gray-600 whitespace-nowrap"
+                  style="position:sticky; left:0; background:#f8fafc; z-index:10; min-width:200px; border-right:1px solid #e5e7eb;">
+                Membre
+              </th>
+              {% for m in meetings %}
+              <th class="px-1 py-2 text-center" style="min-width:40px; max-width:44px;">
+                <a href="/attendance/meeting/{{ m.id }}/summary"
+                   class="block hover:text-loge-600 transition-colors group"
+                   title="{{ m.meeting_date.strftime('%d/%m/%Y') }}{% if m.title %} — {{ m.title }}{% endif %}">
+                  <span class="block text-xs font-bold text-gray-700 group-hover:text-loge-700">{{ m.meeting_date.strftime('%d') }}</span>
+                  <span class="block text-gray-400 group-hover:text-loge-500" style="font-size:9px; letter-spacing:0.05em;">
+                    {{ m.meeting_date.strftime('%b') | upper }}
+                  </span>
+                </a>
+              </th>
+              {% endfor %}
+              <th class="px-3 py-3 text-center text-xs font-semibold text-green-600 whitespace-nowrap" style="border-left:2px solid #e5e7eb;">P</th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-yellow-500 whitespace-nowrap">E</th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-red-500 whitespace-nowrap">A</th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-loge-600 whitespace-nowrap">%</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% for mbr in active_members %}
+            {% set s = stats.get(mbr.id, {'PRESENT': 0, 'EXCUSED': 0, 'ABSENT': 0}) %}
+            {% set present = s.get('PRESENT', 0) %}
+            {% set excused = s.get('EXCUSED', 0) %}
+            {% set absent  = s.get('ABSENT', 0) %}
+            {% set recorded = present + excused + absent %}
+            {% set pct = (present * 100 // total_meetings) if total_meetings else 0 %}
+            {% set member_grid = grid.get(mbr.id, {}) %}
+            <tr class="{% if absent >= 3 %}bg-red-50/40{% endif %} hover:bg-blue-50/20 transition-colors">
+
+              <td style="position:sticky; left:0; background:{% if absent >= 3 %}#fff1f2{% else %}#ffffff{% endif %}; z-index:5; border-right:1px solid #e5e7eb;"
+                  class="px-4 py-2 whitespace-nowrap">
+                <a href="/attendance/member/{{ mbr.id }}" class="flex items-center gap-2.5 group">
+                  <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+                       style="background:linear-gradient(135deg,#3b5bdb,#2340b0);">
+                    {{ mbr.first_name[0] }}{{ mbr.last_name[0] }}
+                  </div>
+                  <div>
+                    <div class="text-sm font-medium text-gray-900 group-hover:text-loge-700">
+                      {% if mbr.civility == 'S' %}S∴{% else %}F∴{% endif %}
+                      {{ mbr.first_name }} {{ mbr.last_name }}
+                    </div>
+                    {% if absent >= 3 %}
+                    <div class="text-xs text-red-500 font-medium leading-tight">⚠ {{ absent }} absences</div>
+                    {% endif %}
+                  </div>
+                </a>
+              </td>
+
+              {% for mtg in meetings %}
+              {% set cell = member_grid.get(mtg.id, '') %}
+              <td class="px-0.5 py-2 text-center">
+                {% if cell == 'PRESENT' %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-green-100 text-green-700 text-xs font-bold" title="Présent">✓</span>
+                {% elif cell == 'EXCUSED' %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-yellow-100 text-yellow-600 text-xs font-bold" title="Excusé">E</span>
+                {% elif cell == 'ABSENT' %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-red-100 text-red-600 text-xs font-bold" title="Absent">✗</span>
+                {% else %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 text-gray-200 text-xs">·</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+
+              <td class="px-3 py-2 text-center" style="border-left:2px solid #e5e7eb;">
+                <span class="text-sm font-bold text-green-700">{{ present }}</span>
+              </td>
+              <td class="px-3 py-2 text-center">
+                <span class="text-sm font-semibold text-yellow-600">{{ excused }}</span>
+              </td>
+              <td class="px-3 py-2 text-center">
+                <span class="text-sm font-semibold {% if absent >= 3 %}text-red-600 font-bold{% else %}text-red-400{% endif %}">{{ absent }}</span>
+              </td>
+              <td class="px-3 py-2 text-center">
+                <span class="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5
+                  {% if recorded == 0 %}text-gray-400
+                  {% elif pct >= 80 %}bg-green-100 text-green-700
+                  {% elif pct >= 50 %}bg-yellow-100 text-yellow-700
+                  {% else %}bg-red-100 text-red-600{% endif %}">
+                  {% if recorded > 0 %}{{ pct }}%{% else %}—{% endif %}
+                </span>
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+
+          <!-- Ligne passants -->
+          <tfoot>
+            <tr style="background:#f0f4ff; border-top:2px solid #e5e7eb;">
+              <td style="position:sticky; left:0; background:#f0f4ff; z-index:5; border-right:1px solid #e5e7eb;"
+                  class="px-4 py-2 whitespace-nowrap">
+                <div class="flex items-center gap-2 text-xs font-semibold text-loge-700">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+                  </svg>
+                  Maçons passants
+                </div>
+              </td>
+              {% for mtg in meetings %}
+              <td class="px-0.5 py-2 text-center">
+                {% set vcount = visitors_per_meeting.get(mtg.id, 0) %}
+                {% if vcount > 0 %}
+                <a href="/attendance/meeting/{{ mtg.id }}/summary"
+                   class="inline-flex items-center justify-center w-6 h-6 rounded bg-loge-100 text-loge-700 text-xs font-bold hover:bg-loge-200 transition-colors"
+                   title="{{ vcount }} maçon{{ 's' if vcount > 1 }} passant{{ 's' if vcount > 1 }}">{{ vcount }}</a>
+                {% else %}
+                <span class="inline-flex items-center justify-center w-6 h-6 text-gray-200 text-xs">·</span>
+                {% endif %}
+              </td>
+              {% endfor %}
+              <td colspan="4" class="px-3 py-2 text-xs text-loge-600 font-medium" style="border-left:2px solid #e5e7eb;">
+                {% set total_visitors = visitors_per_meeting.values() | sum %}
+                {{ total_visitors }} visite{{ 's' if total_visitors != 1 }} sur l'année
+              </td>
+            </tr>
+          </tfoot>
+        </table>
+      </div>
+
+      <!-- Légende -->
+      <div class="px-5 py-3 border-t border-gray-100 flex flex-wrap gap-4 text-xs text-gray-400" style="background:#f8fafc;">
+        <span class="flex items-center gap-1.5">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-green-100 text-green-700 font-bold text-xs">✓</span> Présent
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-yellow-100 text-yellow-600 font-bold text-xs">E</span> Excusé
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-red-100 text-red-600 font-bold text-xs">✗</span> Absent
+        </span>
+        <span class="flex items-center gap-1.5">
+          <span class="w-4 h-4 rounded bg-red-50 border border-red-200 inline-block"></span> ≥ 3 absences
+        </span>
+        <span class="ml-auto">Cliquer sur une date → synthèse de la tenue · Cliquer sur un nom → historique</span>
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

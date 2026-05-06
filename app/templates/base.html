@@ -2,16 +2,17 @@
 <html lang="fr" class="h-full">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <meta name="theme-color" content="#1e293b">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <meta name="theme-color" content="#0d1117">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="mobile-web-app-capable" content="yes">
 
   <title>{% block title %}Portail Socrate{% endblock %}</title>
 
-  <!-- PWA -->
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/img/icon-192.png">
 
-  <!-- Tailwind CSS (CDN pour démarrage rapide — à remplacer par build en prod) -->
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -21,196 +22,388 @@
             loge: {
               50:  '#f0f4ff',
               100: '#e0e9ff',
+              300: '#93a8f0',
               500: '#3b5bdb',
               600: '#2f4ac5',
               700: '#2340b0',
               800: '#1e3699',
               900: '#1a2d82',
             }
+          },
+          fontFamily: {
+            sans: ['-apple-system','BlinkMacSystemFont','Segoe UI','Roboto','Helvetica Neue','Arial','sans-serif'],
           }
         }
       }
     }
   </script>
 
-  <!-- Alpine.js (interactivité légère) -->
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+  <style>
+    /* ── Sidebar nav items ─────────────────────────────────── */
+    .nav-item {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 6px 10px;
+      border-radius: 6px;
+      font-size: 13.5px;
+      color: #6b7280;
+      transition: background 120ms, color 120ms;
+      position: relative;
+      font-weight: 450;
+      letter-spacing: 0.01em;
+      text-decoration: none;
+    }
+    .nav-item:hover {
+      background: rgba(255,255,255,0.06);
+      color: #e5e7eb;
+    }
+    .nav-item.active {
+      color: #ffffff;
+      background: rgba(59,91,219,0.18);
+      font-weight: 500;
+    }
+    .nav-item.active::before {
+      content: '';
+      position: absolute;
+      left: -8px;
+      top: 50%;
+      transform: translateY(-50%);
+      width: 3px;
+      height: 18px;
+      background: #3b5bdb;
+      border-radius: 0 2px 2px 0;
+    }
+    .nav-item svg {
+      flex-shrink: 0;
+      opacity: 0.7;
+    }
+    .nav-item.active svg,
+    .nav-item:hover svg {
+      opacity: 1;
+    }
+    .nav-section {
+      font-size: 10px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: #374151;
+      padding: 4px 10px 2px;
+      margin-top: 8px;
+    }
 
-  <!-- HTMX (requêtes HTML sans rechargement) -->
+    /* ── Bottom nav (mobile) ───────────────────────────────── */
+    .bottom-nav-item {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 3px;
+      flex: 1;
+      padding: 8px 4px;
+      color: #4b5563;
+      font-size: 10px;
+      font-weight: 500;
+      text-decoration: none;
+      transition: color 120ms;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .bottom-nav-item svg { opacity: 0.6; transition: opacity 120ms; }
+    .bottom-nav-item.active { color: #3b5bdb; }
+    .bottom-nav-item.active svg { opacity: 1; }
+    .bottom-nav-item:not(.active):hover { color: #9ca3af; }
+
+    /* ── Scrollbar fine ────────────────────────────────────── */
+    ::-webkit-scrollbar { width: 4px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
+
+    /* ── Safe area pour iOS ────────────────────────────────── */
+    .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
+    .safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
+  </style>
+
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
   <script src="https://unpkg.com/htmx.org@1.9.12"></script>
 
   {% block head %}{% endblock %}
 </head>
 
-<body class="h-full bg-gray-50 font-sans" x-data="{ sidebarOpen: false, notifOpen: false }">
+{% set on_auth = request.url.path in ['/auth/login'] %}
 
-  {% if request.url.path not in ['/auth/login'] %}
-  <!-- ── Barre supérieure mobile ─────────────────────────────────────── -->
-  <header class="lg:hidden fixed top-0 inset-x-0 z-40 bg-loge-900 text-white flex items-center justify-between px-4 h-14 shadow">
-    <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-md hover:bg-loge-700">
-      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
-      </svg>
-    </button>
-    <span class="font-semibold tracking-wide">⚜ Socrate</span>
-    <div class="flex items-center gap-2">
-      <!-- Notifications -->
-      <button @click="notifOpen = !notifOpen" class="relative p-2 rounded-md hover:bg-loge-700">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
-        </svg>
-        {% if unread_notifications %}
-        <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
-        {% endif %}
-      </button>
-    </div>
-  </header>
+<body class="h-full bg-gray-50 antialiased"
+      x-data="{ moreOpen: false }">
 
-  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
-  <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-loge-900 text-white transform transition-transform duration-200 ease-in-out
-                lg:translate-x-0"
-         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+{% if not on_auth %}
+
+  <!-- ════════════════════════════════════════════════════════
+       SIDEBAR — Desktop (≥ lg)
+  ════════════════════════════════════════════════════════ -->
+  <aside class="hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 w-52 select-none"
+         style="background:#0d1117; border-right:1px solid rgba(255,255,255,0.06);">
 
     <!-- Logo -->
-    <div class="flex items-center gap-3 px-6 py-5 border-b border-loge-700">
-      <span class="text-2xl">⚜</span>
-      <div>
-        <div class="font-bold text-sm leading-tight">Socrate</div>
-        <div class="text-loge-300 text-xs">Raison et Progrès</div>
+    <a href="/" class="flex items-center gap-3 px-4 py-4 flex-shrink-0
+                        border-b" style="border-color:rgba(255,255,255,0.08); text-decoration:none;">
+      <div class="bg-white rounded-full flex-shrink-0 shadow" style="padding:3px;">
+        <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau Socrate"
+             class="object-contain block" style="width:36px; height:36px;">
       </div>
-    </div>
+      <div class="leading-snug">
+        <div class="font-bold text-white" style="font-size:15px; letter-spacing:0.02em;">Socrate</div>
+        <div style="font-size:11px; color:#8b9dc3; margin-top:1px;">Raison &amp; Progrès</div>
+      </div>
+    </a>
 
     <!-- Navigation -->
-    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+    <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
 
-      <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+      <a href="/"
+         class="nav-item {% if request.url.path == '/' %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
         </svg>
         Accueil
       </a>
 
-      <a href="/meetings" class="nav-item {% if '/meetings' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      <div class="nav-section">Loge</div>
+
+      <a href="/meetings"
+         class="nav-item {% if '/meetings' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
         </svg>
         Tenues
       </a>
 
-      <a href="/calendar" class="nav-item {% if '/calendar' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
-        </svg>
-        Agenda
-      </a>
-
-      <a href="/documents" class="nav-item {% if '/documents' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
-        </svg>
-        Bibliothèque
-      </a>
-
-      <a href="/chat" class="nav-item {% if '/chat' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
-        </svg>
-        Messagerie
-        {% if unread_messages %}
-        <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{{ unread_messages }}</span>
-        {% endif %}
-      </a>
-
-      <a href="/forum" class="nav-item {% if '/forum' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/>
-        </svg>
-        Forum
-      </a>
-
-      <a href="/programs" class="nav-item {% if '/programs' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+      <a href="/programs"
+         class="nav-item {% if '/programs' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
         </svg>
         Programmes
       </a>
 
-      <a href="/finance" class="nav-item {% if '/finance' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
-        </svg>
-        Trésorerie
-      </a>
-
-      <a href="/members" class="nav-item {% if '/members' in request.url.path %}active{% endif %}">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+      <a href="/members"
+         class="nav-item {% if '/members' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
         </svg>
         Membres
       </a>
 
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
+      <a href="/announcements/"
+         class="nav-item {% if '/announcements' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.34 15.84c-.688-.06-1.386-.09-2.09-.09H7.5a4.5 4.5 0 110-9h.75c.704 0 1.402-.03 2.09-.09m0 9.18c.253.962.584 1.892.985 2.783.247.55.06 1.21-.463 1.511l-.657.38c-.551.318-1.26.117-1.527-.461a20.845 20.845 0 01-1.44-4.282m3.102.069a18.03 18.03 0 01-.59-4.59c0-1.586.205-3.124.59-4.59m0 9.18a23.848 23.848 0 018.835 2.535M10.34 6.66a23.847 23.847 0 008.835-2.535m0 0A23.74 23.74 0 0018.795 3m.38 1.125a23.91 23.91 0 011.014 5.395m-1.014 8.855c-.118.38-.245.754-.38 1.125m.38-1.125a23.91 23.91 0 001.014-5.395m0-3.46c.495.413.811 1.035.811 1.73 0 .695-.316 1.317-.811 1.73m0-3.46a24.347 24.347 0 010 3.46"/>
+        </svg>
+        Annonces
+      </a>
+      {% endif %}
+
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
+      <a href="/attendance/"
+         class="nav-item {% if '/attendance' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Présences
+      </a>
+      {% endif %}
+
+      <div class="nav-section">Gestion</div>
+
+      <a href="/finance"
+         class="nav-item {% if request.url.path in ['/finance/', '/finance'] %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75"/>
+        </svg>
+        Trésorerie
+      </a>
+
+      <a href="/finance/budget"
+         class="nav-item {% if '/finance/budget' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 3v11.25A2.25 2.25 0 006 16.5h2.25M3.75 3h-1.5m1.5 0h16.5m0 0h1.5m-1.5 0v11.25A2.25 2.25 0 0118 16.5h-2.25m-7.5 0h7.5m-7.5 0l-1 3m8.5-3l1 3m0 0l.5 1.5m-.5-1.5h-9.5m0 0l-.5 1.5M9 11.25v1.5M12 9v3.75m3-6v6"/>
+        </svg>
+        Budget
+      </a>
+
+      <a href="/finance/transactions"
+         class="nav-item {% if '/finance/transactions' in request.url.path or '/finance/bilan' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 12M21 7.5H7.5"/>
+        </svg>
+        Mouvements
+      </a>
+
+      <a href="/finance/cotisations/choisir"
+         class="nav-item {% if '/finance/cotisations/choisir' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Ma cotisation
+      </a>
+
+      <a href="/documents"
+         class="nav-item {% if '/documents' in request.url.path %}active{% endif %}"
+         style="opacity:0.4; pointer-events:none;" title="Bientôt disponible">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
+        </svg>
+        Bibliothèque
+      </a>
+
+      {% if current_user and current_user.is_admin %}
+      <div class="nav-section">Admin</div>
+      <a href="/settings/"
+         class="nav-item {% if '/settings' in request.url.path %}active{% endif %}">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Paramètres
+      </a>
+      {% endif %}
+
     </nav>
 
-    <!-- Profil en bas -->
-    <div class="border-t border-loge-700 p-4">
-      <a href="/profile" class="flex items-center gap-3 hover:bg-loge-700 rounded-lg p-2 transition-colors">
-        <div class="w-8 h-8 bg-loge-500 rounded-full flex items-center justify-center text-sm font-bold">
-          {{ current_member.first_name[0] if current_member else '?' }}
+    <!-- Profil -->
+    <div class="flex-shrink-0 px-3 py-3 border-t" style="border-color:rgba(255,255,255,0.06);">
+      <a href="/members/{{ current_member.id if current_member else '' }}"
+         class="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors group">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+             style="background: linear-gradient(135deg,#3b5bdb,#2340b0);">
+          {{ current_member.first_name[0] if current_member else '?' }}{{ current_member.last_name[0] if current_member else '' }}
         </div>
         <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium truncate">
-            {{ current_member.full_name if current_member else 'Inconnu' }}
+          <div class="text-xs font-medium text-gray-200 truncate">
+            {{ current_member.first_name ~ ' ' ~ current_member.last_name if current_member else '—' }}
           </div>
-          <div class="text-xs text-loge-300 truncate">
+          <div class="text-gray-500 truncate" style="font-size:10px;">
             {{ current_member.masonic_grade.value if current_member else '' }}
           </div>
         </div>
       </a>
-      <a href="/auth/logout" class="mt-2 flex items-center gap-2 text-xs text-loge-300 hover:text-white px-2 py-1 rounded transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
-                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+      <a href="/auth/logout"
+         class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
         </svg>
         Déconnexion
       </a>
     </div>
   </aside>
 
-  <!-- Overlay sidebar mobile -->
-  <div class="fixed inset-0 z-40 bg-black/50 lg:hidden"
-       x-show="sidebarOpen"
-       @click="sidebarOpen = false"
-       x-transition:enter="transition-opacity ease-out duration-200"
-       x-transition:enter-start="opacity-0"
-       x-transition:enter-end="opacity-100"
-       x-transition:leave="transition-opacity ease-in duration-150"
-       x-transition:leave-start="opacity-100"
-       x-transition:leave-end="opacity-0"
-       style="display: none;">
+
+  <!-- ════════════════════════════════════════════════════════
+       BOTTOM NAV — Mobile (< lg)
+  ════════════════════════════════════════════════════════ -->
+  <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 flex safe-bottom"
+       style="background:#0d1117; border-top:1px solid rgba(255,255,255,0.07);">
+
+    <a href="/" class="bottom-nav-item {% if request.url.path == '/' %}active{% endif %}">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12l8.954-8.955a1.126 1.126 0 011.591 0L21.75 12M4.5 9.75v10.125c0 .621.504 1.125 1.125 1.125H9.75v-4.875c0-.621.504-1.125 1.125-1.125h2.25c.621 0 1.125.504 1.125 1.125V21h4.125c.621 0 1.125-.504 1.125-1.125V9.75M8.25 21h8.25"/>
+      </svg>
+      Accueil
+    </a>
+
+    <a href="/meetings" class="bottom-nav-item {% if '/meetings' in request.url.path %}active{% endif %}">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+      </svg>
+      Tenues
+    </a>
+
+    <a href="/members" class="bottom-nav-item {% if '/members' in request.url.path %}active{% endif %}">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 19.128a9.38 9.38 0 002.625.372 9.337 9.337 0 004.121-.952 4.125 4.125 0 00-7.533-2.493M15 19.128v-.003c0-1.113-.285-2.16-.786-3.07M15 19.128v.106A12.318 12.318 0 018.624 21c-2.331 0-4.512-.645-6.374-1.766l-.001-.109a6.375 6.375 0 0111.964-3.07M12 6.375a3.375 3.375 0 11-6.75 0 3.375 3.375 0 016.75 0zm8.25 2.25a2.625 2.625 0 11-5.25 0 2.625 2.625 0 015.25 0z"/>
+      </svg>
+      Membres
+    </a>
+
+    <a href="/programs" class="bottom-nav-item {% if '/programs' in request.url.path %}active{% endif %}">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m0 12.75h7.5m-7.5 3H12M10.5 2.25H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+      </svg>
+      Programmes
+    </a>
+
+    <!-- Bouton "Plus" -->
+    <button type="button" @click="moreOpen = !moreOpen"
+            class="bottom-nav-item {% if '/finance' in request.url.path or '/settings' in request.url.path %}active{% endif %}">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6.75h16.5M3.75 12h16.5m-16.5 5.25h16.5"/>
+      </svg>
+      Plus
+    </button>
+  </nav>
+
+  <!-- Sheet "Plus" sur mobile -->
+  <div x-show="moreOpen"
+       x-transition:enter="transition ease-out duration-200"
+       x-transition:enter-start="opacity-0 translate-y-4"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       x-transition:leave="transition ease-in duration-150"
+       x-transition:leave-start="opacity-100 translate-y-0"
+       x-transition:leave-end="opacity-0 translate-y-4"
+       @click.away="moreOpen = false"
+       class="lg:hidden fixed z-50 inset-x-3 rounded-2xl shadow-2xl overflow-hidden safe-bottom"
+       style="bottom: calc(64px + env(safe-area-inset-bottom, 0px)); background:#161b27; border:1px solid rgba(255,255,255,0.08);"
+       x-cloak>
+
+    <div class="p-2">
+      <a href="/finance" @click="moreOpen=false"
+         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors
+                {% if '/finance' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75"/>
+        </svg>
+        Trésorerie
+      </a>
+      {% if current_user and current_user.is_admin %}
+      <a href="/settings/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors
+                {% if '/settings' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Paramètres
+      </a>
+      {% endif %}
+      <div class="h-px mx-2 my-1" style="background:rgba(255,255,255,0.06);"></div>
+      <a href="/auth/logout"
+         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
+        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
+        </svg>
+        Déconnexion
+      </a>
+    </div>
   </div>
 
-  {% endif %}
+  <!-- Overlay sheet mobile -->
+  <div x-show="moreOpen" @click="moreOpen=false"
+       class="lg:hidden fixed inset-0 z-40 bg-black/40"
+       x-cloak style="display:none;"></div>
 
-  <!-- ── Contenu principal ──────────────────────────────────────────────── -->
-  <main class="{% if request.url.path not in ['/auth/login'] %}lg:ml-64 pt-14 lg:pt-0{% endif %} min-h-full">
+{% endif %}
+
+  <!-- ════════════════════════════════════════════════════════
+       CONTENU PRINCIPAL
+  ════════════════════════════════════════════════════════ -->
+  <main class="{% if not on_auth %}lg:ml-52 pb-20 lg:pb-0{% endif %} min-h-full">
     {% block content %}{% endblock %}
   </main>
 
-  <!-- ── Flash messages ─────────────────────────────────────────────────── -->
+  <!-- ── Flash messages ──────────────────────────────────────────────────── -->
   {% if flash_messages %}
-  <div id="flash-container" class="fixed bottom-4 right-4 z-50 space-y-2" x-data>
+  <div class="fixed bottom-20 lg:bottom-4 right-4 z-50 space-y-2 max-w-sm" x-data>
     {% for msg in flash_messages %}
-    <div class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm font-medium
+    <div class="flex items-center gap-3 px-4 py-3 rounded-xl shadow-xl text-sm font-medium
                 {% if msg.type == 'success' %}bg-green-600 text-white
                 {% elif msg.type == 'error' %}bg-red-600 text-white
                 {% elif msg.type == 'warning' %}bg-amber-500 text-white
@@ -222,24 +415,12 @@
   </div>
   {% endif %}
 
-  <!-- ── PWA Service Worker ─────────────────────────────────────────────── -->
   <script>
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/static/sw.js').catch(console.error);
+      navigator.serviceWorker.register('/static/sw.js').catch(()=>{});
     }
   </script>
 
   {% block scripts %}{% endblock %}
-
 </body>
 </html>
-
-<style>
-  .nav-item {
-    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-loge-200
-           hover:bg-loge-700 hover:text-white transition-colors duration-150;
-  }
-  .nav-item.active {
-    @apply bg-loge-700 text-white font-medium;
-  }
-</style>

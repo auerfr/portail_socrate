@@ -18,7 +18,8 @@ from app.models.identity import (
     MemberResponsibility, ResponsibilityType, RoleQualifier,
     Group, GroupType,
 )
-from app.models.lodge import MasonicYear
+from app.models.lodge import MasonicYear, LodgeOffice
+from app.models.finance import MemberContribution, ContributionTier, ContributionStatus
 
 router = APIRouter(prefix="/members", tags=["members"])
 templates = Jinja2Templates(directory="app/templates")
@@ -77,6 +78,29 @@ def _qualifier_label(q) -> str:
     return labels.get(v, v)
 
 
+async def _get_offices(db: AsyncSession) -> list:
+    r = await db.execute(select(LodgeOffice).order_by(LodgeOffice.sort_order, LodgeOffice.id))
+    return r.scalars().all()
+
+
+async def _current_office_id(db: AsyncSession, member_id: int) -> int | None:
+    r = await db.execute(select(LodgeOffice.id).where(LodgeOffice.member_id == member_id))
+    return r.scalar_one_or_none()
+
+
+async def _assign_office(db: AsyncSession, member_id: int, office_id: int | None):
+    """Retire le membre de son office actuel, puis l'affecte au nouveau."""
+    # Désaffecter partout où ce membre est assigné
+    old = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id == member_id))
+    for o in old.scalars().all():
+        o.member_id = None
+    # Affecter au nouvel office si précisé
+    if office_id:
+        new_office = await db.get(LodgeOffice, office_id)
+        if new_office:
+            new_office.member_id = member_id
+
+
 def _status_label(s: MemberStatus) -> str:
     return {
         "ACTIVE": "Actif",
@@ -114,15 +138,19 @@ async def members_list(
     result = await db.execute(query)
     members = result.scalars().all()
 
+    # Construire un dict member_id → label d'office
+    offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
+    office_by_member = {o.member_id: o.label for o in offices_r.scalars().all()}
+
     return templates.TemplateResponse(request, "pages/members/list.html", {
         "current_member": member,
         "current_user": user,
         "members": members,
+        "office_by_member": office_by_member,
         "search": search,
         "grade_filter": grade,
         "status_filter": status_filter,
         "grade_label": _grade_label,
-        "function_label": _function_label,
         "status_label": _status_label,
         "MasonicGrade": MasonicGrade,
         "MemberStatus": MemberStatus,
@@ -155,6 +183,28 @@ async def member_detail(
     user_result = await db.execute(select(User).where(User.member_id == member_id))
     target_user = user_result.scalar_one_or_none()
 
+    # Cotisation de l'année en cours
+    from sqlalchemy.orm import selectinload as _sil
+    year_r = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True).limit(1))
+    current_year = year_r.scalar_one_or_none()
+    member_contrib = None
+    contrib_tier = None
+    if current_year:
+        cr = await db.execute(
+            select(MemberContribution)
+            .options(_sil(MemberContribution.payments), _sil(MemberContribution.quitus))
+            .where(
+                MemberContribution.member_id == member_id,
+                MemberContribution.masonic_year_id == current_year.id,
+            )
+        )
+        member_contrib = cr.scalar_one_or_none()
+        if member_contrib:
+            tier_r = await db.execute(
+                select(ContributionTier).where(ContributionTier.id == member_contrib.tier_id)
+            )
+            contrib_tier = tier_r.scalar_one_or_none()
+
     return templates.TemplateResponse(request, "pages/members/detail.html", {
         "current_member": current_member,
         "current_user": user,
@@ -165,6 +215,10 @@ async def member_detail(
         "status_label": _status_label,
         "can_manage": can_manage_members(current_member) or user.is_admin,
         "is_own_profile": target.id == current_member.id,
+        "current_year": current_year,
+        "member_contrib": member_contrib,
+        "contrib_tier": contrib_tier,
+        "ContributionStatus": ContributionStatus,
     })
 
 
@@ -180,15 +234,16 @@ async def member_new_form(
     if not (can_manage_members(current_member) or user.is_admin):
         raise HTTPException(status_code=403, detail="Accès refusé")
 
+    offices = await _get_offices(db)
     return templates.TemplateResponse(request, "pages/members/form.html", {
         "current_member": current_member,
         "current_user": user,
         "target": None,
+        "offices": offices,
+        "current_office_id": None,
         "MasonicGrade": MasonicGrade,
         "MemberStatus": MemberStatus,
-        "LodgeFunction": LodgeFunction,
         "grade_label": _grade_label,
-        "function_label": _function_label,
         "status_label": _status_label,
         "errors": {},
         "form_action": "/members/new/form",
@@ -207,7 +262,7 @@ async def member_create(
     civility:       str = Form(""),
     phone:          str = Form(""),
     masonic_grade:  str = Form("APPRENTI"),
-    lodge_function: str = Form("FRERE"),
+    office_id:      str = Form(""),
     member_status:  str = Form("ACTIVE"),
     birth_date:     str = Form(""),
     initiation_date: str = Form(""),
@@ -227,15 +282,16 @@ async def member_create(
         errors["email"] = "Cet email est déjà utilisé"
 
     if errors:
+        offices = await _get_offices(db)
         return templates.TemplateResponse(request, "pages/members/form.html", {
             "current_member": current_member,
             "current_user": user,
             "target": None,
+            "offices": offices,
+            "current_office_id": int(office_id) if office_id.isdigit() else None,
             "MasonicGrade": MasonicGrade,
             "MemberStatus": MemberStatus,
-            "LodgeFunction": LodgeFunction,
             "grade_label": _grade_label,
-            "function_label": _function_label,
             "status_label": _status_label,
             "errors": errors,
             "form_action": "/members/new/form",
@@ -243,7 +299,7 @@ async def member_create(
             "form_data": {
                 "last_name": last_name, "first_name": first_name,
                 "email": email, "civility": civility, "phone": phone,
-                "masonic_grade": masonic_grade, "lodge_function": lodge_function,
+                "masonic_grade": masonic_grade,
                 "member_status": member_status,
             },
         }, status_code=422)
@@ -263,13 +319,13 @@ async def member_create(
         civility=civility or None,
         phone=phone or None,
         masonic_grade=MasonicGrade(masonic_grade),
-        lodge_function=LodgeFunction(lodge_function),
         status=MemberStatus(member_status),
         birth_date=parse_date(birth_date),
         initiation_date=parse_date(initiation_date),
     )
     db.add(new_member)
     await db.flush()  # pour obtenir l'ID
+    await _assign_office(db, new_member.id, int(office_id) if office_id.isdigit() else None)
 
     # Créer un compte utilisateur si login fourni
     if login.strip():
@@ -308,16 +364,18 @@ async def member_edit_form(
     user_result = await db.execute(select(User).where(User.member_id == member_id))
     target_user = user_result.scalar_one_or_none()
 
+    offices = await _get_offices(db)
+    current_office_id = await _current_office_id(db, member_id)
     return templates.TemplateResponse(request, "pages/members/form.html", {
         "current_member": current_member,
         "current_user": user,
         "target": target,
         "target_user": target_user,
+        "offices": offices,
+        "current_office_id": current_office_id,
         "MasonicGrade": MasonicGrade,
         "MemberStatus": MemberStatus,
-        "LodgeFunction": LodgeFunction,
         "grade_label": _grade_label,
-        "function_label": _function_label,
         "status_label": _status_label,
         "errors": {},
         "form_action": f"/members/{member_id}/edit",
@@ -337,13 +395,14 @@ async def member_update(
     civility:        str = Form(""),
     phone:           str = Form(""),
     masonic_grade:   str = Form("APPRENTI"),
-    lodge_function:  str = Form("FRERE"),
+    office_id:       str = Form(""),
     member_status:   str = Form("ACTIVE"),
     birth_date:      str = Form(""),
     initiation_date: str = Form(""),
     companion_date:  str = Form(""),
     master_date:     str = Form(""),
     program_optin:   str = Form(""),
+    pin_code:        str = Form(""),
 ):
     user, current_member = ctx
     if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
@@ -364,16 +423,18 @@ async def member_update(
     if errors:
         user_result = await db.execute(select(User).where(User.member_id == member_id))
         target_user = user_result.scalar_one_or_none()
+        offices = await _get_offices(db)
+        current_office_id = await _current_office_id(db, member_id)
         return templates.TemplateResponse(request, "pages/members/form.html", {
             "current_member": current_member,
             "current_user": user,
             "target": target,
             "target_user": target_user,
+            "offices": offices,
+            "current_office_id": current_office_id,
             "MasonicGrade": MasonicGrade,
             "MemberStatus": MemberStatus,
-            "LodgeFunction": LodgeFunction,
             "grade_label": _grade_label,
-            "function_label": _function_label,
             "status_label": _status_label,
             "errors": errors,
             "form_action": f"/members/{member_id}/edit",
@@ -399,11 +460,13 @@ async def member_update(
     # Seuls admin/VM/Secrétaire peuvent changer grade/statut/fonction
     if can_manage_members(current_member) or user.is_admin:
         target.masonic_grade   = MasonicGrade(masonic_grade)
-        target.lodge_function  = LodgeFunction(lodge_function)
         target.status          = MemberStatus(member_status)
         target.initiation_date = parse_date(initiation_date)
         target.companion_date  = parse_date(companion_date)
         target.master_date     = parse_date(master_date)
+        await _assign_office(db, member_id, int(office_id) if office_id.isdigit() else None)
+        if pin_code.strip():
+            target.pin_code_hash = hash_password(pin_code.strip())
 
     target.birth_date = parse_date(birth_date)
 

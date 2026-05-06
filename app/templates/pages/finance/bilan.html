@@ -1,0 +1,278 @@
+{% extends "base.html" %}
+{% block title %}Bilan comptable — Finance{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-5xl mx-auto">
+
+  <!-- En-tête -->
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/finance/" class="hover:text-loge-700">Finance</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Bilan comptable</span>
+  </nav>
+
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-4">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Bilan comptable</h1>
+      {% if selected_year %}
+      <p class="text-sm text-gray-500">
+        {{ selected_year.label }}
+        {% if date_from or date_to %}
+        — <span class="text-loge-700 font-medium">
+          {% if date_from %}du {{ date_from }}{% endif %}
+          {% if date_to %} au {{ date_to }}{% endif %}
+        </span>
+        {% else %}
+        — <span class="text-gray-400">Année complète</span>
+        {% endif %}
+      </p>
+      {% endif %}
+    </div>
+    <div class="flex gap-2">
+      <a href="/finance/transactions{% if selected_year %}?year_id={{ selected_year.id }}{% endif %}"
+         class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+        ← Mouvements
+      </a>
+    </div>
+  </div>
+
+  <!-- Filtre de période + export -->
+  {% if selected_year %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 mb-6">
+    <form method="get" class="flex flex-wrap items-end gap-3">
+      <div>
+        <select name="year_id" onchange="this.form.submit()"
+                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          {% for y in years %}
+          <option value="{{ y.id }}" {% if selected_year and y.id == selected_year.id %}selected{% endif %}>
+            {{ y.label }}{% if y.is_current %} ★{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Du</label>
+        <input type="date" name="date_from" value="{{ date_from }}"
+               class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Au</label>
+        <input type="date" name="date_to" value="{{ date_to }}"
+               class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <button type="submit"
+              class="bg-loge-700 text-white px-4 py-1.5 rounded-lg text-sm font-medium hover:bg-loge-800">
+        Actualiser
+      </button>
+      {% if date_from or date_to %}
+      <a href="/finance/bilan?year_id={{ selected_year.id }}"
+         class="border border-gray-200 text-gray-500 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+        ✕ Réinitialiser
+      </a>
+      {% endif %}
+      <a href="/finance/bilan/export-csv?year_id={{ selected_year.id }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+         class="ml-auto inline-flex items-center gap-1.5 border border-loge-200 text-loge-700 px-3 py-1.5 rounded-lg text-sm hover:bg-loge-50 font-medium">
+        ⬇ Export CSV
+      </a>
+    </form>
+  </div>
+  {% endif %}
+
+  {% if not selected_year %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-800">Aucune année configurée.</div>
+  {% else %}
+
+  <!-- Résultat global en haut -->
+  <div class="grid grid-cols-3 gap-4 mb-8">
+    <div class="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
+      <div class="text-xs text-green-600 uppercase tracking-wide mb-1">Total Produits</div>
+      <div class="text-2xl font-bold text-green-700">{{ "%.2f"|format(total_produits_global) }} €</div>
+      <div class="text-xs text-green-500 mt-1">dont {{ "%.2f"|format(total_cotisations) }} € cotisations</div>
+    </div>
+    <div class="bg-red-50 border border-red-200 rounded-xl p-5 text-center">
+      <div class="text-xs text-red-600 uppercase tracking-wide mb-1">Total Charges</div>
+      <div class="text-2xl font-bold text-red-700">{{ "%.2f"|format(total_charges) }} €</div>
+      <div class="text-xs text-red-400 mt-1">Budget prévu : {{ "%.2f"|format(total_budget) }} €</div>
+    </div>
+    <div class="rounded-xl p-5 text-center border
+                {% if resultat >= 0 %}bg-loge-50 border-loge-200{% else %}bg-orange-50 border-orange-200{% endif %}">
+      <div class="text-xs uppercase tracking-wide mb-1
+                  {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
+        {% if resultat >= 0 %}Excédent{% else %}Déficit{% endif %}
+      </div>
+      <div class="text-2xl font-bold {% if resultat >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
+        {{ "%.2f"|format(resultat|abs) }} €
+      </div>
+      <div class="text-xs mt-1 {% if resultat >= 0 %}text-loge-400{% else %}text-orange-400{% endif %}">
+        Produits − Charges
+      </div>
+    </div>
+  </div>
+
+  <!-- Compte de résultat — deux colonnes -->
+  <div class="grid lg:grid-cols-2 gap-6 mb-8">
+
+    <!-- CHARGES -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-5 py-3 bg-red-50 border-b border-red-100 flex items-center justify-between">
+        <h2 class="font-semibold text-red-800">CHARGES</h2>
+        <span class="text-sm font-bold text-red-700">{{ "%.2f"|format(total_charges) }} €</span>
+      </div>
+      {% if charges_by_cat %}
+      <div class="divide-y divide-gray-50">
+        {% for cat, amt in charges_by_cat.items() %}
+        <div class="flex items-center justify-between px-5 py-2.5">
+          <span class="text-sm text-gray-700">{{ cat }}</span>
+          <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ "%.2f"|format(amt) }} €</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <div class="px-5 py-8 text-center text-gray-400 text-sm">Aucune dépense enregistrée</div>
+      {% endif %}
+      <div class="px-5 py-3 bg-red-50 border-t border-red-100 flex justify-between">
+        <span class="text-sm font-semibold text-red-800">Total charges</span>
+        <span class="text-sm font-bold text-red-700">{{ "%.2f"|format(total_charges) }} €</span>
+      </div>
+    </div>
+
+    <!-- PRODUITS -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="px-5 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between">
+        <h2 class="font-semibold text-green-800">PRODUITS</h2>
+        <span class="text-sm font-bold text-green-700">{{ "%.2f"|format(total_produits_global) }} €</span>
+      </div>
+
+      <!-- Cotisations encaissées (ligne spéciale) -->
+      <div class="flex items-center justify-between px-5 py-2.5 bg-loge-50">
+        <span class="text-sm text-loge-800 font-medium">Cotisations encaissées</span>
+        <span class="text-sm font-semibold text-loge-700 tabular-nums">{{ "%.2f"|format(total_cotisations) }} €</span>
+      </div>
+
+      {% if produits_by_cat %}
+      <div class="divide-y divide-gray-50">
+        {% for cat, amt in produits_by_cat.items() %}
+        <div class="flex items-center justify-between px-5 py-2.5">
+          <span class="text-sm text-gray-700">{{ cat }}</span>
+          <span class="text-sm font-semibold text-gray-900 tabular-nums">{{ "%.2f"|format(amt) }} €</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if not produits_by_cat and total_cotisations == 0 %}
+      <div class="px-5 py-8 text-center text-gray-400 text-sm">Aucune recette enregistrée</div>
+      {% endif %}
+
+      <div class="px-5 py-3 bg-green-50 border-t border-green-100 flex justify-between">
+        <span class="text-sm font-semibold text-green-800">Total produits</span>
+        <span class="text-sm font-bold text-green-700">{{ "%.2f"|format(total_produits_global) }} €</span>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Résultat net encadré -->
+  <div class="border-2 {% if resultat >= 0 %}border-loge-300 bg-loge-50{% else %}border-orange-300 bg-orange-50{% endif %} rounded-xl p-5 mb-8">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-lg font-bold {% if resultat >= 0 %}text-loge-800{% else %}text-orange-800{% endif %}">
+          {% if resultat >= 0 %}Excédent de l'exercice{% else %}Déficit de l'exercice{% endif %}
+        </div>
+        <div class="text-sm {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %} mt-0.5">
+          Total Produits ({{ "%.2f"|format(total_produits_global) }} €) − Total Charges ({{ "%.2f"|format(total_charges) }} €)
+        </div>
+      </div>
+      <div class="text-3xl font-bold {% if resultat >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
+        {% if resultat >= 0 %}+{% endif %}{{ "%.2f"|format(resultat) }} €
+      </div>
+    </div>
+  </div>
+
+  <!-- Situation des créances cotisations -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
+    <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+      <h2 class="font-semibold text-gray-800">Situation des cotisations</h2>
+    </div>
+    <div class="divide-y divide-gray-50">
+      <div class="flex items-center justify-between px-5 py-3">
+        <span class="text-sm text-gray-700">Cotisations appelées (total dû)</span>
+        <span class="text-sm font-semibold tabular-nums">{{ "%.2f"|format(total_cotisations_due) }} €</span>
+      </div>
+      <div class="flex items-center justify-between px-5 py-3">
+        <span class="text-sm text-gray-700">Cotisations encaissées</span>
+        <span class="text-sm font-semibold text-green-600 tabular-nums">{{ "%.2f"|format(total_cotisations) }} €</span>
+      </div>
+      <div class="flex items-center justify-between px-5 py-3 {% if creances > 0 %}bg-amber-50{% endif %}">
+        <span class="text-sm font-medium {% if creances > 0 %}text-amber-700{% else %}text-gray-700{% endif %}">
+          Créances (impayés)
+        </span>
+        <span class="text-sm font-bold tabular-nums {% if creances > 0 %}text-amber-700{% else %}text-green-600{% endif %}">
+          {{ "%.2f"|format(creances) }} €
+        </span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Comparaison Budget / Réalisé -->
+  {% if budget_by_cat %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800">Budget prévisionnel vs Réalisé</h2>
+      <a href="/finance/budget{% if selected_year %}?year_id={{ selected_year.id }}{% endif %}"
+         class="text-xs text-loge-700 hover:underline">Modifier le budget →</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100">
+            <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Catégorie</th>
+            <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Prévu</th>
+            <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Réalisé</th>
+            <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-500">Écart</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% set all_cats = (budget_by_cat.keys() | list + charges_by_cat.keys() | list) | unique | sort %}
+          {% for cat in all_cats %}
+          {% set prevu = budget_by_cat.get(cat, 0) %}
+          {% set realise = charges_by_cat.get(cat, 0) %}
+          {% set ecart = prevu - realise %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-5 py-2.5 text-gray-800">{{ cat }}</td>
+            <td class="px-4 py-2.5 text-right tabular-nums text-gray-600">{{ "%.2f"|format(prevu) }} €</td>
+            <td class="px-4 py-2.5 text-right tabular-nums font-medium">{{ "%.2f"|format(realise) }} €</td>
+            <td class="px-5 py-2.5 text-right tabular-nums font-semibold
+                       {% if ecart < 0 %}text-red-600{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+              {% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+          <tr>
+            <td class="px-5 py-3 text-gray-800">Total</td>
+            <td class="px-4 py-3 text-right tabular-nums text-gray-700">{{ "%.2f"|format(total_budget) }} €</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ "%.2f"|format(total_charges) }} €</td>
+            {% set ecart_total = total_budget - total_charges %}
+            <td class="px-5 py-3 text-right tabular-nums
+                       {% if ecart_total < 0 %}text-red-600{% elif ecart_total > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+              {% if ecart_total > 0 %}+{% endif %}{{ "%.2f"|format(ecart_total) }} €
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+  </div>
+  {% endif %}
+
+  {% endif %}
+
+  <div class="mt-4">
+    <a href="/finance/" class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">
+      ← Retour Finance
+    </a>
+  </div>
+
+</div>
+{% endblock %}

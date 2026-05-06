@@ -1,0 +1,502 @@
+{% extends "base.html" %}
+{% block title %}Émargement — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-2xl mx-auto" x-data="emargement()" x-init="init()" @keydown.escape="addVisitorOpen = false">
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 mb-4 flex items-center gap-1.5">
+    <a href="/attendance/" class="hover:text-loge-700">Assiduité</a>
+    <span>›</span>
+    <span class="text-gray-800">
+      {{ meeting.meeting_date.strftime('%d/%m/%Y') }}
+      {% if meeting.title %} — {{ meeting.title }}{% endif %}
+    </span>
+  </nav>
+
+  <!-- En-tête tenue -->
+  <div class="bg-gradient-to-r from-loge-800 to-loge-700 text-white rounded-2xl px-5 py-4 mb-5">
+    <div class="flex items-start justify-between">
+      <div>
+        <div class="text-xs text-loge-200 mb-1">{{ meeting.type.value }}</div>
+        <h1 class="text-lg font-bold">{{ meeting.title or meeting.meeting_date.strftime('%d %B %Y') }}</h1>
+        <div class="flex flex-wrap gap-3 mt-2 text-xs text-loge-200">
+          <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>
+          {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
+        </div>
+      </div>
+    </div>
+    <!-- Compteurs live -->
+    <div class="flex gap-6 mt-3 pt-3 border-t border-white/20">
+      <div class="text-center">
+        <div class="text-xl font-bold text-green-300" x-text="counts.PRESENT">0</div>
+        <div class="text-xs text-loge-200">Présents</div>
+      </div>
+      <div class="text-center">
+        <div class="text-xl font-bold text-yellow-300" x-text="counts.EXCUSED">0</div>
+        <div class="text-xs text-loge-200">Excusés</div>
+      </div>
+      <div class="text-center">
+        <div class="text-xl font-bold text-red-300" x-text="counts.ABSENT">0</div>
+        <div class="text-xs text-loge-200">Absents</div>
+      </div>
+      <div class="text-center">
+        <div class="text-xl font-bold text-white" x-text="counts.NONE">{{ active_members | length }}</div>
+        <div class="text-xs text-loge-200">Non marqués</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Feedback sauvegarde -->
+  {% if request.query_params.get('saved') %}
+  <div class="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm px-4 py-3 rounded-xl flex items-center gap-2">
+    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+    </svg>
+    Émargement enregistré avec succès.
+  </div>
+  {% endif %}
+
+  <!-- Filtre rapide -->
+  <div class="flex gap-2 mb-4 overflow-x-auto pb-1">
+    <button @click="filter='ALL'"
+            :class="filter==='ALL' ? 'bg-loge-700 text-white' : 'bg-white text-gray-600 border border-gray-200'"
+            class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0">
+      Tous <span :class="filter==='ALL' ? 'bg-white/20' : 'bg-gray-100'" class="ml-1 rounded-full px-1.5 py-0.5 text-xs" x-text="members.length"></span>
+    </button>
+    <button @click="filter='NONE'"
+            :class="filter==='NONE' ? 'bg-gray-700 text-white' : 'bg-white text-gray-600 border border-gray-200'"
+            class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0">
+      Non marqués <span :class="filter==='NONE' ? 'bg-white/20' : 'bg-gray-100'" class="ml-1 rounded-full px-1.5 py-0.5 text-xs" x-text="counts.NONE"></span>
+    </button>
+    <button @click="filter='PRESENT'"
+            :class="filter==='PRESENT' ? 'bg-green-600 text-white' : 'bg-white text-gray-600 border border-gray-200'"
+            class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0">
+      Présents <span :class="filter==='PRESENT' ? 'bg-white/20' : 'bg-gray-100'" class="ml-1 rounded-full px-1.5 py-0.5 text-xs" x-text="counts.PRESENT"></span>
+    </button>
+    <button @click="filter='EXCUSED'"
+            :class="filter==='EXCUSED' ? 'bg-yellow-500 text-white' : 'bg-white text-gray-600 border border-gray-200'"
+            class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0">
+      Excusés <span :class="filter==='EXCUSED' ? 'bg-white/20' : 'bg-gray-100'" class="ml-1 rounded-full px-1.5 py-0.5 text-xs" x-text="counts.EXCUSED"></span>
+    </button>
+    <button @click="filter='ABSENT'"
+            :class="filter==='ABSENT' ? 'bg-red-600 text-white' : 'bg-white text-gray-600 border border-gray-200'"
+            class="px-3 py-1.5 rounded-full text-xs font-medium whitespace-nowrap transition-colors flex-shrink-0">
+      Absents <span :class="filter==='ABSENT' ? 'bg-white/20' : 'bg-gray-100'" class="ml-1 rounded-full px-1.5 py-0.5 text-xs" x-text="counts.ABSENT"></span>
+    </button>
+  </div>
+
+  <!-- Liste des membres -->
+  <form method="post" action="/attendance/meeting/{{ meeting.id }}">
+    <div class="space-y-2 mb-6">
+      <template x-for="m in filteredMembers" :key="m.id">
+        <div class="bg-white rounded-xl border transition-all"
+             :class="{
+               'border-green-200 bg-green-50/40': m.status === 'PRESENT',
+               'border-yellow-200 bg-yellow-50/30': m.status === 'EXCUSED',
+               'border-red-200 bg-red-50/30': m.status === 'ABSENT',
+               'border-gray-100': m.status === ''
+             }">
+          <div class="flex items-center gap-3 px-4 py-3">
+
+            <!-- Avatar -->
+            <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+                 style="background:linear-gradient(135deg,#3b5bdb,#2340b0);"
+                 x-text="m.initials"></div>
+
+            <!-- Nom -->
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-gray-900 truncate" x-text="m.name"></div>
+              <!-- Excuse (si excusé) -->
+              <input type="text"
+                     x-show="m.status === 'EXCUSED'"
+                     x-transition
+                     :name="'excuse_' + m.id"
+                     :value="m.excuse"
+                     @input="m.excuse = $event.target.value"
+                     placeholder="Motif d'excuse (optionnel)"
+                     class="mt-1 w-full text-xs border-0 border-b border-yellow-300 bg-transparent focus:outline-none focus:border-yellow-500 text-gray-600 placeholder-gray-400">
+            </div>
+
+            <!-- Boutons P / E / A -->
+            <div class="flex gap-1.5 flex-shrink-0">
+              <button type="button"
+                      @click="setStatus(m, 'PRESENT')"
+                      :class="m.status === 'PRESENT' ? 'bg-green-600 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-green-50 hover:text-green-700'"
+                      class="w-9 h-9 rounded-lg text-sm font-bold transition-all active:scale-95">
+                P
+              </button>
+              <button type="button"
+                      @click="setStatus(m, 'EXCUSED')"
+                      :class="m.status === 'EXCUSED' ? 'bg-yellow-500 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-yellow-50 hover:text-yellow-700'"
+                      class="w-9 h-9 rounded-lg text-sm font-bold transition-all active:scale-95">
+                E
+              </button>
+              <button type="button"
+                      @click="setStatus(m, 'ABSENT')"
+                      :class="m.status === 'ABSENT' ? 'bg-red-600 text-white shadow-sm' : 'bg-gray-100 text-gray-400 hover:bg-red-50 hover:text-red-700'"
+                      class="w-9 h-9 rounded-lg text-sm font-bold transition-all active:scale-95">
+                A
+              </button>
+            </div>
+
+            <!-- Champ hidden pour soumission -->
+            <input type="hidden" :name="'status_' + m.id" :value="m.status">
+
+          </div>
+        </div>
+      </template>
+    </div>
+
+    <!-- Section Maçons passants -->
+    <div class="mt-2 mb-6">
+      <div class="flex items-center justify-between mb-3">
+        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+          </svg>
+          Maçons passants ({{ visitors | length }})
+        </h2>
+        <button @click="addVisitorOpen = true"
+                type="button"
+                class="text-xs text-loge-600 hover:text-loge-800 border border-loge-200 bg-loge-50 hover:bg-loge-100 rounded-lg px-3 py-1.5 font-medium transition-colors flex items-center gap-1.5">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          Ajouter un passant
+        </button>
+      </div>
+
+      {% if visitors %}
+      <div class="space-y-2">
+        {% for mv in visitors %}
+        <div class="bg-white rounded-xl border transition-all
+             {% if mv.status.value == 'CANCELLED' %}border-red-200 bg-red-50/30 opacity-60{% else %}border-loge-100 bg-loge-50/20{% endif %}
+             px-4 py-3 flex items-center gap-3">
+
+          <!-- Avatar -->
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 text-loge-700"
+               style="background:rgba(59,91,219,0.12);">
+            {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
+          </div>
+
+          <!-- Infos -->
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-gray-900 truncate">
+              {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
+              {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+            </div>
+            <div class="text-xs text-gray-400 truncate">
+              {{ mv.visitor.lodge_name or '?' }}
+              {% if mv.visitor.orient_city %} · {{ mv.visitor.orient_city }}{% endif %}
+              {% if mv.visitor.is_vm %} · <span class="text-loge-600 font-medium">V∴M∴</span>{% endif %}
+            </div>
+          </div>
+
+          <!-- Toggle présent / no-show -->
+          <div class="flex-shrink-0">
+            <label class="relative inline-flex items-center cursor-pointer gap-2 select-none"
+                   x-data="{ on: {{ 'true' if mv.status.value == 'CONFIRMED' else 'false' }} }">
+              <input type="checkbox"
+                     name="visitor_present_{{ mv.id }}"
+                     value="1"
+                     x-model="on"
+                     class="sr-only peer">
+              <div @click="on = !on"
+                   :class="on ? 'bg-green-500' : 'bg-gray-200'"
+                   class="w-10 h-5 rounded-full transition-colors cursor-pointer relative">
+                <div :class="on ? 'translate-x-5' : 'translate-x-0.5'"
+                     class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"></div>
+              </div>
+              <span :class="on ? 'text-green-700 font-medium' : 'text-red-400'"
+                    class="text-xs w-14" x-text="on ? 'Présent' : 'No-show'"></span>
+            </label>
+          </div>
+
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-gray-400 py-2 text-center">Aucun maçon passant inscrit — utilisez le bouton ci-dessus pour en ajouter</p>
+      {% endif %}
+    </div>
+
+    <!-- Lien synthèse -->
+    <div class="mb-4 text-center">
+      <a href="/attendance/meeting/{{ meeting.id }}/summary"
+         class="text-xs text-gray-400 hover:text-loge-600 transition-colors">
+        📊 Voir la synthèse complète de la tenue →
+      </a>
+    </div>
+
+    <!-- Bouton Enregistrer -->
+    <div class="sticky bottom-4 lg:bottom-0 flex gap-3">
+      <button type="submit"
+              class="flex-1 bg-loge-700 text-white py-3.5 rounded-xl text-sm font-semibold hover:bg-loge-800 active:scale-98 transition-all shadow-lg shadow-loge-700/30 flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+        </svg>
+        Enregistrer l'émargement
+      </button>
+      <button type="button"
+              @click="markAll('PRESENT')"
+              title="Marquer tous présents"
+              class="bg-green-100 text-green-700 px-4 py-3.5 rounded-xl text-sm font-semibold hover:bg-green-200 transition-colors">
+        Tous P
+      </button>
+    </div>
+  </form>
+
+</div>
+
+<!-- ═══════════════════════════════════════════════════
+     PANNEAU — Ajouter un maçon passant
+════════════════════════════════════════════════════ -->
+<div x-show="addVisitorOpen"
+     x-cloak
+     class="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-4"
+     @click.self="addVisitorOpen = false">
+
+  <!-- Overlay -->
+  <div class="absolute inset-0 bg-black/40" @click="addVisitorOpen = false"></div>
+
+  <!-- Panel -->
+  <div class="relative bg-white rounded-2xl shadow-2xl w-full max-w-md max-h-[90vh] overflow-y-auto z-10">
+    <div class="flex items-center justify-between px-5 py-4 border-b border-gray-100 sticky top-0 bg-white z-10">
+      <h3 class="font-semibold text-gray-900">Ajouter un maçon passant</h3>
+      <button @click="addVisitorOpen = false; clearSelection()"
+              class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <div class="px-5 py-4">
+
+      <!-- Recherche parmi les passants existants -->
+      <div class="mb-4">
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">
+          🔍 Passant déjà venu ? Rechercher
+        </label>
+        <div class="relative">
+          <input type="text"
+                 x-model="visitorSearch"
+                 @input="searchVisitors($event.target.value); selectedVisitor = null"
+                 placeholder="Nom, prénom ou loge…"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 pr-8">
+          <button x-show="visitorSearch" @click="clearSelection()"
+                  class="absolute right-2.5 top-1/2 -translate-y-1/2 text-gray-300 hover:text-gray-500">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </div>
+
+        <!-- Résultats de recherche -->
+        <div x-show="visitorResults.length > 0 && !selectedVisitor"
+             class="mt-1 border border-gray-200 rounded-xl overflow-hidden shadow-sm">
+          <template x-for="v in visitorResults" :key="v.id">
+            <button type="button"
+                    @click="selectVisitor(v)"
+                    class="w-full flex items-center gap-3 px-4 py-2.5 hover:bg-loge-50 text-left transition-colors border-b border-gray-50 last:border-0">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 text-loge-700"
+                   style="background:rgba(59,91,219,0.12);">
+                <span x-text="v.first_name[0] + v.last_name[0]"></span>
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900 truncate">
+                  <span x-text="(v.civility === 'S' ? 'S∴' : 'F∴') + ' ' + v.first_name + ' ' + v.last_name"></span>
+                  <span x-show="v.is_vm" class="ml-1 text-xs text-loge-600 font-semibold">V∴M∴</span>
+                </div>
+                <div class="text-xs text-gray-400 truncate" x-text="v.lodge_name + (v.orient_city ? ' · ' + v.orient_city : '')"></div>
+              </div>
+              <div x-show="v.visits >= 2"
+                   class="flex-shrink-0 text-xs text-loge-600 font-medium"
+                   x-text="v.visits + '×'"></div>
+            </button>
+          </template>
+        </div>
+
+        <!-- Passant sélectionné -->
+        <div x-show="selectedVisitor"
+             class="mt-2 flex items-center gap-3 bg-green-50 border border-green-200 rounded-xl px-4 py-2.5">
+          <svg class="w-4 h-4 text-green-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
+          </svg>
+          <span class="text-sm text-green-800 font-medium flex-1 min-w-0 truncate" x-text="visitorSearch"></span>
+          <button @click="clearSelection()" class="text-green-400 hover:text-green-700 text-xs flex-shrink-0">Changer</button>
+        </div>
+      </div>
+
+      <!-- Séparateur -->
+      <div class="flex items-center gap-3 mb-4">
+        <div class="flex-1 h-px bg-gray-200"></div>
+        <span class="text-xs text-gray-400 font-medium">OU NOUVEAU</span>
+        <div class="flex-1 h-px bg-gray-200"></div>
+      </div>
+
+      <!-- Formulaire nouveau visiteur (pré-rempli si sélectionné) -->
+      <form method="post" action="/attendance/meeting/{{ meeting.id }}/add-visitor" class="space-y-3">
+
+        <!-- Visiteur existant caché si sélectionné -->
+        <input type="hidden" name="visitor_id" :value="selectedVisitor ? selectedVisitor.id : 0">
+
+        <!-- Civilité -->
+        <div class="flex gap-2">
+          <label class="flex-1">
+            <input type="radio" name="civility" value="F" class="sr-only peer"
+                   :checked="newVisitor.civility === 'F'"
+                   @change="newVisitor.civility = 'F'">
+            <div class="text-center py-2 rounded-lg border cursor-pointer text-sm transition-all
+                        peer-checked:border-loge-500 peer-checked:bg-loge-50 peer-checked:text-loge-700 peer-checked:font-semibold
+                        border-gray-200 text-gray-500 hover:border-gray-300">F∴ Frère</div>
+          </label>
+          <label class="flex-1">
+            <input type="radio" name="civility" value="S" class="sr-only peer"
+                   :checked="newVisitor.civility === 'S'"
+                   @change="newVisitor.civility = 'S'">
+            <div class="text-center py-2 rounded-lg border cursor-pointer text-sm transition-all
+                        peer-checked:border-loge-500 peer-checked:bg-loge-50 peer-checked:text-loge-700 peer-checked:font-semibold
+                        border-gray-200 text-gray-500 hover:border-gray-300">S∴ Sœur</div>
+          </label>
+        </div>
+
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Prénom *</label>
+            <input type="text" name="first_name" x-model="newVisitor.first_name"
+                   :required="!selectedVisitor"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Nom *</label>
+            <input type="text" name="last_name" x-model="newVisitor.last_name"
+                   :required="!selectedVisitor"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Loge</label>
+          <input type="text" name="lodge_name" x-model="newVisitor.lodge_name"
+                 placeholder="Ex : Les Amis de la Vérité"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div>
+          <label class="block text-xs text-gray-500 mb-1">Orient (ville)</label>
+          <input type="text" name="orient_city" x-model="newVisitor.orient_city"
+                 placeholder="Ex : Paris, Lyon…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <label class="flex items-center gap-2 cursor-pointer select-none">
+          <input type="checkbox" name="is_vm" value="true"
+                 x-model="newVisitor.is_vm"
+                 class="rounded border-gray-300 text-loge-600 focus:ring-loge-500 w-4 h-4">
+          <span class="text-sm text-gray-700">Vénérable Maître en exercice (V∴M∴)</span>
+        </label>
+
+        <button type="submit"
+                class="w-full bg-loge-700 text-white py-3 rounded-xl text-sm font-semibold hover:bg-loge-800 transition-colors mt-2 flex items-center justify-center gap-2">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+          </svg>
+          <span x-text="selectedVisitor ? 'Ajouter ce passant à la tenue' : 'Créer et ajouter'"></span>
+        </button>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+// Données initiales injectées depuis Jinja2
+const INITIAL_MEMBERS = [
+  {% for m in active_members %}
+  {
+    id: {{ m.id }},
+    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}",
+    initials: "{{ m.first_name[0] }}{{ m.last_name[0] }}",
+    status: "{{ att_by_member[m.id].status.value if m.id in att_by_member else '' }}",
+    excuse: "{{ (att_by_member[m.id].excuse_reason or '') if m.id in att_by_member else '' }}",
+  },
+  {% endfor %}
+];
+
+function emargement() {
+  return {
+    members: [],
+    filter: 'ALL',
+
+    // ── Quick-add passant ─────────────────────────────────────────────────
+    addVisitorOpen: false,
+    visitorSearch: '',
+    visitorResults: [],
+    selectedVisitor: null,   // visiteur existant sélectionné
+    newVisitor: { civility: 'F', first_name: '', last_name: '', lodge_name: '', orient_city: '', is_vm: false },
+    visitorSearchTimer: null,
+
+    get counts() {
+      return {
+        PRESENT: this.members.filter(m => m.status === 'PRESENT').length,
+        EXCUSED: this.members.filter(m => m.status === 'EXCUSED').length,
+        ABSENT:  this.members.filter(m => m.status === 'ABSENT').length,
+        NONE:    this.members.filter(m => m.status === '').length,
+      };
+    },
+
+    get filteredMembers() {
+      if (this.filter === 'ALL') return this.members;
+      if (this.filter === 'NONE') return this.members.filter(m => m.status === '');
+      return this.members.filter(m => m.status === this.filter);
+    },
+
+    init() {
+      this.members = INITIAL_MEMBERS.map(m => ({ ...m }));
+      // Charger les passants assidus par défaut
+      this.searchVisitors('');
+    },
+
+    setStatus(member, status) {
+      member.status = member.status === status ? '' : status;
+    },
+
+    markAll(status) {
+      this.members.forEach(m => { m.status = status; });
+    },
+
+    async searchVisitors(q) {
+      clearTimeout(this.visitorSearchTimer);
+      this.visitorSearchTimer = setTimeout(async () => {
+        try {
+          const r = await fetch(`/attendance/api/visitors/search?q=${encodeURIComponent(q)}`);
+          this.visitorResults = await r.json();
+        } catch(e) { this.visitorResults = []; }
+      }, 250);
+    },
+
+    selectVisitor(v) {
+      this.selectedVisitor = v;
+      this.visitorSearch = `${v.first_name} ${v.last_name} — ${v.lodge_name}`;
+      this.visitorResults = [];
+      // Pré-remplir le form new au cas où on voudrait modifier
+      this.newVisitor = {
+        civility: v.civility,
+        first_name: v.first_name,
+        last_name: v.last_name,
+        lodge_name: v.lodge_name,
+        orient_city: v.orient_city,
+        is_vm: v.is_vm,
+      };
+    },
+
+    clearSelection() {
+      this.selectedVisitor = null;
+      this.visitorSearch = '';
+      this.newVisitor = { civility: 'F', first_name: '', last_name: '', lodge_name: '', orient_city: '', is_vm: false };
+    },
+  };
+}
+</script>
+{% endblock %}

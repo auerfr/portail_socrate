@@ -16,8 +16,9 @@ class Program(Base):
     month: Mapped[int]   = mapped_column(Integer)   # 1-12
     year: Mapped[int]    = mapped_column(Integer)
 
-    content_html: Mapped[Optional[str]] = mapped_column(Text)  # contenu généré
-    pdf_path: Mapped[Optional[str]]     = mapped_column(String(500))
+    content_html: Mapped[Optional[str]]    = mapped_column(Text)   # message du VM
+    next_meetings_text: Mapped[Optional[str]] = mapped_column(Text)  # "À noter" — tenues à venir hors programme
+    pdf_path: Mapped[Optional[str]]        = mapped_column(String(500))
 
     # Envoi
     sent_at: Mapped[Optional[datetime]]      = mapped_column(DateTime)

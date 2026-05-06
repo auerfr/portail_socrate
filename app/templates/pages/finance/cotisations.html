@@ -15,7 +15,22 @@
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Cotisations</h1>
       {% if selected_year %}
-      <p class="text-sm text-gray-500">Année {{ selected_year.label }}</p>
+      <p class="text-sm text-gray-500 flex items-center gap-2">
+        Année {{ selected_year.label }}
+        {% if cfg %}
+        {% if cfg.tier_selection_open %}
+        <span class="inline-flex items-center gap-1 text-xs bg-loge-100 text-loge-700 px-2 py-0.5 rounded-full font-medium">
+          <span class="w-1.5 h-1.5 rounded-full bg-green-500 inline-block"></span>
+          Appel ouvert
+        </span>
+        {% else %}
+        <span class="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full">
+          <span class="w-1.5 h-1.5 rounded-full bg-gray-400 inline-block"></span>
+          Appel fermé
+        </span>
+        {% endif %}
+        {% endif %}
+      </p>
       {% endif %}
     </div>
 
@@ -33,6 +48,15 @@
       </form>
 
       {% if is_admin and selected_year %}
+      <!-- Resynchroniser les montants sur le barème actuel -->
+      <form method="post" action="/finance/cotisations/resync"
+            onsubmit="return confirm('Recalculer tous les montants PENDING/PARTIEL sur le barème actuel ? Les cotisations soldées ne seront pas touchées.')">
+        <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+        <button type="submit"
+                class="border border-amber-200 text-amber-700 px-3 py-1.5 rounded-lg text-sm hover:bg-amber-50 font-medium">
+          🔄 Recalculer les montants
+        </button>
+      </form>
       <!-- Initialiser tout en T3 -->
       <form method="post" action="/finance/cotisations/assign-all"
             onsubmit="return confirm('Assigner T3 à tous les membres non affectés ?')">
@@ -55,6 +79,63 @@
     Aucun membre actif.
   </div>
   {% else %}
+
+  <!-- Bandeau appel ouvert (guide trésorier) -->
+  {% if is_admin and cfg and cfg.tier_selection_open %}
+  <div class="bg-loge-50 border border-loge-200 rounded-xl px-5 py-3 mb-4 flex items-start gap-3">
+    <span class="text-loge-600 text-xl mt-0.5">📢</span>
+    <div class="flex-1 text-sm text-loge-800">
+      <span class="font-semibold">Appel à tranche ouvert</span> — les membres sans cotisation peuvent choisir leur tranche via "Ma cotisation".
+      <br>
+      <span class="text-loge-600 text-xs">
+        Pour modifier la tranche d'un membre (y compris la vôtre) : cliquez sur le bouton <strong>Tranche</strong> sur sa ligne ci-dessous.
+        L'appel n'affecte que les membres <em>sans tranche assignée</em>.
+      </span>
+    </div>
+    <form method="post" action="/finance/cotisations/toggle-appel">
+      <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+      <button type="submit"
+              class="shrink-0 border border-red-300 text-red-600 px-3 py-1.5 rounded-lg text-xs font-medium hover:bg-red-50">
+        🔒 Clore l'appel
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- Vérification cohérence budget / cotisations -->
+  {% if cfg and tiers %}
+  {% set capitation = cfg.national_capitation_rate|float + cfg.regional_capitation_rate|float %}
+  {% set sum_contribs = namespace(v=0) %}
+  {% set has_desync = namespace(flag=false) %}
+  {% for m in members_list %}
+    {% set contrib = contributions_map.get(m.id) %}
+    {% if contrib %}
+      {% set sum_contribs.v = sum_contribs.v + contrib.total_amount|float %}
+      {% set tn_chk = (tiers | selectattr('id', 'equalto', contrib.tier_id) | list | first) %}
+      {% if tn_chk %}
+        {% set expected_chk = tn_chk.amount|float + capitation %}
+        {% if (contrib.total_amount|float - expected_chk)|abs > 0.005 %}
+          {% set has_desync.flag = true %}
+        {% endif %}
+      {% endif %}
+    {% endif %}
+  {% endfor %}
+  {% if has_desync.flag %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-5 py-3 mb-4 flex items-center justify-between gap-4">
+    <div class="text-sm text-amber-800">
+      <span class="font-semibold">⚠ Cotisations désynchronisées</span> — certains montants ne correspondent plus au barème actuel.
+      Cliquez sur <strong>Recalculer les montants</strong> pour les remettre à jour.
+    </div>
+    <form method="post" action="/finance/cotisations/resync">
+      <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+      <button type="submit"
+              class="shrink-0 bg-amber-600 text-white px-3 py-1.5 rounded-lg text-xs font-semibold hover:bg-amber-700">
+        🔄 Recalculer
+      </button>
+    </form>
+  </div>
+  {% endif %}
+  {% endif %}
 
   <!-- Filtre statut -->
   <div class="flex gap-2 mb-4 flex-wrap">
@@ -139,9 +220,24 @@
               {% endif %}
             </td>
 
-            <!-- Total dû -->
+            <!-- Total dû (avec détection désynchronisation barème) -->
             <td class="text-right px-3 py-3 font-medium text-gray-800 tabular-nums">
-              {% if contrib %}{{ "%.2f"|format(contrib.total_amount) }} €{% else %}—{% endif %}
+              {% if contrib %}
+              {% set tn_amount = (tiers | selectattr('id', 'equalto', contrib.tier_id) | list | first) %}
+              {% if tn_amount and cfg %}
+                {% set expected = tn_amount.amount|float + cfg.national_capitation_rate|float + cfg.regional_capitation_rate|float %}
+                {% set stored = contrib.total_amount|float %}
+                {% if (stored - expected)|abs > 0.005 %}
+                <span class="text-amber-600" title="⚠ Montant désynchronisé — barème actuel : {{ '%.2f'|format(expected) }} €. Utilisez 'Recalculer les montants'.">
+                  {{ "%.2f"|format(contrib.total_amount|float) }} € <span class="text-xs">⚠</span>
+                </span>
+                {% else %}
+                {{ "%.2f"|format(contrib.total_amount|float) }} €
+                {% endif %}
+              {% else %}
+              {{ "%.2f"|format(contrib.total_amount|float) }} €
+              {% endif %}
+              {% else %}—{% endif %}
             </td>
 
             <!-- Encaissé -->
@@ -166,9 +262,15 @@
               {% if not contrib %}
               <span class="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-500">Non affecté</span>
               {% elif contrib.status.value == 'PAID' %}
-              <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✓ Soldé</span>
+              <div class="flex flex-col items-center gap-0.5">
+                <span class="text-xs px-2 py-0.5 rounded-full bg-green-100 text-green-700 font-medium">✓ Soldé</span>
+                {% if contrib.quitus %}<span class="text-xs text-green-600">📜 Quitus</span>{% endif %}
+              </div>
               {% elif contrib.status.value == 'EXEMPT' %}
-              <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Exempté</span>
+              <div class="flex flex-col items-center gap-0.5">
+                <span class="text-xs px-2 py-0.5 rounded-full bg-purple-100 text-purple-700 font-medium">Exempté</span>
+                {% if contrib.quitus %}<span class="text-xs text-purple-600">📜 Quitus</span>{% endif %}
+              </div>
               {% elif contrib.status.value == 'PARTIAL' %}
               <span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700 font-medium">Partiel</span>
               {% else %}
@@ -199,29 +301,44 @@
                 {% if contrib and contrib.status.value not in ['PAID','EXEMPT'] %}
                 <form method="post" action="/finance/cotisations/{{ contrib.id }}/exempt"
                       onsubmit="return confirm('Marquer ce frère comme exempté ?')">
-                  <button type="submit" class="text-xs text-gray-400 hover:text-purple-600 px-1 py-1">⊘</button>
+                  <button type="submit" class="text-xs text-gray-400 hover:text-purple-600 px-1 py-1" title="Exempter">⊘</button>
+                </form>
+                {% endif %}
+
+                <!-- Quitus -->
+                {% if contrib and contrib.status.value in ['PAID','EXEMPT'] and not contrib.quitus %}
+                <form method="post" action="/finance/cotisations/{{ contrib.id }}/quitus"
+                      onsubmit="return confirm('Émettre le quitus pour ce frère ?')">
+                  <button type="submit" class="text-xs text-gray-400 hover:text-green-600 px-1 py-1" title="Émettre quitus">📜</button>
                 </form>
                 {% endif %}
               </div>
 
               <!-- Form affecter tranche (dropdown inline) -->
               <div x-show="openAssign" x-cloak
-                   class="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50 text-xs space-y-2">
+                   class="mt-2 p-3 border border-loge-200 rounded-lg bg-loge-50 text-xs space-y-2">
+                <p class="text-loge-700 font-medium mb-1">
+                  Modifier la tranche
+                  {% if contrib and contrib.status.value == 'PARTIAL' %}
+                  <span class="text-amber-600 font-normal ml-1">— {{ "%.2f"|format(contrib.amount_paid) }} € déjà versé conservé</span>
+                  {% endif %}
+                </p>
                 <form method="post" action="/finance/cotisations/assign" class="space-y-2">
                   <input type="hidden" name="year_id" value="{{ selected_year.id }}">
                   <input type="hidden" name="member_id" value="{{ m.id }}">
                   <div class="flex gap-1 flex-wrap">
                     {% for tier in tiers %}
-                    <label class="cursor-pointer">
+                    {% set cap = cfg.national_capitation_rate|float + cfg.regional_capitation_rate|float if cfg else 0 %}
+                    <label class="cursor-pointer" title="T{{ tier.tier_number }} — {{ '%.2f'|format(tier.amount|float + cap) }} €">
                       <input type="radio" name="tier_number" value="{{ tier.tier_number }}"
                              {% if contrib %}
                              {% set cur_tier = tiers | selectattr('id','equalto',contrib.tier_id)|list|first %}
                              {% if cur_tier and cur_tier.tier_number == tier.tier_number %}checked{% endif %}
                              {% elif tier.tier_number == 3 %}checked{% endif %}
                              class="sr-only peer">
-                      <span class="inline-flex items-center justify-center w-8 h-8 rounded-full border border-gray-200
-                                   peer-checked:border-loge-600 peer-checked:bg-loge-100 peer-checked:text-loge-800
-                                   text-gray-600 hover:bg-gray-100 font-bold transition-colors">
+                      <span class="inline-flex items-center justify-center w-9 h-9 rounded-full border-2 border-gray-200
+                                   peer-checked:border-loge-600 peer-checked:bg-loge-600 peer-checked:text-white
+                                   text-gray-600 hover:bg-gray-100 font-bold transition-colors text-xs">
                         T{{ tier.tier_number }}
                       </span>
                     </label>
@@ -229,7 +346,7 @@
                   </div>
                   <button type="submit"
                           class="w-full bg-loge-700 text-white py-1.5 rounded text-xs font-semibold hover:bg-loge-800">
-                    Valider
+                    Valider la tranche
                   </button>
                 </form>
               </div>

@@ -1,150 +1,294 @@
 {% extends "base.html" %}
-{% block title %}Finance — Portail Socrate{% endblock %}
+{% block title %}Trésorerie — Portail Socrate{% endblock %}
 
 {% block content %}
-<div class="p-4 lg:p-8 max-w-5xl mx-auto">
+<div class="p-4 lg:p-8 max-w-6xl mx-auto">
 
-  <!-- Breadcrumb -->
-  <nav class="text-sm text-gray-500 mb-4">
-    <span class="text-gray-800 font-medium">Finance</span>
-  </nav>
-
-  <div class="flex items-center justify-between mb-6">
+  <!-- En-tête -->
+  <div class="flex flex-wrap items-start justify-between gap-3 mb-6">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">Finance</h1>
-      {% if year %}
-      <p class="text-sm text-gray-500">Année maçonnique {{ year.label }}</p>
-      {% endif %}
+      <h1 class="text-2xl font-bold text-gray-900">Trésorerie</h1>
+      <p class="text-sm text-gray-500 mt-1">
+        {% if year %}{{ year.label }}{% else %}Aucune année maçonnique active{% endif %}
+      </p>
     </div>
-    {% if is_admin %}
-    <div class="flex gap-2">
-      <a href="/finance/budget" class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50">
+    {% if year %}
+    <div class="flex flex-wrap gap-2">
+      <a href="/finance/budget" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
         📊 Budget
       </a>
-      <a href="/finance/cotisations" class="inline-flex items-center gap-2 bg-loge-700 text-white px-3 py-2 rounded-lg text-sm hover:bg-loge-800">
-        💰 Cotisations
+      <a href="/finance/cotisations" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+        💳 Cotisations
       </a>
+      <a href="/finance/transactions" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+        ↕ Mouvements
+      </a>
+      <a href="/finance/bilan" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+        📋 Bilan
+      </a>
+      {% if is_admin %}
+      <a href="/finance/cotisations/export-csv" class="border border-loge-200 text-loge-700 px-3 py-1.5 rounded-lg text-sm hover:bg-loge-50">
+        ⬇ Export CSV
+      </a>
+      {% endif %}
     </div>
     {% endif %}
   </div>
 
   {% if not year %}
-  <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-800">
-    Aucune année maçonnique configurée. Lancez <code>python seed.py</code>.
+  <div class="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+    <p class="font-medium text-gray-500">Aucune année maçonnique en cours.</p>
   </div>
   {% else %}
 
   <!-- KPIs -->
-  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div class="text-xs text-gray-500 mb-1">Membres actifs</div>
-      <div class="text-2xl font-bold text-gray-900">{{ stats.active_count }}</div>
-      {% if stats.unassigned > 0 %}
-      <div class="text-xs text-amber-600 mt-1">{{ stats.unassigned }} sans cotisation</div>
-      {% else %}
-      <div class="text-xs text-green-600 mt-1">Tous assignés</div>
-      {% endif %}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-6">
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Cotisations dues</div>
+      <div class="text-2xl font-bold text-gray-900">{{ "%.2f"|format(stats.total_due) }} €</div>
+      <div class="text-xs text-gray-400 mt-1">{{ stats.active_count }} membres actifs</div>
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div class="text-xs text-gray-500 mb-1">Total attendu</div>
-      <div class="text-2xl font-bold text-gray-900">{{ "%.0f"|format(stats.total_due) }} €</div>
-      <div class="text-xs text-gray-400 mt-1">Budget: {{ "%.0f"|format(stats.total_budget) }} €</div>
-    </div>
-
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div class="text-xs text-gray-500 mb-1">Encaissé</div>
-      <div class="text-2xl font-bold text-green-700">{{ "%.0f"|format(stats.total_paid) }} €</div>
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wide mb-1">Cotisations encaissées</div>
+      <div class="text-2xl font-bold text-green-600">{{ "%.2f"|format(stats.total_paid) }} €</div>
       {% if stats.total_due > 0 %}
-      <div class="text-xs text-gray-400 mt-1">
-        {{ "%.0f"|format(stats.total_paid / stats.total_due * 100) }}% du total
+      <div class="text-xs text-gray-400 mt-1">{{ ((stats.total_paid / stats.total_due) * 100)|round|int }}%</div>
+      {% endif %}
+    </div>
+
+    <div class="bg-white rounded-xl shadow-sm border border-red-100 p-4 border">
+      <div class="text-xs text-red-500 uppercase tracking-wide mb-1">Reste à percevoir</div>
+      <div class="text-2xl font-bold text-red-600">{{ "%.2f"|format(stats.total_remaining) }} €</div>
+      {% if stats.late_count > 0 %}
+      <div class="mt-1">
+        <span class="inline-block bg-red-100 text-red-700 text-xs font-semibold rounded-full px-2 py-0.5">
+          {{ stats.late_count }} membre{{ 's' if stats.late_count > 1 }} en retard
+        </span>
       </div>
       {% endif %}
     </div>
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <div class="text-xs text-gray-500 mb-1">Reste à encaisser</div>
-      <div class="text-2xl font-bold {% if stats.total_remaining > 0 %}text-red-600{% else %}text-green-700{% endif %}">
-        {{ "%.0f"|format(stats.total_remaining) }} €
+    <div class="bg-white rounded-xl shadow-sm border border-blue-100 p-4 border">
+      <div class="text-xs text-blue-500 uppercase tracking-wide mb-1">Trésorerie théorique</div>
+      <div class="text-2xl font-bold text-blue-700">{{ "%.2f"|format(stats.theoretical_treasury) }} €</div>
+      <div class="text-xs text-gray-400 mt-1">
+        Initial {{ "%.0f"|format(stats.initial_treasury) }} € + encaissements
       </div>
-      <div class="text-xs text-gray-400 mt-1">{{ stats.pending_count }} en attente</div>
+    </div>
+
+  </div>
+
+  <!-- Ligne 2 KPIs -->
+  <div class="grid grid-cols-3 gap-4 mb-6 text-sm">
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between">
+      <span class="text-gray-500">Budget prévu</span>
+      <span class="font-semibold text-gray-800">{{ "%.2f"|format(stats.total_budget) }} €</span>
+    </div>
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between">
+      <span class="text-gray-500">Dépenses (mouvements)</span>
+      <span class="font-semibold text-red-600">{{ "%.2f"|format(stats.total_expense) }} €</span>
+    </div>
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between">
+      <span class="text-gray-500">Avances (sur-paiements)</span>
+      <span class="font-semibold text-purple-600">{{ "%.2f"|format(stats.total_advances) }} €</span>
     </div>
   </div>
 
-  <!-- Barre de progression -->
-  {% if stats.total_due > 0 %}
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 mb-6">
-    <div class="flex items-center justify-between mb-2">
-      <span class="text-sm font-semibold text-gray-700">Progression du recouvrement</span>
-      <span class="text-sm text-gray-500">{{ stats.paid_count }} / {{ stats.active_count }} membres</span>
-    </div>
-    {% set pct = (stats.total_paid / stats.total_due * 100) | round | int %}
-    <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
-      <div class="h-3 rounded-full transition-all
-                  {% if pct >= 90 %}bg-green-500{% elif pct >= 60 %}bg-loge-600{% else %}bg-amber-500{% endif %}"
-           style="width: {{ [pct, 100]|min }}%"></div>
-    </div>
-    <div class="flex justify-between text-xs text-gray-400 mt-1">
-      <span>0 €</span>
-      <span>{{ "%.0f"|format(stats.total_due) }} €</span>
-    </div>
-  </div>
-  {% endif %}
+  <!-- Contenu principal : Top retardataires + tableau membres -->
+  <div class="grid lg:grid-cols-4 gap-6">
 
-  <!-- Détail des tranches -->
-  {% if cfg and cfg.tiers %}
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
-    <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
-      <h2 class="text-sm font-semibold text-gray-700">Barème {{ year.label }}</h2>
-    </div>
-    <div class="divide-y divide-gray-50">
-      {% set tiers_sorted = cfg.tiers | sort(attribute='tier_number') %}
-      {% for tier in tiers_sorted %}
-      <div class="flex items-center gap-4 px-5 py-3">
-        <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-800 text-xs font-bold flex items-center justify-center flex-shrink-0">
-          T{{ tier.tier_number }}
+    <!-- Top 10 retardataires -->
+    {% if top_late %}
+    <div class="lg:col-span-1">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden sticky top-4">
+        <div class="px-4 py-3 border-b border-gray-100 bg-red-50">
+          <h2 class="text-sm font-semibold text-red-800">Top retardataires</h2>
         </div>
-        <div class="flex-1">
-          <div class="text-sm font-medium text-gray-800">{{ tier_labels[tier.tier_number] }}</div>
-          <div class="text-xs text-gray-400">Coefficient ×{{ "%.1f"|format(tier.coefficient) }}</div>
-        </div>
-        <div class="text-right">
-          <div class="text-sm font-semibold text-gray-900">{{ "%.0f"|format(tier.amount) }} €</div>
-          <div class="text-xs text-gray-400">+ {{ "%.0f"|format(cfg.national_capitation_rate + cfg.regional_capitation_rate) }} € capitation</div>
-        </div>
-        <div class="text-right w-20">
-          <div class="text-sm font-bold text-loge-700">
-            {{ "%.0f"|format(tier.amount + cfg.national_capitation_rate + cfg.regional_capitation_rate) }} €
+        <div class="divide-y divide-gray-50">
+          {% for item in top_late %}
+          <div class="px-4 py-2.5 flex items-center justify-between">
+            <span class="text-sm text-gray-800 truncate">
+              {{ item.member.last_name }} {{ item.member.first_name[:1] }}.
+            </span>
+            <span class="text-sm font-semibold text-red-600 tabular-nums ml-2 shrink-0">
+              {{ "%.0f"|format(item.remaining) }} €
+            </span>
           </div>
-          <div class="text-xs text-gray-400">total</div>
+          {% endfor %}
+        </div>
+        <div class="px-4 py-2.5 bg-gray-50 border-t border-gray-100">
+          <a href="/finance/cotisations/export-csv" class="text-xs text-loge-700 hover:underline">
+            ⬇ Exporter CSV
+          </a>
         </div>
       </div>
-      {% endfor %}
     </div>
-    <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500">
-      T3 de référence : <strong>{{ "%.2f"|format(cfg.reference_amount) }} €</strong>
-      — Capitation nationale : {{ "%.2f"|format(cfg.national_capitation_rate) }} €
-      — Capitation régionale : {{ "%.2f"|format(cfg.regional_capitation_rate) }} €
+    {% endif %}
+
+    <!-- Tableau état des comptes -->
+    <div class="{{ 'lg:col-span-3' if top_late else 'lg:col-span-4' }}">
+
+      <!-- Filtres + recherche -->
+      <div class="flex flex-wrap items-center gap-3 mb-3">
+        <div class="flex gap-1">
+          <a href="/finance/?status_filter=all{% if search %}&search={{ search }}{% endif %}"
+             class="px-3 py-1.5 rounded-lg text-xs font-medium border
+                    {% if status_filter == 'all' %}bg-gray-800 text-white border-gray-800{% else %}bg-white text-gray-600 border-gray-200 hover:border-gray-400{% endif %}">
+            Tous ({{ stats.active_count }})
+          </a>
+          <a href="/finance/?status_filter=retard{% if search %}&search={{ search }}{% endif %}"
+             class="px-3 py-1.5 rounded-lg text-xs font-medium border
+                    {% if status_filter == 'retard' %}bg-red-500 text-white border-red-500{% else %}bg-white text-gray-600 border-gray-200 hover:border-red-300{% endif %}">
+            Retard ({{ stats.late_count }})
+          </a>
+          <a href="/finance/?status_filter=ajour{% if search %}&search={{ search }}{% endif %}"
+             class="px-3 py-1.5 rounded-lg text-xs font-medium border
+                    {% if status_filter == 'ajour' %}bg-green-600 text-white border-green-600{% else %}bg-white text-gray-600 border-gray-200 hover:border-green-300{% endif %}">
+            À jour ({{ stats.paid_count }})
+          </a>
+        </div>
+
+        <form method="get" class="flex-1 max-w-xs">
+          <input type="hidden" name="status_filter" value="{{ status_filter }}">
+          <input type="text" name="search" value="{{ search }}" placeholder="Recherche membre…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </form>
+      </div>
+
+      <!-- Tableau -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+        {% if member_states %}
+        <div class="overflow-x-auto">
+          <table class="w-full text-sm">
+            <thead>
+              <tr class="border-b border-gray-100 bg-gray-50">
+                <th class="text-left px-5 py-3 font-medium text-xs text-gray-500">Membre</th>
+                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Dû</th>
+                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Payé</th>
+                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Solde</th>
+                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Reste</th>
+                {% if is_admin %}
+                <th class="px-4 py-3 font-medium text-xs text-gray-500">Actions</th>
+                {% endif %}
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              {% for ms in member_states %}
+              <tr class="hover:bg-gray-50 {% if ms.is_late %}bg-red-50/30{% elif ms.is_ok and ms.contrib %}bg-green-50/20{% endif %}">
+
+                <!-- Membre -->
+                <td class="px-5 py-3">
+                  <a href="/members/{{ ms.member.id }}" class="font-medium text-gray-800 hover:text-loge-700">
+                    {{ ms.member.last_name }} {{ ms.member.first_name }}
+                  </a>
+                  {% if ms.tier %}
+                  <span class="ml-2 text-xs text-gray-400">T{{ ms.tier.tier_number }}</span>
+                  {% elif not ms.contrib %}
+                  <span class="ml-2 text-xs text-amber-500">non assigné</span>
+                  {% endif %}
+                </td>
+
+                <!-- Dû -->
+                <td class="px-3 py-3 text-right tabular-nums text-gray-700">
+                  {% if ms.contrib %}{{ "%.2f"|format(ms.due) }} €{% else %}<span class="text-gray-300">—</span>{% endif %}
+                </td>
+
+                <!-- Payé -->
+                <td class="px-3 py-3 text-right tabular-nums text-green-600 font-medium">
+                  {% if ms.contrib %}{{ "%.2f"|format(ms.paid) }} €{% else %}<span class="text-gray-300">—</span>{% endif %}
+                </td>
+
+                <!-- Solde (négatif si en retard) -->
+                <td class="px-3 py-3 text-right tabular-nums font-semibold">
+                  {% if ms.contrib %}
+                  {% set solde = ms.paid - ms.due %}
+                  <span class="{% if solde < 0 %}text-red-600{% elif solde > 0 %}text-purple-600{% else %}text-green-600{% endif %}">
+                    {% if solde >= 0 %}+{% endif %}{{ "%.2f"|format(solde) }} €
+                  </span>
+                  {% else %}<span class="text-gray-300">—</span>{% endif %}
+                </td>
+
+                <!-- Reste à payer -->
+                <td class="px-3 py-3 text-right tabular-nums">
+                  {% if ms.contrib %}
+                    {% if ms.contrib.status.value == 'EXEMPT' %}
+                    <span class="text-xs text-purple-600 font-medium">Exempté</span>
+                    {% elif ms.contrib.status.value == 'PAID' or ms.remaining <= 0.005 %}
+                    <span class="text-xs text-green-600 font-semibold">✓ Soldé</span>
+                    {% else %}
+                    <span class="font-bold text-red-600">{{ "%.2f"|format(ms.remaining) }} €</span>
+                    {% endif %}
+                  {% else %}
+                  <span class="text-xs text-gray-400">—</span>
+                  {% endif %}
+                </td>
+
+                <!-- Actions -->
+                {% if is_admin %}
+                <td class="px-4 py-3">
+                  <div class="flex gap-1">
+                    <a href="/members/{{ ms.member.id }}"
+                       class="text-xs border border-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">
+                      Fiche
+                    </a>
+                    {% if ms.contrib %}
+                    <a href="/finance/cotisations?year_id={{ year.id }}"
+                       class="text-xs border border-loge-200 text-loge-700 px-2 py-1 rounded hover:bg-loge-50">
+                      Paiement
+                    </a>
+                    {% else %}
+                    <a href="/finance/cotisations"
+                       class="text-xs border border-amber-200 text-amber-700 px-2 py-1 rounded hover:bg-amber-50">
+                      Assigner
+                    </a>
+                    {% endif %}
+                  </div>
+                </td>
+                {% endif %}
+
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+        {% else %}
+        <div class="px-5 py-12 text-center text-gray-400 text-sm">
+          {% if search %}Aucun membre trouvé pour "{{ search }}".
+          {% else %}Aucun membre actif.{% endif %}
+        </div>
+        {% endif %}
+      </div>
     </div>
+
+  </div>
+
+  <!-- Config trésorerie initiale (admin) -->
+  {% if is_admin and cfg %}
+  <div class="mt-6 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <h2 class="font-semibold text-gray-800 mb-3">Trésorerie initiale (report d'exercice précédent)</h2>
+    <form method="post" action="/finance/config/update" class="flex flex-wrap gap-3 items-end">
+      <input type="hidden" name="year_id" value="{{ year.id }}">
+      <input type="hidden" name="auto_t3" value="on">
+      <input type="hidden" name="national_capitation" value="{{ cfg.national_capitation_rate }}">
+      <input type="hidden" name="regional_capitation" value="{{ cfg.regional_capitation_rate }}">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Solde initial (€)</label>
+        <input type="number" name="initial_treasury" step="0.01"
+               value="{{ "%.2f"|format(cfg.initial_treasury or 0) }}"
+               class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-40 focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
+        Enregistrer
+      </button>
+      <p class="text-xs text-gray-400 self-center">
+        Trésorerie théorique = {{ "%.2f"|format(stats.initial_treasury) }} € initial + {{ "%.2f"|format(stats.total_paid) }} € cotisations + {{ "%.2f"|format(stats.other_income) }} € autres recettes − {{ "%.2f"|format(stats.total_expense) }} € dépenses = <strong>{{ "%.2f"|format(stats.theoretical_treasury) }} €</strong>
+      </p>
+    </form>
   </div>
   {% endif %}
 
-  <!-- Raccourcis admin -->
-  {% if is_admin %}
-  <div class="grid sm:grid-cols-2 gap-4">
-    <a href="/finance/budget" class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:border-loge-300 transition-colors group">
-      <div class="text-2xl mb-2">📊</div>
-      <div class="font-semibold text-gray-800 group-hover:text-loge-700">Budget prévisionnel</div>
-      <div class="text-sm text-gray-500 mt-1">Saisir les charges, calculer le T3</div>
-    </a>
-    <a href="/finance/cotisations" class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 hover:border-loge-300 transition-colors group">
-      <div class="text-2xl mb-2">💰</div>
-      <div class="font-semibold text-gray-800 group-hover:text-loge-700">Gérer les cotisations</div>
-      <div class="text-sm text-gray-500 mt-1">Affecter les tranches, enregistrer les paiements</div>
-    </a>
-  </div>
-  {% endif %}
-
-  {% endif %}
+  {% endif %}{# year #}
 </div>
 {% endblock %}

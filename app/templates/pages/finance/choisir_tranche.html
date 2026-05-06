@@ -1,0 +1,174 @@
+{% extends "base.html" %}
+{% block title %}Ma cotisation — Finance{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-2xl mx-auto">
+
+  <div class="mb-6">
+    <h1 class="text-2xl font-bold text-gray-900">Ma cotisation {{ year.label if year else '' }}</h1>
+    <p class="text-sm text-gray-500 mt-1">Barème de solidarité — {{ year.label if year else '' }}</p>
+  </div>
+
+  {# ── CAS 1 : Tranche déjà choisie (figée) ───────────────────────────────── #}
+  {% if my_contrib %}
+  <div class="{% if my_contrib.status.value in ['PAID', 'EXEMPT'] %}bg-green-50 border-green-200
+              {% else %}bg-loge-50 border-loge-200{% endif %} border rounded-xl p-6 mb-6 flex items-center gap-4">
+    <div class="text-3xl">
+      {% if my_contrib.status.value == 'PAID' %}✅
+      {% elif my_contrib.status.value == 'EXEMPT' %}🟣
+      {% else %}🔒{% endif %}
+    </div>
+    <div>
+      <div class="font-semibold {% if my_contrib.status.value in ['PAID', 'EXEMPT'] %}text-green-800{% else %}text-loge-800{% endif %}">
+        {% if my_contrib.status.value == 'PAID' %}Cotisation soldée
+        {% elif my_contrib.status.value == 'EXEMPT' %}Cotisation exemptée
+        {% elif my_contrib.status.value == 'PARTIAL' %}Paiement en cours
+        {% else %}Tranche confirmée — en attente de règlement{% endif %}
+      </div>
+      <div class="text-sm mt-1 {% if my_contrib.status.value in ['PAID', 'EXEMPT'] %}text-green-700{% else %}text-loge-600{% endif %}">
+        Tranche {{ my_tier.tier_number if my_tier else '?' }} — {{ my_tier.label if my_tier else '' }} —
+        {{ "%.2f"|format(my_contrib.total_amount|float) }} €
+        {% if my_contrib.status.value == 'PARTIAL' %}
+        · <span class="text-amber-600 font-medium">{{ "%.2f"|format(my_contrib.amount_paid) }} € versé</span>
+        · Reste : {{ "%.2f"|format(my_contrib.amount_remaining) }} €
+        {% endif %}
+      </div>
+      <div class="text-xs text-gray-400 mt-1">
+        Votre tranche est fixée pour cette année. Contactez le trésorier pour toute modification.
+      </div>
+    </div>
+  </div>
+
+  {# ── CAS 2 : Appel fermé, pas encore de cotisation ───────────────────────── #}
+  {% elif not appel_open %}
+  <div class="bg-gray-50 border border-gray-200 rounded-xl p-8 text-center mb-6">
+    <div class="text-4xl mb-3">🕐</div>
+    <div class="font-semibold text-gray-700 mb-1">La sélection de tranche n'est pas encore ouverte</div>
+    <p class="text-sm text-gray-500 max-w-sm mx-auto">
+      Le trésorier n'a pas encore lancé l'appel à tranche pour {{ year.label if year else 'cette année' }}.
+      Vous serez notifié quand la sélection sera ouverte.
+    </p>
+  </div>
+
+  <!-- Afficher quand même le barème pour information -->
+  {% if tiers and cfg and cfg.reference_amount %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden mb-6">
+    <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+      <h2 class="text-sm font-semibold text-gray-600">Barème de référence {{ year.label if year else '' }}</h2>
+    </div>
+    {% set capitation_total = cfg.national_capitation_rate|float + cfg.regional_capitation_rate|float %}
+    {% set badge_colors = ['bg-blue-100 text-blue-700', 'bg-teal-100 text-teal-700', 'bg-loge-100 text-loge-800', 'bg-orange-100 text-orange-700', 'bg-red-100 text-red-700'] %}
+    {% set text_colors = ['text-blue-700', 'text-teal-700', 'text-loge-700', 'text-orange-700', 'text-red-700'] %}
+    <div class="divide-y divide-gray-50">
+      {% for tier in tiers %}
+      {% set i = loop.index0 %}
+      <div class="flex items-center justify-between px-5 py-3">
+        <div class="flex items-center gap-3">
+          <span class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold {{ badge_colors[i] }}">
+            T{{ tier.tier_number }}
+          </span>
+          <div>
+            <div class="text-sm font-medium text-gray-800">{{ tier_labels[tier.tier_number] }}</div>
+            <div class="text-xs text-gray-400">Coefficient ×{{ "%.1f"|format(tier.coefficient|float) }}</div>
+          </div>
+        </div>
+        <div class="text-right">
+          <div class="font-bold {{ text_colors[i] }}">{{ "%.2f"|format(tier.amount|float + capitation_total) }} €</div>
+          <div class="text-xs text-gray-400">dont {{ "%.2f"|format(capitation_total) }} € capitation</div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── CAS 3 : Appel ouvert — formulaire de sélection ──────────────────────── #}
+  {% else %}
+
+  <!-- Bandeau appel ouvert -->
+  <div class="bg-loge-50 border border-loge-200 rounded-xl px-5 py-3 mb-6 flex items-center gap-3">
+    <span class="text-loge-600 text-xl">📢</span>
+    <div>
+      <div class="text-sm font-semibold text-loge-800">L'appel à tranche est ouvert</div>
+      <div class="text-xs text-loge-600">Choisissez votre tranche avant la clôture de l'appel.</div>
+    </div>
+  </div>
+
+  <!-- Explication du barème -->
+  <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 mb-6 text-sm text-blue-800 space-y-1">
+    <p class="font-semibold">Comment fonctionne le barème de solidarité ?</p>
+    <p>Le budget de la loge est réparti entre tous selon 5 tranches. T3 est la référence calculée depuis le budget. Les autres tranches sont pondérées par coefficient :</p>
+    <ul class="list-disc list-inside mt-1 space-y-0.5 text-blue-700">
+      <li>T1 (×0,4) — Situation très contrainte</li>
+      <li>T2 (×0,7) — Situation modeste</li>
+      <li>T3 (×1,0) — Référence</li>
+      <li>T4 (×1,3) — Situation confortable</li>
+      <li>T5 (×1,6) — Situation très confortable</li>
+    </ul>
+    <p class="text-blue-600 mt-1">Votre choix est personnel et confidentiel — seul le trésorier en a connaissance.</p>
+  </div>
+
+  <!-- Formulaire de sélection -->
+  <form method="post" action="/finance/cotisations/choisir">
+    <div class="space-y-3 mb-6">
+      {% set colors = [
+        'border-blue-200 hover:border-blue-400 peer-checked:border-blue-500 peer-checked:bg-blue-50',
+        'border-teal-200 hover:border-teal-400 peer-checked:border-teal-500 peer-checked:bg-teal-50',
+        'border-loge-200 hover:border-loge-400 peer-checked:border-loge-500 peer-checked:bg-loge-50',
+        'border-orange-200 hover:border-orange-400 peer-checked:border-orange-500 peer-checked:bg-orange-50',
+        'border-red-200 hover:border-red-400 peer-checked:border-red-500 peer-checked:bg-red-50',
+      ] %}
+      {% set text_colors = ['text-blue-800', 'text-teal-800', 'text-loge-800', 'text-orange-800', 'text-red-800'] %}
+      {% set badge_colors = ['bg-blue-100 text-blue-700', 'bg-teal-100 text-teal-700', 'bg-loge-100 text-loge-800', 'bg-orange-100 text-orange-700', 'bg-red-100 text-red-700'] %}
+
+      {% for tier in tiers %}
+      {% set i = loop.index0 %}
+      <label class="block cursor-pointer">
+        <input type="radio" name="tier_number" value="{{ tier.tier_number }}"
+               {% if tier.tier_number == 3 %}checked{% endif %}
+               class="sr-only peer">
+        <div class="border-2 rounded-xl p-4 transition-all {{ colors[i] }}">
+          <div class="flex items-center justify-between">
+            <div class="flex items-center gap-3">
+              <span class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold {{ badge_colors[i] }}">
+                T{{ tier.tier_number }}
+              </span>
+              <div>
+                <div class="font-semibold {{ text_colors[i] }}">{{ tier_labels[tier.tier_number] }}</div>
+                <div class="text-xs text-gray-500">Coefficient ×{{ "%.1f"|format(tier.coefficient|float) }}</div>
+              </div>
+            </div>
+            <div class="text-right">
+              <div class="text-xl font-bold {{ text_colors[i] }}">
+                {{ "%.2f"|format(tier.amount|float + capitation) }} €
+              </div>
+              <div class="text-xs text-gray-400">
+                {{ "%.2f"|format(tier.amount|float) }} € + {{ "%.2f"|format(capitation) }} € capitation
+              </div>
+            </div>
+          </div>
+          {% if tier.tier_number == 3 %}
+          <div class="mt-2 text-xs text-loge-600 font-medium">← Tranche de référence</div>
+          {% endif %}
+        </div>
+      </label>
+      {% endfor %}
+    </div>
+
+    <button type="submit"
+            class="w-full bg-loge-700 text-white py-3 rounded-xl text-base font-semibold hover:bg-loge-800 transition-colors">
+      Confirmer ma tranche
+    </button>
+    <p class="text-xs text-gray-400 text-center mt-2">
+      Votre choix sera définitif pour l'année {{ year.label if year else '' }}.
+    </p>
+  </form>
+
+  {% endif %}
+
+  <div class="mt-6 text-center">
+    <a href="/" class="text-sm text-gray-400 hover:text-gray-600">← Retour au tableau de bord</a>
+  </div>
+
+</div>
+{% endblock %}

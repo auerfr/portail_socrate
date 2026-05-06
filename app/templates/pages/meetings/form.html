@@ -36,6 +36,17 @@
         </div>
 
         <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            N° de tenue
+            <span class="text-gray-400 font-normal">(ex : 57 → "57ème tenue")</span>
+          </label>
+          <input type="number" name="meeting_number" min="1"
+                 value="{{ meeting.meeting_number if meeting and meeting.meeting_number else '' }}"
+                 placeholder="57"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
           <input type="text" name="location"
                  value="{{ meeting.location if meeting else '' }}"
@@ -104,6 +115,21 @@
                  value="{{ meeting.visio_url if meeting else '' }}"
                  placeholder="https://meet.jit.si/..."
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Ordre du jour
+            <span class="text-gray-400 font-normal">(points de travaux — affiché sur le programme imprimable)</span>
+          </label>
+          <textarea name="agenda_html" rows="5"
+                    placeholder="• Ouverture des travaux
+• Lecture et approbation du compte-rendu
+• Planche du F∴ …
+• Questions diverses
+• Fermeture des travaux"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y font-mono">{{ meeting.agenda_html if meeting and meeting.agenda_html else '' }}</textarea>
+          <p class="text-xs text-gray-400 mt-1">Utilisez • pour les puces. Ce texte apparaîtra dans le bloc tenue du programme mensuel.</p>
         </div>
 
       </div>

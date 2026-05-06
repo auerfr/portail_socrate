@@ -81,6 +81,7 @@ class Meeting(Base):
 
     meeting_date: Mapped[date]        = mapped_column(Date, index=True)
     meeting_time: Mapped[Optional[str]] = mapped_column(String(10))  # "20:30"
+    meeting_number: Mapped[Optional[int]] = mapped_column(Integer)   # numéro de tenue (56ème, 57ème…)
     title: Mapped[Optional[str]]      = mapped_column(String(300))
     theme: Mapped[Optional[str]]      = mapped_column(String(300))
     grade: Mapped[MeetingGrade]       = mapped_column(Enum(MeetingGrade))
@@ -186,6 +187,7 @@ class Visitor(Base):
     __tablename__ = "visitors"
 
     id: Mapped[int] = mapped_column(primary_key=True)
+    civility: Mapped[Optional[str]]  = mapped_column(String(10))   # "F" = Frère, "S" = Sœur
     last_name: Mapped[str]   = mapped_column(String(100))
     first_name: Mapped[str]  = mapped_column(String(100))
     lodge_name: Mapped[Optional[str]]   = mapped_column(String(200))

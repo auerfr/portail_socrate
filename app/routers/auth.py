@@ -15,6 +15,12 @@ from app.dependencies import (
     decode_token, get_current_user, require_auth
 )
 from app.models.identity import User, Member
+from app.models.lodge import LodgeSettings
+
+
+async def _get_lodge(db: AsyncSession):
+    r = await db.execute(select(LodgeSettings).limit(1))
+    return r.scalar_one_or_none()
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 templates = Jinja2Templates(directory="app/templates")
@@ -23,8 +29,12 @@ templates = Jinja2Templates(directory="app/templates")
 # ── Login (form web) ───────────────────────────────────────────────────────
 
 @router.get("/login", response_class=HTMLResponse)
-async def login_page(request: Request):
-    return templates.TemplateResponse(request, "pages/auth/login.html")
+async def login_page(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    lodge = await _get_lodge(db)
+    return templates.TemplateResponse(request, "pages/auth/login.html", {"lodge": lodge})
 
 
 @router.post("/login")
@@ -40,17 +50,19 @@ async def login_submit(
     )
     user = result.scalar_one_or_none()
 
+    lodge = await _get_lodge(db)
+
     if not user or not verify_password(form_data.password, user.password_hash):
         return templates.TemplateResponse(
             request, "pages/auth/login.html",
-            {"error": "Identifiant ou mot de passe incorrect"},
+            {"error": "Identifiant ou mot de passe incorrect", "lodge": lodge},
             status_code=status.HTTP_401_UNAUTHORIZED,
         )
 
     if not user.is_active:
         return templates.TemplateResponse(
             request, "pages/auth/login.html",
-            {"error": "Compte désactivé"},
+            {"error": "Compte désactivé", "lodge": lodge},
             status_code=status.HTTP_403_FORBIDDEN,
         )
 

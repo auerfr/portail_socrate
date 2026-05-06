@@ -23,6 +23,7 @@
 
   <!-- Filtres -->
   <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <input type="hidden" name="submitted" value="1">
     <div class="flex flex-wrap gap-3 items-center">
 
       {% if years|length > 1 %}
@@ -46,6 +47,12 @@
       <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
         Filtrer
       </button>
+
+      {% if upcoming_only == '1' and past_count > 0 %}
+      <span class="text-xs text-gray-400 ml-1">
+        {{ past_count }} tenue{{ 's' if past_count > 1 }} passée{{ 's' if past_count > 1 }} masquée{{ 's' if past_count > 1 }}
+      </span>
+      {% endif %}
     </div>
   </form>
 

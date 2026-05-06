@@ -19,9 +19,15 @@
 
     <!-- Logo -->
     <div class="text-center mb-8">
+      {% if lodge and lodge.logo_url %}
+      <div class="bg-white rounded-full p-2 inline-block mb-3 shadow-lg">
+        <img src="/static/img/sceau-socrate-transparent.png" alt="Logo" class="h-20 w-auto object-contain" style="max-width:76px;">
+      </div>
+      {% else %}
       <div class="text-5xl mb-3">⚜</div>
-      <h1 class="text-2xl font-bold text-white">Portail Socrate</h1>
-      <p class="text-slate-400 text-sm mt-1">Raison et Progrès</p>
+      {% endif %}
+      <h1 class="text-2xl font-bold text-white">{% if lodge and lodge.name %}{{ lodge.name }}{% else %}Portail Socrate{% endif %}</h1>
+      <p class="text-slate-400 text-sm mt-1">{% if lodge and lodge.orient_city %}Or∴ de {{ lodge.orient_city }}{% else %}Raison et Progrès{% endif %}</p>
     </div>
 
     <!-- Carte login -->

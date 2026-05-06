@@ -174,6 +174,7 @@ async def programs_create(
     year_id   = form.get("masonic_year_id")
     title     = form.get("title", "").strip()
     notes     = form.get("notes", "").strip()
+    next_txt  = form.get("next_meetings_text", "").strip()
     meeting_ids = form.getlist("meeting_ids")
 
     if not title:
@@ -185,6 +186,7 @@ async def programs_create(
         month=month,
         year=year,
         content_html=notes or None,
+        next_meetings_text=next_txt or None,
         created_by_id=member.id,
     )
     db.add(program)
@@ -195,6 +197,10 @@ async def programs_create(
         # Récupérer le token de la tenue pour générer l'URL
         mtg = await db.get(Meeting, mid)
         reg_url = _inscription_url(request, mtg.token) if mtg else None
+        # Mettre à jour le numéro de tenue si fourni
+        num_raw = form.get(f"meeting_number_{mid}", "").strip()
+        if mtg and num_raw.isdigit():
+            mtg.meeting_number = int(num_raw)
         db.add(ProgramMeeting(
             program_id=program.id,
             meeting_id=mid,

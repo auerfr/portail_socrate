@@ -198,8 +198,21 @@ def can_lock_meeting(member: Member) -> bool:
 
 
 def can_manage_finance(member: Member) -> bool:
-    """Peut gérer les cotisations et la trésorerie."""
-    return member.lodge_function in (LodgeFunction.TRESORIER,)
+    """Peut gérer les cotisations et la trésorerie (VM, Trésorier)."""
+    return member.lodge_function in (LodgeFunction.VM, LodgeFunction.TRESORIER)
+
+
+async def require_finance_manager(
+    ctx: Annotated[tuple, Depends(require_active_member)]
+) -> tuple:
+    """Exige admin, VM ou Trésorier — pour les actions d'écriture finance."""
+    user, member = ctx
+    if user.is_admin or can_manage_finance(member):
+        return ctx
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Réservé au Vénérable Maître, au Trésorier ou à l'administrateur",
+    )
 
 
 def can_manage_members(member: Member) -> bool:
@@ -207,4 +220,14 @@ def can_manage_members(member: Member) -> bool:
     return member.lodge_function in (
         LodgeFunction.VM,
         LodgeFunction.SECRETAIRE,
+    )
+
+
+def can_manage_attendance(member: Member) -> bool:
+    """Peut émarger et consulter les présences (VM, Secrétaire, 1er et 2e Surveillant)."""
+    return member.lodge_function in (
+        LodgeFunction.VM,
+        LodgeFunction.SECRETAIRE,
+        LodgeFunction.PREMIER_S,
+        LodgeFunction.SECOND_S,
     )

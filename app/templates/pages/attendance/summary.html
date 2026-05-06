@@ -1,0 +1,277 @@
+{% extends "base.html" %}
+{% block title %}Synthèse — {{ meeting.meeting_date.strftime('%d/%m/%Y') }} — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-4xl mx-auto space-y-6">
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 flex items-center gap-1.5 flex-wrap">
+    <a href="/attendance/" class="hover:text-loge-700">Assiduité</a>
+    <span>›</span>
+    <a href="/attendance/meeting/{{ meeting.id }}" class="hover:text-loge-700">
+      Émargement {{ meeting.meeting_date.strftime('%d/%m/%Y') }}
+    </a>
+    <span>›</span>
+    <span class="text-gray-800">Synthèse</span>
+  </nav>
+
+  <!-- En-tête tenue -->
+  <div class="bg-gradient-to-r from-loge-800 to-loge-700 text-white rounded-2xl px-6 py-5">
+    <div class="flex items-start justify-between flex-wrap gap-3">
+      <div>
+        <div class="text-xs text-loge-200 uppercase tracking-wider mb-1">{{ meeting.type.value }}</div>
+        <h1 class="text-xl font-bold">{{ meeting.title or meeting.meeting_date.strftime('%d %B %Y') }}</h1>
+        <div class="flex flex-wrap gap-4 mt-2 text-sm text-loge-200">
+          <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>
+          {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
+        </div>
+      </div>
+      <a href="/attendance/meeting/{{ meeting.id }}"
+         class="text-xs bg-white/20 hover:bg-white/30 px-3 py-1.5 rounded-lg transition-colors flex items-center gap-1.5">
+        ✎ Modifier l'émargement
+      </a>
+    </div>
+
+    <!-- KPI rapides -->
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mt-5 pt-4 border-t border-white/20">
+      <div class="text-center">
+        <div class="text-2xl font-bold text-green-300">{{ present | length }}</div>
+        <div class="text-xs text-loge-200">Membres présents</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold text-yellow-300">{{ excused | length }}</div>
+        <div class="text-xs text-loge-200">Excusés</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold text-red-300">{{ absent | length }}</div>
+        <div class="text-xs text-loge-200">Absents</div>
+      </div>
+      <div class="text-center">
+        <div class="text-2xl font-bold text-white">{{ confirmed_visitors | length }}</div>
+        <div class="text-xs text-loge-200">Maçons passants</div>
+      </div>
+    </div>
+
+    <!-- Barre de présence membres -->
+    {% if total_members > 0 %}
+    <div class="mt-4">
+      <div class="flex justify-between text-xs text-loge-200 mb-1.5">
+        <span>Taux de présence membres</span>
+        <span class="font-semibold text-white">{{ pct_present }}%</span>
+      </div>
+      <div class="h-2.5 bg-white/20 rounded-full overflow-hidden">
+        <div class="h-full rounded-full {% if pct_present >= 80 %}bg-green-400{% elif pct_present >= 60 %}bg-yellow-400{% else %}bg-red-400{% endif %}"
+             style="width:{{ pct_present }}%"></div>
+      </div>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- ═══════════════════════════════════════════════════════
+       MAÇONS PASSANTS
+  ══════════════════════════════════════════════════════════ -->
+  {% if confirmed_visitors %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800 flex items-center gap-2">
+        <svg class="w-4 h-4 text-loge-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+        </svg>
+        Maçons passants
+        <span class="text-xs font-normal text-gray-400">({{ confirmed_visitors | length }})</span>
+      </h2>
+      <span class="text-xs text-gray-400">{{ lodges | length }} loge{{ 's' if lodges | length > 1 }} représentée{{ 's' if lodges | length > 1 }}</span>
+    </div>
+
+    <!-- Par loge -->
+    {% for lodge_name, mvs in lodges | dictsort %}
+    <div class="border-b border-gray-50 last:border-0">
+      <div class="px-5 py-2.5 bg-gray-50/60 flex items-center gap-2">
+        <svg class="w-3.5 h-3.5 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 21v-8.25M15.75 21v-8.25M8.25 21v-8.25M3 9l9-6 9 6m-1.5 12V10.332A48.36 48.36 0 0012 9.75c-2.551 0-5.056.2-7.5.582V21"/>
+        </svg>
+        <span class="text-xs font-semibold text-gray-600">{{ lodge_name }}</span>
+        <span class="text-xs text-gray-400">· {{ mvs | length }} frère{{ 's' if mvs | length > 1 }}</span>
+        <!-- Orient si tous ont le même -->
+        {% set orient = mvs[0].visitor.orient_city %}
+        {% if orient and mvs | selectattr('visitor.orient_city', 'equalto', orient) | list | length == mvs | length %}
+        <span class="text-xs text-gray-400">· {{ orient }}</span>
+        {% endif %}
+      </div>
+      {% for mv in mvs %}
+      {% set visits = visit_counts.get(mv.visitor_id, 1) %}
+      <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50 transition-colors">
+        <!-- Avatar -->
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 text-loge-700"
+             style="background:rgba(59,91,219,0.12);">
+          {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
+        </div>
+
+        <!-- Infos -->
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-gray-900 flex items-center gap-2 flex-wrap">
+            {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
+            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+            {% if mv.visitor.is_vm %}
+            <span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-2 py-0.5">V∴M∴</span>
+            {% endif %}
+          </div>
+          <div class="text-xs text-gray-400">
+            {% if mv.visitor.lodge_name %}{{ mv.visitor.lodge_name }}{% endif %}
+            {% if mv.visitor.orient_city %} · {{ mv.visitor.orient_city }}{% endif %}
+            {% if mv.visitor.obedience %} · {{ mv.visitor.obedience }}{% endif %}
+          </div>
+        </div>
+
+        <!-- Fréquence de visite -->
+        <div class="flex-shrink-0 text-right">
+          {% if visits >= 5 %}
+          <span class="inline-flex items-center gap-1 text-xs font-medium bg-loge-100 text-loge-700 rounded-full px-2.5 py-1"
+                title="{{ visits }} visites à notre loge">
+            ⭐ Passant assidu
+          </span>
+          {% elif visits >= 3 %}
+          <span class="inline-flex items-center gap-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full px-2.5 py-1"
+                title="{{ visits }} visites à notre loge">
+            {{ visits }}× déjà venu
+          </span>
+          {% elif visits >= 2 %}
+          <span class="text-xs text-gray-400" title="{{ visits }} visites">{{ visits }}ème visite</span>
+          {% else %}
+          <span class="text-xs text-gray-300">1ère visite</span>
+          {% endif %}
+        </div>
+
+        {% if mv.agape %}
+        <span class="text-xs text-gray-400 flex-shrink-0" title="Agapes">🍽{% if mv.agape_guests %} +{{ mv.agape_guests }}{% endif %}</span>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  <!-- Récapitulatif loges (tableau condensé) -->
+  {% if lodges | length > 2 %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h3 class="text-sm font-semibold text-gray-700">Loges représentées</h3>
+    </div>
+    <div class="divide-y divide-gray-50">
+      {% for lodge_name, mvs in lodges | dictsort | sort(attribute='1', reverse=True) %}
+      <div class="flex items-center justify-between px-5 py-2.5">
+        <span class="text-sm text-gray-700">{{ lodge_name }}</span>
+        <div class="flex items-center gap-3">
+          {% set orient = mvs[0].visitor.orient_city %}
+          {% if orient %}<span class="text-xs text-gray-400">{{ orient }}</span>{% endif %}
+          <span class="text-sm font-semibold text-loge-700">{{ mvs | length }}</span>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-8 text-center text-gray-400">
+    <svg class="w-8 h-8 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+    </svg>
+    <p class="text-sm">Aucun maçon passant enregistré pour cette tenue</p>
+    <a href="/attendance/meeting/{{ meeting.id }}"
+       class="inline-block mt-3 text-xs text-loge-600 hover:text-loge-800 font-medium">
+      Ajouter un passant →
+    </a>
+  </div>
+  {% endif %}
+
+  <!-- ═══════════════════════════════════════════════════════
+       DÉTAIL MEMBRES
+  ══════════════════════════════════════════════════════════ -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Détail des présences membres</h2>
+    </div>
+
+    {% if not (present or excused or absent) %}
+    <div class="px-5 py-8 text-center text-gray-400 text-sm">Aucune présence enregistrée</div>
+    {% else %}
+    <div class="divide-y divide-gray-50">
+
+      <!-- Présents -->
+      {% if present %}
+      <div>
+        <div class="px-5 py-2 bg-green-50/60 text-xs font-semibold text-green-700 uppercase tracking-wider">
+          ✓ Présents ({{ present | length }})
+        </div>
+        {% for att in present | sort(attribute='member.last_name') %}
+        <div class="flex items-center gap-3 px-5 py-2.5">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+               style="background:linear-gradient(135deg,#3b5bdb,#2340b0);">
+            {{ att.member.first_name[0] }}{{ att.member.last_name[0] }}
+          </div>
+          <div class="flex-1 text-sm font-medium text-gray-800">
+            {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
+            {{ att.member.first_name }} {{ att.member.last_name }}
+          </div>
+          {% if att.agape %}<span class="text-xs text-gray-400">🍽</span>{% endif %}
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Excusés -->
+      {% if excused %}
+      <div>
+        <div class="px-5 py-2 bg-yellow-50/60 text-xs font-semibold text-yellow-700 uppercase tracking-wider">
+          ~ Excusés ({{ excused | length }})
+        </div>
+        {% for att in excused | sort(attribute='member.last_name') %}
+        <div class="flex items-center gap-3 px-5 py-2.5">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+               style="background:linear-gradient(135deg,#d97706,#b45309);">
+            {{ att.member.first_name[0] }}{{ att.member.last_name[0] }}
+          </div>
+          <div class="flex-1">
+            <div class="text-sm font-medium text-gray-800">
+              {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
+              {{ att.member.first_name }} {{ att.member.last_name }}
+            </div>
+            {% if att.excuse_reason %}
+            <div class="text-xs text-gray-400">{{ att.excuse_reason }}</div>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Absents -->
+      {% if absent %}
+      <div>
+        <div class="px-5 py-2 bg-red-50/60 text-xs font-semibold text-red-600 uppercase tracking-wider">
+          ✗ Absents non excusés ({{ absent | length }})
+        </div>
+        {% for att in absent | sort(attribute='member.last_name') %}
+        <div class="flex items-center gap-3 px-5 py-2.5">
+          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+               style="background:linear-gradient(135deg,#dc2626,#b91c1c);">
+            {{ att.member.first_name[0] }}{{ att.member.last_name[0] }}
+          </div>
+          <div class="flex-1 text-sm text-gray-600">
+            {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
+            {{ att.member.first_name }} {{ att.member.last_name }}
+          </div>
+          <a href="/attendance/member/{{ att.member_id }}"
+             class="text-xs text-gray-400 hover:text-loge-600 transition-colors">Historique →</a>
+        </div>
+        {% endfor %}
+      </div>
+      {% endif %}
+
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

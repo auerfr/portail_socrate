@@ -62,12 +62,47 @@ async def seed():
         existing_lodge = await db.execute(select(LodgeSettings).limit(1))
         if not existing_lodge.scalar_one_or_none():
             lodge = LodgeSettings(
-                name=settings.lodge_name,
-                orient_city=settings.lodge_orient,
-                obedience=settings.lodge_obedience,
+                name="SOCRATE – Raison et Progrès",
+                orient_city="Pont-à-Mousson",
+                obedience="Grand Orient de France",
+                rite="Rite Français Philosophique",
+                loge_number="4276",
+                logo_url="/static/img/sceau-socrate-blanc.png",
+                # Temple
+                temple_name='Salle "la Colonie"',
+                temple_note="(lieu profane)",
+                temple_address="Av. Général Patton, 54700 MOUSSON",
+                # Contacts
+                vm_name_display="Alain FVR∴",
+                vm_email_display="vm@amisdesocrate.fr",
+                vm_phone="06 82 35 32 23",
+                secretary_name_display="Aline CNL∴",
+                secretary_email_display="secretaire@amisdesocrate.fr",
+                # Textes programmes (format réel du document Word)
+                standard_schedule=(
+                    "TTen\u2234 le 1er jeudi et le 3\u00e8me mercredi\n"
+                    "Chantiers d'App\u2234 : les 2\u00e8me mardi du mois\n"
+                    "Chantiers de Comp\u2234 : les 2\u00e8me jeudi du mois\n"
+                    "Chantiers de MM\u2234 : les 4\u00e8me mardi du mois"
+                ),
+                chantiers_info=None,
+                common_agenda=(
+                    "19H30\n"
+                    "Accueil et habillage (installation) du Temple\n"
+                    "20H00\n"
+                    "Fondation, trac\u00e9 et r\u00e9glage de la loge (ouverture symbolique)\n"
+                    "Livre d\u2019architecture et correspondances officielles\n"
+                    "Minute des correspondants aux commissions\n"
+                    "Point sur les travaux des chantiers et groupes de travail\n"
+                    "Dialogue rituel\n"
+                    "Conclusion de l\u2019Orateur \u2014 Cha\u00eene d\u2019Union \u2014 Circulation des troncs\n"
+                    "Effacement et fermeture de la loge (Fermeture symbolique)\n"
+                    "22H30\n"
+                    "Agape fraternelle (R\u00e9servation imp\u00e9rative 2 jours au moins avant la Tenue)"
+                ),
             )
             db.add(lodge)
-            print(f"Config loge creee : {settings.lodge_name}")
+            print("Config loge creee : SOCRATE – Raison et Progres, Or. de Pont-a-Mousson")
 
         # ── Groupes / Commissions ─────────────────────────────────────────────
         commissions = [
