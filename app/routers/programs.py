@@ -103,7 +103,9 @@ async def programs_list(
 ):
     user, member = ctx
     r = await db.execute(
-        select(Program).order_by(Program.year.desc(), Program.month.desc())
+        select(Program)
+        .options(selectinload(Program.meetings))
+        .order_by(Program.year.desc(), Program.month.desc())
     )
     programs = r.scalars().all()
 
