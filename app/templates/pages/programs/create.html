@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+{% block title %}Nouveau programme{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto">
+
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/programs/" class="hover:text-loge-700">Programmes</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Nouveau programme</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Créer un programme mensuel</h1>
+
+  <form method="post" action="/programs/create" class="space-y-6">
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800">Période</h2>
+
+      <div class="grid sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Mois</label>
+          <select name="month"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            {% for num, nom in MOIS_FR.items() %}
+            <option value="{{ num }}" {% if num == current_month %}selected{% endif %}>
+              {{ nom | capitalize }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Année civile</label>
+          <input type="number" name="year" value="{{ current_year }}" min="2020" max="2100"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        {% if years %}
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Année maçonnique</label>
+          <select name="masonic_year_id"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            {% for y in years %}
+            <option value="{{ y.id }}" {% if y.is_current %}selected{% endif %}>
+              {{ y.label }}{% if y.is_current %} ★{% endif %}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endif %}
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">
+          Titre du programme
+          <span class="text-gray-400 font-normal">(laissez vide pour le titre automatique)</span>
+        </label>
+        <input type="text" name="title" placeholder="Ex: Programme — Novembre 6025 E∴L∴"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Message / mot du Vénérable (optionnel)</label>
+        <textarea name="notes" rows="3"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"
+                  placeholder="Message d'introduction qui apparaîtra sur le programme…"></textarea>
+      </div>
+    </div>
+
+    <!-- Sélection des tenues -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+      <h2 class="font-semibold text-gray-800 mb-4">
+        Tenues à inclure
+        <span class="text-sm text-gray-400 font-normal ml-2">— cochez les tenues à faire apparaître</span>
+      </h2>
+
+      {% if not upcoming %}
+      <div class="text-center text-gray-400 text-sm py-6">
+        Aucune tenue à venir — <a href="/meetings/create" class="text-loge-600 hover:underline">créer une tenue</a>
+      </div>
+      {% else %}
+      <div class="space-y-2">
+        {% for m in upcoming %}
+        <label class="flex items-start gap-3 p-3 border border-gray-100 rounded-lg hover:bg-gray-50 cursor-pointer group">
+          <input type="checkbox" name="meeting_ids" value="{{ m.id }}"
+                 class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 flex-shrink-0">
+
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="font-medium text-gray-800 text-sm">
+                {{ m.meeting_date.strftime('%A %d %B %Y') | capitalize }}
+              </span>
+              {% if m.meeting_time %}
+              <span class="text-xs text-gray-500">{{ m.meeting_time }}</span>
+              {% endif %}
+              <span class="text-xs px-1.5 py-0.5 rounded font-medium
+                {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
+                {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-100 text-amber-700
+                {% else %}bg-blue-100 text-blue-700{% endif %}">
+                {{ MEETING_TYPE_LABELS.get(m.type.value, m.type.value) }}
+              </span>
+              <span class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
+                {{ GRADE_LABELS.get(m.grade.value, m.grade.value) }}
+              </span>
+            </div>
+            {% if m.title %}
+            <div class="text-xs text-gray-500 mt-0.5">{{ m.title }}</div>
+            {% endif %}
+            {% if m.location %}
+            <div class="text-xs text-gray-400">📍 {{ m.location }}</div>
+            {% endif %}
+            <div class="text-xs text-loge-600 mt-1">
+              🔗 URL inscription disponible
+            </div>
+          </div>
+        </label>
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="flex gap-3">
+      <button type="submit"
+              class="flex-1 bg-loge-700 text-white py-3 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
+        Générer le programme
+      </button>
+      <a href="/programs/"
+         class="px-6 py-3 border border-gray-200 text-gray-700 rounded-lg text-sm hover:bg-gray-50 text-center">
+        Annuler
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

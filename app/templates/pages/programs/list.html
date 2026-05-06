@@ -1,0 +1,77 @@
+{% extends "base.html" %}
+{% block title %}Programmes — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-4xl mx-auto">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Programmes mensuels</h1>
+      <p class="text-sm text-gray-500">Documents distribuables avec URLs d'inscription</p>
+    </div>
+    {% if is_admin %}
+    <a href="/programs/create"
+       class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
+      + Nouveau programme
+    </a>
+    {% endif %}
+  </div>
+
+  {% if not programs %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-16 text-center">
+    <div class="text-4xl mb-4">📄</div>
+    <div class="text-gray-500 text-sm mb-4">Aucun programme créé</div>
+    {% if is_admin %}
+    <a href="/programs/create" class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800">
+      Créer le premier programme
+    </a>
+    {% endif %}
+  </div>
+  {% else %}
+
+  <div class="space-y-3">
+    {% for prog in programs %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:border-loge-200 transition-colors">
+
+      <!-- Icône mois -->
+      <div class="w-14 h-14 bg-loge-100 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
+        <div class="text-xs text-loge-600 font-semibold uppercase">{{ MOIS_FR[prog.month][:3] }}</div>
+        <div class="text-lg font-bold text-loge-800">{{ prog.year + 4000 }}</div>
+      </div>
+
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-gray-900">{{ prog.title }}</div>
+        <div class="text-sm text-gray-500 mt-0.5">
+          {{ prog.meetings | length }} tenue{% if prog.meetings | length > 1 %}s{% endif %}
+          · Créé le {{ prog.created_at.strftime('%d/%m/%Y') }}
+        </div>
+        {% if prog.sent_at %}
+        <div class="text-xs text-green-600 mt-1">✓ Envoyé le {{ prog.sent_at.strftime('%d/%m/%Y') }}</div>
+        {% endif %}
+      </div>
+
+      <div class="flex gap-2 shrink-0">
+        <a href="/programs/{{ prog.id }}"
+           class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+          👁 Aperçu
+        </a>
+        <a href="/programs/{{ prog.id }}?print_mode=true"
+           target="_blank"
+           class="inline-flex items-center gap-1.5 border border-loge-200 text-loge-700 px-3 py-1.5 rounded-lg text-sm hover:bg-loge-50">
+          🖨 Imprimer
+        </a>
+        {% if is_admin %}
+        <form method="post" action="/programs/{{ prog.id }}/delete"
+              onsubmit="return confirm('Supprimer ce programme ?')">
+          <button type="submit" class="text-gray-300 hover:text-red-500 p-1.5 rounded text-sm">✕</button>
+        </form>
+        {% endif %}
+      </div>
+
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

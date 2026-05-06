@@ -10,7 +10,7 @@ from typing import Annotated
 from app.config import get_settings
 from app.database import engine, Base, get_db
 from app.dependencies import get_current_user
-from app.routers import auth, members, meetings, finance
+from app.routers import auth, members, meetings, finance, programs
 from sqlalchemy.ext.asyncio import AsyncSession
 
 settings = get_settings()
@@ -53,9 +53,9 @@ app.include_router(auth.router)
 app.include_router(members.router)
 app.include_router(meetings.router)
 app.include_router(finance.router)
+app.include_router(programs.router)
 
 # (les autres routers seront ajoutés ici au fur et à mesure)
-# app.include_router(programs.router)
 # app.include_router(finance.router)
 # app.include_router(documents.router)
 # app.include_router(calendar.router)

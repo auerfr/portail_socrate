@@ -1,0 +1,245 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>{{ program.title }}</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            loge: { 50:'#f0f4ff', 100:'#e0e9ff', 500:'#3b5bdb', 600:'#2f4ac5', 700:'#2340b0', 800:'#1e3699', 900:'#1a2d82' }
+          }
+        }
+      }
+    }
+  </script>
+
+  <style>
+    /* ── Police élégante pour l'impression ── */
+    @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600&display=swap');
+
+    body { font-family: 'Inter', sans-serif; }
+    .font-serif { font-family: 'Libre Baskerville', serif; }
+
+    /* ── Mise en page d'impression ── */
+    @media print {
+      .no-print        { display: none !important; }
+      .print-break     { page-break-before: always; }
+      body             { background: white !important; }
+      .program-wrapper { box-shadow: none !important; margin: 0 !important; border-radius: 0 !important; }
+
+      /* Éviter les coupures dans les blocs de tenue */
+      .meeting-block   { page-break-inside: avoid; }
+    }
+
+    @page {
+      size: A4;
+      margin: 15mm 18mm;
+    }
+
+    /* ── QR code responsive ── */
+    .qr-svg svg {
+      width: 100%;
+      height: auto;
+      display: block;
+    }
+  </style>
+</head>
+
+<body class="bg-gray-100 min-h-screen py-6 px-4 lg:py-10">
+
+  <!-- ── Barre d'actions (cachée à l'impression) ── -->
+  <div class="no-print max-w-3xl mx-auto mb-6 flex items-center justify-between gap-4">
+    <div class="flex items-center gap-3">
+      <a href="/programs/" class="inline-flex items-center gap-2 border border-gray-200 bg-white text-gray-700 px-3 py-2 rounded-lg text-sm hover:bg-gray-50">
+        ← Retour
+      </a>
+      {% if is_admin %}
+      <form method="post" action="/programs/{{ program.id }}/delete"
+            onsubmit="return confirm('Supprimer ce programme définitivement ?')">
+        <button type="submit" class="border border-red-200 text-red-600 px-3 py-2 rounded-lg text-sm hover:bg-red-50">
+          Supprimer
+        </button>
+      </form>
+      {% endif %}
+    </div>
+
+    <button onclick="window.print()"
+            class="inline-flex items-center gap-2 bg-loge-700 text-white px-5 py-2.5 rounded-lg text-sm font-semibold hover:bg-loge-800 shadow-md hover:shadow-lg transition-all">
+      🖨 Imprimer / Enregistrer en PDF
+    </button>
+  </div>
+
+  <!-- ══ Document programme ══ -->
+  <div class="program-wrapper max-w-3xl mx-auto bg-white shadow-xl rounded-2xl overflow-hidden">
+
+    <!-- ── En-tête loge ── -->
+    <div class="bg-loge-900 text-white px-10 py-8 text-center">
+      <div class="text-3xl mb-3">⚜</div>
+      <h1 class="font-serif text-xl font-bold tracking-wide mb-1">
+        {% if lodge %}{{ lodge.name }}{% else %}Loge Socrate Raison et Progrès{% endif %}
+      </h1>
+      {% if lodge %}
+      <div class="text-loge-200 text-sm">
+        À l'Orient de {{ lodge.orient_city }}
+        — {{ lodge.obedience }}
+      </div>
+      {% endif %}
+
+      <!-- Titre du programme -->
+      <div class="mt-6 pt-6 border-t border-loge-700">
+        <div class="font-serif text-2xl font-bold">{{ program.title }}</div>
+        <div class="text-loge-300 text-sm mt-1">
+          {{ MOIS_FR[program.month] | capitalize }} {{ program.year }} ({{ program.year + 4000 }} E∴L∴)
+        </div>
+      </div>
+    </div>
+
+    <!-- ── Message du Vénérable (si présent) ── -->
+    {% if program.content_html %}
+    <div class="px-10 py-6 border-b border-gray-100 bg-loge-50">
+      <p class="text-sm text-gray-700 italic leading-relaxed font-serif">{{ program.content_html }}</p>
+    </div>
+    {% endif %}
+
+    <!-- ── Corps : liste des tenues ── -->
+    <div class="px-8 py-6 space-y-6">
+
+      {% if not pm_sorted %}
+      <div class="text-center text-gray-400 py-10 text-sm">
+        Aucune tenue incluse dans ce programme
+      </div>
+      {% endif %}
+
+      {% for pm in pm_sorted %}
+      {% set m = pm.meeting %}
+      {% set url = pm.registration_url or inscription_url(m.token) %}
+
+      <div class="meeting-block border border-gray-200 rounded-xl overflow-hidden">
+
+        <!-- En-tête de la tenue -->
+        <div class="flex items-center gap-3 px-5 py-3
+          {% if m.type.value == 'SOLENNELLE' %}bg-purple-700 text-white
+          {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-600 text-white
+          {% elif m.type.value == 'INSTALLATION' %}bg-loge-800 text-white
+          {% else %}bg-loge-700 text-white{% endif %}">
+
+          <div class="flex-1">
+            <div class="font-serif font-bold text-lg">{{ date_al(m.meeting_date) }}</div>
+            <div class="text-xs opacity-80 mt-0.5">{{ date_civil(m.meeting_date) }}</div>
+          </div>
+
+          <div class="text-right">
+            <div class="text-sm font-semibold">{{ MEETING_TYPE_LABELS.get(m.type.value, m.type.value) }}</div>
+            <div class="text-xs opacity-80">{{ GRADE_LABELS.get(m.grade.value, m.grade.value) }}</div>
+          </div>
+        </div>
+
+        <!-- Corps de la tenue -->
+        <div class="flex gap-0 divide-x divide-gray-100">
+
+          <!-- Détails -->
+          <div class="flex-1 px-5 py-4 space-y-2">
+            {% if m.title %}
+            <div class="font-semibold text-gray-900 font-serif">{{ m.title }}</div>
+            {% endif %}
+
+            {% if m.theme %}
+            <div class="text-sm text-gray-600 italic">{{ m.theme }}</div>
+            {% endif %}
+
+            <!-- Degrés multiples -->
+            {% if m.degrees %}
+            <div class="flex flex-wrap gap-1.5 my-1">
+              {% for deg in m.degrees %}
+              <span class="text-xs bg-gray-100 text-gray-700 px-2 py-0.5 rounded-full font-medium">
+                {{ GRADE_LABELS.get(deg.grade.value, deg.grade.value) }}
+              </span>
+              {% endfor %}
+            </div>
+            {% endif %}
+
+            <!-- Heure & lieu -->
+            <div class="flex flex-wrap gap-4 text-sm text-gray-700 mt-2">
+              {% if m.meeting_time %}
+              <div class="flex items-center gap-1.5">
+                <span class="text-gray-400">🕗</span>
+                <span class="font-medium">{{ m.meeting_time }}</span>
+              </div>
+              {% endif %}
+              {% if m.location %}
+              <div class="flex items-center gap-1.5">
+                <span class="text-gray-400">📍</span>
+                <span>{{ m.location }}</span>
+              </div>
+              {% endif %}
+            </div>
+
+            {% if m.address %}
+            <div class="text-xs text-gray-400">{{ m.address }}</div>
+            {% endif %}
+
+            <!-- Agape -->
+            {% if m.agape_enabled %}
+            <div class="flex items-center gap-1.5 text-sm text-gray-700 mt-1">
+              <span>🍽</span>
+              <span>Agape fraternelle à l'issue
+                {% if m.agape_location %} — {{ m.agape_location }}{% endif %}
+              </span>
+            </div>
+            {% endif %}
+
+            <!-- URL d'inscription (texte lisible) -->
+            <div class="mt-3 pt-3 border-t border-gray-100">
+              <div class="text-xs text-gray-500 mb-1 font-semibold uppercase tracking-wide">Inscription en ligne</div>
+              <div class="text-xs font-mono text-loge-700 break-all bg-loge-50 rounded px-2 py-1.5 border border-loge-100">
+                {{ url }}
+              </div>
+            </div>
+          </div>
+
+          <!-- QR code -->
+          <div class="w-32 shrink-0 flex flex-col items-center justify-center p-3 bg-gray-50">
+            <div class="qr-svg w-24 h-24">
+              {{ qr_codes[m.id] | safe }}
+            </div>
+            <div class="text-xs text-gray-400 text-center mt-1 leading-tight">Scanner pour<br>s'inscrire</div>
+          </div>
+
+        </div>
+      </div>
+      {% endfor %}
+
+    </div>
+
+    <!-- ── Pied de page ── -->
+    <div class="px-10 py-5 border-t border-gray-100 bg-gray-50 text-center text-xs text-gray-400">
+      <div class="font-serif text-gray-600 mb-1">
+        ⚜ {% if lodge %}{{ lodge.name }}{% else %}Loge Socrate Raison et Progrès{% endif %} ⚜
+      </div>
+      <div>
+        Scannez le QR code ou tapez l'URL pour vous inscrire et indiquer votre présence à l'agape.
+      </div>
+      <div class="mt-1 text-gray-300">
+        Document généré le {{ now.strftime('%d/%m/%Y') if now else '' }}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Espace bas de page pour l'impression -->
+  <div class="no-print h-8"></div>
+
+  <script>
+    // Auto-print si ouvert en mode impression
+    {% if print_mode %}
+    window.addEventListener('load', () => setTimeout(() => window.print(), 400));
+    {% endif %}
+  </script>
+
+</body>
+</html>
