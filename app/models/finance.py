@@ -137,7 +137,7 @@ class MemberContribution(Base):
 
     @property
     def amount_paid(self) -> float:
-        return sum(p.amount for p in self.payments)
+        return sum(float(p.amount) for p in self.payments)
 
     @property
     def amount_remaining(self) -> float:

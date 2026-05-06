@@ -169,7 +169,7 @@ async def finance_dashboard(
     contributions = r.scalars().all()
 
     total_due  = sum(float(c.total_amount) for c in contributions)
-    total_paid = sum(c.amount_paid for c in contributions)
+    total_paid = sum(float(c.amount_paid) for c in contributions)
     paid_count   = sum(1 for c in contributions if c.status in (
         ContributionStatus.PAID, ContributionStatus.EXEMPT))
     pending_count = len(contributions) - paid_count
