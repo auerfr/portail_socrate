@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#1e293b">
+
+  <title>{% block title %}Portail Socrate{% endblock %}</title>
+
+  <!-- PWA -->
+  <link rel="manifest" href="/static/manifest.json">
+  <link rel="apple-touch-icon" href="/static/img/icon-192.png">
+
+  <!-- Tailwind CSS (CDN pour démarrage rapide — à remplacer par build en prod) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            loge: {
+              50:  '#f0f4ff',
+              100: '#e0e9ff',
+              500: '#3b5bdb',
+              600: '#2f4ac5',
+              700: '#2340b0',
+              800: '#1e3699',
+              900: '#1a2d82',
+            }
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Alpine.js (interactivité légère) -->
+  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
+
+  <!-- HTMX (requêtes HTML sans rechargement) -->
+  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+
+  {% block head %}{% endblock %}
+</head>
+
+<body class="h-full bg-gray-50 font-sans" x-data="{ sidebarOpen: false, notifOpen: false }">
+
+  {% if request.url.path not in ['/auth/login'] %}
+  <!-- ── Barre supérieure mobile ─────────────────────────────────────── -->
+  <header class="lg:hidden fixed top-0 inset-x-0 z-40 bg-loge-900 text-white flex items-center justify-between px-4 h-14 shadow">
+    <button @click="sidebarOpen = !sidebarOpen" class="p-2 rounded-md hover:bg-loge-700">
+      <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/>
+      </svg>
+    </button>
+    <span class="font-semibold tracking-wide">⚜ Socrate</span>
+    <div class="flex items-center gap-2">
+      <!-- Notifications -->
+      <button @click="notifOpen = !notifOpen" class="relative p-2 rounded-md hover:bg-loge-700">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M15 17h5l-1.405-1.405A2.032 2.032 0 0118 14.158V11a6 6 0 10-12 0v3.159c0 .538-.214 1.055-.595 1.436L4 17h5m6 0v1a3 3 0 11-6 0v-1m6 0H9"/>
+        </svg>
+        {% if unread_notifications %}
+        <span class="absolute top-1 right-1 w-2 h-2 bg-red-500 rounded-full"></span>
+        {% endif %}
+      </button>
+    </div>
+  </header>
+
+  <!-- ── Sidebar ──────────────────────────────────────────────────────── -->
+  <aside class="fixed inset-y-0 left-0 z-50 w-64 bg-loge-900 text-white transform transition-transform duration-200 ease-in-out
+                lg:translate-x-0 lg:static lg:inset-auto"
+         :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full'">
+
+    <!-- Logo -->
+    <div class="flex items-center gap-3 px-6 py-5 border-b border-loge-700">
+      <span class="text-2xl">⚜</span>
+      <div>
+        <div class="font-bold text-sm leading-tight">Socrate</div>
+        <div class="text-loge-300 text-xs">Raison et Progrès</div>
+      </div>
+    </div>
+
+    <!-- Navigation -->
+    <nav class="flex-1 px-3 py-4 space-y-1 overflow-y-auto">
+
+      <a href="/" class="nav-item {% if request.url.path == '/' %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6"/>
+        </svg>
+        Accueil
+      </a>
+
+      <a href="/meetings" class="nav-item {% if '/meetings' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        Tenues
+      </a>
+
+      <a href="/calendar" class="nav-item {% if '/calendar' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+        </svg>
+        Agenda
+      </a>
+
+      <a href="/documents" class="nav-item {% if '/documents' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"/>
+        </svg>
+        Bibliothèque
+      </a>
+
+      <a href="/chat" class="nav-item {% if '/chat' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/>
+        </svg>
+        Messagerie
+        {% if unread_messages %}
+        <span class="ml-auto bg-red-500 text-white text-xs rounded-full px-1.5 py-0.5">{{ unread_messages }}</span>
+        {% endif %}
+      </a>
+
+      <a href="/forum" class="nav-item {% if '/forum' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 8h2a2 2 0 012 2v6a2 2 0 01-2 2h-2v4l-4-4H9a1.994 1.994 0 01-1.414-.586m0 0L11 14h4a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2v4l.586-.586z"/>
+        </svg>
+        Forum
+      </a>
+
+      <a href="/finance" class="nav-item {% if '/finance' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+        </svg>
+        Trésorerie
+      </a>
+
+      <a href="/members" class="nav-item {% if '/members' in request.url.path %}active{% endif %}">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z"/>
+        </svg>
+        Membres
+      </a>
+
+    </nav>
+
+    <!-- Profil en bas -->
+    <div class="border-t border-loge-700 p-4">
+      <a href="/profile" class="flex items-center gap-3 hover:bg-loge-700 rounded-lg p-2 transition-colors">
+        <div class="w-8 h-8 bg-loge-500 rounded-full flex items-center justify-center text-sm font-bold">
+          {{ current_member.first_name[0] if current_member else '?' }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium truncate">
+            {{ current_member.full_name if current_member else 'Inconnu' }}
+          </div>
+          <div class="text-xs text-loge-300 truncate">
+            {{ current_member.masonic_grade.value if current_member else '' }}
+          </div>
+        </div>
+      </a>
+      <a href="/auth/logout" class="mt-2 flex items-center gap-2 text-xs text-loge-300 hover:text-white px-2 py-1 rounded transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/>
+        </svg>
+        Déconnexion
+      </a>
+    </div>
+  </aside>
+
+  <!-- Overlay sidebar mobile -->
+  <div class="fixed inset-0 z-40 bg-black/50 lg:hidden"
+       x-show="sidebarOpen"
+       @click="sidebarOpen = false"
+       x-transition:enter="transition-opacity ease-out duration-200"
+       x-transition:enter-start="opacity-0"
+       x-transition:enter-end="opacity-100"
+       x-transition:leave="transition-opacity ease-in duration-150"
+       x-transition:leave-start="opacity-100"
+       x-transition:leave-end="opacity-0"
+       style="display: none;">
+  </div>
+
+  {% endif %}
+
+  <!-- ── Contenu principal ──────────────────────────────────────────────── -->
+  <main class="{% if request.url.path not in ['/auth/login'] %}lg:ml-64 pt-14 lg:pt-0{% endif %} min-h-full">
+    {% block content %}{% endblock %}
+  </main>
+
+  <!-- ── Flash messages ─────────────────────────────────────────────────── -->
+  {% if flash_messages %}
+  <div id="flash-container" class="fixed bottom-4 right-4 z-50 space-y-2" x-data>
+    {% for msg in flash_messages %}
+    <div class="flex items-center gap-3 px-4 py-3 rounded-lg shadow-lg text-sm font-medium
+                {% if msg.type == 'success' %}bg-green-600 text-white
+                {% elif msg.type == 'error' %}bg-red-600 text-white
+                {% elif msg.type == 'warning' %}bg-amber-500 text-white
+                {% else %}bg-loge-600 text-white{% endif %}"
+         x-init="setTimeout(() => $el.remove(), 4000)">
+      {{ msg.text }}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- ── PWA Service Worker ─────────────────────────────────────────────── -->
+  <script>
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('/static/sw.js').catch(console.error);
+    }
+  </script>
+
+  {% block scripts %}{% endblock %}
+
+</body>
+</html>
+
+<style>
+  .nav-item {
+    @apply flex items-center gap-3 px-3 py-2.5 rounded-lg text-sm text-loge-200
+           hover:bg-loge-700 hover:text-white transition-colors duration-150;
+  }
+  .nav-item.active {
+    @apply bg-loge-700 text-white font-medium;
+  }
+</style>

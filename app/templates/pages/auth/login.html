@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-loge-900">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Connexion — Portail Socrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: { extend: { colors: {
+        loge: { 50:'#f0f4ff', 300:'#93a8f0', 500:'#3b5bdb', 600:'#2f4ac5', 700:'#2340b0', 800:'#1e3699', 900:'#1a2d82' }
+      }}}
+    }
+  </script>
+</head>
+<body class="h-full flex items-center justify-center bg-gradient-to-br from-loge-900 to-slate-900 px-4">
+
+  <div class="w-full max-w-sm">
+
+    <!-- Logo -->
+    <div class="text-center mb-8">
+      <div class="text-5xl mb-3">⚜</div>
+      <h1 class="text-2xl font-bold text-white">Portail Socrate</h1>
+      <p class="text-slate-400 text-sm mt-1">Raison et Progrès</p>
+    </div>
+
+    <!-- Carte login -->
+    <div class="bg-white rounded-2xl shadow-2xl p-8">
+
+      {% if error %}
+      <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+        {{ error }}
+      </div>
+      {% endif %}
+
+      <form method="post" action="/auth/login" class="space-y-5">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5" for="username">
+            Identifiant
+          </label>
+          <input
+            type="text"
+            id="username"
+            name="username"
+            autocomplete="username"
+            required
+            autofocus
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
+                   focus:outline-none focus:ring-2 focus:ring-loge-500 focus:border-transparent
+                   placeholder:text-gray-400"
+            placeholder="votre.identifiant"
+          >
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5" for="password">
+            Mot de passe
+          </label>
+          <input
+            type="password"
+            id="password"
+            name="password"
+            autocomplete="current-password"
+            required
+            class="w-full px-4 py-2.5 border border-gray-300 rounded-lg text-sm
+                   focus:outline-none focus:ring-2 focus:ring-loge-500 focus:border-transparent"
+          >
+        </div>
+
+        <button
+          type="submit"
+          class="w-full py-2.5 bg-loge-600 hover:bg-loge-700 text-white font-medium
+                 rounded-lg text-sm transition-colors duration-150 focus:outline-none
+                 focus:ring-2 focus:ring-loge-500 focus:ring-offset-2">
+          Se connecter
+        </button>
+
+      </form>
+
+      <div class="mt-4 text-center">
+        <a href="/auth/reset-password" class="text-sm text-loge-600 hover:text-loge-800">
+          Mot de passe oublié ?
+        </a>
+      </div>
+
+    </div>
+
+    <p class="text-center text-slate-500 text-xs mt-6">
+      Accès réservé aux membres de la loge
+    </p>
+
+  </div>
+
+</body>
+</html>

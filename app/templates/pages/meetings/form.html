@@ -1,0 +1,158 @@
+{% extends "base.html" %}
+{% block title %}{% if is_new %}Nouvelle tenue{% else %}Modifier la tenue{% endif %} — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto">
+
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/meetings/" class="hover:text-loge-700">Tenues</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">{% if is_new %}Nouvelle tenue{% else %}Modifier{% endif %}</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">
+    {% if is_new %}Nouvelle tenue{% else %}Modifier la tenue{% endif %}
+  </h1>
+
+  <form method="post" action="{{ form_action }}" class="space-y-6">
+
+    <!-- Date et heure -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Date & lieu</h2>
+      <div class="grid sm:grid-cols-2 gap-4">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
+          <input type="date" name="meeting_date" required
+                 value="{{ meeting.meeting_date.strftime('%Y-%m-%d') if meeting else '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Heure</label>
+          <input type="time" name="meeting_time"
+                 value="{{ meeting.meeting_time if meeting else '20:30' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
+          <input type="text" name="location"
+                 value="{{ meeting.location if meeting else '' }}"
+                 placeholder="Temple maçonnique, rue…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Adresse complète</label>
+          <input type="text" name="address"
+                 value="{{ meeting.address if meeting else '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Type et contenu -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Type & contenu</h2>
+      <div class="grid sm:grid-cols-2 gap-4">
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Type de tenue</label>
+          <select name="meeting_type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            {% for t in MeetingType %}
+            <option value="{{ t.value }}"
+              {% if meeting and meeting.type == t %}selected{% endif %}>
+              {{ type_label(t) }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Grade requis</label>
+          <select name="meeting_grade" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            {% for g in MeetingGrade %}
+            <option value="{{ g.value }}"
+              {% if meeting and meeting.grade == g %}selected{% endif %}>
+              {{ grade_label(g) }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Titre (optionnel)</label>
+          <input type="text" name="title"
+                 value="{{ meeting.title if meeting else '' }}"
+                 placeholder="Ex: Tenue blanche ouverte — Saint-Jean d'hiver"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Thème (optionnel)</label>
+          <input type="text" name="theme"
+                 value="{{ meeting.theme if meeting else '' }}"
+                 placeholder="Ex: La lumière dans la tradition maçonnique"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Lien visioconférence (optionnel)</label>
+          <input type="url" name="visio_url"
+                 value="{{ meeting.visio_url if meeting else '' }}"
+                 placeholder="https://meet.jit.si/..."
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Agapes -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Agapes</h2>
+      <div class="space-y-4">
+
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="agape_enabled" value="1"
+                 {% if (meeting and meeting.agape_enabled) or is_new %}checked{% endif %}
+                 class="rounded border-gray-300 text-loge-600 focus:ring-loge-500"
+                 onchange="document.getElementById('agape-details').classList.toggle('hidden', !this.checked)">
+          <span class="text-sm font-medium text-gray-700">Agapes organisées après la tenue</span>
+        </label>
+
+        <div id="agape-details" class="grid sm:grid-cols-2 gap-4 {% if meeting and not meeting.agape_enabled %}hidden{% endif %}">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Capacité max (0 = illimitée)</label>
+            <input type="number" name="agape_capacity" min="0"
+                   value="{{ meeting.agape_capacity if meeting and meeting.agape_capacity else '' }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Lieu des agapes</label>
+            <input type="text" name="agape_location"
+                   value="{{ meeting.agape_location if meeting else '' }}"
+                   placeholder="Restaurant, salle..."
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- Boutons -->
+    <div class="flex gap-3">
+      <button type="submit"
+              class="bg-loge-700 text-white px-6 py-2.5 rounded-lg text-sm font-medium hover:bg-loge-800">
+        {% if is_new %}Créer la tenue{% else %}Enregistrer{% endif %}
+      </button>
+      <a href="/meetings/"
+         class="border border-gray-200 text-gray-700 px-6 py-2.5 rounded-lg text-sm hover:bg-gray-50">
+        Annuler
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Membres — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-7xl mx-auto">
+
+  <!-- En-tête -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Tableau de la Loge</h1>
+      <p class="text-sm text-gray-500 mt-1">{{ members|length }} membre(s)</p>
+    </div>
+    {% if can_manage %}
+    <a href="/members/new/form"
+       class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">
+      <span>+</span> Nouveau membre
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Filtres -->
+  <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div class="flex flex-wrap gap-3">
+      <input type="text" name="search" value="{{ search }}" placeholder="Rechercher…"
+             class="flex-1 min-w-48 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+
+      <select name="grade" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Tous les grades</option>
+        {% for g in MasonicGrade %}
+        <option value="{{ g.value }}" {% if grade_filter == g.value %}selected{% endif %}>{{ grade_label(g) }}</option>
+        {% endfor %}
+      </select>
+
+      <select name="status_filter" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Tous les statuts</option>
+        <option value="ACTIVE" {% if status_filter == 'ACTIVE' %}selected{% endif %}>Actifs</option>
+        <option value="LEAVE" {% if status_filter == 'LEAVE' %}selected{% endif %}>En congé</option>
+        <option value="RESIGNED" {% if status_filter == 'RESIGNED' %}selected{% endif %}>Démissionnaires</option>
+      </select>
+
+      <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
+        Filtrer
+      </button>
+      {% if search or grade_filter or status_filter %}
+      <a href="/members/" class="border border-gray-200 text-gray-600 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">
+        Réinitialiser
+      </a>
+      {% endif %}
+    </div>
+  </form>
+
+  <!-- Liste -->
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    {% if members %}
+    <!-- Mobile : cartes -->
+    <div class="divide-y divide-gray-50 lg:hidden">
+      {% for m in members %}
+      <a href="/members/{{ m.id }}" class="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors">
+        <!-- Avatar -->
+        <div class="flex-shrink-0 w-10 h-10 rounded-full bg-loge-700 flex items-center justify-center text-white font-semibold text-sm">
+          {{ m.first_name[0] }}{{ m.last_name[0] }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="font-medium text-gray-900 truncate">F∴ {{ m.first_name }} {{ m.last_name }}</div>
+          <div class="text-xs text-gray-500">{{ grade_label(m.masonic_grade) }} · {{ function_label(m.lodge_function) }}</div>
+        </div>
+        <div class="flex-shrink-0">
+          {% if m.status == 'ACTIVE' %}
+          <span class="inline-block w-2 h-2 rounded-full bg-green-400"></span>
+          {% else %}
+          <span class="inline-block w-2 h-2 rounded-full bg-gray-300"></span>
+          {% endif %}
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+
+    <!-- Desktop : tableau -->
+    <table class="hidden lg:table w-full text-sm">
+      <thead class="bg-gray-50 border-b border-gray-100">
+        <tr>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">Frère</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">Grade</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">Fonction</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">Email</th>
+          <th class="text-left px-6 py-3 font-medium text-gray-600">Statut</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for m in members %}
+        <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location='/members/{{ m.id }}'">
+          <td class="px-6 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full bg-loge-700 flex items-center justify-center text-white text-xs font-semibold">
+                {{ m.first_name[0] }}{{ m.last_name[0] }}
+              </div>
+              <span class="font-medium text-gray-900">F∴ {{ m.first_name }} {{ m.last_name }}</span>
+            </div>
+          </td>
+          <td class="px-6 py-3 text-gray-600">{{ grade_label(m.masonic_grade) }}</td>
+          <td class="px-6 py-3 text-gray-600">{{ function_label(m.lodge_function) }}</td>
+          <td class="px-6 py-3 text-gray-500">{{ m.email }}</td>
+          <td class="px-6 py-3">
+            {% if m.status.value == 'ACTIVE' %}
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2 py-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-500"></span>Actif
+            </span>
+            {% elif m.status.value == 'LEAVE' %}
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-50 rounded-full px-2 py-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-yellow-500"></span>En congé
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-600 bg-gray-100 rounded-full px-2 py-0.5">
+              <span class="w-1.5 h-1.5 rounded-full bg-gray-400"></span>{{ status_label(m.status) }}
+            </span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+
+    {% else %}
+    <div class="text-center py-16 text-gray-400">
+      <div class="text-4xl mb-3">👥</div>
+      <p class="font-medium">Aucun membre trouvé</p>
+      {% if search or grade_filter or status_filter %}
+      <p class="text-sm mt-1">Essayez d'autres critères de recherche</p>
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

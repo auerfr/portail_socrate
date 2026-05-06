@@ -1,0 +1,148 @@
+{% extends "base.html" %}
+{% block title %}Tenues — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-5xl mx-auto">
+
+  <!-- En-tête -->
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Tenues</h1>
+      <p class="text-sm text-gray-500 mt-1">
+        {% if selected_year %}{{ selected_year.label }}{% endif %}
+        · {{ meetings|length }} tenue(s)
+      </p>
+    </div>
+    {% if can_manage %}
+    <a href="/meetings/new/form"
+       class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
+      + Nouvelle tenue
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Filtres -->
+  <form method="get" class="bg-white rounded-xl shadow-sm border border-gray-100 p-4 mb-6">
+    <div class="flex flex-wrap gap-3 items-center">
+
+      {% if years|length > 1 %}
+      <select name="year_id" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        {% for y in years %}
+        <option value="{{ y.id }}" {% if selected_year and selected_year.id == y.id %}selected{% endif %}>
+          {{ y.label }} {% if y.is_current %}(en cours){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      {% endif %}
+
+      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
+        <input type="checkbox" name="upcoming_only" value="1"
+               {% if upcoming_only == '1' %}checked{% endif %}
+               onchange="this.form.submit()"
+               class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+        À venir seulement
+      </label>
+
+      <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
+        Filtrer
+      </button>
+    </div>
+  </form>
+
+  <!-- Liste des tenues -->
+  {% if meetings %}
+  <div class="space-y-3">
+    {% for m in meetings %}
+
+    {% set my_att = member_attendances.get(m.id) %}
+    {% set present_count = attendance_counts.get(m.id, 0) %}
+    {% set is_past = m.meeting_date < today %}
+
+    <a href="/meetings/{{ m.id }}"
+       class="block bg-white rounded-xl shadow-sm border border-gray-100 hover:border-loge-300 transition-colors overflow-hidden">
+      <div class="flex items-stretch">
+
+        <!-- Bande de date -->
+        <div class="bg-loge-800 text-white flex flex-col items-center justify-center px-4 py-3 min-w-16 text-center">
+          <div class="text-2xl font-bold leading-tight">{{ m.meeting_date.strftime('%d') }}</div>
+          <div class="text-xs uppercase tracking-wide text-loge-300">{{ m.meeting_date.strftime('%b') }}</div>
+          <div class="text-xs text-loge-400">{{ m.meeting_date.strftime('%Y') }}</div>
+        </div>
+
+        <!-- Contenu -->
+        <div class="flex-1 p-4">
+          <div class="flex items-start justify-between gap-3">
+            <div>
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-xs font-medium text-loge-700 bg-loge-50 rounded-full px-2 py-0.5">
+                  {{ type_label(m.type) }}
+                </span>
+                <span class="text-xs text-gray-500">{{ grade_label(m.grade) }}</span>
+                {% if m.is_locked %}
+                <span class="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">🔒 Verrouillée</span>
+                {% endif %}
+              </div>
+              <h3 class="font-semibold text-gray-900 mt-1">
+                {{ m.title or type_label(m.type) }}
+              </h3>
+              {% if m.theme %}
+              <p class="text-sm text-gray-500 mt-0.5">{{ m.theme }}</p>
+              {% endif %}
+              <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                {% if m.meeting_time %}
+                <span>⏰ {{ m.meeting_time }}</span>
+                {% endif %}
+                {% if m.location %}
+                <span>📍 {{ m.location }}</span>
+                {% endif %}
+                {% if not is_past %}
+                <span>👥 {{ present_count }} inscrits</span>
+                {% endif %}
+              </div>
+            </div>
+
+            <!-- Statut inscription du membre -->
+            <div class="shrink-0 text-right">
+              {% if my_att %}
+                {% if my_att.status.value == 'PRESENT' %}
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2.5 py-1">
+                  ✓ Présent
+                </span>
+                  {% if my_att.agape %}
+                  <div class="text-xs text-gray-400 mt-1">🍽 Agape</div>
+                  {% endif %}
+                {% elif my_att.status.value == 'EXCUSED' %}
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-50 rounded-full px-2.5 py-1">
+                  ~ Excusé
+                </span>
+                {% else %}
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 rounded-full px-2.5 py-1">
+                  ✗ Absent
+                </span>
+                {% endif %}
+              {% elif not is_past and m.registration_open %}
+              <span class="text-xs text-gray-400 italic">Non inscrit</span>
+              {% endif %}
+            </div>
+          </div>
+        </div>
+      </div>
+    </a>
+
+    {% endfor %}
+  </div>
+
+  {% else %}
+  <div class="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
+    <div class="text-4xl mb-3">🏛</div>
+    <p class="font-medium text-gray-500">Aucune tenue trouvée</p>
+    {% if can_manage %}
+    <a href="/meetings/new/form" class="mt-4 inline-block text-sm text-loge-700 hover:underline">
+      Créer la première tenue
+    </a>
+    {% endif %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

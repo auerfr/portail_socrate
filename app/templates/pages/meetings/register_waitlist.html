@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Liste d'attente — Portail Socrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="min-h-full flex items-center justify-center py-8 px-4">
+  <div class="max-w-md w-full text-center">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+      <div class="text-5xl mb-4">⏳</div>
+      <h1 class="text-xl font-bold text-gray-900">Liste d'attente</h1>
+      <p class="text-gray-600 mt-2">
+        Les agapes sont complètes pour la tenue du
+        <strong>{{ meeting.meeting_date.strftime('%d/%m/%Y') }}</strong>.
+        Vous êtes en position <strong>#{{ position }}</strong> sur la liste d'attente.
+      </p>
+      <p class="text-sm text-gray-400 mt-4">
+        Vous serez contacté si une place se libère.
+      </p>
+    </div>
+  </div>
+</body>
+</html>

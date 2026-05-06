@@ -1,0 +1,62 @@
+# ── Python ────────────────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+*.egg
+*.egg-info/
+dist/
+build/
+.eggs/
+.Python
+env/
+venv/
+.venv/
+pip-log.txt
+pip-delete-this-directory.txt
+
+# ── Environnement ─────────────────────────────────────────────────────────────
+.env
+.env.local
+.env.production
+.env.staging
+# Garder .env.example (template public)
+!.env.example
+
+# ── Base de données locale ────────────────────────────────────────────────────
+*.db
+*.sqlite
+*.sqlite3
+
+# ── Uploads & fichiers générés ────────────────────────────────────────────────
+app/static/uploads/
+app/static/exports/
+*.pdf
+
+# ── Logs ──────────────────────────────────────────────────────────────────────
+*.log
+logs/
+
+# ── IDE & OS ──────────────────────────────────────────────────────────────────
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+Thumbs.db
+desktop.ini
+
+# ── Tests ─────────────────────────────────────────────────────────────────────
+.pytest_cache/
+.coverage
+htmlcov/
+
+# ── Docker (volumes locaux) ───────────────────────────────────────────────────
+postgres-data/
+redis-data/
+
+# ── Alembic (garder les migrations mais pas le cache) ────────────────────────
+alembic/__pycache__/
+
+# ── Node (si on compile Tailwind en prod) ─────────────────────────────────────
+node_modules/

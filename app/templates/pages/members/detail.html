@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}{{ target.first_name }} {{ target.last_name }} — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-4xl mx-auto">
+
+  <!-- Breadcrumb -->
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/members/" class="hover:text-loge-700">Membres</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">{{ target.first_name }} {{ target.last_name }}</span>
+  </nav>
+
+  <!-- Carte principale -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+
+    <!-- En-tête -->
+    <div class="bg-gradient-to-r from-loge-800 to-loge-700 px-6 py-8 text-white">
+      <div class="flex items-center gap-5">
+        <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
+          {{ target.first_name[0] }}{{ target.last_name[0] }}
+        </div>
+        <div>
+          <h1 class="text-xl font-bold">F∴ {{ target.first_name }} {{ target.last_name }}</h1>
+          <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade) }} · {{ function_label(target.lodge_function) }}</p>
+          <div class="mt-2">
+            {% if target.status.value == 'ACTIVE' %}
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-green-200 bg-green-800/40 rounded-full px-2.5 py-1">
+              ● Actif
+            </span>
+            {% else %}
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-gray-300 bg-black/20 rounded-full px-2.5 py-1">
+              ● {{ status_label(target.status) }}
+            </span>
+            {% endif %}
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Contenu -->
+    <div class="p-6 grid sm:grid-cols-2 gap-6">
+
+      <!-- Coordonnées -->
+      <div>
+        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Coordonnées</h2>
+        <dl class="space-y-2 text-sm">
+          <div class="flex gap-2">
+            <dt class="text-gray-500 w-24 shrink-0">Email</dt>
+            <dd><a href="mailto:{{ target.email }}" class="text-loge-700 hover:underline">{{ target.email }}</a></dd>
+          </div>
+          {% if target.phone %}
+          <div class="flex gap-2">
+            <dt class="text-gray-500 w-24 shrink-0">Téléphone</dt>
+            <dd><a href="tel:{{ target.phone }}" class="text-gray-800">{{ target.phone }}</a></dd>
+          </div>
+          {% endif %}
+          {% if target.birth_date %}
+          <div class="flex gap-2">
+            <dt class="text-gray-500 w-24 shrink-0">Naissance</dt>
+            <dd class="text-gray-800">{{ target.birth_date.strftime('%d/%m/%Y') }}</dd>
+          </div>
+          {% endif %}
+        </dl>
+      </div>
+
+      <!-- Parcours maçonnique -->
+      <div>
+        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Parcours maçonnique</h2>
+        <dl class="space-y-2 text-sm">
+          {% if target.initiation_date %}
+          <div class="flex gap-2">
+            <dt class="text-gray-500 w-28 shrink-0">Initiation</dt>
+            <dd class="text-gray-800">{{ target.initiation_date.strftime('%d/%m/%Y') }}</dd>
+          </div>
+          {% endif %}
+          {% if target.companion_date %}
+          <div class="flex gap-2">
+            <dt class="text-gray-500 w-28 shrink-0">Compagnon</dt>
+            <dd class="text-gray-800">{{ target.companion_date.strftime('%d/%m/%Y') }}</dd>
+          </div>
+          {% endif %}
+          {% if target.master_date %}
+          <div class="flex gap-2">
+            <dt class="text-gray-500 w-28 shrink-0">Maître</dt>
+            <dd class="text-gray-800">{{ target.master_date.strftime('%d/%m/%Y') }}</dd>
+          </div>
+          {% endif %}
+          <div class="flex gap-2">
+            <dt class="text-gray-500 w-28 shrink-0">Programme</dt>
+            <dd class="text-gray-800">{{ '✓ Optin' if target.program_optin else '✗ Optout' }}</dd>
+          </div>
+        </dl>
+      </div>
+
+    </div>
+
+    <!-- Compte utilisateur -->
+    {% if target_user or (can_manage and not target_user) %}
+    <div class="border-t border-gray-100 px-6 py-4">
+      <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Compte d'accès</h2>
+      {% if target_user %}
+      <div class="flex items-center justify-between">
+        <div class="text-sm">
+          <span class="font-medium text-gray-800">{{ target_user.login }}</span>
+          <span class="ml-2 text-xs {% if target_user.is_active %}text-green-600{% else %}text-red-500{% endif %}">
+            {{ '● Actif' if target_user.is_active else '● Désactivé' }}
+          </span>
+          {% if target_user.is_admin %}
+          <span class="ml-2 text-xs text-purple-600 bg-purple-50 rounded-full px-2 py-0.5">Admin</span>
+          {% endif %}
+          {% if target_user.last_login_at %}
+          <span class="ml-3 text-xs text-gray-400">Dernière connexion : {{ target_user.last_login_at.strftime('%d/%m/%Y') }}</span>
+          {% endif %}
+        </div>
+        {% if current_user.is_admin %}
+        <form method="post" action="/members/{{ target.id }}/toggle-user">
+          <button type="submit"
+                  class="text-xs border border-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-50">
+            {{ 'Désactiver' if target_user.is_active else 'Activer' }}
+          </button>
+        </form>
+        {% endif %}
+      </div>
+      {% else %}
+      <p class="text-sm text-gray-500">Pas encore de compte. <a href="/members/{{ target.id }}/edit" class="text-loge-700 hover:underline">Créer un accès</a></p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+  <!-- Actions -->
+  <div class="flex gap-3">
+    {% if can_manage or is_own_profile %}
+    <a href="/members/{{ target.id }}/edit"
+       class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
+      ✎ Modifier
+    </a>
+    {% endif %}
+    <a href="/members/" class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">
+      ← Retour à la liste
+    </a>
+  </div>
+
+</div>
+{% endblock %}

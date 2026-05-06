@@ -1,0 +1,49 @@
+# Framework
+fastapi==0.111.0
+uvicorn[standard]==0.29.0
+
+# Base de données
+sqlalchemy[asyncio]==2.0.30
+asyncpg==0.29.0
+alembic==1.13.1
+
+# Auth
+python-jose[cryptography]==3.3.0
+passlib[bcrypt]==1.7.4
+python-multipart==0.0.9
+
+# Templates
+jinja2==3.1.4
+aiofiles==23.2.1
+
+# Redis (WebSocket, cache, sessions)
+redis[hiredis]==5.0.4
+
+# Email
+aiosmtplib==3.0.1
+jinja2==3.1.4
+
+# PDF
+reportlab==4.2.2
+weasyprint==62.3
+
+# Excel
+openpyxl==3.1.5
+
+# Fichiers / uploads
+python-magic==0.4.27
+pillow==10.3.0
+
+# Utilitaires
+pydantic[email]==2.7.1
+pydantic-settings==2.2.1
+python-dotenv==1.0.1
+httpx==0.27.0
+itsdangerous==2.2.0
+
+# WebPush (notifications PWA)
+pywebpush==2.0.0
+
+# Dev
+pytest==8.2.0
+pytest-asyncio==0.23.7

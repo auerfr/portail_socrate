@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full bg-gray-50">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Inscription confirmée — Portail Socrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: {
+      loge: { 700:'#2340b0', 800:'#1e3699', 900:'#1a2d82' }
+    }}}}
+  </script>
+</head>
+<body class="min-h-full flex items-center justify-center py-8 px-4">
+  <div class="max-w-md w-full text-center">
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-8">
+      <div class="text-5xl mb-4">✅</div>
+      <h1 class="text-xl font-bold text-gray-900">Inscription confirmée !</h1>
+      <p class="text-gray-600 mt-2">
+        F∴ {{ first_name }} {{ last_name }}, votre inscription à la tenue du
+        <strong>{{ meeting.meeting_date.strftime('%d/%m/%Y') }}</strong>
+        a bien été enregistrée.
+      </p>
+      {% if agape %}
+      <div class="mt-4 bg-loge-50 rounded-xl p-4 text-sm text-loge-800">
+        🍽 Votre place aux agapes est réservée.
+      </div>
+      {% endif %}
+      <p class="mt-6 text-sm text-gray-400">
+        Loge Socrate Raison et Progrès
+      </p>
+    </div>
+  </div>
+</body>
+</html>
