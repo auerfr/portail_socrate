@@ -1,0 +1,204 @@
+{% extends "base.html" %}
+{% block title %}Agenda — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-6xl mx-auto">
+
+  {# ── En-tête ─────────────────────────────────────────────────────────── #}
+  <div class="flex flex-wrap items-center justify-between gap-3 mb-6">
+    <div class="flex items-center gap-3">
+      <a href="/calendar/?year={{ prev_month.year }}&month={{ prev_month.month }}"
+         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-gray-900 transition-colors"
+         aria-label="Mois précédent">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/>
+        </svg>
+      </a>
+
+      <h1 class="text-xl font-bold text-gray-900 capitalize min-w-[180px] text-center">
+        {{ month_name }} {{ year }}
+      </h1>
+
+      <a href="/calendar/?year={{ next_month.year }}&month={{ next_month.month }}"
+         class="p-2 rounded-lg border border-gray-200 hover:bg-gray-50 text-gray-600 hover:text-gray-900 transition-colors"
+         aria-label="Mois suivant">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/>
+        </svg>
+      </a>
+
+      <a href="/calendar/?year={{ today.year }}&month={{ today.month }}"
+         class="ml-1 px-3 py-1.5 text-xs font-medium text-loge-700 border border-loge-200 rounded-lg hover:bg-loge-50 transition-colors">
+        Aujourd'hui
+      </a>
+    </div>
+
+    <div class="flex items-center gap-2">
+      <a href="/calendar/list"
+         class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 10h16M4 14h16M4 18h16"/>
+        </svg>
+        Liste
+      </a>
+      <a href="/calendar/export.ics"
+         class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/>
+        </svg>
+        Exporter .ics
+      </a>
+      {% if can_create %}
+      <a href="/calendar/compose"
+         class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-white bg-loge-700 rounded-lg hover:bg-loge-800 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Ajouter
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+  {# ── Légende couleurs ────────────────────────────────────────────────── #}
+  <div class="hidden sm:flex flex-wrap gap-3 mb-4">
+    {% set type_labels = {
+      'RITUAL':   ('Tenue rituelle',    'bg-loge-700 text-white'),
+      'AGAPE':    ('Agape',             'bg-orange-500 text-white'),
+      'EXTERNAL': ('Externe',           'bg-teal-600 text-white'),
+      'ADMIN':    ('Administratif',     'bg-gray-500 text-white'),
+      'DEADLINE': ('Échéance',          'bg-red-600 text-white'),
+      'OTHER':    ('Autre',             'bg-purple-600 text-white'),
+    } %}
+    {% for key, (label, cls) in type_labels.items() %}
+    <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium {{ cls }}">
+      {{ label }}
+    </span>
+    {% endfor %}
+  </div>
+
+  {# ── Grille calendrier (desktop) ─────────────────────────────────────── #}
+  <div class="hidden sm:block bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+    {# En-têtes jours #}
+    <div class="grid grid-cols-7 bg-gray-50 border-b border-gray-100">
+      {% for day_name in ['Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam', 'Dim'] %}
+      <div class="py-2 text-center text-xs font-semibold text-gray-500 uppercase tracking-wide">
+        {{ day_name }}
+      </div>
+      {% endfor %}
+    </div>
+
+    {# Semaines #}
+    {% for week in weeks %}
+    <div class="grid grid-cols-7 divide-x divide-gray-100 border-b border-gray-100 last:border-b-0">
+      {% for day in week %}
+      {% set is_current_month = (day.month == month) %}
+      {% set is_today = (day == today) %}
+      {% set day_events = events_by_day.get(day, []) %}
+      <div class="min-h-[80px] p-1 {% if not is_current_month %}bg-gray-50{% endif %}">
+        {# Numéro du jour #}
+        <div class="flex justify-end mb-0.5">
+          <span class="inline-flex items-center justify-center w-6 h-6 text-xs font-medium rounded-full
+            {% if is_today %}bg-loge-700 text-white font-bold
+            {% elif not is_current_month %}text-gray-300
+            {% else %}text-gray-700{% endif %}">
+            {{ day.day }}
+          </span>
+        </div>
+        {# Événements du jour #}
+        {% for ev in day_events %}
+        {% set type_cls = {
+          'RITUAL':   'bg-loge-700 text-white',
+          'AGAPE':    'bg-orange-500 text-white',
+          'EXTERNAL': 'bg-teal-600 text-white',
+          'ADMIN':    'bg-gray-500 text-white',
+          'DEADLINE': 'bg-red-600 text-white',
+          'OTHER':    'bg-purple-600 text-white',
+        }.get(ev.type, 'bg-gray-400 text-white') %}
+        {% if ev.url %}
+        <a href="{{ ev.url }}"
+           class="block truncate text-[11px] px-1 py-0.5 rounded mb-0.5 {{ type_cls }} hover:opacity-90 transition-opacity"
+           title="{{ ev.title }}{% if ev.location %} — {{ ev.location }}{% endif %}">
+          {{ ev.title }}
+        </a>
+        {% else %}
+        <span class="block truncate text-[11px] px-1 py-0.5 rounded mb-0.5 {{ type_cls }}"
+              title="{{ ev.title }}{% if ev.location %} — {{ ev.location }}{% endif %}">
+          {{ ev.title }}
+        </span>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endfor %}
+  </div>
+
+  {# ── Vue mobile : liste ──────────────────────────────────────────────── #}
+  <div class="sm:hidden space-y-3">
+    {% set type_labels_mobile = {
+      'RITUAL':   ('Tenue',       'bg-loge-700'),
+      'AGAPE':    ('Agape',       'bg-orange-500'),
+      'EXTERNAL': ('Externe',     'bg-teal-600'),
+      'ADMIN':    ('Admin',       'bg-gray-500'),
+      'DEADLINE': ('Échéance',    'bg-red-600'),
+      'OTHER':    ('Autre',       'bg-purple-600'),
+    } %}
+    {% for week in weeks %}
+      {% for day in week %}
+        {% if day.month == month %}
+          {% set day_events = events_by_day.get(day, []) %}
+          {% if day_events %}
+          <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+            <div class="px-4 py-2 bg-gray-50 border-b border-gray-100 flex items-center gap-2">
+              <span class="inline-flex items-center justify-center w-7 h-7 rounded-full text-sm font-bold
+                {% if day == today %}bg-loge-700 text-white{% else %}bg-gray-200 text-gray-700{% endif %}">
+                {{ day.day }}
+              </span>
+              <span class="text-sm font-medium text-gray-700">
+                {{ ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'][day.weekday()] }}
+              </span>
+            </div>
+            <div class="divide-y divide-gray-50">
+              {% for ev in day_events %}
+              {% set tl = type_labels_mobile.get(ev.type, ('Evt', 'bg-gray-400')) %}
+              <div class="px-4 py-3 flex items-start gap-3">
+                <span class="mt-0.5 w-2 h-2 rounded-full {{ tl[1] }} flex-shrink-0"></span>
+                <div class="min-w-0">
+                  {% if ev.url %}
+                  <a href="{{ ev.url }}" class="text-sm font-medium text-gray-900 hover:text-loge-700 truncate block">
+                    {{ ev.title }}
+                  </a>
+                  {% else %}
+                  <p class="text-sm font-medium text-gray-900 truncate">{{ ev.title }}</p>
+                  {% endif %}
+                  {% if ev.location %}
+                  <p class="text-xs text-gray-500 truncate">{{ ev.location }}</p>
+                  {% endif %}
+                </div>
+                <span class="ml-auto flex-shrink-0 text-[10px] font-medium px-1.5 py-0.5 rounded text-white {{ tl[1] }}">
+                  {{ tl[0] }}
+                </span>
+              </div>
+              {% endfor %}
+            </div>
+          </div>
+          {% endif %}
+        {% endif %}
+      {% endfor %}
+    {% endfor %}
+
+    {% set has_mobile_events = namespace(found=false) %}
+    {% for week in weeks %}{% for day in week %}{% if day.month == month and events_by_day.get(day, []) %}{% set has_mobile_events.found = true %}{% endif %}{% endfor %}{% endfor %}
+    {% if not has_mobile_events.found %}
+    <div class="text-center py-12 text-gray-400">
+      <svg class="w-10 h-10 mx-auto mb-3 opacity-40" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+      </svg>
+      <p class="text-sm">Aucun événement ce mois-ci</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

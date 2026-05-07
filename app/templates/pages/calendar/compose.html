@@ -1,0 +1,180 @@
+{% extends "base.html" %}
+{% block title %}Nouvel événement — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-2xl mx-auto">
+
+  {# ── Fil d'Ariane ────────────────────────────────────────────────────── #}
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/calendar/" class="hover:text-loge-700">Agenda</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Nouvel événement</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Ajouter un événement</h1>
+
+  <form method="post" action="/calendar/events" class="space-y-6"
+        x-data="{
+          allDay: true,
+          toggleAllDay() { this.allDay = !this.allDay }
+        }">
+
+    {# ── Titre & description ────────────────────────────────────────────── #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Informations</h2>
+
+      <div>
+        <label for="title" class="block text-sm font-medium text-gray-700 mb-1">
+          Titre <span class="text-red-500">*</span>
+        </label>
+        <input type="text" id="title" name="title" required maxlength="300"
+               placeholder="Ex : Réunion de bureau, Convent GLNF…"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+
+      <div>
+        <label for="description" class="block text-sm font-medium text-gray-700 mb-1">
+          Description <span class="text-gray-400 font-normal">(optionnel)</span>
+        </label>
+        <textarea id="description" name="description" rows="3"
+                  placeholder="Détails, ordre du jour, lien visio…"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"></textarea>
+      </div>
+
+      <div>
+        <label for="location" class="block text-sm font-medium text-gray-700 mb-1">
+          Lieu <span class="text-gray-400 font-normal">(optionnel)</span>
+        </label>
+        <input type="text" id="location" name="location" maxlength="300"
+               placeholder="Adresse ou nom du lieu"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+    </div>
+
+    {# ── Date & heure ───────────────────────────────────────────────────── #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Date & heure</h2>
+
+      {# Checkbox Journée entière #}
+      <label class="flex items-center gap-3 cursor-pointer group">
+        <input type="checkbox" name="all_day" value="on"
+               x-model="allDay"
+               @change="toggleAllDay()"
+               checked
+               class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
+        <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900">
+          Journée entière
+        </span>
+      </label>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">
+            Date de début <span class="text-red-500">*</span>
+          </label>
+          <input type="date" id="start_date" name="start_date" required
+                 value="{{ today_str }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div x-show="!allDay" x-transition>
+          <label for="start_time" class="block text-sm font-medium text-gray-700 mb-1">
+            Heure de début
+          </label>
+          <input type="time" id="start_time" name="start_time"
+                 value="19:00"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">
+            Date de fin <span class="text-gray-400 font-normal">(optionnel)</span>
+          </label>
+          <input type="date" id="end_date" name="end_date"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div x-show="!allDay" x-transition>
+          <label for="end_time" class="block text-sm font-medium text-gray-700 mb-1">
+            Heure de fin
+          </label>
+          <input type="time" id="end_time" name="end_time"
+                 value="22:00"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+    </div>
+
+    {# ── Type & Visibilité ──────────────────────────────────────────────── #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Catégorie & accès</h2>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label for="event_type" class="block text-sm font-medium text-gray-700 mb-1">
+            Type d'événement <span class="text-red-500">*</span>
+          </label>
+          <select id="event_type" name="event_type" required
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            {% set type_labels = {
+              'RITUAL':   'Tenue rituelle',
+              'AGAPE':    'Agape / repas',
+              'EXTERNAL': 'Événement extérieur',
+              'ADMIN':    'Réunion administrative',
+              'DEADLINE': 'Échéance',
+              'OTHER':    'Autre',
+            } %}
+            {% for et in event_types %}
+            <option value="{{ et.value }}" {% if et.value == 'OTHER' %}selected{% endif %}>
+              {{ type_labels.get(et.value, et.value) }}
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div>
+          <label for="visibility" class="block text-sm font-medium text-gray-700 mb-1">
+            Visibilité
+          </label>
+          <select id="visibility" name="visibility"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            {% set vis_labels = {
+              'ALL':      'Tous les membres',
+              'OFFICERS': 'Officiers uniquement',
+              'ADMIN':    'Administrateurs seulement',
+            } %}
+            {% for ev in event_visibilities %}
+            <option value="{{ ev.value }}" {% if ev.value == 'ALL' %}selected{% endif %}>
+              {{ vis_labels.get(ev.value, ev.value) }}
+            </option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-400 mt-1">
+            "Officiers" = VM, Surveillants, Secrétaire et autres offices.
+          </p>
+        </div>
+      </div>
+    </div>
+
+    {# ── Actions ────────────────────────────────────────────────────────── #}
+    <div class="flex items-center justify-between gap-3 pt-2">
+      <a href="/calendar/"
+         class="px-4 py-2 text-sm font-medium text-gray-600 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
+        Annuler
+      </a>
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-6 py-2.5 text-sm font-semibold text-white bg-loge-700 rounded-lg hover:bg-loge-800 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/>
+        </svg>
+        Créer l'événement
+      </button>
+    </div>
+
+  </form>
+</div>
+
+{# Alpine.js est chargé dans base.html #}
+{% endblock %}

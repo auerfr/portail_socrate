@@ -13,6 +13,11 @@ from app.database import engine, Base, get_db
 from app.dependencies import get_current_user, can_manage_attendance
 from app.routers import auth, members, meetings, finance, programs, attendance, announcements
 from app.routers import settings as settings_router
+from app.routers import messages as messages_router
+from app.routers import calendar as calendar_router
+# Import des modèles pour que Base.metadata.create_all les crée
+import app.models.messaging      # noqa: F401
+import app.models.lodge_calendar  # noqa: F401
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -56,6 +61,13 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE contribution_configs ADD COLUMN tier_selection_open BOOLEAN DEFAULT 0"
             )
 
+        # ── Messagerie interne ──────────────────────────────────────────────
+        # Les tables messages et message_recipients sont créées par Base.metadata.create_all
+        # (nouveaux modèles — pas besoin d'ALTER TABLE)
+
+        # ── Agenda ─────────────────────────────────────────────────────────
+        # La table lodge_events est créée par Base.metadata.create_all
+
     yield
     # Arrêt
     await engine.dispose()
@@ -92,8 +104,8 @@ app.include_router(programs.router)
 app.include_router(settings_router.router)
 app.include_router(attendance.router)
 app.include_router(announcements.router)
-
-# (les autres routers seront ajoutés ici au fur et à mesure)
+app.include_router(messages_router.router)
+app.include_router(calendar_router.router)
 # app.include_router(finance.router)
 # app.include_router(documents.router)
 # app.include_router(calendar.router)

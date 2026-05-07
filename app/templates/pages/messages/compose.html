@@ -1,0 +1,155 @@
+{% extends "base.html" %}
+{% block title %}Nouveau message — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-2xl mx-auto">
+
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/messages/" class="hover:text-loge-700">Messages</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Nouveau message</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Nouveau message</h1>
+
+  <form method="post" action="/messages/send"
+        x-data="{ targetType: 'ALL' }">
+
+    <!-- Objet + corps -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4 space-y-4">
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Objet</label>
+        <input type="text" name="subject" required maxlength="300"
+               placeholder="Objet du message…"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-sm font-semibold text-gray-700 mb-1.5">Corps du message</label>
+        <textarea name="body" required rows="8"
+                  placeholder="Saisissez votre message ici…"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y"></textarea>
+        <p class="text-xs text-gray-400 mt-1">Les retours à la ligne sont respectés à l'affichage.</p>
+      </div>
+    </div>
+
+    <!-- Ciblage -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
+      <h2 class="text-sm font-semibold text-gray-700 mb-4">Destinataires</h2>
+
+      <input type="hidden" name="target_type" :value="targetType">
+
+      <div class="space-y-2 mb-2">
+
+        <!-- ALL -->
+        <label class="flex items-center gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors"
+               :class="targetType === 'ALL' ? 'border-loge-400 bg-loge-50' : 'border-gray-100 hover:border-gray-200'">
+          <input type="radio" value="ALL" x-model="targetType" class="sr-only">
+          <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0"
+               :class="targetType === 'ALL' ? 'border-loge-500 bg-loge-500' : 'border-gray-300'">
+            <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'ALL'"></div>
+          </div>
+          <div>
+            <div class="text-sm font-medium text-gray-900">Tous les membres actifs</div>
+            <div class="text-xs text-gray-500">Message envoyé à l'ensemble de la loge</div>
+          </div>
+        </label>
+
+        <!-- GRADE -->
+        <label class="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors"
+               :class="targetType === 'GRADE' ? 'border-teal-400 bg-teal-50' : 'border-gray-100 hover:border-gray-200'">
+          <input type="radio" value="GRADE" x-model="targetType" class="sr-only">
+          <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
+               :class="targetType === 'GRADE' ? 'border-teal-500 bg-teal-500' : 'border-gray-300'">
+            <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'GRADE'"></div>
+          </div>
+          <div class="flex-1">
+            <div class="text-sm font-medium text-gray-900">Par grade</div>
+            <div class="text-xs text-gray-500 mb-2">Membres d'un grade minimum</div>
+            <div x-show="targetType === 'GRADE'" x-cloak>
+              <select name="target_grade"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-teal-500">
+                <option value="APPRENTI">Apprenti et au-dessus</option>
+                <option value="COMPAGNON">Compagnon et au-dessus</option>
+                <option value="MAITRE">Maîtres uniquement</option>
+              </select>
+            </div>
+          </div>
+        </label>
+
+        <!-- FUNCTION -->
+        <label class="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors"
+               :class="targetType === 'FUNCTION' ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-200'">
+          <input type="radio" value="FUNCTION" x-model="targetType" class="sr-only">
+          <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
+               :class="targetType === 'FUNCTION' ? 'border-orange-500 bg-orange-500' : 'border-gray-300'">
+            <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'FUNCTION'"></div>
+          </div>
+          <div class="flex-1">
+            <div class="text-sm font-medium text-gray-900">Par fonction</div>
+            <div class="text-xs text-gray-500 mb-2">Officiers d'un ou plusieurs offices</div>
+            <div x-show="targetType === 'FUNCTION'" x-cloak class="grid grid-cols-2 gap-1.5 mt-1">
+              {% for fn_value, fn_label in function_labels.items() %}
+              <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-orange-50 px-1.5 py-1 rounded">
+                <input type="checkbox" name="target_functions" value="{{ fn_value }}"
+                       class="rounded border-gray-300 text-orange-500">
+                <span class="text-gray-700">{{ fn_label }}</span>
+              </label>
+              {% endfor %}
+            </div>
+          </div>
+        </label>
+
+        <!-- MANUAL -->
+        <label class="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors"
+               :class="targetType === 'MANUAL' ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-gray-200'">
+          <input type="radio" value="MANUAL" x-model="targetType" class="sr-only">
+          <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
+               :class="targetType === 'MANUAL' ? 'border-purple-500 bg-purple-500' : 'border-gray-300'">
+            <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'MANUAL'"></div>
+          </div>
+          <div class="flex-1">
+            <div class="text-sm font-medium text-gray-900">Sélection manuelle</div>
+            <div class="text-xs text-gray-500 mb-2">Choisir des membres spécifiques</div>
+            <div x-show="targetType === 'MANUAL'" x-cloak
+                 x-data="{
+                   updateIds() {
+                     const ids = [...document.querySelectorAll('.manual-cb:checked')].map(c=>c.value).join(',');
+                     document.getElementById('manual_ids').value = ids;
+                   }
+                 }">
+              <div class="space-y-0.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+                {% for m in all_members %}
+                <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-purple-50 px-1.5 py-1 rounded">
+                  <input type="checkbox" class="manual-cb rounded border-gray-300 text-purple-500"
+                         value="{{ m.id }}" @change="updateIds()">
+                  <span class="font-medium text-gray-800">{{ m.last_name }} {{ m.first_name }}</span>
+                  <span class="text-gray-400 ml-auto">{{ m.masonic_grade.value }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              <input type="hidden" name="target_member_ids" id="manual_ids">
+            </div>
+          </div>
+        </label>
+
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="flex gap-3">
+      <button type="submit"
+              class="flex-1 bg-loge-700 text-white py-3 rounded-xl font-semibold hover:bg-loge-800 transition-colors flex items-center justify-center gap-2">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+        </svg>
+        Envoyer
+      </button>
+      <a href="/messages/"
+         class="px-5 py-3 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
+        Annuler
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}
