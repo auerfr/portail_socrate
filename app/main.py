@@ -15,9 +15,11 @@ from app.routers import auth, members, meetings, finance, programs, attendance, 
 from app.routers import settings as settings_router
 from app.routers import messages as messages_router
 from app.routers import calendar as calendar_router
+from app.routers import groups as groups_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.lodge_calendar  # noqa: F401
+import app.models.groups          # noqa: F401
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -29,6 +31,7 @@ from app.models.meetings import (
     MeetingVisitor, VisitorStatus, Visitor,
 )
 from app.models.communication import Announcement, AnnouncementRead
+from app.models.messaging import MessageRecipient as MsgRecipient, Message as Msg
 
 settings = get_settings()
 
@@ -90,10 +93,12 @@ async def global_exception_handler(request: Request, exc: Exception):
     tb = _tb.format_exc()
     return PlainTextResponse(f"Erreur interne:\n{tb}", status_code=500)
 
+templates = Jinja2Templates(directory="app/templates")
+# Valeur de fallback : les pages qui ne calculent pas le compteur affichent 0
+templates.env.globals["global_unread_messages"] = 0
+
 # ── Static files ───────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
-
-templates = Jinja2Templates(directory="app/templates")
 
 # ── Routers ────────────────────────────────────────────────────────────────
 app.include_router(auth.router)
@@ -106,6 +111,7 @@ app.include_router(attendance.router)
 app.include_router(announcements.router)
 app.include_router(messages_router.router)
 app.include_router(calendar_router.router)
+app.include_router(groups_router.router)
 # app.include_router(finance.router)
 # app.include_router(documents.router)
 # app.include_router(calendar.router)
@@ -290,6 +296,18 @@ async def home(
     unread_announcements = [a for a in all_announcements if a.id not in read_ids]
     read_announcements   = [a for a in all_announcements if a.id in read_ids]
 
+    # ── Messages non lus ────────────────────────────────────────────────────
+    unread_msg_r = await db.execute(
+        select(sql_func.count(MsgRecipient.id))
+        .join(Msg, Msg.id == MsgRecipient.message_id)
+        .where(
+            MsgRecipient.member_id == member.id,
+            MsgRecipient.read_at.is_(None),
+            Msg.sent_at.isnot(None),
+        )
+    )
+    global_unread_messages = unread_msg_r.scalar_one() or 0
+
     # ── Derniers maçons passants ─────────────────────────────────────────────
     recent_visitors_r = await db.execute(
         select(MeetingVisitor)
@@ -332,6 +350,8 @@ async def home(
         # annonces
         "unread_announcements": unread_announcements,
         "read_announcements": read_announcements,
+        # pastille messages
+        "global_unread_messages": global_unread_messages,
     })
 
 

@@ -14,6 +14,8 @@ from app.database import get_db
 from app.dependencies import require_auth
 from app.models.identity import Member, MemberStatus, LodgeFunction, MasonicGrade
 from app.models.messaging import Message, MessageRecipient, MessageTargetType
+from app.models.groups import LodgeGroup as Group, SYSTEM_GROUPS
+from app.routers.groups import resolve_group_member_ids, ensure_system_groups
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -103,6 +105,15 @@ async def _resolve_recipients(
             and m.lodge_function and m.lodge_function.value in functions
         ]
 
+    elif target_type == MessageTargetType.GROUP:
+        group_id = tf.get("group_id")
+        if group_id:
+            group = await db.get(Group, int(group_id))
+            if group:
+                ids = await resolve_group_member_ids(db, group)
+                return [mid for mid in ids if mid != sender_id]
+        return []
+
     elif target_type == MessageTargetType.MANUAL:
         ids = set(tf.get("member_ids", []))
         return [m.id for m in all_members if m.id in ids and m.id != sender_id]
@@ -110,7 +121,7 @@ async def _resolve_recipients(
     return []
 
 
-def _target_description(target_type: str, target_filter: Optional[str]) -> str:
+async def _target_description_async(db: AsyncSession, target_type: str, target_filter: Optional[str]) -> str:
     tf = json.loads(target_filter) if target_filter else {}
     if target_type == MessageTargetType.ALL:
         return "Tous les membres actifs"
@@ -121,6 +132,33 @@ def _target_description(target_type: str, target_filter: Optional[str]) -> str:
         fns = tf.get("functions", [])
         labels = [FUNCTION_LABELS.get(f, f) for f in fns]
         return ", ".join(labels) if labels else "Aucune fonction"
+    elif target_type == MessageTargetType.GROUP:
+        group_id = tf.get("group_id")
+        if group_id:
+            group = await db.get(Group, int(group_id))
+            if group:
+                return f"Groupe : {group.name}"
+        return "Groupe inconnu"
+    elif target_type == MessageTargetType.MANUAL:
+        ids = tf.get("member_ids", [])
+        return f"{len(ids)} membre(s) sélectionné(s)"
+    return target_type
+
+
+def _target_description(target_type: str, target_filter: Optional[str]) -> str:
+    """Version synchrone simplifiée (sans résolution des groupes)."""
+    tf = json.loads(target_filter) if target_filter else {}
+    if target_type == MessageTargetType.ALL:
+        return "Tous les membres actifs"
+    elif target_type == MessageTargetType.GRADE:
+        g = tf.get("grade", "APPRENTI")
+        return GRADE_LABELS.get(g, g)
+    elif target_type == MessageTargetType.FUNCTION:
+        fns = tf.get("functions", [])
+        labels = [FUNCTION_LABELS.get(f, f) for f in fns]
+        return ", ".join(labels) if labels else "Aucune fonction"
+    elif target_type == MessageTargetType.GROUP:
+        return f"Groupe #{tf.get('group_id', '?')}"
     elif target_type == MessageTargetType.MANUAL:
         ids = tf.get("member_ids", [])
         return f"{len(ids)} membre(s) sélectionné(s)"
@@ -199,6 +237,7 @@ async def inbox(
         "per_page": per_page,
         "total_pages": max(1, (total + per_page - 1) // per_page),
         "unread_count": unread,
+        "global_unread_messages": unread,
         "can_send": _can_send(user, member),
         "tab": "inbox",
     })
@@ -254,22 +293,44 @@ async def compose(
     request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    group_id: Optional[int] = None,
+    reply_to: Optional[int] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
         raise HTTPException(403, "Accès réservé aux officiers")
 
+    await ensure_system_groups(db)
+    await db.commit()
+
     all_members = await _get_active_members(db)
+    # Charger tous les groupes pour le ciblage
+    r_groups = await db.execute(select(Group).order_by(Group.is_system.desc(), Group.name))
+    all_groups = r_groups.scalars().all()
+
+    # Pré-remplissage si réponse à un message
+    reply_msg = None
+    if reply_to:
+        reply_msg = await db.get(Message, reply_to)
+
+    # Pré-sélection d'un groupe
+    preselect_group = None
+    if group_id:
+        preselect_group = await db.get(Group, group_id)
+
     unread = await _unread_count(db, member.id)
 
     return templates.TemplateResponse(request, "pages/messages/compose.html", {
         "current_member": member,
         "current_user": user,
         "all_members": all_members,
+        "all_groups": all_groups,
         "function_labels": FUNCTION_LABELS,
         "grade_labels": GRADE_LABELS,
         "unread_count": unread,
         "can_send": True,
+        "reply_msg": reply_msg,
+        "preselect_group": preselect_group,
     })
 
 
@@ -283,7 +344,9 @@ async def send_message(
     target_type: Annotated[str, Form()],
     target_grade: Annotated[Optional[str], Form()] = None,
     target_functions: Annotated[Optional[List[str]], Form()] = None,
+    target_group_id: Annotated[Optional[int], Form()] = None,
     target_member_ids: Annotated[Optional[str], Form()] = None,
+    parent_id: Annotated[Optional[int], Form()] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -295,6 +358,8 @@ async def send_message(
         tf = {"grade": target_grade or "APPRENTI"}
     elif target_type == MessageTargetType.FUNCTION:
         tf = {"functions": target_functions or []}
+    elif target_type == MessageTargetType.GROUP:
+        tf = {"group_id": target_group_id}
     elif target_type == MessageTargetType.MANUAL:
         try:
             ids = [int(x.strip()) for x in (target_member_ids or "").split(",") if x.strip()]
@@ -304,10 +369,21 @@ async def send_message(
 
     target_filter_json = json.dumps(tf) if tf else None
 
-    # Résoudre les destinataires
-    recipient_ids = await _resolve_recipients(
-        db, target_type, target_filter_json, member.id
-    )
+    # Pour une réponse : les destinataires = expéditeur + destinataires du message parent
+    if parent_id:
+        parent = await db.get(Message, parent_id, options=[selectinload(Message.recipients)])
+        if parent:
+            # Répondre à l'expéditeur du message original + inclure le membre courant comme expéditeur
+            reply_ids = list({parent.sender_id} | {rec.member_id for rec in parent.recipients} - {member.id})
+            target_type = MessageTargetType.MANUAL
+            tf = {"member_ids": reply_ids}
+            target_filter_json = json.dumps(tf)
+            recipient_ids = reply_ids
+        else:
+            parent_id = None
+            recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
+    else:
+        recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
 
     if not recipient_ids:
         raise HTTPException(400, "Aucun destinataire trouvé pour ce ciblage")
@@ -319,6 +395,7 @@ async def send_message(
         sender_id=member.id,
         target_type=MessageTargetType(target_type),
         target_filter=target_filter_json,
+        parent_id=parent_id,
         sent_at=datetime.now(),
     )
     db.add(msg)

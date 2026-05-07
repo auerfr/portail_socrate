@@ -1,0 +1,160 @@
+{% extends "base.html" %}
+{% block title %}{{ group.name }} — Groupes{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto">
+
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/groups/" class="hover:text-loge-700">Groupes</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">{{ group.name }}</span>
+  </nav>
+
+  <!-- En-tête -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-4">
+    <div class="flex items-start justify-between gap-4">
+      <div class="flex items-center gap-4">
+        <div class="w-14 h-14 rounded-2xl flex items-center justify-center text-2xl text-white font-bold flex-shrink-0"
+             style="background:{{ group.color or '#3b5bdb' }};">
+          {% if group.group_type.value == 'COUNCIL' %}⚖{% elif group.group_type.value == 'PAIR' %}🔑{% else %}{{ group.name[0] }}{% endif %}
+        </div>
+        <div>
+          <h1 class="text-xl font-bold text-gray-900">{{ group.name }}</h1>
+          <div class="flex items-center gap-2 mt-1">
+            {% if group.is_system %}
+            <span class="text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">Groupe système</span>
+            {% endif %}
+            {% if is_dynamic %}
+            <span class="text-xs bg-blue-100 text-blue-700 px-2 py-0.5 rounded-full">Calculé automatiquement</span>
+            {% endif %}
+            <span class="text-xs text-gray-500">{{ members | length }} membre{{ 's' if members | length > 1 }}</span>
+          </div>
+          {% if group.description %}
+          <p class="text-sm text-gray-500 mt-1">{{ group.description }}</p>
+          {% endif %}
+        </div>
+      </div>
+
+      <div class="flex items-center gap-2">
+        <!-- Envoyer un message à ce groupe -->
+        <a href="/messages/compose?group_id={{ group.id }}"
+           class="inline-flex items-center gap-1.5 text-sm bg-loge-700 text-white px-3 py-2 rounded-lg hover:bg-loge-800 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+          </svg>
+          Écrire
+        </a>
+
+        {% if can_manage and not group.is_system %}
+        <div x-data="{ open: false }" class="relative">
+          <button @click="open = !open"
+                  class="p-2 border border-gray-200 rounded-lg text-gray-500 hover:bg-gray-50">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 6.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 12.75a.75.75 0 110-1.5.75.75 0 010 1.5zM12 18.75a.75.75 0 110-1.5.75.75 0 010 1.5z"/>
+            </svg>
+          </button>
+          <div x-show="open" @click.away="open = false" x-cloak
+               class="absolute right-0 top-full mt-1 bg-white border border-gray-200 rounded-xl shadow-lg z-10 min-w-max">
+            <form method="post" action="/groups/{{ group.id }}/edit" class="p-3 border-b border-gray-100 space-y-2">
+              <input type="text" name="name" value="{{ group.name }}" required
+                     class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm">
+              <input type="text" name="description" value="{{ group.description or '' }}"
+                     placeholder="Description…" class="w-full border border-gray-200 rounded px-2 py-1.5 text-sm">
+              <div class="flex items-center gap-2">
+                <label class="text-xs text-gray-600">Couleur</label>
+                <input type="color" name="color" value="{{ group.color or '#3b5bdb' }}" class="w-8 h-8 rounded cursor-pointer">
+              </div>
+              <button type="submit" class="w-full bg-loge-700 text-white rounded py-1.5 text-xs font-medium">Enregistrer</button>
+            </form>
+            <form method="post" action="/groups/{{ group.id }}/delete"
+                  onsubmit="return confirm('Supprimer ce groupe ?')" class="p-2">
+              <button type="submit" class="w-full text-left text-sm text-red-500 hover:text-red-700 px-2 py-1 rounded">
+                Supprimer le groupe
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <div class="grid lg:grid-cols-3 gap-4">
+
+    <!-- Liste des membres -->
+    <div class="lg:col-span-2">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+          <h2 class="text-sm font-semibold text-gray-700">Membres ({{ members | length }})</h2>
+        </div>
+        {% if members %}
+        <div class="divide-y divide-gray-50">
+          {% for m in members %}
+          <div class="flex items-center justify-between px-5 py-3">
+            <div class="flex items-center gap-3">
+              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
+                   style="background: linear-gradient(135deg,#3b5bdb,#2340b0);">
+                {{ m.first_name[0] }}{{ m.last_name[0] }}
+              </div>
+              <div>
+                <a href="/members/{{ m.id }}" class="text-sm font-medium text-gray-900 hover:text-loge-700">
+                  {{ m.last_name }} {{ m.first_name }}
+                </a>
+                <div class="text-xs text-gray-500">
+                  {{ m.masonic_grade.value }}
+                  {% if m.lodge_function and m.lodge_function.value != 'FRERE' %}
+                  · {{ m.lodge_function.value }}
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+            {% if can_manage and not is_dynamic %}
+            <form method="post" action="/groups/{{ group.id }}/remove-member">
+              <input type="hidden" name="member_id" value="{{ m.id }}">
+              <button type="submit" class="text-xs text-red-400 hover:text-red-600 px-2 py-1 rounded hover:bg-red-50">
+                Retirer
+              </button>
+            </form>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        {% else %}
+        <div class="px-5 py-8 text-center text-sm text-gray-400">Aucun membre dans ce groupe</div>
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Colonne droite : ajouter membre (groupes manuels) -->
+    {% if can_manage and not is_dynamic and members_not_in %}
+    <div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">Ajouter un membre</h2>
+        <form method="post" action="/groups/{{ group.id }}/add-member" class="space-y-2">
+          <select name="member_id"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            {% for m in members_not_in %}
+            <option value="{{ m.id }}">{{ m.last_name }} {{ m.first_name }}</option>
+            {% endfor %}
+          </select>
+          <button type="submit"
+                  class="w-full bg-loge-700 text-white py-2 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
+            Ajouter
+          </button>
+        </form>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if is_dynamic %}
+    <div>
+      <div class="bg-blue-50 border border-blue-100 rounded-xl p-4 text-xs text-blue-800">
+        <p class="font-semibold mb-1">Groupe automatique</p>
+        <p>Ce groupe est calculé dynamiquement depuis les attributs des membres (grade, fonction). Vous ne pouvez pas modifier sa liste manuellement.</p>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+{% endblock %}

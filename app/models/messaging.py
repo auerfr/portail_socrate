@@ -14,6 +14,7 @@ class MessageTargetType(str, enum.Enum):
     ALL      = "ALL"       # Tous les membres actifs
     GRADE    = "GRADE"     # Grade minimum (APPRENTI | COMPAGNON | MAITRE)
     FUNCTION = "FUNCTION"  # Une ou plusieurs fonctions
+    GROUP    = "GROUP"     # Un groupe existant (par group_id)
     MANUAL   = "MANUAL"    # Liste manuelle de member_id
 
 
@@ -27,14 +28,21 @@ class Message(Base):
 
     sender_id: Mapped[int]  = mapped_column(ForeignKey("members.id"))
     target_type: Mapped[MessageTargetType] = mapped_column(Enum(MessageTargetType))
-    # JSON sérialisé : {"grade":"MAITRE"} | {"functions":["VM","TRESORIER"]} | {"member_ids":[1,2]}
+    # JSON : {"grade":"MAITRE"} | {"functions":["VM"]} | {"group_id":3} | {"member_ids":[1,2]}
     target_filter: Mapped[Optional[str]] = mapped_column(Text)
+
+    # Réponse à un message (thread)
+    parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("messages.id"))
 
     sent_at: Mapped[Optional[datetime]]  = mapped_column(DateTime)   # None = brouillon
     created_at: Mapped[datetime]         = mapped_column(DateTime, server_default=func.now())
 
     recipients: Mapped[list["MessageRecipient"]] = relationship(
         back_populates="message", cascade="all, delete-orphan"
+    )
+    replies: Mapped[list["Message"]] = relationship(
+        "Message", foreign_keys="[Message.parent_id]",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:
