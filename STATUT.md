@@ -1,5 +1,5 @@
 # Portail Socrate — Statut de développement
-> Dernière mise à jour : 2026-05-06
+> Dernière mise à jour : 2026-05-08
 
 ---
 
@@ -9,7 +9,7 @@
 - **PWA** : manifest.json + service worker + bottom nav mobile
 - **PDF** : WeasyPrint (programmes) + PyMuPDF (import logo vecteur)
 - **Auth** : session cookie HTTP-only, bcrypt
-- **Email** : SMTP configurable dans les paramètres loge
+- **Email** : SMTP configurable dans les paramètres loge (service email.py opérationnel)
 
 ---
 
@@ -19,104 +19,80 @@
 
 | Module | Détail |
 |--------|--------|
-| Auth | Login/logout, session, admin flag |
-| Membres | CRUD complet, civilité F∴/S∴, grade, statut, office rituel dynamique |
-| Offices rituels | Table `lodge_offices` configurable (label éditable, Couvreur etc.) |
-| Tenues | Création, gestion, types, agapes on/off, token public |
-| Inscription visiteurs | Formulaire public (F∴/S∴, grade, loge, V∴M∴ checkbox, commentaire) |
-| Programmes PDF | Généré depuis tenues, A4 recto/verso, portrait pleine page, OJ 2 colonnes |
-| Finance (base) | Structure de base |
-| Paramètres loge | Identité, temple, VM, Secrétaire, officiers, Google Maps |
-| PWA / Responsive | Bottom nav mobile, sidebar desktop redesignée (style Linear), safe-area iOS |
-| Base de données | SQLite local (`socrate_local.db`), migrations manuelles via scripts Python |
+| **Auth** | Login/logout, session, admin flag, changement MDP utilisateur, reset MDP admin |
+| **Membres** | CRUD complet, civilité F∴/S∴, grade, statut, office rituel dynamique, import CSV |
+| **Offices rituels** | Table `lodge_offices` configurable (label éditable, Couvreur etc.) |
+| **Tenues** | Création, gestion, types, agapes on/off, token public, tracé (Quill.js) |
+| **Agapes** | Capacité max, fermeture automatique, inscription membre (PIN), compteur temps réel, export Excel, dashboard, page banquet |
+| **Inscription visiteurs** | Formulaire public (F∴/S∴, grade, loge, V∴M∴ checkbox, commentaire, opt-in programme) |
+| **Présence & Assiduité** | Émargement (Présent/Excusé/Absent), ajout/suppression passants, autocomplete loge/obédience, dashboard tri colonnes, bilan annuel enrichi, distribution anonymisée, top 5 visiteurs, export CSV |
+| **Programmes PDF** | Généré depuis tenues, A4 recto/verso, portrait pleine page, OJ 2 colonnes, QR code, création rétrospective, édition après coup |
+| **Finance / Trésorerie** | 5 tranches coefficients (0.4–1.6), budget lignes/catégories, transactions, statuts paiement (payé/attente/retard), export CSV, détail par membre, bilan annuel |
+| **GED / Bibliothèque** | Espaces → Dossiers → Fichiers, upload, téléchargement, prévisualisation, liens externes, gestion admin |
+| **Chat interne** | Canaux publics, groupes privés, messages directs, historique, pastilles non-lus |
+| **Messagerie** | Messagerie ciblée par groupes, accusés de lecture |
+| **Calendrier** | Vue mensuelle, agenda liste, création événements, export iCalendar (.ics) |
+| **Groupes** | Gestion de groupes de membres, types, ciblage |
+| **Annonces** | Module annonces interne |
+| **Paramètres loge** | Identité, temple, VM, Secrétaire, officiers, SMTP, Google Maps, notifications |
+| **PWA / Responsive** | Bottom nav mobile, sidebar desktop redesignée (style Linear), safe-area iOS |
+| **Base de données** | SQLite local (`socrate_local.db`), migrations manuelles via scripts Python |
 
 ---
 
-### 🔴 EN COURS / PROCHAIN SPRINT
+### 🟡 EN COURS / PARTIELLEMENT FAIT
 
-#### 1. Module Agapes — complétion
-**Objectif** : remplacer `agapes.amisdesocrate.fr` intégralement
+#### 1. Communication — envoi email automatisé
+L'infrastructure SMTP est en place (`app/services/email.py`), mais les workflows automatisés manquent :
+- [ ] Envoi convocations par email avec PDF programme en pièce jointe
+- [ ] Templates email HTML (convocation, rappel agapes, relance cotisation)
+- [ ] Gestion opt-in / opt-out par membre (champ en base, pas de UI)
+- [ ] Synchronisation listes email cPanel via API (token prévu dans `LodgeSettings`)
 
-- [ ] Capacité max par tenue (champ `capacity` sur `Meeting`) + compteur temps réel
-- [ ] Fermeture automatique des inscriptions J-1 à 8h (ou manuellement)
-- [ ] Inscription membre par dropdown + PIN (pas de login requis pour s'inscrire aux agapes)
-- [ ] Logique conditionnelle : si pas tenue → pas agapes
-- [ ] Case "recevoir les programmes de la loge" sur le formulaire visiteur (déjà en base `program_optin`)
-- [ ] Lien agapes généré automatiquement dans le PDF programme
-- [ ] Dashboard agapes : liste inscrits, compteur places, export liste
-
-#### 2. Module Présence & Assiduité
-**Objectif** : remplacer `/presence/dashboard/`
-
-- [ ] Émargement le soir de la tenue (Présent / Excusé / Absent) — interface rapide
-- [ ] Modèle `Attendance` déjà en place, à brancher sur l'UI
-- [ ] Dashboard assiduité : taux par membre, par année maçonnique
-- [ ] Signalement absences répétées (>3 sans excuse)
-- [ ] Vue par tenue : qui était là
+#### 2. Admin panel dédié
+Les fonctions admin sont dispersées (settings, members, finance...) mais il n'y a pas de dashboard centralisé :
+- [ ] Vue d'ensemble : stats d'utilisation, membres actifs, tenues à venir
+- [ ] Gestion des comptes utilisateurs (droits, rôles, qui a accès à quoi)
+- [ ] Backup / export BDD téléchargeable (SQLite ou dump SQL)
+- [ ] Audit log : qui a fait quoi (créé/modifié tenue, programme, cotisation)
+- [ ] Sécurité : tentatives de connexion échouées, sessions actives
+- [ ] Design / branding (logo, couleurs thème) dans les settings
 
 ---
 
-### 🟡 PLANIFIÉ
+### 🔴 PLANIFIÉ
 
-#### 3. Module Trésorerie complet
-**Objectif** : remplacer `/cotisations`
-
-- [ ] 5 tranches avec coefficients (0.4 / 0.6 / 0.8 / 1.2 / 1.6) autour montant référence
-- [ ] Capitation nationale (183.5€) + régionale (4€) séparées du montant loge
-- [ ] Affectation tranche par membre
-- [ ] Budget total, répartition catégories, distribution membres/tranche
-- [ ] Statut cotisation : payé / en attente / en retard
-- [ ] Relance email automatique
-- [ ] Export PDF dashboard trésorier
-
-#### 4. Module Membres & Comptabilité
-**Objectif** : remplacer `/asso/`
-
-- [ ] Import CSV membres (seuls / abonnements seuls / combiné)
-- [ ] Abonnements (type, montant, fréquence)
+#### 3. Abonnements & comptabilité associative
+- [ ] Abonnements membres (type, montant, fréquence)
 - [ ] Paiements (date, mode, montant, lié à membre)
 - [ ] Comptabilité associative (recettes/dépenses, catégories)
 - [ ] Export comptable
 
-#### 5. Module Communication
-**Objectif** : remplacer les listes cPanel manuelles
+#### 4. Visio
+Les champs sont déjà en base (`visio_provider`, `visio_server_url`, `visio_room_prefix`) :
+- [ ] Génération automatique lien par tenue (Jitsi / BBB)
+- [ ] Lien dans convocation email et programme PDF
 
-- [ ] Synchronisation listes email cPanel via API cPanel (token déjà prévu dans `LodgeSettings`)
-- [ ] Envoi convocations par email (SMTP configuré) avec PDF en pièce jointe
-- [ ] Gestion opt-in / opt-out par membre
-- [ ] Templates email (convocation, rappel, relance cotisation)
-
-#### 6. Module Visio
-**Objectif** : intégrer une solution de visio (Jitsi / BBB)
-
-- [ ] Champ `visio_provider` + `visio_server_url` + `visio_room_prefix` déjà dans `LodgeSettings`
-- [ ] Génération automatique d'un lien de salle par tenue
-- [ ] Lien visio dans la convocation email et dans le programme PDF
-- [ ] Support Jitsi Meet (self-hosted ou meet.jit.si) et BigBlueButton
+#### 5. PWA — finition
+- [ ] Manifest complet (icônes toutes tailles)
+- [ ] Install prompt (A2HS)
+- [ ] Offline mode (service worker cache)
+- [ ] Notifications push
 
 ---
 
-### 🟢 FUTUR
+## Ce qu'il reste vraiment à faire (synthèse)
 
-#### 7. Module Agora — Espace collaboratif
-**Objectif** : remplacer `www.amisdesocrate.fr`
-
-- [ ] Calendrier (vue mensuelle, agenda, export `.ics`)
-- [ ] Bibliothèque de planches (upload PDF, accès par grade)
-- [ ] Import backup Agora existant (à étudier selon format dispo)
-- [ ] Forum interne (topics, réponses, grade-gate)
-- [ ] Tâches / Commissions (assignation, suivi)
-- [ ] Contacts maçonniques (carnet visiteurs, loges amies)
-- [ ] Espace "Cloud Visiteurs et Maçons Passant"
-
-#### 8. Module Messagerie interne
-**Objectif** : remplacer Telegram
-
-- [ ] Messages directs entre membres
-- [ ] Canaux par thème (chantiers, commissions, annonces)
-- [ ] Restriction de contenu par grade (rituels, etc.)
-- [ ] Notifications push PWA
-- [ ] Historique et recherche
+| Priorité | Chantier | Effort |
+|----------|----------|--------|
+| 🔴 Haute | Admin panel centralisé (backup, stats, audit, sécurité) | Moyen |
+| 🔴 Haute | Convocations email automatiques avec PDF | Moyen |
+| 🟡 Moyenne | Templates email (convocation, relance cotisation) | Petit |
+| 🟡 Moyenne | Sync listes cPanel | Petit |
+| 🟡 Moyenne | Abonnements & comptabilité associative | Grand |
+| 🟢 Basse | Visio (Jitsi/BBB) — champs déjà en base | Petit |
+| 🟢 Basse | PWA finition (offline, push, install prompt) | Moyen |
+| 🟢 Basse | Optimisation design & responsive restants | Continu |
 
 ---
 
@@ -128,38 +104,58 @@ app/
 ├── database.py              # Engine SQLAlchemy + Base + get_db
 ├── config.py                # Settings (dotenv)
 ├── dependencies.py          # Auth, permissions, hash_password
+├── services/
+│   └── email.py             # Service SMTP async
 ├── models/
 │   ├── identity.py          # Member, User, MasonicGrade, LodgeFunction, Group...
 │   ├── lodge.py             # LodgeSettings, LodgeOffice, MasonicYear
-│   └── meetings.py          # Meeting, Attendance, Visitor, MeetingVisitor...
+│   ├── meetings.py          # Meeting, Attendance, Visitor, MeetingVisitor, TracingSection...
+│   ├── documents.py         # DocumentSpace, Folder, File
+│   ├── messaging.py         # Message, Channel, Thread
+│   └── lodge_calendar.py    # CalendarEvent
 ├── routers/
-│   ├── auth.py              # Login / logout
-│   ├── members.py           # CRUD membres + offices
-│   ├── meetings.py          # Tenues + inscription publique
-│   ├── programs.py          # Génération PDF programmes
-│   ├── finance.py           # Trésorerie (base)
-│   └── settings.py          # Paramètres loge + officiers
+│   ├── auth.py              # Login / logout / changement MDP
+│   ├── members.py           # CRUD membres + offices + reset MDP admin
+│   ├── meetings.py          # Tenues + agapes + inscription publique + tracé
+│   ├── programs.py          # Génération PDF programmes (création + édition)
+│   ├── finance.py           # Trésorerie complète (cotisations, budget, transactions)
+│   ├── attendance.py        # Présence, émargement, bilan, visiteurs
+│   ├── settings.py          # Paramètres loge + SMTP + officiers + notifications
+│   ├── documents.py         # GED / Bibliothèque
+│   ├── chat.py              # Chat interne (canaux, groupes, DMs)
+│   ├── messages.py          # Messagerie ciblée
+│   ├── calendar.py          # Calendrier + export iCal
+│   ├── announcements.py     # Annonces
+│   └── groups.py            # Groupes de membres
 └── templates/
     ├── base.html            # Layout PWA (sidebar desktop + bottom nav mobile)
     └── pages/
         ├── dashboard.html
-        ├── members/         # list.html, detail.html, form.html
-        ├── meetings/        # list, detail, form, register_public
-        ├── programs/        # detail.html (PDF A4)
-        ├── finance/
-        └── settings/        # index.html
+        ├── admin/           # ← VIDE (à construire)
+        ├── members/         # list, detail, form
+        ├── meetings/        # list, detail, form, register_public, banquet, trace
+        ├── programs/        # detail (PDF), create, edit
+        ├── finance/         # dashboard, cotisations, budget, transactions, bilan, membre_detail
+        ├── attendance/      # dashboard, emargement, summary, member, visitors, bilan
+        ├── documents/       # index, space, folder
+        ├── chat/            # index
+        ├── messages/        # compose, detail
+        ├── calendar/        # index, list, compose, detail
+        ├── auth/            # login, change_password
+        └── settings/        # index, notifications
 
 app/static/
 ├── img/
-│   ├── sceau-socrate-transparent.png   # Logo noir sur transparent (sidebar, programmes)
-│   └── sceau-socrate-blanc.png         # Logo blanc sur transparent
+│   ├── sceau-socrate-transparent.png
+│   └── sceau-socrate-blanc.png
 ├── manifest.json
 └── sw.js
 
 socrate_local.db             # Base SQLite locale
 .env                         # Config locale (DATABASE_URL, SECRET_KEY, SMTP...)
 seed.py                      # Données initiales (idempotent)
-fix_lodge_offices.py         # Migration offices (à garder pour référence)
+scripts/
+└── init_ged_structure.py    # Initialisation structure GED
 ```
 
 ---
@@ -174,20 +170,13 @@ fix_lodge_offices.py         # Migration offices (à garder pour référence)
 - **Civilité** : `F` = Frère, `S` = Sœur (loge mixte) — pas de TF∴ ni TS∴
 - **Grades** : masculin uniquement au Rite Français Philosophique (Apprenti, Compagnon, Maître)
 - **Offices** : table `lodge_offices` (configurable) — plus d'enum `LodgeFunction` dans les forms
+- **Async SQLAlchemy** : ne jamais accéder aux relations dans les templates Jinja2 — tout charger en amont (selectinload ou requêtes séparées)
 
 ---
 
-## Pour reprendre demain
+## Pour reprendre
 
 1. Lancer l'app : `python -m uvicorn app.main:app --reload`
 2. Ouvrir : http://localhost:8000
 3. Login : `admin` / `admin`
-4. Prochain chantier : **Module Agapes — complétion** (voir checklist ci-dessus)
-
-### Ordre d'attaque recommandé pour Agapes :
-1. Ajouter `capacity` + `registration_closes_at` sur `Meeting` (migration)
-2. Formulaire paramétrage agapes dans la fiche tenue (admin)
-3. Compteur places en temps réel sur la page d'inscription publique
-4. Inscription membre par dropdown + PIN
-5. Fermeture automatique (tâche de fond ou vérification au chargement)
-6. Dashboard agapes (liste inscrits, export)
+4. Prochain chantier : **Admin panel** (dashboard centralisé, backup, stats, audit)
