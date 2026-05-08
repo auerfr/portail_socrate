@@ -73,7 +73,16 @@ Les champs sont déjà en base (`visio_provider`, `visio_server_url`, `visio_roo
 - [ ] Génération automatique lien par tenue (Jitsi / BBB)
 - [ ] Lien dans convocation email et programme PDF
 
-#### 5. PWA — finition
+#### 5. Design & thème — refonte CSS / responsive
+- [ ] Choix d'un thème cohérent adapté au contexte maçonnique (sobre, sérieux, lisible)
+- [ ] Palette de couleurs unifiée (actuellement `loge-*` Tailwind custom — à affiner)
+- [ ] Responsive mobile : audit page par page, corrections breakpoints manquants
+- [ ] Typographie : cohérence tailles/poids entre toutes les pages
+- [ ] Dark mode optionnel
+- [ ] Animations / transitions douces (hover, modals, accordéons)
+- [ ] Composants réutilisables : cartes, badges, tableaux, boutons — harmonisation
+
+#### 6. PWA — finition
 - [ ] Manifest complet (icônes toutes tailles)
 - [ ] Install prompt (A2HS)
 - [ ] Offline mode (service worker cache)
@@ -91,8 +100,8 @@ Les champs sont déjà en base (`visio_provider`, `visio_server_url`, `visio_roo
 | 🟡 Moyenne | Sync listes cPanel | Petit |
 | 🟡 Moyenne | Abonnements & comptabilité associative | Grand |
 | 🟢 Basse | Visio (Jitsi/BBB) — champs déjà en base | Petit |
+| 🟢 Basse | Design & thème (refonte CSS, responsive, palette) | Grand |
 | 🟢 Basse | PWA finition (offline, push, install prompt) | Moyen |
-| 🟢 Basse | Optimisation design & responsive restants | Continu |
 
 ---
 
