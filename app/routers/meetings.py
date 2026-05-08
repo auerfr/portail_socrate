@@ -1061,6 +1061,11 @@ async def public_register_page(
     )
     active_members = members_r.scalars().all()
 
+    from sqlalchemy import distinct as sql_distinct
+    lodges_r = await db.execute(select(sql_distinct(Visitor.lodge_name)).where(Visitor.lodge_name.isnot(None), Visitor.lodge_name != ""))
+    orients_r = await db.execute(select(sql_distinct(Visitor.orient_city)).where(Visitor.orient_city.isnot(None), Visitor.orient_city != ""))
+    obeds_r = await db.execute(select(sql_distinct(Visitor.obedience)).where(Visitor.obedience.isnot(None), Visitor.obedience != ""))
+
     return templates.TemplateResponse(request, "pages/meetings/register_public.html", {
         "meeting": meeting,
         "token": token,
@@ -1069,6 +1074,9 @@ async def public_register_page(
         "lodge": lodge,
         "agape_count": agape_count,
         "active_members": active_members,
+        "known_lodges": sorted(lodges_r.scalars().all()),
+        "known_orients": sorted(orients_r.scalars().all()),
+        "known_obediences": sorted(obeds_r.scalars().all()),
     })
 
 

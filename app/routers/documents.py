@@ -218,6 +218,7 @@ async def documents_folder(
         .where(
             Document.folder_id == folder_id,
             Document.status == DocStatus.PUBLISHED,
+            Document.deleted_at == None,
         )
         .order_by(sort_fn(sort_col))
     )
@@ -251,6 +252,14 @@ async def documents_folder(
     # Infos plateforme pour les liens externes
     platforms = {doc.id: _detect_platform(doc.link_url) for doc in documents if doc.link_url}
 
+    # Arbre complet des dossiers pour la modale "Déplacer"
+    all_spaces_r = await db.execute(select(DocSpace).order_by(DocSpace.order_position, DocSpace.name))
+    all_folders_r = await db.execute(select(DocFolder).order_by(DocFolder.space_id, DocFolder.order_position, DocFolder.name))
+    all_folders_flat = [
+        {"id": f.id, "name": f.name, "parent_id": f.parent_id, "space_id": f.space_id}
+        for f in all_folders_r.scalars().all()
+    ]
+
     return templates.TemplateResponse(request, "pages/documents/folder.html", {
         "current_member": member,
         "current_user": user,
@@ -267,6 +276,9 @@ async def documents_folder(
         "error": request.query_params.get("error"),
         "sort": sort,
         "dir": dir,
+        "all_spaces": all_spaces_r.scalars().all(),
+        "all_folders_flat": all_folders_flat,
+        "current_folder_id": folder_id,
     })
 
 
@@ -621,3 +633,152 @@ async def admin_delete_space(
     await db.delete(space)
     await db.commit()
     return RedirectResponse(url="/documents/?saved=1", status_code=303)
+
+
+# ── Corbeille ─────────────────────────────────────────────────────────────────
+
+@router.get("/trash", response_class=HTMLResponse)
+async def documents_trash(
+    request: Request,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    docs_r = await db.execute(
+        select(Document)
+        .options(selectinload(Document.folder))
+        .where(Document.deleted_at != None)
+        .order_by(Document.deleted_at.desc())
+    )
+    trashed = docs_r.scalars().all()
+    return templates.TemplateResponse(request, "pages/documents/trash.html", {
+        "current_member": member,
+        "current_user": user,
+        "documents": trashed,
+        "is_admin": True,
+    })
+
+
+@router.post("/file/{doc_id}/trash")
+async def document_trash(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from datetime import datetime
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404)
+    folder_id = doc.folder_id
+    doc.deleted_at = datetime.now()
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
+
+
+@router.post("/file/{doc_id}/restore")
+async def document_restore(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404)
+    doc.deleted_at = None
+    await db.commit()
+    return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
+
+
+@router.post("/file/{doc_id}/destroy")
+async def document_destroy(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404)
+    if doc.storage_path:
+        try:
+            Path(doc.storage_path).unlink(missing_ok=True)
+        except Exception:
+            pass
+    await db.delete(doc)
+    await db.commit()
+    return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
+
+
+@router.post("/file/{doc_id}/move")
+async def document_move(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    target_folder_id: Annotated[int, Form()],
+):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404)
+    target = await db.get(DocFolder, target_folder_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Dossier cible introuvable")
+    old_folder_id = doc.folder_id
+    doc.folder_id = target_folder_id
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{old_folder_id}?saved=1", status_code=303)
+
+
+@router.post("/bulk")
+async def documents_bulk(
+    request: Request,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from datetime import datetime
+    user, member = ctx
+    form = await request.form()
+    action = form.get("action", "")
+    doc_ids = [int(x) for x in form.getlist("doc_ids") if str(x).isdigit()]
+    target_folder_id = form.get("target_folder_id", "")
+    back_folder = form.get("back_folder_id", "")
+
+    if not doc_ids:
+        return RedirectResponse(url=f"/documents/folder/{back_folder}?error=nosel", status_code=303)
+
+    docs_r = await db.execute(select(Document).where(Document.id.in_(doc_ids)))
+    docs = docs_r.scalars().all()
+
+    if action == "trash":
+        now = datetime.now()
+        for doc in docs:
+            doc.deleted_at = now
+        await db.commit()
+
+    elif action == "restore":
+        for doc in docs:
+            doc.deleted_at = None
+        await db.commit()
+        return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
+
+    elif action == "destroy":
+        for doc in docs:
+            if doc.storage_path:
+                try:
+                    Path(doc.storage_path).unlink(missing_ok=True)
+                except Exception:
+                    pass
+            await db.delete(doc)
+        await db.commit()
+        return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
+
+    elif action == "move" and str(target_folder_id).isdigit():
+        tid = int(target_folder_id)
+        target = await db.get(DocFolder, tid)
+        if not target:
+            return RedirectResponse(url=f"/documents/folder/{back_folder}?error=notarget", status_code=303)
+        for doc in docs:
+            doc.folder_id = tid
+        await db.commit()
+        return RedirectResponse(url=f"/documents/folder/{tid}?saved=1", status_code=303)
+
+    redirect = f"/documents/folder/{back_folder}" if back_folder else "/documents/trash"
+    return RedirectResponse(url=f"{redirect}?saved=1", status_code=303)

@@ -137,35 +137,6 @@ async def list_groups(
     })
 
 
-@router.get("/{group_id}", response_class=HTMLResponse)
-async def group_detail(
-    group_id: int,
-    request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    user, member = ctx
-    group = await db.get(Group, group_id, options=[selectinload(Group.memberships)])
-    if not group:
-        raise HTTPException(404)
-
-    members = await resolve_group_members(db, group)
-    all_active = await _get_active_members(db)
-    member_ids_in_group = {m.id for m in members}
-    members_not_in = [m for m in all_active if m.id not in member_ids_in_group]
-
-    return templates.TemplateResponse(request, "pages/groups/detail.html", {
-        "current_member": member,
-        "current_user": user,
-        "group": group,
-        "members": members,
-        "members_not_in": members_not_in,
-        "can_manage": _can_manage_groups(user, member),
-        "is_dynamic": group.group_type in (GroupType.GRADE, GroupType.COUNCIL, GroupType.PAIR),
-        "GroupType": GroupType,
-    })
-
-
 @router.get("/create", response_class=HTMLResponse)
 async def create_group_form(
     request: Request,
@@ -208,6 +179,35 @@ async def create_group(
     db.add(g)
     await db.commit()
     return RedirectResponse(url=f"/groups/{g.id}", status_code=303)
+
+
+@router.get("/{group_id}", response_class=HTMLResponse)
+async def group_detail(
+    group_id: int,
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    group = await db.get(Group, group_id, options=[selectinload(Group.memberships)])
+    if not group:
+        raise HTTPException(404)
+
+    members = await resolve_group_members(db, group)
+    all_active = await _get_active_members(db)
+    member_ids_in_group = {m.id for m in members}
+    members_not_in = [m for m in all_active if m.id not in member_ids_in_group]
+
+    return templates.TemplateResponse(request, "pages/groups/detail.html", {
+        "current_member": member,
+        "current_user": user,
+        "group": group,
+        "members": members,
+        "members_not_in": members_not_in,
+        "can_manage": _can_manage_groups(user, member),
+        "is_dynamic": group.group_type in (GroupType.GRADE, GroupType.COUNCIL, GroupType.PAIR),
+        "GroupType": GroupType,
+    })
 
 
 @router.post("/{group_id}/add-member")
