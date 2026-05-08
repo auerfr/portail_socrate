@@ -49,10 +49,19 @@
       </div>
       <div>
         <label class="block text-sm font-semibold text-gray-700 mb-1.5">Corps du message</label>
-        <textarea name="body" required rows="8"
+        <textarea id="compose-body" name="body" required rows="8"
                   placeholder="Saisissez votre message ici…"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y"></textarea>
-        <p class="text-xs text-gray-400 mt-1">Les retours à la ligne sont respectés à l'affichage.</p>
+        <div class="flex items-center gap-3 mt-1.5">
+          <p class="text-xs text-gray-400 flex-1">Les retours à la ligne sont respectés à l'affichage.</p>
+          <button type="button" onclick="openDocPicker('compose')"
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors shrink-0">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
+            </svg>
+            Insérer depuis la bibliothèque
+          </button>
+        </div>
       </div>
 
       <!-- Lien visio -->
@@ -244,4 +253,226 @@
 
   </form>
 </div>
+
+<!-- ═══ Modale sélecteur de document ═══ -->
+<div id="doc-picker-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 px-4"
+     onclick="if(event.target===this)closeDocPicker()">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-lg flex flex-col" style="max-height:82vh">
+    <!-- Header -->
+    <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
+      <button id="doc-picker-back" onclick="pickerBack()" class="hidden text-gray-400 hover:text-gray-600 w-7 h-7 flex items-center justify-center rounded-lg hover:bg-gray-100 transition-colors shrink-0">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 19.5L8.25 12l7.5-7.5"/>
+        </svg>
+      </button>
+      <div class="flex-1 min-w-0">
+        <div id="doc-picker-breadcrumb" class="text-xs text-gray-400 truncate"></div>
+        <input id="doc-picker-search" type="text" placeholder="Rechercher un document…"
+               oninput="pickerSearch(this.value)"
+               class="w-full text-sm bg-transparent focus:outline-none text-gray-800 placeholder-gray-400 mt-0.5">
+      </div>
+      <button onclick="closeDocPicker()" class="text-gray-400 hover:text-gray-600 shrink-0 text-lg leading-none w-7 h-7 flex items-center justify-center">✕</button>
+    </div>
+    <!-- Content -->
+    <div id="doc-picker-body" class="overflow-y-auto flex-1 px-2 py-2">
+      <p class="text-xs text-gray-400 italic text-center py-6">Chargement…</p>
+    </div>
+  </div>
+</div>
+
+<script>
+var _docPickerTarget = 'compose';
+var _pickerStack = [];
+var _pickerTree = null;
+var _pickerSearchTimer = null;
+
+function openDocPicker(target) {
+  _docPickerTarget = target || 'compose';
+  _pickerStack = [];
+  document.getElementById('doc-picker-search').value = '';
+  document.getElementById('doc-picker-modal').classList.remove('hidden');
+  pickerShowRoot();
+}
+function closeDocPicker() {
+  document.getElementById('doc-picker-modal').classList.add('hidden');
+}
+function pickerSearch(q) {
+  clearTimeout(_pickerSearchTimer);
+  _pickerSearchTimer = setTimeout(function() {
+    if (q.trim()) {
+      pickerShowSearch(q);
+    } else {
+      pickerRestoreLevel();
+    }
+  }, 300);
+}
+function pickerRestoreLevel() {
+  var last = _pickerStack[_pickerStack.length - 1];
+  if (!last || last.type === 'root') pickerShowRoot();
+  else if (last.type === 'space') pickerShowSpace(last);
+  else if (last.type === 'folder') pickerShowFolder(last.id, last.name);
+}
+function pickerUpdateHeader() {
+  var backBtn = document.getElementById('doc-picker-back');
+  var breadcrumb = document.getElementById('doc-picker-breadcrumb');
+  if (_pickerStack.length > 0) {
+    backBtn.classList.remove('hidden');
+    breadcrumb.textContent = _pickerStack.map(function(s) { return s.name || 'Bibliothèque'; }).join(' › ');
+  } else {
+    backBtn.classList.add('hidden');
+    breadcrumb.textContent = 'Bibliothèque';
+  }
+}
+function pickerBack() {
+  _pickerStack.pop();
+  document.getElementById('doc-picker-search').value = '';
+  pickerRestoreLevel();
+}
+function pickerShowRoot() {
+  pickerUpdateHeader();
+  var body = document.getElementById('doc-picker-body');
+  body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Chargement…</p>';
+  if (_pickerTree) { _pickerRenderRoot(); return; }
+  fetch('/documents/api/tree')
+    .then(function(r) { return r.json(); })
+    .then(function(tree) {
+      _pickerTree = tree;
+      _pickerRenderRoot();
+    })
+    .catch(function() {
+      document.getElementById('doc-picker-body').innerHTML =
+        '<p class="text-xs text-red-500 italic text-center py-6">Erreur de chargement.</p>';
+    });
+}
+function _pickerRenderRoot() {
+  var body = document.getElementById('doc-picker-body');
+  if (!_pickerTree || !_pickerTree.length) {
+    body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Aucun espace accessible.</p>';
+    return;
+  }
+  body.innerHTML = _pickerTree.map(function(space) {
+    return '<button onclick=\'pickerEnterSpace(' + JSON.stringify({id:space.id,name:space.name,folders:space.folders}) + ')\''
+      + ' class="w-full text-left flex items-center gap-3 px-3 py-3 rounded-xl hover:bg-gray-50 transition-colors group">'
+      + '<div class="w-8 h-8 rounded-lg bg-loge-50 flex items-center justify-center shrink-0">'
+      + '<svg class="w-4 h-4 text-loge-600" fill="currentColor" viewBox="0 0 24 24"><path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z"/></svg>'
+      + '</div>'
+      + '<span class="text-sm font-medium text-gray-800 flex-1 truncate">' + space.name.replace(/</g,'&lt;') + '</span>'
+      + '<svg class="w-4 h-4 text-gray-300 group-hover:text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>'
+      + '</button>';
+  }).join('');
+}
+function pickerEnterSpace(space) {
+  _pickerStack.push({type:'space', id:space.id, name:space.name, data:space});
+  pickerUpdateHeader();
+  var body = document.getElementById('doc-picker-body');
+  if (!space.folders || !space.folders.length) {
+    body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Aucun dossier dans cet espace.</p>';
+    return;
+  }
+  body.innerHTML = space.folders.map(function(f) {
+    return _pickerFolderBtn(f);
+  }).join('');
+}
+function _pickerFolderBtn(folder) {
+  var hasChildren = folder.subfolders && folder.subfolders.length > 0;
+  var html = '<button onclick=\'pickerEnterFolder(' + JSON.stringify({id:folder.id,name:folder.name}) + ')\''
+    + ' class="w-full text-left flex items-center gap-3 px-3 py-2.5 rounded-xl hover:bg-gray-50 transition-colors group">'
+    + '<svg class="w-5 h-5 text-yellow-500 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z"/></svg>'
+    + '<span class="text-sm font-medium text-gray-800 flex-1 truncate">' + folder.name.replace(/</g,'&lt;') + '</span>'
+    + '<svg class="w-4 h-4 text-gray-300 group-hover:text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>'
+    + '</button>';
+  if (hasChildren) {
+    html += folder.subfolders.map(function(sf) {
+      return '<button onclick=\'pickerEnterFolder(' + JSON.stringify({id:sf.id,name:sf.name}) + ')\''
+        + ' class="w-full text-left flex items-center gap-3 pl-10 pr-3 py-2 rounded-xl hover:bg-gray-50 transition-colors group">'
+        + '<svg class="w-4 h-4 text-yellow-400 shrink-0" fill="currentColor" viewBox="0 0 24 24"><path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z"/></svg>'
+        + '<span class="text-sm text-gray-700 flex-1 truncate">' + sf.name.replace(/</g,'&lt;') + '</span>'
+        + '<svg class="w-4 h-4 text-gray-300 group-hover:text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/></svg>'
+        + '</button>';
+    }).join('');
+  }
+  return html;
+}
+function pickerShowSpace(spaceEntry) {
+  pickerUpdateHeader();
+  var body = document.getElementById('doc-picker-body');
+  var space = spaceEntry.data;
+  if (!space || !space.folders || !space.folders.length) {
+    body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Aucun dossier.</p>';
+    return;
+  }
+  body.innerHTML = space.folders.map(function(f) { return _pickerFolderBtn(f); }).join('');
+}
+function pickerEnterFolder(folder) {
+  _pickerStack.push({type:'folder', id:folder.id, name:folder.name});
+  pickerUpdateHeader();
+  pickerShowFolder(folder.id, folder.name);
+}
+function pickerShowFolder(folderId, folderName) {
+  var body = document.getElementById('doc-picker-body');
+  body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Chargement…</p>';
+  fetch('/documents/api/picker?folder_id=' + folderId)
+    .then(function(r) { return r.json(); })
+    .then(function(docs) {
+      if (!docs.length) {
+        body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Aucun document dans ce dossier.</p>';
+        return;
+      }
+      body.innerHTML = docs.map(function(d) { return _pickerDocBtn(d); }).join('');
+    })
+    .catch(function() {
+      body.innerHTML = '<p class="text-xs text-red-500 italic text-center py-6">Erreur de chargement.</p>';
+    });
+}
+function pickerShowSearch(q) {
+  var body = document.getElementById('doc-picker-body');
+  body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Recherche…</p>';
+  fetch('/documents/api/picker?q=' + encodeURIComponent(q))
+    .then(function(r) { return r.json(); })
+    .then(function(docs) {
+      if (!docs.length) {
+        body.innerHTML = '<p class="text-xs text-gray-400 italic text-center py-6">Aucun résultat.</p>';
+        return;
+      }
+      body.innerHTML = docs.map(function(d) { return _pickerDocBtn(d, true); }).join('');
+    })
+    .catch(function() {
+      body.innerHTML = '<p class="text-xs text-red-500 italic text-center py-6">Erreur de recherche.</p>';
+    });
+}
+function _pickerDocBtn(d, showPath) {
+  return '<button onclick=\'pickDoc(' + JSON.stringify(d) + ')\''
+    + ' class="w-full text-left flex items-start gap-3 px-3 py-2.5 rounded-xl hover:bg-loge-50 transition-colors">'
+    + '<svg class="w-5 h-5 text-red-400 shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 24 24">'
+    + '<path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625z"/>'
+    + '<path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z"/>'
+    + '</svg>'
+    + '<div class="min-w-0 flex-1">'
+    + '<div class="text-sm font-medium text-gray-800 truncate">' + d.name.replace(/</g,'&lt;') + '</div>'
+    + (showPath ? '<div class="text-xs text-gray-400 truncate">' + d.space.replace(/</g,'&lt;') + ' › ' + d.folder.replace(/</g,'&lt;') + '</div>' : '')
+    + '</div>'
+    + '</button>';
+}
+function pickDoc(doc) {
+  closeDocPicker();
+  var url = window.location.origin + (doc.view_url || doc.download_url);
+  if (_docPickerTarget === 'chat') {
+    var ta = document.querySelector('textarea[name="content"]');
+    if (ta) {
+      var prefix = ta.value.trim() ? ta.value + '\n\n' : '';
+      ta.value = prefix + '📄 ' + doc.name + '\n' + url;
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+      ta.focus();
+    }
+  } else {
+    var bodyEl = document.getElementById('compose-body');
+    if (bodyEl) {
+      var prefix = bodyEl.value.trim() ? bodyEl.value + '\n\n' : '';
+      bodyEl.value = prefix + '📄 ' + doc.name + '\n' + url;
+      bodyEl.focus();
+    }
+  }
+}
+</script>
 {% endblock %}

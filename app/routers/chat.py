@@ -1,11 +1,13 @@
 """Router Chat — Messagerie instantanée (remplace Telegram)"""
+import re
 from datetime import datetime
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select, func as sql_func, or_, and_
+from markupsafe import Markup, escape as _escape
+from sqlalchemy import select, delete, func as sql_func, or_, and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -20,6 +22,32 @@ from app.models.chat import (
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 templates = Jinja2Templates(directory="app/templates")
+
+def _render_chat(text: str) -> Markup:
+    if not text:
+        return Markup("")
+    url_pat = re.compile(r"(https?://[^\s]+)")
+    parts = []
+    last = 0
+    for m in url_pat.finditer(text):
+        segment = str(_escape(text[last:m.start()]))
+        segment = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", segment)
+        segment = segment.replace("\n", "<br>")
+        parts.append(segment)
+        url = m.group(1)
+        eu = str(_escape(url))
+        parts.append(
+            f'<a href="{eu}" target="_blank" rel="noopener" '
+            f'class="underline opacity-80 hover:opacity-100 break-all">{eu}</a>'
+        )
+        last = m.end()
+    tail = str(_escape(text[last:]))
+    tail = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", tail)
+    tail = tail.replace("\n", "<br>")
+    parts.append(tail)
+    return Markup("".join(parts))
+
+templates.env.filters["render_chat"] = _render_chat
 
 GRADE_ORDER = {
     MasonicGrade.APPRENTI: 1,
@@ -297,6 +325,48 @@ async def chat_send(
     await db.commit()
 
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
+
+
+# ── Supprimer un message ─────────────────────────────────────────────────────
+
+@router.post("/messages/{msg_id}/delete")
+async def delete_message(
+    msg_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    msg = await db.get(ChatMessage, msg_id)
+    if not msg or msg.is_deleted:
+        raise HTTPException(status_code=404)
+    if msg.sender_id != member.id and not (user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)):
+        raise HTTPException(status_code=403)
+    msg.is_deleted = True
+    msg.content = ""
+    await db.commit()
+    return JSONResponse({"ok": True})
+
+
+# ── Supprimer un canal (admin/VM) ────────────────────────────────────────────
+
+@router.post("/channels/{channel_id}/delete")
+async def delete_channel(
+    channel_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not (user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)):
+        raise HTTPException(status_code=403)
+    channel = await db.get(ChatChannel, channel_id)
+    if not channel:
+        raise HTTPException(status_code=404)
+    await db.execute(delete(ChatRead).where(ChatRead.channel_id == channel_id))
+    await db.execute(delete(ChatMessage).where(ChatMessage.channel_id == channel_id))
+    await db.execute(delete(ChatChannelMember).where(ChatChannelMember.channel_id == channel_id))
+    await db.delete(channel)
+    await db.commit()
+    return RedirectResponse(url="/chat/", status_code=303)
 
 
 # ── Créer un canal (admin) ────────────────────────────────────────────────────

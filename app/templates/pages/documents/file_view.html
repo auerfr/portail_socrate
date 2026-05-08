@@ -1,0 +1,118 @@
+{% extends "base.html" %}
+{% block title %}{{ doc.name }} — Bibliothèque{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <!-- Fil d'ariane -->
+  <nav class="flex items-center gap-2 text-xs text-gray-400 mb-6 flex-wrap">
+    <a href="/documents/" class="hover:text-loge-600 transition-colors">Bibliothèque</a>
+    <span>/</span>
+    <a href="/documents/space/{{ space.id }}" class="hover:text-loge-600 transition-colors">{{ space.name }}</a>
+    <span>/</span>
+    <a href="/documents/folder/{{ folder.id }}" class="hover:text-loge-600 transition-colors">{{ folder.name }}</a>
+    <span>/</span>
+    <span class="text-gray-600 font-medium truncate max-w-[200px]">{{ doc.name }}</span>
+  </nav>
+
+  <!-- Carte document -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
+    <!-- En-tête -->
+    <div class="px-6 py-5 border-b border-gray-100 flex items-start gap-4">
+      <div class="w-12 h-12 rounded-xl flex items-center justify-center shrink-0
+        {% if doc.mime_type and doc.mime_type == 'application/pdf' %}bg-red-50{% elif doc.mime_type and doc.mime_type.startswith('image/') %}bg-blue-50{% elif doc.link_url %}bg-purple-50{% else %}bg-gray-50{% endif %}">
+        {% if doc.link_url %}
+        <svg class="w-6 h-6 text-purple-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+        </svg>
+        {% elif doc.mime_type and doc.mime_type.startswith('image/') %}
+        <svg class="w-6 h-6 text-blue-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+        </svg>
+        {% else %}
+        <svg class="w-6 h-6 text-red-500" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M5.625 1.5c-1.036 0-1.875.84-1.875 1.875v17.25c0 1.035.84 1.875 1.875 1.875h12.75c1.035 0 1.875-.84 1.875-1.875V12.75A3.75 3.75 0 0016.5 9h-1.875a1.875 1.875 0 01-1.875-1.875V5.25A3.75 3.75 0 009 1.5H5.625z"/>
+          <path d="M12.971 1.816A5.23 5.23 0 0114.25 5.25v1.875c0 .207.168.375.375.375H16.5a5.23 5.23 0 013.434 1.279 9.768 9.768 0 00-6.963-6.963z"/>
+        </svg>
+        {% endif %}
+      </div>
+      <div class="flex-1 min-w-0">
+        <h1 class="text-lg font-bold text-gray-900 leading-tight">{{ doc.name }}</h1>
+        {% if doc.description %}
+        <p class="text-sm text-gray-500 mt-1">{{ doc.description }}</p>
+        {% endif %}
+        <div class="flex flex-wrap items-center gap-3 mt-2 text-xs text-gray-400">
+          <span>{{ folder.name }}</span>
+          {% if doc.file_size %}
+          <span>·</span>
+          <span>{{ (doc.file_size / 1024) | int }} ko</span>
+          {% endif %}
+          <span>·</span>
+          <span>{{ doc.created_at.strftime('%d/%m/%Y') }}</span>
+          <span>·</span>
+          <span>{{ doc.download_count }} téléchargement{{ 's' if doc.download_count != 1 }}</span>
+        </div>
+      </div>
+    </div>
+
+    <!-- Aperçu inline -->
+    {% if is_previewable %}
+    <div class="bg-gray-50 border-b border-gray-100">
+      {% if doc.mime_type == 'application/pdf' %}
+      <div class="relative" style="height: 70vh; min-height: 400px;">
+        <iframe src="/documents/file/{{ doc.id }}/preview"
+                class="w-full h-full border-0"
+                title="{{ doc.name }}"></iframe>
+      </div>
+      {% elif doc.mime_type and doc.mime_type.startswith('image/') %}
+      <div class="flex items-center justify-center p-6">
+        <img src="/documents/file/{{ doc.id }}/preview"
+             alt="{{ doc.name }}"
+             class="max-w-full max-h-[60vh] rounded-xl shadow-md object-contain">
+      </div>
+      {% endif %}
+    </div>
+    {% elif doc.link_url %}
+    <div class="px-6 py-5 border-b border-gray-100 bg-purple-50">
+      <p class="text-sm text-purple-700 font-medium mb-2">Lien externe</p>
+      <a href="{{ doc.link_url }}" target="_blank" rel="noopener"
+         class="text-sm text-purple-600 underline break-all hover:text-purple-800">{{ doc.link_url }}</a>
+    </div>
+    {% else %}
+    <div class="px-6 py-5 border-b border-gray-100 bg-gray-50 text-center text-sm text-gray-400 italic">
+      Aperçu non disponible pour ce type de fichier
+    </div>
+    {% endif %}
+
+    <!-- Actions -->
+    <div class="px-6 py-4 flex flex-wrap gap-3">
+      {% if doc.link_url %}
+      <a href="{{ doc.link_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+        </svg>
+        Ouvrir le lien
+      </a>
+      {% else %}
+      <a href="/documents/file/{{ doc.id }}/download"
+         class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+        </svg>
+        Télécharger
+      </a>
+      {% endif %}
+      <a href="/documents/folder/{{ folder.id }}"
+         class="inline-flex items-center gap-2 border border-gray-200 text-gray-600 hover:bg-gray-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+        </svg>
+        Retour au dossier
+      </a>
+    </div>
+
+  </div>
+</div>
+{% endblock %}

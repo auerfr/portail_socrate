@@ -1,18 +1,19 @@
 """Router — Bibliothèque documentaire (GED)"""
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
-from app.models.documents import DocFolder, DocSpace, DocStatus, Document, MinGrade
+from app.models.documents import DocFolder, DocSpace, DocStatus, Document, DocumentVersion, MinGrade
 from app.models.groups import LodgeGroup
 from app.models.identity import MasonicGrade, Member
 from app.routers.groups import resolve_group_member_ids
@@ -162,6 +163,7 @@ async def documents_space(
         "folders": folders,
         "groups_map": groups_map,
         "all_groups": all_groups,
+        "min_grades": list(MinGrade),
         "is_admin": user.is_admin,
         "saved": request.query_params.get("saved"),
         "breadcrumb": [{"label": "Bibliothèque", "url": "/documents/"},
@@ -214,7 +216,7 @@ async def documents_folder(
 
     docs_r = await db.execute(
         select(Document)
-        .options(selectinload(Document.folder))
+        .options(selectinload(Document.folder), selectinload(Document.versions))
         .where(
             Document.folder_id == folder_id,
             Document.status == DocStatus.PUBLISHED,
@@ -223,6 +225,7 @@ async def documents_folder(
         .order_by(sort_fn(sort_col))
     )
     documents = docs_r.scalars().all()
+    versions_by_doc = {doc.id: sorted(doc.versions, key=lambda v: v.version_number) for doc in documents}
 
     # Groupes pour badges
     group_ids = {f.group_id for f in subfolders if f.group_id}
@@ -279,6 +282,7 @@ async def documents_folder(
         "all_spaces": all_spaces_r.scalars().all(),
         "all_folders_flat": all_folders_flat,
         "current_folder_id": folder_id,
+        "versions_by_doc": versions_by_doc,
     })
 
 
@@ -520,6 +524,33 @@ async def documents_preview(
     )
 
 
+# ── Page de visualisation/détail d'un document ───────────────────────────────
+
+@router.get("/file/{doc_id}/view", response_class=HTMLResponse)
+async def document_view(
+    doc_id: int,
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    doc = await _get_authorized_doc(doc_id, user, member, db)
+    folder = doc.folder
+    space = await db.get(DocSpace, folder.space_id)
+    is_previewable = doc.storage_path and doc.mime_type and (
+        doc.mime_type.startswith("image/") or doc.mime_type == "application/pdf"
+    )
+    return templates.TemplateResponse(request, "pages/documents/file_view.html", {
+        "current_member": member,
+        "current_user": user,
+        "doc": doc,
+        "folder": folder,
+        "space": space,
+        "is_admin": user.is_admin,
+        "is_previewable": is_previewable,
+    })
+
+
 # ── Admin — créer espace ──────────────────────────────────────────────────────
 
 @router.post("/admin/space")
@@ -545,6 +576,31 @@ async def admin_create_space(
     db.add(space)
     await db.commit()
     return RedirectResponse(url="/documents/?saved=1", status_code=303)
+
+
+# ── Admin — éditer espace ────────────────────────────────────────────────────
+
+@router.post("/admin/space/{space_id}/edit")
+async def admin_edit_space(
+    space_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(...),
+    description: str = Form(""),
+    min_grade: str = Form("ALL"),
+    group_id: str = Form(""),
+    order_position: int = Form(0),
+):
+    space = await db.get(DocSpace, space_id)
+    if not space:
+        raise HTTPException(status_code=404)
+    space.name = name.strip()
+    space.description = description.strip() or None
+    space.min_grade = MinGrade(min_grade)
+    space.group_id = int(group_id) if group_id.strip().isdigit() else None
+    space.order_position = order_position
+    await db.commit()
+    return RedirectResponse(url=f"/documents/space/{space_id}?saved=1", status_code=303)
 
 
 # ── Admin — créer dossier ─────────────────────────────────────────────────────
@@ -633,6 +689,111 @@ async def admin_delete_space(
     await db.delete(space)
     await db.commit()
     return RedirectResponse(url="/documents/?saved=1", status_code=303)
+
+
+# ── Éditer dossier ───────────────────────────────────────────────────────────
+
+@router.get("/folder/{folder_id}/edit", response_class=HTMLResponse)
+async def folder_edit_form(
+    request: Request,
+    folder_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    folder = await db.get(DocFolder, folder_id)
+    if not folder:
+        raise HTTPException(status_code=404)
+    groups_r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
+    groups = groups_r.scalars().all()
+    all_spaces_r = await db.execute(select(DocSpace).order_by(DocSpace.order_position, DocSpace.name))
+    all_folders_r = await db.execute(select(DocFolder).order_by(DocFolder.space_id, DocFolder.order_position, DocFolder.name))
+    all_folders_flat = [
+        {"id": f.id, "name": f.name, "parent_id": f.parent_id, "space_id": f.space_id}
+        for f in all_folders_r.scalars().all()
+    ]
+    return templates.TemplateResponse(request, "pages/documents/folder_edit.html", {
+        "current_member": member,
+        "folder": folder,
+        "groups": groups,
+        "min_grades": list(MinGrade),
+        "saved": request.query_params.get("saved"),
+        "all_spaces": all_spaces_r.scalars().all(),
+        "all_folders_flat": all_folders_flat,
+    })
+
+
+@router.post("/folder/{folder_id}/edit")
+async def folder_edit_save(
+    folder_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(...),
+    description: str = Form(""),
+    min_grade: str = Form("ALL"),
+    group_id: str = Form(""),
+    order_position: int = Form(0),
+    move_to: Optional[str] = Form(None),
+):
+    folder = await db.get(DocFolder, folder_id)
+    if not folder:
+        raise HTTPException(status_code=404)
+    folder.name = name.strip()
+    folder.description = description.strip() or None
+    folder.min_grade = MinGrade(min_grade)
+    folder.group_id = int(group_id) if group_id.strip().isdigit() else None
+    folder.order_position = order_position
+    # Déplacement optionnel via le sélecteur "move_to" (format "folder:42" ou "space:3")
+    if move_to and ":" in move_to:
+        target_type, target_id_str = move_to.split(":", 1)
+        if target_id_str.isdigit():
+            target_id = int(target_id_str)
+            if target_type == "folder":
+                target = await db.get(DocFolder, target_id)
+                if target:
+                    folder.parent_id = target.id
+                    folder.space_id = target.space_id
+            elif target_type == "space":
+                space = await db.get(DocSpace, target_id)
+                if space:
+                    folder.parent_id = None
+                    folder.space_id = target_id
+    await db.commit()
+    back = f"/documents/folder/{folder.parent_id}" if folder.parent_id else f"/documents/space/{folder.space_id}"
+    return RedirectResponse(url=f"{back}?saved=1", status_code=303)
+
+
+# ── Déplacer dossier ─────────────────────────────────────────────────────────
+
+@router.post("/folder/{folder_id}/move")
+async def folder_move(
+    folder_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    target_type: str = Form(...),       # "folder" or "space"
+    target_id: int = Form(...),
+):
+    folder = await db.get(DocFolder, folder_id)
+    if not folder:
+        raise HTTPException(status_code=404)
+    old_parent_id = folder.parent_id
+    old_space_id  = folder.space_id
+    if target_type == "folder":
+        target = await db.get(DocFolder, target_id)
+        if not target:
+            raise HTTPException(status_code=404)
+        folder.parent_id = target.id
+        folder.space_id  = target.space_id
+    else:  # space root
+        space = await db.get(DocSpace, target_id)
+        if not space:
+            raise HTTPException(status_code=404)
+        folder.parent_id = None
+        folder.space_id  = target_id
+    await db.commit()
+    if old_parent_id:
+        return RedirectResponse(url=f"/documents/folder/{old_parent_id}?saved=1", status_code=303)
+    return RedirectResponse(url=f"/documents/space/{old_space_id}?saved=1", status_code=303)
 
 
 # ── Corbeille ─────────────────────────────────────────────────────────────────
@@ -725,6 +886,244 @@ async def document_move(
     doc.folder_id = target_folder_id
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{old_folder_id}?saved=1", status_code=303)
+
+
+# ── Feature 1 — Renommage de fichier ─────────────────────────────────────────
+
+@router.post("/file/{doc_id}/rename")
+async def document_rename(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(...),
+):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404)
+    doc.name = name.strip()
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
+
+
+# ── Feature 2 — Recherche ─────────────────────────────────────────────────────
+
+@router.get("/api/tree")
+async def documents_tree(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Arborescence accessible : espaces → dossiers → sous-dossiers (sans docs)."""
+    user, member = ctx
+    spaces_r = await db.execute(
+        select(DocSpace).order_by(DocSpace.order_position, DocSpace.name)
+    )
+    result = []
+    for space in spaces_r.scalars().all():
+        if not await _can_access(member, user, space.min_grade, space.group_id, db):
+            continue
+        folders_r = await db.execute(
+            select(DocFolder)
+            .where(DocFolder.space_id == space.id, DocFolder.parent_id == None)
+            .order_by(DocFolder.order_position, DocFolder.name)
+        )
+        space_data = {"id": space.id, "name": space.name, "folders": []}
+        for folder in folders_r.scalars().all():
+            if not await _can_access(member, user, folder.min_grade, folder.group_id, db):
+                continue
+            sf_r = await db.execute(
+                select(DocFolder)
+                .where(DocFolder.parent_id == folder.id)
+                .order_by(DocFolder.order_position, DocFolder.name)
+            )
+            subfolders = []
+            for sf in sf_r.scalars().all():
+                if not await _can_access(member, user, sf.min_grade, sf.group_id, db):
+                    continue
+                subfolders.append({"id": sf.id, "name": sf.name})
+            space_data["folders"].append({
+                "id": folder.id,
+                "name": folder.name,
+                "subfolders": subfolders,
+            })
+        result.append(space_data)
+    return result
+
+
+@router.get("/api/picker")
+async def documents_picker(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = "",
+    folder_id: int = 0,
+):
+    """Retourne les documents accessibles (JSON) pour le sélecteur de bibliothèque."""
+    user, member = ctx
+    pattern = f"%{q.strip()}%" if q.strip() else "%"
+    docs_r = await db.execute(
+        select(Document)
+        .options(selectinload(Document.folder))
+        .where(
+            Document.deleted_at == None,
+            Document.status == DocStatus.PUBLISHED,
+            or_(Document.name.ilike(pattern), Document.description.ilike(pattern)),
+            *([Document.folder_id == folder_id] if folder_id else []),
+        )
+        .order_by(Document.name)
+        .limit(50)
+    )
+    results = []
+    for doc in docs_r.scalars().all():
+        folder = doc.folder
+        if not folder:
+            continue
+        space = await db.get(DocSpace, folder.space_id)
+        if not space:
+            continue
+        if (await _can_access(member, user, folder.min_grade, folder.group_id, db)
+                and await _can_access(member, user, space.min_grade, space.group_id, db)):
+            results.append({
+                "id": doc.id,
+                "name": doc.name,
+                "folder": folder.name,
+                "space": space.name,
+                "mime_type": doc.mime_type or "",
+                "download_url": f"/documents/file/{doc.id}/download",
+                "view_url": f"/documents/file/{doc.id}/view",
+            })
+    return results
+
+
+@router.get("/search", response_class=HTMLResponse)
+async def documents_search(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = "",
+):
+    user, member = ctx
+
+    results = []
+    if q.strip():
+        pattern = f"%{q.strip()}%"
+        docs_r = await db.execute(
+            select(Document)
+            .options(selectinload(Document.folder))
+            .where(
+                Document.deleted_at == None,
+                Document.status == DocStatus.PUBLISHED,
+                or_(Document.name.ilike(pattern), Document.description.ilike(pattern)),
+            )
+        )
+        all_docs = docs_r.scalars().all()
+
+        for doc in all_docs:
+            folder = doc.folder
+            if not folder:
+                continue
+            space = await db.get(DocSpace, folder.space_id)
+            if not space:
+                continue
+            if (await _can_access(member, user, folder.min_grade, folder.group_id, db)
+                    and await _can_access(member, user, space.min_grade, space.group_id, db)):
+                results.append(doc)
+
+    return templates.TemplateResponse(request, "pages/documents/search.html", {
+        "current_member": member,
+        "current_user": user,
+        "documents": results,
+        "q": q,
+        "is_admin": user.is_admin,
+    })
+
+
+# ── Feature 3 — Versioning ────────────────────────────────────────────────────
+
+@router.post("/file/{doc_id}/new-version")
+async def document_new_version(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: UploadFile = File(...),
+    change_notes: str = Form(""),
+):
+    user, member = ctx
+
+    doc = await db.get(Document, doc_id, options=[selectinload(Document.versions)])
+    if not doc:
+        raise HTTPException(status_code=404)
+
+    ext = Path(file.filename).suffix.lower() if file.filename else ""
+    if ext not in ALLOWED_EXTENSIONS:
+        raise HTTPException(status_code=400, detail="Extension non autorisée")
+
+    content = await file.read()
+    if len(content) > MAX_FILE_SIZE:
+        raise HTTPException(status_code=400, detail="Fichier trop volumineux (max 50 Mo)")
+
+    # Archiver la version courante
+    version_number = len(doc.versions) + 1
+    version = DocumentVersion(
+        document_id=doc.id,
+        version_number=version_number,
+        storage_path=doc.storage_path or "",
+        file_size=doc.file_size,
+        change_notes=change_notes.strip() or None,
+        created_by_id=member.id,
+    )
+    db.add(version)
+
+    # Sauvegarder le nouveau fichier
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    dest = UPLOAD_DIR / stored_name
+    dest.write_bytes(content)
+
+    # Mettre à jour le document
+    doc.storage_path = str(dest)
+    doc.file_size = len(content)
+    doc.original_filename = file.filename
+    doc.mime_type = file.content_type
+    doc.updated_at = datetime.now()
+
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
+
+
+@router.post("/file/{doc_id}/version/{version_id}/restore")
+async def document_version_restore(
+    doc_id: int,
+    version_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+
+    doc = await db.get(Document, doc_id, options=[selectinload(Document.versions)])
+    if not doc:
+        raise HTTPException(status_code=404)
+
+    target_version = await db.get(DocumentVersion, version_id)
+    if not target_version or target_version.document_id != doc_id:
+        raise HTTPException(status_code=404)
+
+    # Archiver la version courante avant restauration
+    current_version_number = len(doc.versions) + 1
+    current_snap = DocumentVersion(
+        document_id=doc.id,
+        version_number=current_version_number,
+        storage_path=doc.storage_path or "",
+        file_size=doc.file_size,
+        change_notes=f"Snapshot avant restauration de la v{target_version.version_number}",
+        created_by_id=member.id,
+    )
+    db.add(current_snap)
+
+    # Restaurer les champs depuis la version cible
+    doc.storage_path = target_version.storage_path
+    doc.file_size = target_version.file_size
+    doc.updated_at = datetime.now()
+
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
 
 
 @router.post("/bulk")

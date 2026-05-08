@@ -18,6 +18,7 @@ from app.routers import calendar as calendar_router
 from app.routers import groups as groups_router
 from app.routers import documents as documents_router
 from app.routers import chat as chat_router
+from app.routers import sharing as sharing_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.lodge_calendar  # noqa: F401
@@ -136,6 +137,31 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE doc_folders ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id)"
             )
 
+        # ── GED — table doc_shares (partage externe) ──────────────────────────
+        r_ds2 = await conn.exec_driver_sql("PRAGMA table_info(doc_shares)")
+        cols_ds2 = [row[1] for row in r_ds2.fetchall()]
+        if not cols_ds2:
+            # La table sera créée par Base.metadata.create_all au prochain démarrage
+            # mais on la crée immédiatement si elle manque
+            await conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS doc_shares (
+                    id INTEGER PRIMARY KEY,
+                    document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
+                    token VARCHAR(64) NOT NULL UNIQUE,
+                    label VARCHAR(200),
+                    expires_at DATETIME,
+                    max_uses INTEGER,
+                    use_count INTEGER NOT NULL DEFAULT 0,
+                    password_hash VARCHAR(200),
+                    is_active BOOLEAN NOT NULL DEFAULT 1,
+                    created_by_id INTEGER REFERENCES members(id),
+                    created_at DATETIME DEFAULT (datetime('now'))
+                )
+            """)
+            await conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_doc_shares_token ON doc_shares(token)"
+            )
+
         # ── GED — link_url sur documents + original_filename nullable ───────
         r_doc = await conn.exec_driver_sql("PRAGMA table_info(documents)")
         cols_doc_info = r_doc.fetchall()
@@ -246,6 +272,36 @@ templates = Jinja2Templates(directory="app/templates")
 # Valeur de fallback : les pages qui ne calculent pas le compteur affichent 0
 templates.env.globals["global_unread_messages"] = 0
 
+# ── Filtre Jinja2 : rendu des messages chat (bold, liens cliquables) ──────────
+import re
+from markupsafe import Markup, escape as _escape
+
+def _render_chat(text: str) -> Markup:
+    if not text:
+        return Markup("")
+    url_pat = re.compile(r"(https?://[^\s]+)")
+    parts = []
+    last = 0
+    for m in url_pat.finditer(text):
+        segment = str(_escape(text[last:m.start()]))
+        segment = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", segment)
+        segment = segment.replace("\n", "<br>")
+        parts.append(segment)
+        url = m.group(1)
+        eu = str(_escape(url))
+        parts.append(
+            f'<a href="{eu}" target="_blank" rel="noopener" '
+            f'class="underline opacity-80 hover:opacity-100 break-all">{eu}</a>'
+        )
+        last = m.end()
+    tail = str(_escape(text[last:]))
+    tail = re.sub(r"\*\*(.+?)\*\*", r"<strong>\1</strong>", tail)
+    tail = tail.replace("\n", "<br>")
+    parts.append(tail)
+    return Markup("".join(parts))
+
+templates.env.filters["render_chat"] = _render_chat
+
 # ── Static files ───────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -263,6 +319,8 @@ app.include_router(calendar_router.router)
 app.include_router(groups_router.router)
 app.include_router(documents_router.router)
 app.include_router(chat_router.router)
+app.include_router(sharing_router.router)          # /documents/file/{id}/share/…
+app.include_router(sharing_router.public_router)   # /share/{token} — accès public sans auth
 # app.include_router(forum.router)
 # app.include_router(admin.router)
 

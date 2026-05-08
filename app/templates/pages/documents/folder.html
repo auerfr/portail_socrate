@@ -56,8 +56,15 @@
       <p class="text-sm text-gray-500 mt-0.5">{{ folder.description }}</p>
       {% endif %}
     </div>
-    {% if is_admin %}
     <div class="flex gap-2 flex-shrink-0 flex-wrap">
+      <button type="button" onclick='openShareFolder({{ folder.id }}, {{ folder.name | tojson }})'
+              class="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
+        </svg>
+        Partager
+      </button>
+    {% if is_admin %}
       <!-- Sélection multiple -->
       <button @click="selMode=!selMode; if(!selMode) sel=new Set()"
               :class="selMode ? 'bg-loge-100 border-loge-400 text-loge-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'"
@@ -67,6 +74,20 @@
         </svg>
         <span x-text="selMode ? 'Annuler' : 'Sélectionner'"></span>
       </button>
+      <a href="/documents/folder/{{ folder.id }}/edit"
+         class="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M7.5 21L3 16.5m0 0L7.5 12M3 16.5h13.5m0-13.5L21 7.5m0 0L16.5 3M21 7.5H7.5"/>
+        </svg>
+        Déplacer
+      </a>
+      <a href="/documents/folder/{{ folder.id }}/edit"
+         class="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
+        </svg>
+        Modifier
+      </a>
       <button onclick="document.getElementById('modal-subfolder').classList.remove('hidden')"
               class="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -91,8 +112,8 @@
           Dossier
         </button>
       </form>
-    </div>
     {% endif %}
+    </div>
 
   <!-- Formulaire bulk (invisible, soumis par JS) -->
   {% if is_admin %}
@@ -100,6 +121,10 @@
     <input type="hidden" name="action" value="">
     <input type="hidden" name="target_folder_id" value="">
     <input type="hidden" name="back_folder_id" value="{{ current_folder_id }}">
+  </form>
+  <form id="folder-move-form" method="post" action="" class="hidden">
+    <input type="hidden" name="target_type" value="">
+    <input type="hidden" name="target_id" value="">
   </form>
   {% endif %}
   </div>
@@ -193,7 +218,8 @@
   {% if subfolders %}
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
     {% for sf in subfolders %}
-    <div class="group relative">
+    <div class="group relative" data-drop-id="{{ sf.id }}"
+         ondragover="dfOver(this,event)" ondragleave="dfLeave(this)" ondrop="dfDrop(this,event)">
       <a href="/documents/folder/{{ sf.id }}"
          class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3.5 hover:border-loge-400 hover:shadow-sm transition-all">
         <svg class="w-5 h-5 text-yellow-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
@@ -209,17 +235,33 @@
           {% endif %}
         </div>
       </a>
-      {% if is_admin %}
-      <form method="post" action="/documents/admin/folder/{{ sf.id }}/delete"
-            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
-            onsubmit="return confirm('Supprimer ce dossier ?')">
-        <button type="submit" class="w-6 h-6 flex items-center justify-center rounded text-red-400 hover:bg-red-50 hover:text-red-600">
+      <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+        <button type="button" onclick='openShareFolder({{ sf.id }}, {{ sf.name | tojson }})'
+                title="Partager ce dossier"
+                class="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-indigo-50 hover:text-indigo-600">
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
           </svg>
         </button>
-      </form>
-      {% endif %}
+        {% if is_admin %}
+        <div draggable="true" data-drag-id="{{ sf.id }}"
+             ondragstart="dfDragStart(this,event)"
+             class="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
+             title="Glisser pour déplacer">
+          <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24">
+            <path d="M8.5 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-7 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-7 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
+          </svg>
+        </div>
+        <form method="post" action="/documents/admin/folder/{{ sf.id }}/delete"
+              onsubmit="return confirm('Supprimer ce dossier ?')">
+          <button type="submit" class="w-6 h-6 flex items-center justify-center rounded text-red-400 hover:bg-red-50 hover:text-red-600">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </form>
+        {% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>
@@ -349,7 +391,16 @@
 
           <!-- Infos -->
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-800 truncate">{{ doc.name }}</div>
+            <div id="doc-name-{{ doc.id }}" class="text-sm font-medium text-gray-800 truncate">{{ doc.name }}</div>
+            {% if is_admin %}
+            <form id="rename-form-{{ doc.id }}" method="post" action="/documents/file/{{ doc.id }}/rename"
+                  class="hidden items-center gap-1 mr-2">
+              <input type="text" name="name" value="{{ doc.name | e }}"
+                     class="text-sm border border-loge-400 rounded px-2 py-0.5 flex-1 min-w-0 focus:outline-none focus:ring-1 focus:ring-loge-500">
+              <button type="submit" class="text-xs font-semibold text-loge-700 hover:text-loge-900 px-1.5 py-0.5 rounded hover:bg-loge-50">✓</button>
+              <button type="button" onclick="cancelRename({{ doc.id }})" class="text-xs text-gray-400 hover:text-gray-600 px-1 py-0.5">✕</button>
+            </form>
+            {% endif %}
             <div class="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
               {% if is_link and platform %}
                 <span style="color:{{ platform.color }};" class="font-medium">{{ platform.name }}</span>
@@ -419,7 +470,38 @@
               {% endif %}
             </a>
 
+            <!-- Bouton Partager (visible pour tous les membres) -->
+            <button type="button"
+                    onclick='openShare({{ doc.id }}, {{ doc.name | tojson }})'
+                    title="Partager"
+                    class="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:bg-indigo-50 hover:text-indigo-600 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
+              </svg>
+            </button>
+
             {% if is_admin %}
+            <!-- Bouton Renommer -->
+            <button type="button"
+                    onclick="openRename({{ doc.id }})"
+                    title="Renommer"
+                    class="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:bg-amber-50 hover:text-amber-600 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
+              </svg>
+            </button>
+            <!-- Bouton Nouvelle version -->
+            {% if not doc.link_url %}
+            <button type="button"
+                    onclick="openVersion({{ doc.id }})"
+                    title="Nouvelle version"
+                    class="flex items-center justify-center w-7 h-7 rounded-lg text-gray-400 hover:bg-loge-50 hover:text-loge-600 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+              </svg>
+            </button>
+            {% endif %}
+            <!-- Bouton Corbeille -->
             <form method="post" action="/documents/file/{{ doc.id }}/trash">
               <button type="submit" title="Mettre à la corbeille"
                       class="flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
@@ -791,6 +873,288 @@
 </div>
 {% endif %}
 
+{% if is_admin %}
+<!-- ═══ Dialog natif — Renommer un fichier ═══ -->
+<dialog id="rename-dialog"
+        class="rounded-2xl shadow-2xl w-full max-w-md p-0 border-0 backdrop:bg-black/50">
+  <div class="p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold text-gray-900">Renommer le fichier</h2>
+      <button type="button" onclick="document.getElementById('rename-dialog').close()"
+              class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <form id="rename-form" method="post" action="" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nouveau nom *</label>
+        <input id="rename-input" name="name" type="text" required
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+      </div>
+      <div class="flex gap-3 pt-1">
+        <button type="button" onclick="document.getElementById('rename-dialog').close()"
+                class="flex-1 border border-gray-300 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">
+          Annuler
+        </button>
+        <button type="submit"
+                class="flex-1 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium py-2 rounded-lg transition-colors">
+          Renommer
+        </button>
+      </div>
+    </form>
+  </div>
+</dialog>
+
+<!-- ═══ Modale Versioning ═══ -->
+<div id="version-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+     onclick="if(event.target===this)closeVersionModal()">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg flex flex-col max-h-[85vh]">
+  <div class="p-6 space-y-4 overflow-y-auto">
+    <div class="flex items-center justify-between">
+      <h2 class="text-lg font-bold text-gray-900">Versioning du fichier</h2>
+      <button type="button" onclick="closeVersionModal()"
+              class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Upload nouvelle version -->
+    <div class="border border-gray-200 rounded-xl p-4 space-y-3">
+      <h3 class="text-sm font-semibold text-gray-700">Déposer une nouvelle version</h3>
+      <form id="version-form" method="post" action="" enctype="multipart/form-data" class="space-y-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Fichier *</label>
+          <input type="file" name="file" required
+                 accept=".pdf,.doc,.docx,.odt,.xls,.xlsx,.ods,.ppt,.pptx,.odp,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.rtf,.zip,.7z"
+                 class="w-full text-xs border border-gray-200 rounded-lg px-3 py-2 focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Notes de changement <span class="font-normal text-gray-400">(optionnel)</span></label>
+          <textarea name="change_notes" rows="2" placeholder="ex : Correction orthographe, mise à jour des chiffres…"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent resize-none"></textarea>
+        </div>
+        <button type="submit"
+                class="w-full bg-loge-700 hover:bg-loge-800 text-white text-xs font-medium py-2 rounded-lg transition-colors">
+          Enregistrer la nouvelle version
+        </button>
+      </form>
+    </div>
+
+    <!-- Historique des versions -->
+    <div id="version-history" class="space-y-2">
+      <h3 class="text-sm font-semibold text-gray-700">Historique des versions</h3>
+      <!-- Rempli dynamiquement par JS via data-versions -->
+      <div id="version-list" class="space-y-2 text-sm text-gray-500 italic">
+        Aucune version archivée.
+      </div>
+    </div>
+  </div>
+  </div>
+</div>
+
+<!-- Données de versions intégrées en JSON pour chaque document -->
+<script id="versions-data" type="application/json">
+{
+  {% for doc in documents %}
+  "{{ doc.id }}": [
+    {% for v in versions_by_doc.get(doc.id, []) %}
+    {
+      "id": {{ v.id }},
+      "version_number": {{ v.version_number }},
+      "file_size": {{ v.file_size or 'null' }},
+      "change_notes": {{ (v.change_notes or '') | tojson }},
+      "created_at": {{ v.created_at.strftime('%d/%m/%Y %H:%M') | tojson }}
+    }{% if not loop.last %},{% endif %}
+    {% endfor %}
+  ]{% if not loop.last %},{% endif %}
+  {% endfor %}
+}
+</script>
+{% endif %}
+
+<!-- ═══ Modale de partage ═══ -->
+<div id="share-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4"
+     onclick="if(event.target===this)closeShareModal()">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl flex flex-col max-h-[90vh]">
+
+    <!-- En-tête -->
+    <div class="flex items-center justify-between px-6 py-4 border-b border-gray-100 flex-shrink-0">
+      <div>
+        <h2 class="text-base font-bold text-gray-900">Partager</h2>
+        <p id="share-doc-name" class="text-xs text-gray-500 mt-0.5 truncate max-w-xs"></p>
+      </div>
+      <button type="button" onclick="closeShareModal()"
+              class="text-gray-400 hover:text-gray-600 transition-colors">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+
+    <!-- Onglets -->
+    <div class="flex border-b border-gray-100 px-6 flex-shrink-0" id="share-tabs">
+      <button onclick="switchShareTab('members')"   id="tab-members"   class="share-tab active-tab">Membres</button>
+      <button onclick="switchShareTab('external')"  id="tab-external"  class="share-tab">Lien externe</button>
+      <button onclick="switchShareTab('chat')"       id="tab-chat"      class="share-tab">Chat</button>
+      <button onclick="switchShareTab('meeting')"   id="tab-meeting"   class="share-tab">Réunion / Événement</button>
+    </div>
+
+    <!-- Corps scrollable -->
+    <div class="overflow-y-auto flex-1 px-6 py-5 space-y-5">
+
+      <!-- ── Onglet 1 : Membres ── -->
+      <div id="panel-members" class="share-panel space-y-4">
+        <p class="text-xs text-gray-500 bg-blue-50 border border-blue-100 rounded-xl px-3 py-2">
+          Ce lien nécessite une connexion au portail pour être accessible.
+        </p>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Lien interne</label>
+          <div class="flex gap-2">
+            <input id="share-internal-url" type="text" readonly
+                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 text-gray-700 focus:outline-none select-all">
+            <button onclick="copyShareInternal()"
+                    class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-loge-50 text-loge-700 hover:bg-loge-100 rounded-xl transition-colors flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+              </svg>
+              Copier
+            </button>
+          </div>
+          <p id="share-internal-copied" class="text-xs text-green-600 mt-1 hidden">Lien copié !</p>
+        </div>
+      </div>
+
+      <!-- ── Onglet 2 : Lien externe ── -->
+      <div id="panel-external" class="share-panel hidden space-y-5">
+
+        <!-- Formulaire de création -->
+        <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 space-y-3">
+          <h3 class="text-sm font-semibold text-gray-700">Générer un nouveau lien</h3>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Label / Description <span class="font-normal text-gray-400">(optionnel)</span></label>
+            <input id="ext-label" type="text" placeholder="ex : Envoyé au F∴ Martin"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent outline-none">
+          </div>
+
+          <div class="grid grid-cols-2 gap-3">
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Durée</label>
+              <select id="ext-expires"
+                      class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent outline-none bg-white">
+                <option value="0">Illimité</option>
+                <option value="1">24 heures</option>
+                <option value="7">7 jours</option>
+                <option value="30">30 jours</option>
+              </select>
+            </div>
+            <div>
+              <label class="block text-xs font-medium text-gray-600 mb-1">Usages max <span class="font-normal text-gray-400">(0 = illimité)</span></label>
+              <input id="ext-maxuses" type="number" min="0" value="0"
+                     class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent outline-none">
+            </div>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Mot de passe <span class="font-normal text-gray-400">(optionnel)</span></label>
+            <input id="ext-password" type="password" placeholder="Laisser vide = pas de protection"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent outline-none">
+          </div>
+
+          <button onclick="generateExternalLink()"
+                  class="w-full bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+            Générer le lien
+          </button>
+          <p id="ext-error" class="text-xs text-red-600 hidden"></p>
+        </div>
+
+        <!-- Lien généré -->
+        <div id="ext-result" class="hidden space-y-2">
+          <label class="block text-xs font-medium text-gray-600">Lien généré</label>
+          <div class="flex gap-2">
+            <input id="ext-result-url" type="text" readonly
+                   class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm bg-gray-50 text-gray-700 focus:outline-none">
+            <button onclick="copyExtResult()"
+                    class="flex items-center gap-1.5 px-3 py-2 text-sm font-medium bg-loge-50 text-loge-700 hover:bg-loge-100 rounded-xl transition-colors flex-shrink-0">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.666 3.888A2.25 2.25 0 0013.5 2.25h-3c-1.03 0-1.9.693-2.166 1.638m7.332 0c.055.194.084.4.084.612v0a.75.75 0 01-.75.75H9a.75.75 0 01-.75-.75v0c0-.212.03-.418.084-.612m7.332 0c.646.049 1.288.11 1.927.184 1.1.128 1.907 1.077 1.907 2.185V19.5a2.25 2.25 0 01-2.25 2.25H6.75A2.25 2.25 0 014.5 19.5V6.257c0-1.108.806-2.057 1.907-2.185a48.208 48.208 0 011.927-.184"/>
+              </svg>
+              Copier
+            </button>
+          </div>
+          <p id="ext-result-copied" class="text-xs text-green-600 hidden">Lien copié !</p>
+        </div>
+
+        <!-- Liste des partages existants -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Liens existants</h3>
+          <div id="ext-shares-list" class="space-y-2 text-sm text-gray-400 italic">Chargement…</div>
+        </div>
+
+      </div>
+
+      <!-- ── Onglet 3 : Chat ── -->
+      <div id="panel-chat" class="share-panel hidden space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Canal</label>
+          <select id="chat-channel"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent outline-none bg-white">
+            <option value="">Chargement…</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-600 mb-1">Message</label>
+          <textarea id="chat-message" rows="3"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent outline-none resize-none"
+                    placeholder="Message optionnel avant le lien…"></textarea>
+        </div>
+        <button onclick="sendToChat()"
+                class="w-full bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+          Envoyer dans le chat
+        </button>
+        <p id="chat-feedback" class="text-xs text-green-600 hidden">Message envoyé avec succès !</p>
+        <p id="chat-error" class="text-xs text-red-600 hidden"></p>
+      </div>
+
+      <!-- ── Onglet 4 : Réunion / Événement ── -->
+      <div id="panel-meeting" class="share-panel hidden space-y-5">
+
+        <!-- Réunions -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Prochaines tenues</h3>
+          <div id="meeting-list" class="space-y-1.5 text-sm text-gray-400 italic">Chargement…</div>
+        </div>
+
+        <!-- Événements -->
+        <div>
+          <h3 class="text-sm font-semibold text-gray-700 mb-2">Prochains événements</h3>
+          <div id="event-list" class="space-y-1.5 text-sm text-gray-400 italic">Chargement…</div>
+        </div>
+
+      </div>
+
+    </div><!-- /corps scrollable -->
+  </div>
+</div>
+
+<style>
+.share-tab {
+  padding: 0.6rem 1rem;
+  font-size: 0.8rem;
+  font-weight: 500;
+  color: #6b7280;
+  border-bottom: 2px solid transparent;
+  transition: color .15s, border-color .15s;
+  white-space: nowrap;
+}
+.share-tab:hover { color: #2c7a7b; }
+.share-tab.active-tab { color: #2c7a7b; border-bottom-color: #2c7a7b; }
+</style>
+
 <!-- ═══ Modale d'aperçu (PDF / image) ═══ -->
 <div x-show="preview"
      x-cloak
@@ -856,5 +1220,406 @@
 
   </div>
 </div><!-- /scope Alpine -->
+
+<script>
+// ── Feature 1 : Renommer ──────────────────────────────────────────────────────
+function openRename(id) {
+  document.getElementById('doc-name-' + id).classList.add('hidden');
+  var f = document.getElementById('rename-form-' + id);
+  f.style.display = 'flex';
+  f.querySelector('input[name=name]').select();
+}
+function cancelRename(id) {
+  document.getElementById('doc-name-' + id).classList.remove('hidden');
+  document.getElementById('rename-form-' + id).style.display = 'none';
+}
+
+// ── Feature 3 : Versioning ────────────────────────────────────────────────────
+(function() {
+  const raw = document.getElementById('versions-data');
+  window._versionsData = raw ? JSON.parse(raw.textContent) : {};
+})();
+
+function openVersion(docId) {
+  document.getElementById('version-form').action = '/documents/file/' + docId + '/new-version';
+
+  const versions = (window._versionsData || {})[String(docId)] || [];
+  const listEl = document.getElementById('version-list');
+
+  if (versions.length === 0) {
+    listEl.innerHTML = '<p class="text-xs text-gray-400 italic">Aucune version archivée.</p>';
+  } else {
+    listEl.innerHTML = versions.map(function(v) {
+      const sizeStr = v.file_size
+        ? (v.file_size > 1048576 ? (v.file_size / 1048576).toFixed(1) + ' Mo'
+           : v.file_size > 1024 ? Math.floor(v.file_size / 1024) + ' Ko'
+           : v.file_size + ' o')
+        : '';
+      const notes = v.change_notes ? '<span class="italic text-gray-400"> — ' + v.change_notes + '</span>' : '';
+      return '<div class="flex items-center justify-between gap-3 bg-gray-50 rounded-xl px-3 py-2.5">'
+        + '<div>'
+        + '<div class="text-xs font-semibold text-gray-700">Version ' + v.version_number + '</div>'
+        + '<div class="text-xs text-gray-400">' + v.created_at + (sizeStr ? ' · ' + sizeStr : '') + notes + '</div>'
+        + '</div>'
+        + '<form method="post" action="/documents/file/' + docId + '/version/' + v.id + '/restore">'
+        + '<button type="submit" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-loge-50 text-loge-700 hover:bg-loge-100 transition-colors"'
+        + ' onclick="return confirm(\'Restaurer la version ' + v.version_number + ' ?\')">Restaurer</button>'
+        + '</form>'
+        + '</div>';
+    }).join('');
+  }
+
+  document.getElementById('version-modal').classList.remove('hidden');
+}
+function closeVersionModal() {
+  document.getElementById('version-modal').classList.add('hidden');
+}
+
+// ── Feature 4 : Partage ───────────────────────────────────────────────────────
+var _shareDocId = null;
+var _shareDocName = '';
+var _shareTargets = null; // cache pour meetings/events/channels
+
+function switchShareTab(tab) {
+  ['members','external','chat','meeting'].forEach(function(t) {
+    document.getElementById('panel-' + t).classList.add('hidden');
+    var btn = document.getElementById('tab-' + t);
+    btn.classList.remove('active-tab');
+  });
+  document.getElementById('panel-' + tab).classList.remove('hidden');
+  document.getElementById('tab-' + tab).classList.add('active-tab');
+}
+
+var _shareType = 'file'; // 'file' | 'folder' | 'space'
+
+function closeShareModal() {
+  document.getElementById('share-modal').classList.add('hidden');
+}
+
+function openShare(docId, docName, shareType) {
+  _shareDocId = docId;
+  _shareDocName = docName;
+  _shareType = shareType || 'file';
+
+  // Ouvrir le modal EN PREMIER (avant toute autre opération DOM)
+  document.getElementById('share-modal').classList.remove('hidden');
+
+  try {
+    document.getElementById('share-doc-name').textContent = docName;
+
+    // Lien interne selon le type
+    var internalUrl;
+    if (_shareType === 'folder') {
+      internalUrl = window.location.origin + '/documents/folder/' + docId;
+    } else if (_shareType === 'space') {
+      internalUrl = window.location.origin + '/documents/space/' + docId;
+    } else {
+      internalUrl = window.location.origin + '/documents/file/' + docId + '/download';
+    }
+    document.getElementById('share-internal-url').value = internalUrl;
+
+    // Onglets : masquer ceux qui ne concernent que les fichiers
+    var fileOnlyTabs = ['external', 'chat', 'meeting'];
+    fileOnlyTabs.forEach(function(t) {
+      var btn = document.getElementById('tab-' + t);
+      if (btn) btn.style.display = (_shareType === 'file') ? '' : 'none';
+    });
+
+    // Réinitialiser onglet actif
+    switchShareTab('members');
+
+    // Réinitialiser feedbacks
+    var ic = document.getElementById('share-internal-copied');
+    if (ic) ic.classList.add('hidden');
+
+    if (_shareType === 'file') {
+      ['ext-result','ext-result-copied','chat-feedback','chat-error','ext-error'].forEach(function(id) {
+        var el = document.getElementById(id);
+        if (el) el.classList.add('hidden');
+      });
+
+      // Pré-remplir message chat
+      var chatMsg = document.getElementById('chat-message');
+      if (chatMsg) chatMsg.value = 'Je partage le document "' + docName + '" :';
+
+      // Charger les partages existants
+      loadExistingShares(docId);
+
+      // Charger les cibles (meetings, events, channels) — avec cache
+      if (_shareTargets) {
+        populateShareTargets(_shareTargets);
+      } else {
+        fetch('/documents/share-targets')
+          .then(function(r) { return r.json(); })
+          .then(function(data) {
+            _shareTargets = data;
+            populateShareTargets(data);
+          })
+          .catch(function() {
+            var ml = document.getElementById('meeting-list');
+            var el = document.getElementById('event-list');
+            if (ml) ml.innerHTML = '<p class="text-xs text-red-500">Erreur de chargement.</p>';
+            if (el) el.innerHTML = '<p class="text-xs text-red-500">Erreur de chargement.</p>';
+          });
+      }
+    }
+  } catch(e) {
+    console.error('openShare error:', e);
+  }
+}
+
+function openShareFolder(folderId, folderName) {
+  openShare(folderId, folderName, 'folder');
+}
+function openShareSpace(spaceId, spaceName) {
+  openShare(spaceId, spaceName, 'space');
+}
+
+function copyShareInternal() {
+  var val = document.getElementById('share-internal-url').value;
+  navigator.clipboard.writeText(val).then(function() {
+    var el = document.getElementById('share-internal-copied');
+    el.classList.remove('hidden');
+    setTimeout(function() { el.classList.add('hidden'); }, 2000);
+  });
+}
+
+function copyExtResult() {
+  var val = document.getElementById('ext-result-url').value;
+  navigator.clipboard.writeText(val).then(function() {
+    var el = document.getElementById('ext-result-copied');
+    el.classList.remove('hidden');
+    setTimeout(function() { el.classList.add('hidden'); }, 2000);
+  });
+}
+
+function generateExternalLink() {
+  if (!_shareDocId) return;
+  var label = document.getElementById('ext-label').value;
+  var expires = document.getElementById('ext-expires').value;
+  var maxuses = document.getElementById('ext-maxuses').value;
+  var password = document.getElementById('ext-password').value;
+  var errEl = document.getElementById('ext-error');
+  errEl.classList.add('hidden');
+
+  var body = new URLSearchParams();
+  body.append('label', label);
+  body.append('expires_days', expires);
+  body.append('max_uses', maxuses);
+  body.append('password', password);
+
+  fetch('/documents/file/' + _shareDocId + '/share/external', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: body.toString()
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error('Erreur ' + r.status);
+    return r.json();
+  })
+  .then(function(data) {
+    document.getElementById('ext-result-url').value = data.url;
+    document.getElementById('ext-result').classList.remove('hidden');
+    // Recharger la liste
+    loadExistingShares(_shareDocId);
+    // Reset formulaire
+    document.getElementById('ext-label').value = '';
+    document.getElementById('ext-expires').value = '0';
+    document.getElementById('ext-maxuses').value = '0';
+    document.getElementById('ext-password').value = '';
+  })
+  .catch(function(e) {
+    errEl.textContent = 'Erreur lors de la génération du lien. Êtes-vous administrateur ?';
+    errEl.classList.remove('hidden');
+  });
+}
+
+function loadExistingShares(docId) {
+  var listEl = document.getElementById('ext-shares-list');
+  listEl.innerHTML = '<p class="text-xs italic text-gray-400">Chargement…</p>';
+  fetch('/documents/file/' + docId + '/shares')
+    .then(function(r) { return r.json(); })
+    .then(function(shares) {
+      if (!shares || shares.length === 0) {
+        listEl.innerHTML = '<p class="text-xs italic text-gray-400">Aucun lien externe créé.</p>';
+        return;
+      }
+      listEl.innerHTML = shares.map(function(s) {
+        var expStr = s.expires_at ? new Date(s.expires_at).toLocaleDateString('fr-FR') : 'illimité';
+        var usageStr = s.max_uses ? s.use_count + ' / ' + s.max_uses : s.use_count + ' accès';
+        var badge = s.is_active
+          ? '<span class="px-1.5 py-0.5 rounded-full text-xs bg-green-50 text-green-700 font-medium">Actif</span>'
+          : '<span class="px-1.5 py-0.5 rounded-full text-xs bg-gray-100 text-gray-500 font-medium">Révoqué</span>';
+        var revokeBtn = s.is_active
+          ? '<button onclick="revokeShare(' + s.id + ', ' + docId + ')" class="text-xs text-red-500 hover:text-red-700 transition-colors font-medium">Révoquer</button>'
+          : '';
+        return '<div class="flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2.5">'
+          + '<div class="min-w-0 flex-1">'
+          + '<div class="flex items-center gap-2 flex-wrap">'
+          + badge
+          + (s.label ? '<span class="text-xs font-medium text-gray-700 truncate">' + s.label + '</span>' : '')
+          + '</div>'
+          + '<div class="text-xs text-gray-400 mt-0.5">Expire : ' + expStr + ' &middot; ' + usageStr + '</div>'
+          + '</div>'
+          + '<div class="flex items-center gap-2 flex-shrink-0">'
+          + '<button onclick="navigator.clipboard.writeText(\'' + s.url + '\')" class="text-xs text-loge-700 hover:text-loge-800 font-medium transition-colors">Copier</button>'
+          + revokeBtn
+          + '</div>'
+          + '</div>';
+      }).join('');
+    })
+    .catch(function() {
+      listEl.innerHTML = '<p class="text-xs text-gray-400 italic">Non disponible (réservé aux administrateurs).</p>';
+    });
+}
+
+function revokeShare(shareId, docId) {
+  if (!confirm('Révoquer ce lien de partage ?')) return;
+  var body = new URLSearchParams();
+  fetch('/documents/share/' + shareId + '/revoke', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: body.toString()
+  })
+  .then(function() { loadExistingShares(docId); })
+  .catch(function() { alert('Erreur lors de la révocation.'); });
+}
+
+function sendToChat() {
+  if (!_shareDocId) return;
+  var channelId = document.getElementById('chat-channel').value;
+  if (!channelId) { alert('Sélectionnez un canal.'); return; }
+  var message = document.getElementById('chat-message').value;
+  var feedbackEl = document.getElementById('chat-feedback');
+  var errorEl = document.getElementById('chat-error');
+  feedbackEl.classList.add('hidden');
+  errorEl.classList.add('hidden');
+
+  var body = new URLSearchParams();
+  body.append('channel_id', channelId);
+  body.append('message', message);
+
+  fetch('/documents/file/' + _shareDocId + '/share/chat', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: body.toString()
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error();
+    feedbackEl.classList.remove('hidden');
+  })
+  .catch(function() {
+    errorEl.textContent = 'Erreur lors de l\'envoi.';
+    errorEl.classList.remove('hidden');
+  });
+}
+
+function attachToMeeting(meetingId) {
+  if (!_shareDocId) return;
+  var body = new URLSearchParams();
+  body.append('meeting_id', meetingId);
+  fetch('/documents/file/' + _shareDocId + '/share/meeting', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: body.toString()
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error();
+    var el = document.getElementById('mtg-feedback-' + meetingId);
+    if (el) { el.classList.remove('hidden'); }
+  })
+  .catch(function() { alert('Erreur lors de l\'attachement.'); });
+}
+
+function attachToEvent(eventId) {
+  if (!_shareDocId) return;
+  var body = new URLSearchParams();
+  body.append('event_id', eventId);
+  fetch('/documents/file/' + _shareDocId + '/share/event', {
+    method: 'POST',
+    headers: {'Content-Type': 'application/x-www-form-urlencoded'},
+    body: body.toString()
+  })
+  .then(function(r) {
+    if (!r.ok) throw new Error();
+    var el = document.getElementById('ev-feedback-' + eventId);
+    if (el) { el.classList.remove('hidden'); }
+  })
+  .catch(function() { alert('Erreur lors de l\'attachement.'); });
+}
+
+function populateShareTargets(data) {
+  // Canaux chat
+  var chSel = document.getElementById('chat-channel');
+  if (data.chat_channels && data.chat_channels.length > 0) {
+    chSel.innerHTML = data.chat_channels.map(function(c) {
+      return '<option value="' + c.id + '">' + c.name + '</option>';
+    }).join('');
+  } else {
+    chSel.innerHTML = '<option value="">Aucun canal disponible</option>';
+  }
+
+  // Réunions
+  var mtgEl = document.getElementById('meeting-list');
+  if (data.meetings && data.meetings.length > 0) {
+    mtgEl.innerHTML = data.meetings.map(function(m) {
+      return '<div class="flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">'
+        + '<span class="text-sm text-gray-700">' + m.label + '</span>'
+        + '<div class="flex items-center gap-2">'
+        + '<span id="mtg-feedback-' + m.id + '" class="text-xs text-green-600 font-medium hidden">Attaché !</span>'
+        + '<button onclick="attachToMeeting(' + m.id + ')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-loge-50 text-loge-700 hover:bg-loge-100 transition-colors flex-shrink-0">Attacher</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  } else {
+    mtgEl.innerHTML = '<p class="text-xs italic text-gray-400">Aucune tenue à venir.</p>';
+  }
+
+  // Événements
+  var evEl = document.getElementById('event-list');
+  if (data.events && data.events.length > 0) {
+    evEl.innerHTML = data.events.map(function(e) {
+      return '<div class="flex items-center justify-between gap-3 bg-gray-50 border border-gray-100 rounded-xl px-3 py-2">'
+        + '<span class="text-sm text-gray-700">' + e.label + '</span>'
+        + '<div class="flex items-center gap-2">'
+        + '<span id="ev-feedback-' + e.id + '" class="text-xs text-green-600 font-medium hidden">Attaché !</span>'
+        + '<button onclick="attachToEvent(' + e.id + ')" class="text-xs font-medium px-3 py-1.5 rounded-lg bg-loge-50 text-loge-700 hover:bg-loge-100 transition-colors flex-shrink-0">Attacher</button>'
+        + '</div>'
+        + '</div>';
+    }).join('');
+  } else {
+    evEl.innerHTML = '<p class="text-xs italic text-gray-400">Aucun événement à venir.</p>';
+  }
+}
+
+// ── Drag & drop dossiers ──────────────────────────────────────────────────────
+window.__dfId = null;
+window.dfDragStart = function(el, e) {
+  window.__dfId = el.dataset.dragId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', window.__dfId);
+};
+window.dfOver = function(el, e) {
+  if (window.__dfId && window.__dfId !== el.dataset.dropId) {
+    e.preventDefault();
+    el.classList.add('ring-2', 'ring-inset', 'ring-loge-500');
+  }
+};
+window.dfLeave = function(el) {
+  el.classList.remove('ring-2', 'ring-inset', 'ring-loge-500');
+};
+window.dfDrop = function(el, e) {
+  e.preventDefault();
+  el.classList.remove('ring-2', 'ring-inset', 'ring-loge-500');
+  if (window.__dfId && window.__dfId !== el.dataset.dropId) {
+    var f = document.getElementById('folder-move-form');
+    f.action = '/documents/folder/' + window.__dfId + '/move';
+    f.querySelector('[name=target_type]').value = 'folder';
+    f.querySelector('[name=target_id]').value = el.dataset.dropId;
+    f.submit();
+  }
+  window.__dfId = null;
+};
+</script>
 
 {% endblock %}
