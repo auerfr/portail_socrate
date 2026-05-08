@@ -28,7 +28,7 @@
       <a href="/groups/{{ group.id }}"
          class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-shadow flex items-center gap-3">
         <div class="w-10 h-10 rounded-full flex items-center justify-center flex-shrink-0 text-white text-sm font-bold"
-             style="background:{{ group.color or '#3b5bdb' }};">
+             style="background:{{ group.color or '#4a9d8f' }};">
           {% if group.group_type.value == 'COUNCIL' %}⚖
           {% elif group.group_type.value == 'PAIR' %}🔑
           {% else %}{{ group.name[0] }}

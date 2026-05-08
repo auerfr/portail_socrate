@@ -57,7 +57,7 @@
       <!-- Avatar expéditeur -->
       {% set sender = senders_map.get(msg.sender_id) %}
       <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
-           style="background: linear-gradient(135deg,#3b5bdb,#2340b0);">
+           style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
         {{ sender.first_name[0] if sender else '?' }}{{ sender.last_name[0] if sender else '' }}
       </div>
       <div class="flex-1 min-w-0">

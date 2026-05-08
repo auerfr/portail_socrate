@@ -1,0 +1,401 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Portail Socrate — Comparaison de thèmes</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&family=Inter:wght@300;400;500;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+  <style>
+    body { font-family: 'Inter', sans-serif; background: #111; }
+
+    /* ── Sélecteur de thème ── */
+    .theme-btn { transition: all .2s; }
+    .theme-btn.active { transform: scale(1.03); }
+    .theme-panel { display: none; }
+    .theme-panel.active { display: flex; }
+
+    /* ═══════════════════════════════════════
+       THÈME 1 — ACTUEL (Bleu Linear)
+    ═══════════════════════════════════════ */
+    .t1-sidebar { background: #0d1117; }
+    .t1-nav-item { color: #6b7280; font-size: 13.5px; padding: 6px 10px; border-radius: 6px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .t1-nav-item:hover { background: rgba(255,255,255,0.06); color: #e5e7eb; }
+    .t1-nav-item.active { color: #fff; background: rgba(59,91,219,0.18); font-weight: 500; }
+    .t1-btn { background: #2340b0; color: white; }
+    .t1-badge { background: #3b5bdb; color: white; }
+    .t1-accent { color: #2340b0; }
+    .t1-card { background: white; border: 1px solid #f0f0f0; border-radius: 12px; }
+    .t1-stat { border-left: 3px solid #3b5bdb; }
+
+    /* ═══════════════════════════════════════
+       THÈME 2 — HERMÈS (Or & Marine)
+    ═══════════════════════════════════════ */
+    .t2 { font-family: 'Crimson Pro', serif; }
+    .t2-sidebar { background: #1a1a2e; border-right: 1px solid rgba(212,175,55,0.2); }
+    .t2-nav-item { color: #8a8aa0; font-size: 13px; padding: 7px 12px; border-radius: 4px; display: flex; align-items: center; gap: 10px; cursor: pointer; letter-spacing: 0.02em; }
+    .t2-nav-item:hover { background: rgba(212,175,55,0.08); color: #d4af37; }
+    .t2-nav-item.active { color: #d4af37; background: rgba(212,175,55,0.12); border-left: 2px solid #d4af37; padding-left: 10px; }
+    .t2-logo-bar { border-bottom: 1px solid rgba(212,175,55,0.25); padding-bottom: 12px; margin-bottom: 12px; }
+    .t2-btn { background: linear-gradient(135deg, #b8962e, #d4af37); color: #1a1a2e; font-weight: 600; }
+    .t2-badge { background: rgba(212,175,55,0.2); color: #d4af37; border: 1px solid rgba(212,175,55,0.3); }
+    .t2-accent { color: #d4af37; }
+    .t2-card { background: white; border: 1px solid #e8e0d0; border-radius: 6px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); }
+    .t2-card-header { background: linear-gradient(135deg, #1a1a2e, #252545); color: white; border-radius: 6px 6px 0 0; padding: 12px 16px; }
+    .t2-stat { border-left: 2px solid #d4af37; }
+    .t2-main { background: #faf8f4; }
+    .t2-title { font-family: 'Libre Baskerville', serif; }
+
+    /* ═══════════════════════════════════════
+       THÈME 3 — ATLAS (Ardoise & Sauge)
+    ═══════════════════════════════════════ */
+    .t3 { font-family: 'DM Sans', sans-serif; }
+    .t3-sidebar { background: #2d3748; }
+    .t3-nav-item { color: #a0aec0; font-size: 13px; padding: 6px 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .t3-nav-item:hover { background: rgba(255,255,255,0.08); color: #e2e8f0; }
+    .t3-nav-item.active { color: #fff; background: #4a9d8f; }
+    .t3-btn { background: #4a9d8f; color: white; }
+    .t3-badge { background: #4a9d8f; color: white; }
+    .t3-accent { color: #4a9d8f; }
+    .t3-card { background: white; border: 1px solid #e2e8f0; border-radius: 10px; }
+    .t3-stat { border-left: 3px solid #4a9d8f; }
+    .t3-main { background: #f7fafc; }
+    .t3-tag { background: #e6f4f1; color: #2c7a7b; border-radius: 20px; }
+
+    /* ═══════════════════════════════════════
+       THÈME 4 — LUMIÈRE (Blanc & Cuivre)
+    ═══════════════════════════════════════ */
+    .t4 { font-family: 'Inter', sans-serif; }
+    .t4-sidebar { background: #ffffff; border-right: 1px solid #e5e7eb; }
+    .t4-nav-item { color: #6b7280; font-size: 13px; padding: 6px 10px; border-radius: 8px; display: flex; align-items: center; gap: 10px; cursor: pointer; }
+    .t4-nav-item:hover { background: #f9fafb; color: #111827; }
+    .t4-nav-item.active { color: #b45309; background: #fef3c7; font-weight: 500; }
+    .t4-btn { background: #b45309; color: white; }
+    .t4-badge { background: #fde68a; color: #92400e; font-weight: 600; }
+    .t4-accent { color: #b45309; }
+    .t4-card { background: white; border: 1px solid #e5e7eb; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }
+    .t4-stat { border-left: 3px solid #f59e0b; }
+    .t4-main { background: #f9fafb; }
+    .t4-logo-text { color: #1f2937; }
+    .t4-section { background: #fffbeb; border: 1px solid #fde68a; border-radius: 10px; }
+  </style>
+</head>
+<body>
+
+<!-- ── Sélecteur ── -->
+<div class="sticky top-0 z-50 bg-black/80 backdrop-blur border-b border-white/10 px-6 py-3 flex items-center gap-4">
+  <span class="text-white/60 text-sm font-medium mr-2">Choisir un thème :</span>
+  <button onclick="showTheme(1)" id="btn1" class="theme-btn active px-4 py-1.5 rounded-full text-sm font-medium bg-[#2340b0] text-white">① Actuel (Bleu)</button>
+  <button onclick="showTheme(2)" id="btn2" class="theme-btn px-4 py-1.5 rounded-full text-sm font-medium bg-[#1a1a2e] text-[#d4af37] border border-[#d4af37]/40">② Hermès (Or & Marine)</button>
+  <button onclick="showTheme(3)" id="btn3" class="theme-btn px-4 py-1.5 rounded-full text-sm font-medium bg-[#2d3748] text-[#4a9d8f]">③ Atlas (Ardoise & Sauge)</button>
+  <button onclick="showTheme(4)" id="btn4" class="theme-btn px-4 py-1.5 rounded-full text-sm font-medium bg-white text-[#b45309] border border-amber-200">④ Lumière (Blanc & Cuivre)</button>
+</div>
+
+<!-- ════════════════════════════════════
+     THÈME 1 — ACTUEL
+════════════════════════════════════ -->
+<div id="theme1" class="theme-panel active" style="height:calc(100vh - 52px)">
+  <!-- Sidebar -->
+  <div class="t1-sidebar w-56 flex-shrink-0 h-full flex flex-col p-3 gap-1">
+    <div class="px-2 py-3 mb-2 border-b border-white/10">
+      <div class="text-white font-semibold text-sm">⚜ Portail Socrate</div>
+      <div class="text-gray-500 text-xs mt-0.5">Loge Les Amis de Socrate</div>
+    </div>
+    <div class="t1-nav-item active">🏠 Tableau de bord</div>
+    <div class="t1-nav-item">👥 Membres</div>
+    <div class="t1-nav-item">📅 Tenues</div>
+    <div class="t1-nav-item">✅ Présence</div>
+    <div class="t1-nav-item">📋 Programmes</div>
+    <div class="t1-nav-item">💰 Finance</div>
+    <div class="t1-nav-item">📚 Bibliothèque</div>
+    <div class="t1-nav-item">💬 Chat</div>
+    <div class="flex-1"></div>
+    <div class="border-t border-white/10 pt-3">
+      <div class="flex items-center gap-2 px-2 py-1.5">
+        <div class="w-7 h-7 rounded-full bg-[#2340b0] flex items-center justify-center text-xs text-white font-semibold">FA</div>
+        <div>
+          <div class="text-gray-200 text-xs font-medium">F∴ Auer</div>
+          <div class="text-gray-500 text-xs">Maître</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Main -->
+  <div class="flex-1 overflow-y-auto bg-gray-50 p-6">
+    <h1 class="text-xl font-bold text-gray-900 mb-1">Tableau de bord</h1>
+    <p class="text-sm text-gray-500 mb-6">Jeudi 8 mai 2026</p>
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="t1-card p-4"><div class="text-2xl font-bold text-gray-900">24</div><div class="text-xs text-gray-500 mt-1">Membres actifs</div><div class="t1-stat pl-2 mt-2 text-xs t1-accent font-medium">+2 cette année</div></div>
+      <div class="t1-card p-4"><div class="text-2xl font-bold text-gray-900">8</div><div class="text-xs text-gray-500 mt-1">Tenues cette année</div><div class="t1-stat pl-2 mt-2 text-xs t1-accent font-medium">Prochaine : 15 mai</div></div>
+      <div class="t1-card p-4"><div class="text-2xl font-bold text-gray-900">76%</div><div class="text-xs text-gray-500 mt-1">Assiduité moyenne</div><div class="t1-stat pl-2 mt-2 text-xs text-orange-500 font-medium">3 frères en alerte</div></div>
+      <div class="t1-card p-4"><div class="text-2xl font-bold text-gray-900">18/24</div><div class="text-xs text-gray-500 mt-1">Cotisations réglées</div><div class="t1-stat pl-2 mt-2 text-xs t1-accent font-medium">6 en attente</div></div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="t1-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-800 text-sm">Prochaines tenues</h2>
+          <span class="t1-badge text-xs px-2 py-0.5 rounded-full">3</span>
+        </div>
+        <div class="space-y-3">
+          <div class="flex items-start gap-3 pb-3 border-b border-gray-100">
+            <div class="bg-blue-50 rounded-lg px-2 py-1 text-center min-w-[40px]"><div class="text-xs text-blue-600 font-bold">MAI</div><div class="text-lg font-bold text-blue-800">15</div></div>
+            <div><div class="text-sm font-medium text-gray-800">Tenue ordinaire — 1° degré</div><div class="text-xs text-gray-500">Temple — 20h00 · Agapes prévues</div></div>
+          </div>
+          <div class="flex items-start gap-3 pb-3 border-b border-gray-100">
+            <div class="bg-purple-50 rounded-lg px-2 py-1 text-center min-w-[40px]"><div class="text-xs text-purple-600 font-bold">JUN</div><div class="text-lg font-bold text-purple-800">5</div></div>
+            <div><div class="text-sm font-medium text-gray-800">Tenue solennelle</div><div class="text-xs text-gray-500">Temple — 19h30</div></div>
+          </div>
+        </div>
+        <button class="mt-3 w-full t1-btn text-sm py-2 rounded-lg font-medium">Voir toutes les tenues</button>
+      </div>
+      <div class="t1-card p-5">
+        <h2 class="font-semibold text-gray-800 text-sm mb-3">Assiduité — Alertes</h2>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between p-2 bg-red-50 rounded-lg"><span class="text-sm text-gray-700">F∴ Dupont</span><span class="text-xs text-red-600 font-medium bg-red-100 px-2 py-0.5 rounded-full">12% · critique</span></div>
+          <div class="flex items-center justify-between p-2 bg-orange-50 rounded-lg"><span class="text-sm text-gray-700">F∴ Martin</span><span class="text-xs text-orange-600 font-medium bg-orange-100 px-2 py-0.5 rounded-full">38% · faible</span></div>
+          <div class="flex items-center justify-between p-2 bg-yellow-50 rounded-lg"><span class="text-sm text-gray-700">F∴ Bernard</span><span class="text-xs text-yellow-700 font-medium bg-yellow-100 px-2 py-0.5 rounded-full">52% · moyen</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     THÈME 2 — HERMÈS (Or & Marine)
+════════════════════════════════════ -->
+<div id="theme2" class="theme-panel t2" style="height:calc(100vh - 52px)">
+  <!-- Sidebar -->
+  <div class="t2-sidebar w-60 flex-shrink-0 h-full flex flex-col p-4 gap-0.5">
+    <div class="t2-logo-bar px-2 pt-1">
+      <div class="t2-title text-white font-bold text-base tracking-wide">⚜ Portail Socrate</div>
+      <div class="text-xs mt-1" style="color:rgba(212,175,55,0.6)">Loge Les Amis de Socrate</div>
+    </div>
+    <div class="t2-nav-item active">🏠 Tableau de bord</div>
+    <div class="t2-nav-item">👥 Frères & Sœurs</div>
+    <div class="t2-nav-item">📅 Tenues</div>
+    <div class="t2-nav-item">✅ Présence & Assiduité</div>
+    <div class="t2-nav-item">📋 Programmes</div>
+    <div class="t2-nav-item">💰 Trésorerie</div>
+    <div class="t2-nav-item">📚 Bibliothèque</div>
+    <div class="t2-nav-item">💬 Messagerie</div>
+    <div class="flex-1"></div>
+    <div class="border-t pt-3" style="border-color:rgba(212,175,55,0.2)">
+      <div class="flex items-center gap-2 px-2 py-1.5">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold" style="background:linear-gradient(135deg,#b8962e,#d4af37);color:#1a1a2e">FA</div>
+        <div>
+          <div class="text-xs font-medium" style="color:#e0d5b0">F∴ Auer</div>
+          <div class="text-xs" style="color:rgba(212,175,55,0.5)">Maître · Vénérable M∴</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Main -->
+  <div class="flex-1 overflow-y-auto p-6 t2-main">
+    <div class="mb-6">
+      <h1 class="t2-title text-2xl font-bold text-gray-900 mb-1">Tableau de bord</h1>
+      <p class="text-sm text-gray-500">Jeudi 8 mai 2026 — Année 6026 E∴L∴</p>
+    </div>
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="t2-card p-4"><div class="text-xs t2-accent font-semibold uppercase tracking-wider mb-1">Membres</div><div class="t2-title text-2xl font-bold text-gray-900">24</div><div class="t2-stat pl-2 mt-2 text-xs text-gray-500">+2 cette année</div></div>
+      <div class="t2-card p-4"><div class="text-xs t2-accent font-semibold uppercase tracking-wider mb-1">Tenues</div><div class="t2-title text-2xl font-bold text-gray-900">8</div><div class="t2-stat pl-2 mt-2 text-xs text-gray-500">Prochaine : 15 mai</div></div>
+      <div class="t2-card p-4"><div class="text-xs t2-accent font-semibold uppercase tracking-wider mb-1">Assiduité</div><div class="t2-title text-2xl font-bold text-gray-900">76%</div><div class="t2-stat pl-2 mt-2 text-xs text-orange-500">3 alertes</div></div>
+      <div class="t2-card p-4"><div class="text-xs t2-accent font-semibold uppercase tracking-wider mb-1">Cotisations</div><div class="t2-title text-2xl font-bold text-gray-900">18/24</div><div class="t2-stat pl-2 mt-2 text-xs text-gray-500">6 en attente</div></div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="t2-card overflow-hidden">
+        <div class="t2-card-header">
+          <h2 class="t2-title font-semibold text-sm tracking-wide">Prochaines tenues</h2>
+        </div>
+        <div class="p-5 space-y-3">
+          <div class="flex items-start gap-3 pb-3 border-b" style="border-color:#e8e0d0">
+            <div class="rounded px-2 py-1 text-center min-w-[40px]" style="background:#1a1a2e"><div class="text-xs font-bold" style="color:#d4af37">MAI</div><div class="text-lg font-bold text-white">15</div></div>
+            <div><div class="text-sm font-medium text-gray-800">Tenue ordinaire — 1° degré</div><div class="text-xs text-gray-500 mt-0.5">Temple — 20h00 · Agapes</div></div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="rounded px-2 py-1 text-center min-w-[40px]" style="background:#252545"><div class="text-xs font-bold" style="color:#d4af37">JUN</div><div class="text-lg font-bold text-white">5</div></div>
+            <div><div class="text-sm font-medium text-gray-800">Tenue solennelle</div><div class="text-xs text-gray-500 mt-0.5">Temple — 19h30</div></div>
+          </div>
+          <button class="mt-1 w-full t2-btn text-sm py-2 rounded font-semibold">Voir toutes les tenues</button>
+        </div>
+      </div>
+      <div class="t2-card overflow-hidden">
+        <div class="t2-card-header">
+          <h2 class="t2-title font-semibold text-sm tracking-wide">Assiduité — Alertes</h2>
+        </div>
+        <div class="p-5 space-y-2">
+          <div class="flex items-center justify-between p-2 bg-red-50 rounded"><span class="text-sm text-gray-700">F∴ Dupont</span><span class="text-xs text-red-600 font-medium t2-badge px-2 py-0.5 rounded" style="background:rgba(220,38,38,0.1);border-color:rgba(220,38,38,0.2);color:#dc2626">12% · critique</span></div>
+          <div class="flex items-center justify-between p-2 bg-orange-50 rounded"><span class="text-sm text-gray-700">F∴ Martin</span><span class="text-xs font-medium px-2 py-0.5 rounded" style="background:rgba(234,88,12,0.1);color:#ea580c">38% · faible</span></div>
+          <div class="flex items-center justify-between p-2 rounded" style="background:rgba(212,175,55,0.08)"><span class="text-sm text-gray-700">F∴ Bernard</span><span class="t2-badge text-xs font-medium px-2 py-0.5 rounded">52% · moyen</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     THÈME 3 — ATLAS (Ardoise & Sauge)
+════════════════════════════════════ -->
+<div id="theme3" class="theme-panel t3" style="height:calc(100vh - 52px)">
+  <!-- Sidebar -->
+  <div class="t3-sidebar w-56 flex-shrink-0 h-full flex flex-col p-3 gap-1">
+    <div class="px-2 py-3 mb-2 border-b border-white/10">
+      <div class="text-white font-semibold text-sm">⚜ Portail Socrate</div>
+      <div class="text-gray-400 text-xs mt-0.5">Les Amis de Socrate</div>
+    </div>
+    <div class="px-2 py-1"><div class="text-gray-500 text-xs uppercase tracking-widest font-medium">Principal</div></div>
+    <div class="t3-nav-item active">🏠 Tableau de bord</div>
+    <div class="t3-nav-item">👥 Membres</div>
+    <div class="t3-nav-item">📅 Tenues</div>
+    <div class="px-2 py-1 mt-2"><div class="text-gray-500 text-xs uppercase tracking-widest font-medium">Outils</div></div>
+    <div class="t3-nav-item">✅ Présence</div>
+    <div class="t3-nav-item">📋 Programmes</div>
+    <div class="t3-nav-item">💰 Finance</div>
+    <div class="t3-nav-item">📚 Bibliothèque</div>
+    <div class="t3-nav-item">💬 Chat</div>
+    <div class="flex-1"></div>
+    <div class="border-t border-white/10 pt-3">
+      <div class="flex items-center gap-2 px-2 py-1.5">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold" style="background:#4a9d8f;color:white">FA</div>
+        <div>
+          <div class="text-gray-200 text-xs font-medium">F∴ Auer</div>
+          <div class="text-gray-400 text-xs">Vénérable M∴</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Main -->
+  <div class="flex-1 overflow-y-auto t3-main p-6">
+    <div class="mb-6 flex items-end justify-between">
+      <div>
+        <h1 class="text-xl font-semibold text-gray-800 mb-1">Bonjour, F∴ Auer</h1>
+        <p class="text-sm text-gray-500">Jeudi 8 mai 2026</p>
+      </div>
+      <button class="t3-btn px-4 py-2 rounded-lg text-sm font-medium">+ Nouvelle tenue</button>
+    </div>
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="t3-card p-4"><div class="t3-tag text-xs font-medium px-2 py-0.5 inline-block mb-2">Membres</div><div class="text-2xl font-semibold text-gray-800">24</div><div class="text-xs text-gray-400 mt-1">+2 cette année</div></div>
+      <div class="t3-card p-4"><div class="t3-tag text-xs font-medium px-2 py-0.5 inline-block mb-2">Tenues</div><div class="text-2xl font-semibold text-gray-800">8</div><div class="text-xs text-gray-400 mt-1">Prochaine : 15 mai</div></div>
+      <div class="t3-card p-4"><div class="t3-tag text-xs font-medium px-2 py-0.5 inline-block mb-2">Assiduité</div><div class="text-2xl font-semibold text-gray-800">76%</div><div class="text-xs text-orange-400 mt-1">3 alertes</div></div>
+      <div class="t3-card p-4"><div class="t3-tag text-xs font-medium px-2 py-0.5 inline-block mb-2">Cotisations</div><div class="text-2xl font-semibold text-gray-800">18/24</div><div class="text-xs text-gray-400 mt-1">6 en attente</div></div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="t3-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-700 text-sm">Prochaines tenues</h2>
+          <span class="t3-tag text-xs px-2 py-0.5 font-medium">3 à venir</span>
+        </div>
+        <div class="space-y-3">
+          <div class="flex items-start gap-3 pb-3 border-b border-gray-100">
+            <div class="rounded-lg px-2 py-1 text-center min-w-[40px]" style="background:#e6f4f1"><div class="text-xs font-bold" style="color:#2c7a7b">MAI</div><div class="text-lg font-bold" style="color:#2d3748">15</div></div>
+            <div><div class="text-sm font-medium text-gray-700">Tenue ordinaire — 1° degré</div><div class="text-xs text-gray-400 mt-0.5">Temple · 20h00 · Agapes</div></div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="rounded-lg px-2 py-1 text-center min-w-[40px]" style="background:#e6f4f1"><div class="text-xs font-bold" style="color:#2c7a7b">JUN</div><div class="text-lg font-bold" style="color:#2d3748">5</div></div>
+            <div><div class="text-sm font-medium text-gray-700">Tenue solennelle</div><div class="text-xs text-gray-400 mt-0.5">Temple · 19h30</div></div>
+          </div>
+        </div>
+        <button class="mt-3 w-full t3-btn text-sm py-2 rounded-lg font-medium">Voir toutes les tenues</button>
+      </div>
+      <div class="t3-card p-5">
+        <h2 class="font-semibold text-gray-700 text-sm mb-3">Assiduité — Alertes</h2>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between p-2 bg-red-50 rounded-lg"><span class="text-sm text-gray-600">F∴ Dupont</span><span class="text-xs text-red-500 font-medium bg-red-100 px-2 py-0.5 rounded-full">12%</span></div>
+          <div class="flex items-center justify-between p-2 bg-orange-50 rounded-lg"><span class="text-sm text-gray-600">F∴ Martin</span><span class="text-xs text-orange-500 font-medium bg-orange-100 px-2 py-0.5 rounded-full">38%</span></div>
+          <div class="flex items-center justify-between p-2 bg-yellow-50 rounded-lg"><span class="text-sm text-gray-600">F∴ Bernard</span><span class="text-xs text-yellow-600 font-medium bg-yellow-100 px-2 py-0.5 rounded-full">52%</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ════════════════════════════════════
+     THÈME 4 — LUMIÈRE (Blanc & Cuivre)
+════════════════════════════════════ -->
+<div id="theme4" class="theme-panel t4" style="height:calc(100vh - 52px)">
+  <!-- Sidebar -->
+  <div class="t4-sidebar w-56 flex-shrink-0 h-full flex flex-col p-3 gap-0.5">
+    <div class="px-2 py-3 mb-2 border-b border-gray-100">
+      <div class="t4-logo-text font-bold text-sm">⚜ Portail Socrate</div>
+      <div class="text-gray-400 text-xs mt-0.5">Les Amis de Socrate</div>
+    </div>
+    <div class="t4-nav-item active">🏠 Tableau de bord</div>
+    <div class="t4-nav-item">👥 Membres</div>
+    <div class="t4-nav-item">📅 Tenues</div>
+    <div class="t4-nav-item">✅ Présence</div>
+    <div class="t4-nav-item">📋 Programmes</div>
+    <div class="t4-nav-item">💰 Finance</div>
+    <div class="t4-nav-item">📚 Bibliothèque</div>
+    <div class="t4-nav-item">💬 Chat</div>
+    <div class="flex-1"></div>
+    <div class="border-t border-gray-100 pt-3">
+      <div class="flex items-center gap-2 px-2 py-1.5">
+        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold bg-amber-100 text-amber-800">FA</div>
+        <div>
+          <div class="text-gray-700 text-xs font-medium">F∴ Auer</div>
+          <div class="text-gray-400 text-xs">Vénérable M∴</div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <!-- Main -->
+  <div class="flex-1 overflow-y-auto t4-main p-6">
+    <div class="mb-6">
+      <h1 class="text-xl font-semibold text-gray-900 mb-1">Tableau de bord</h1>
+      <p class="text-sm text-gray-500">Jeudi 8 mai 2026 — Année 6026 E∴L∴</p>
+    </div>
+    <!-- Bannière prochaine tenue -->
+    <div class="t4-section p-4 mb-6 flex items-center justify-between">
+      <div>
+        <div class="text-xs font-semibold text-amber-700 uppercase tracking-wider mb-1">Prochaine tenue</div>
+        <div class="text-base font-semibold text-gray-800">Tenue ordinaire — 1° degré</div>
+        <div class="text-sm text-gray-500 mt-0.5">Jeudi 15 mai · Temple · 20h00 · Agapes</div>
+      </div>
+      <button class="t4-btn px-4 py-2 rounded-lg text-sm font-medium">Émarger</button>
+    </div>
+    <div class="grid grid-cols-4 gap-4 mb-6">
+      <div class="t4-card p-4"><div class="text-2xl font-bold text-gray-900">24</div><div class="text-xs text-gray-500 mt-1">Membres actifs</div><div class="t4-stat pl-2 mt-2 text-xs t4-accent font-medium">+2 cette année</div></div>
+      <div class="t4-card p-4"><div class="text-2xl font-bold text-gray-900">8</div><div class="text-xs text-gray-500 mt-1">Tenues réalisées</div><div class="t4-stat pl-2 mt-2 text-xs t4-accent font-medium">Prochaine : 15 mai</div></div>
+      <div class="t4-card p-4"><div class="text-2xl font-bold text-gray-900">76%</div><div class="text-xs text-gray-500 mt-1">Assiduité moyenne</div><div class="t4-stat pl-2 mt-2 text-xs text-orange-500 font-medium">3 alertes</div></div>
+      <div class="t4-card p-4"><div class="text-2xl font-bold text-gray-900">18/24</div><div class="text-xs text-gray-500 mt-1">Cotisations réglées</div><div class="t4-stat pl-2 mt-2 text-xs t4-accent font-medium">6 en attente</div></div>
+    </div>
+    <div class="grid grid-cols-2 gap-4">
+      <div class="t4-card p-5">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold text-gray-800 text-sm">Tenues à venir</h2>
+          <span class="t4-badge text-xs px-2 py-0.5 rounded-full">3</span>
+        </div>
+        <div class="space-y-3">
+          <div class="flex items-start gap-3 pb-3 border-b border-gray-100">
+            <div class="bg-amber-50 border border-amber-100 rounded-lg px-2 py-1 text-center min-w-[40px]"><div class="text-xs font-bold text-amber-600">MAI</div><div class="text-lg font-bold text-gray-800">15</div></div>
+            <div><div class="text-sm font-medium text-gray-800">Tenue ordinaire — 1° degré</div><div class="text-xs text-gray-400 mt-0.5">Temple · 20h00 · Agapes</div></div>
+          </div>
+          <div class="flex items-start gap-3">
+            <div class="bg-amber-50 border border-amber-100 rounded-lg px-2 py-1 text-center min-w-[40px]"><div class="text-xs font-bold text-amber-600">JUN</div><div class="text-lg font-bold text-gray-800">5</div></div>
+            <div><div class="text-sm font-medium text-gray-800">Tenue solennelle</div><div class="text-xs text-gray-400 mt-0.5">Temple · 19h30</div></div>
+          </div>
+        </div>
+        <button class="mt-3 w-full t4-btn text-sm py-2 rounded-lg font-medium">Voir toutes les tenues</button>
+      </div>
+      <div class="t4-card p-5">
+        <h2 class="font-semibold text-gray-800 text-sm mb-3">Assiduité — Alertes</h2>
+        <div class="space-y-2">
+          <div class="flex items-center justify-between p-2 bg-red-50 rounded-lg"><span class="text-sm text-gray-700">F∴ Dupont</span><span class="text-xs text-red-600 font-medium bg-red-100 px-2 py-0.5 rounded-full">12% · critique</span></div>
+          <div class="flex items-center justify-between p-2 bg-orange-50 rounded-lg"><span class="text-sm text-gray-700">F∴ Martin</span><span class="text-xs text-orange-600 font-medium bg-orange-100 px-2 py-0.5 rounded-full">38% · faible</span></div>
+          <div class="flex items-center justify-between p-2 bg-yellow-50 rounded-lg"><span class="text-sm text-gray-700">F∴ Bernard</span><span class="text-xs text-yellow-700 font-medium bg-yellow-100 px-2 py-0.5 rounded-full">52% · moyen</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<script>
+function showTheme(n) {
+  [1,2,3,4].forEach(i => {
+    document.getElementById('theme'+i).classList.toggle('active', i===n);
+    document.getElementById('btn'+i).classList.toggle('active', i===n);
+  });
+}
+</script>
+</body>
+</html>

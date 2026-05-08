@@ -271,7 +271,7 @@
             <a href="/documents/file/{{ doc.id }}/download"
                {% if is_link %}target="_blank" rel="noopener"{% endif %}
                class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors"
-               style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2340b0;background:#eef1ff;{% endif %}">
+               style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2c7a7b;background:#e6f4f1;{% endif %}">
               {% if is_link %}
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
@@ -427,7 +427,7 @@
             <a href="/documents/file/{{ doc.id }}/download"
                {% if is_link %}target="_blank" rel="noopener"{% endif %}
                class="block text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
-               style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2340b0;background:#eef1ff;{% endif %}">
+               style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2c7a7b;background:#e6f4f1;{% endif %}">
               {% if is_link %}Ouvrir{% else %}Télécharger{% endif %}
             </a>
             {% if is_admin %}

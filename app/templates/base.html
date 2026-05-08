@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <meta name="theme-color" content="#0d1117">
+  <meta name="theme-color" content="#2d3748">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta name="mobile-web-app-capable" content="yes">
@@ -13,6 +13,8 @@
   <link rel="manifest" href="/static/manifest.json">
   <link rel="apple-touch-icon" href="/static/img/icon-192.png">
 
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
     tailwind.config = {
@@ -20,18 +22,18 @@
         extend: {
           colors: {
             loge: {
-              50:  '#f0f4ff',
-              100: '#e0e9ff',
-              300: '#93a8f0',
-              500: '#3b5bdb',
-              600: '#2f4ac5',
-              700: '#2340b0',
-              800: '#1e3699',
-              900: '#1a2d82',
+              50:  '#e6f4f1',
+              100: '#d0ede9',
+              300: '#8eccc6',
+              500: '#4a9d8f',
+              600: '#3d8a7c',
+              700: '#2c7a7b',
+              800: '#236b6b',
+              900: '#1a5252',
             }
           },
           fontFamily: {
-            sans: ['-apple-system','BlinkMacSystemFont','Segoe UI','Roboto','Helvetica Neue','Arial','sans-serif'],
+            sans: ['DM Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
           }
         }
       }
@@ -48,34 +50,23 @@
       align-items: center;
       gap: 10px;
       padding: 6px 10px;
-      border-radius: 6px;
+      border-radius: 8px;
       font-size: 13.5px;
-      color: #6b7280;
+      color: #a0aec0;
       transition: background 120ms, color 120ms;
       position: relative;
-      font-weight: 450;
+      font-weight: 400;
       letter-spacing: 0.01em;
       text-decoration: none;
     }
     .nav-item:hover {
-      background: rgba(255,255,255,0.06);
-      color: #e5e7eb;
+      background: rgba(255,255,255,0.08);
+      color: #e2e8f0;
     }
     .nav-item.active {
       color: #ffffff;
-      background: rgba(59,91,219,0.18);
+      background: #4a9d8f;
       font-weight: 500;
-    }
-    .nav-item.active::before {
-      content: '';
-      position: absolute;
-      left: -8px;
-      top: 50%;
-      transform: translateY(-50%);
-      width: 3px;
-      height: 18px;
-      background: #3b5bdb;
-      border-radius: 0 2px 2px 0;
     }
     .nav-item svg {
       flex-shrink: 0;
@@ -90,7 +81,7 @@
       font-weight: 600;
       letter-spacing: 0.08em;
       text-transform: uppercase;
-      color: #374151;
+      color: #718096;
       padding: 4px 10px 2px;
       margin-top: 8px;
     }
@@ -112,7 +103,7 @@
       -webkit-tap-highlight-color: transparent;
     }
     .bottom-nav-item svg { opacity: 0.6; transition: opacity 120ms; }
-    .bottom-nav-item.active { color: #3b5bdb; }
+    .bottom-nav-item.active { color: #4a9d8f; }
     .bottom-nav-item.active svg { opacity: 1; }
     .bottom-nav-item:not(.active):hover { color: #9ca3af; }
 
@@ -143,18 +134,18 @@
        SIDEBAR — Desktop (≥ lg)
   ════════════════════════════════════════════════════════ -->
   <aside class="hidden lg:flex flex-col fixed inset-y-0 left-0 z-30 w-52 select-none"
-         style="background:#0d1117; border-right:1px solid rgba(255,255,255,0.06);">
+         style="background:#2d3748; border-right:1px solid rgba(255,255,255,0.08);">
 
     <!-- Logo -->
     <a href="/" class="flex items-center gap-3 px-4 py-4 flex-shrink-0
-                        border-b" style="border-color:rgba(255,255,255,0.08); text-decoration:none;">
+                        border-b" style="border-color:rgba(255,255,255,0.1); text-decoration:none;">
       <div class="bg-white rounded-full flex-shrink-0 shadow" style="padding:3px;">
         <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau Socrate"
              class="object-contain block" style="width:36px; height:36px;">
       </div>
       <div class="leading-snug">
         <div class="font-bold text-white" style="font-size:15px; letter-spacing:0.02em;">Socrate</div>
-        <div style="font-size:11px; color:#8b9dc3; margin-top:1px;">Raison &amp; Progrès</div>
+        <div style="font-size:11px; color:#a0aec0; margin-top:1px;">Raison &amp; Progrès</div>
       </div>
     </a>
 
@@ -316,11 +307,11 @@
     </nav>
 
     <!-- Profil -->
-    <div class="flex-shrink-0 px-3 py-3 border-t" style="border-color:rgba(255,255,255,0.06);">
+    <div class="flex-shrink-0 px-3 py-3 border-t" style="border-color:rgba(255,255,255,0.1);">
       <a href="/members/{{ current_member.id if current_member else '' }}"
          class="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors group">
         <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-             style="background: linear-gradient(135deg,#3b5bdb,#2340b0);">
+             style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
           {{ current_member.first_name[0] if current_member else '?' }}{{ current_member.last_name[0] if current_member else '' }}
         </div>
         <div class="flex-1 min-w-0">
@@ -354,7 +345,7 @@
        BOTTOM NAV — Mobile (< lg)
   ════════════════════════════════════════════════════════ -->
   <nav class="lg:hidden fixed bottom-0 inset-x-0 z-40 flex safe-bottom"
-       style="background:#0d1117; border-top:1px solid rgba(255,255,255,0.07);">
+       style="background:#2d3748; border-top:1px solid rgba(255,255,255,0.08);">
 
     <a href="/" class="bottom-nav-item {% if request.url.path == '/' %}active{% endif %}">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
@@ -404,7 +395,7 @@
        x-transition:leave-end="opacity-0 translate-y-4"
        @click.away="moreOpen = false"
        class="lg:hidden fixed z-50 inset-x-3 rounded-2xl shadow-2xl overflow-hidden safe-bottom"
-       style="bottom: calc(64px + env(safe-area-inset-bottom, 0px)); background:#161b27; border:1px solid rgba(255,255,255,0.08);"
+       style="bottom: calc(64px + env(safe-area-inset-bottom, 0px)); background:#1a202c; border:1px solid rgba(255,255,255,0.1);"
        x-cloak>
 
     <div class="p-2">
@@ -427,7 +418,7 @@
         Paramètres
       </a>
       {% endif %}
-      <div class="h-px mx-2 my-1" style="background:rgba(255,255,255,0.06);"></div>
+      <div class="h-px mx-2 my-1" style="background:rgba(255,255,255,0.1);"></div>
       <a href="/auth/logout"
          class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
         <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">

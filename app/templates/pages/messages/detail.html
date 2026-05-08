@@ -18,7 +18,7 @@
     <div class="flex items-start gap-3 pb-4 border-b border-gray-100">
       <!-- Avatar expéditeur -->
       <div class="w-10 h-10 rounded-full flex items-center justify-center text-sm font-bold text-white flex-shrink-0"
-           style="background: linear-gradient(135deg,#3b5bdb,#2340b0);">
+           style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
         {{ sender.first_name[0] if sender else '?' }}{{ sender.last_name[0] if sender else '' }}
       </div>
       <div class="flex-1">
@@ -140,7 +140,7 @@
       <div class="flex items-center justify-between px-5 py-2.5">
         <div class="flex items-center gap-2">
           <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-               style="background: linear-gradient(135deg,#3b5bdb,#2340b0);">
+               style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
             {{ m.first_name[0] if m else '?' }}{{ m.last_name[0] if m else '' }}
           </div>
           <span class="text-sm text-gray-800">{{ (m.first_name ~ ' ' ~ m.last_name) if m else 'Membre #' ~ rec.member_id }}</span>
