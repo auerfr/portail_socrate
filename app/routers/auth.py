@@ -2,7 +2,7 @@
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
 from fastapi.templating import Jinja2Templates
@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import (
-    verify_password, create_access_token, create_refresh_token,
+    verify_password, hash_password, create_access_token, create_refresh_token,
     decode_token, get_current_user, require_auth
 )
 from app.models.identity import User, Member
@@ -145,6 +145,63 @@ async def refresh(
 
     new_access = create_access_token({"sub": str(user.id)})
     return {"access_token": new_access, "token_type": "bearer"}
+
+
+# ── Changement de mot de passe (utilisateur connecté) ─────────────────────
+
+@router.get("/password", response_class=HTMLResponse)
+async def change_password_page(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    lodge = await _get_lodge(db)
+    return templates.TemplateResponse(request, "pages/auth/change_password.html", {
+        "lodge": lodge,
+        "current_user": user,
+        "current_member": member,
+    })
+
+
+@router.post("/password", response_class=HTMLResponse)
+async def change_password_submit(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    current_password: str = Form(...),
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    user, member = ctx
+    lodge = await _get_lodge(db)
+
+    def error(msg: str):
+        return templates.TemplateResponse(request, "pages/auth/change_password.html", {
+            "lodge": lodge,
+            "current_user": user,
+            "current_member": member,
+            "error": msg,
+        }, status_code=400)
+
+    if not verify_password(current_password, user.password_hash):
+        return error("Mot de passe actuel incorrect.")
+
+    if len(new_password) < 8:
+        return error("Le nouveau mot de passe doit contenir au moins 8 caractères.")
+
+    if new_password != confirm_password:
+        return error("Les deux nouveaux mots de passe ne correspondent pas.")
+
+    user.password_hash = hash_password(new_password)
+    await db.commit()
+
+    return templates.TemplateResponse(request, "pages/auth/change_password.html", {
+        "lodge": lodge,
+        "current_user": user,
+        "current_member": member,
+        "success": True,
+    })
 
 
 # ── Logout ─────────────────────────────────────────────────────────────────

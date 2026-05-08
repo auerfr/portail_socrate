@@ -1,21 +1,42 @@
 """Router — Messagerie interne ciblée"""
 import json
+import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Annotated, Optional, List
 
-from fastapi import APIRouter, Depends, Form, Request, HTTPException
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import get_settings
 from app.database import get_db
 from app.dependencies import require_auth
 from app.models.identity import Member, MemberStatus, LodgeFunction, MasonicGrade
-from app.models.messaging import Message, MessageRecipient, MessageTargetType
+from app.models.lodge import LodgeSettings
+from app.models.messaging import Message, MessageAttachment, MessageRecipient, MessageTargetType
+from app.services.email import notify_new_message
 from app.models.groups import LodgeGroup as Group, SYSTEM_GROUPS
 from app.routers.groups import resolve_group_member_ids, ensure_system_groups
+
+# ── Constantes upload ─────────────────────────────────────────────────────────
+UPLOAD_DIR = Path("app/static/uploads/messages")
+UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+
+MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 Mo
+ALLOWED_MIME_TYPES = {
+    "application/pdf",
+    "application/msword",
+    "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    "application/vnd.ms-excel",
+    "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+    "image/jpeg", "image/png", "image/gif", "image/webp",
+    "text/plain",
+}
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".txt"}
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 templates = Jinja2Templates(directory="app/templates")
@@ -320,6 +341,11 @@ async def compose(
 
     unread = await _unread_count(db, member.id)
 
+    ls_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge_cfg = ls_r.scalar_one_or_none()
+    visio_server = lodge_cfg.visio_server_url.rstrip("/") if lodge_cfg and lodge_cfg.visio_server_url else ""
+    visio_prefix = lodge_cfg.visio_room_prefix or "loge" if lodge_cfg else "loge"
+
     return templates.TemplateResponse(request, "pages/messages/compose.html", {
         "current_member": member,
         "current_user": user,
@@ -331,6 +357,8 @@ async def compose(
         "can_send": True,
         "reply_msg": reply_msg,
         "preselect_group": preselect_group,
+        "visio_server": visio_server,
+        "visio_prefix": visio_prefix,
     })
 
 
@@ -347,6 +375,8 @@ async def send_message(
     target_group_id: Annotated[Optional[int], Form()] = None,
     target_member_ids: Annotated[Optional[str], Form()] = None,
     parent_id: Annotated[Optional[int], Form()] = None,
+    visio_url: Annotated[Optional[str], Form()] = None,
+    attachments: Annotated[Optional[List[UploadFile]], File()] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -388,6 +418,10 @@ async def send_message(
     if not recipient_ids:
         raise HTTPException(400, "Aucun destinataire trouvé pour ce ciblage")
 
+    final_visio = (visio_url or "").strip() or None
+    if final_visio and not final_visio.startswith(("http://", "https://")):
+        final_visio = "https://" + final_visio
+
     # Créer le message
     msg = Message(
         subject=subject.strip(),
@@ -396,6 +430,7 @@ async def send_message(
         target_type=MessageTargetType(target_type),
         target_filter=target_filter_json,
         parent_id=parent_id,
+        visio_url=final_visio,
         sent_at=datetime.now(),
     )
     db.add(msg)
@@ -410,8 +445,87 @@ async def send_message(
             delivered_at=now,
         ))
 
+    # ── Pièces jointes ────────────────────────────────────────────────────
+    for upload in (attachments or []):
+        if not upload.filename:
+            continue
+        ext = Path(upload.filename).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            continue  # extension non autorisée — on ignore silencieusement
+        content = await upload.read()
+        if len(content) > MAX_FILE_SIZE:
+            continue  # trop lourd — on ignore
+        stored_name = f"{msg.id}_{uuid.uuid4().hex}{ext}"
+        (UPLOAD_DIR / stored_name).write_bytes(content)
+        db.add(MessageAttachment(
+            message_id=msg.id,
+            filename=upload.filename,
+            stored_name=stored_name,
+            mime_type=upload.content_type or "application/octet-stream",
+            size_bytes=len(content),
+        ))
+
     await db.commit()
+
+    # ── Notifications email ───────────────────────────────────────────────
+    sender_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.first_name} {member.last_name}"
+    settings = get_settings()
+    portal_url = f"https://{settings.lodge_domain}"
+
+    # Charger les membres destinataires pour leurs emails
+    if recipient_ids:
+        rm = await db.execute(
+            select(Member).where(Member.id.in_(recipient_ids))
+        )
+        dest_members = rm.scalars().all()
+        for dest in dest_members:
+            if dest.email and getattr(dest, "email_notifications", True):
+                import asyncio
+                asyncio.create_task(notify_new_message(  # noqa — fire & forget
+                    recipient_email=dest.email,
+                    sender_name=sender_name,
+                    subject=msg.subject,
+                    body=msg.body,
+                    message_id=msg.id,
+                    portal_base_url=portal_url,
+                ))
+
     return RedirectResponse(url="/messages/sent", status_code=303)
+
+
+@router.get("/{message_id}/attachment/{attachment_id}")
+async def download_attachment(
+    message_id: int,
+    attachment_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Téléchargement sécurisé d'une pièce jointe (expéditeur, destinataire ou admin)."""
+    user, member = ctx
+
+    att = await db.get(MessageAttachment, attachment_id)
+    if not att or att.message_id != message_id:
+        raise HTTPException(404)
+
+    msg = await db.get(Message, message_id, options=[selectinload(Message.recipients)])
+    if not msg:
+        raise HTTPException(404)
+
+    # Vérification d'accès
+    is_sender = msg.sender_id == member.id
+    is_recipient = any(r.member_id == member.id for r in msg.recipients)
+    if not (user.is_admin or is_sender or is_recipient):
+        raise HTTPException(403)
+
+    file_path = UPLOAD_DIR / att.stored_name
+    if not file_path.exists():
+        raise HTTPException(404, "Fichier introuvable sur le serveur")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=att.filename,
+        media_type=att.mime_type or "application/octet-stream",
+    )
 
 
 @router.get("/{message_id}", response_class=HTMLResponse)
@@ -425,7 +539,7 @@ async def message_detail(
 
     msg = await db.get(
         Message, message_id,
-        options=[selectinload(Message.recipients)]
+        options=[selectinload(Message.recipients), selectinload(Message.attachments)]
     )
     if not msg or not msg.sent_at:
         raise HTTPException(404)
@@ -487,6 +601,7 @@ async def message_detail(
         "target_description": _target_description(msg.target_type, msg.target_filter),
         "unread_count": unread,
         "can_send": _can_send(user, member),
+        "attachments": msg.attachments,
     })
 
 

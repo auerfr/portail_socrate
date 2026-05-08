@@ -115,18 +115,11 @@
           'DEADLINE': 'bg-red-600 text-white',
           'OTHER':    'bg-purple-600 text-white',
         }.get(ev.type, 'bg-gray-400 text-white') %}
-        {% if ev.url %}
         <a href="{{ ev.url }}"
-           class="block truncate text-[11px] px-1 py-0.5 rounded mb-0.5 {{ type_cls }} hover:opacity-90 transition-opacity"
+           class="block truncate text-[11px] px-1 py-0.5 rounded mb-0.5 {{ type_cls }} hover:opacity-80 transition-opacity cursor-pointer"
            title="{{ ev.title }}{% if ev.location %} — {{ ev.location }}{% endif %}">
           {{ ev.title }}
         </a>
-        {% else %}
-        <span class="block truncate text-[11px] px-1 py-0.5 rounded mb-0.5 {{ type_cls }}"
-              title="{{ ev.title }}{% if ev.location %} — {{ ev.location }}{% endif %}">
-          {{ ev.title }}
-        </span>
-        {% endif %}
         {% endfor %}
       </div>
       {% endfor %}
@@ -165,13 +158,9 @@
               <div class="px-4 py-3 flex items-start gap-3">
                 <span class="mt-0.5 w-2 h-2 rounded-full {{ tl[1] }} flex-shrink-0"></span>
                 <div class="min-w-0">
-                  {% if ev.url %}
                   <a href="{{ ev.url }}" class="text-sm font-medium text-gray-900 hover:text-loge-700 truncate block">
                     {{ ev.title }}
                   </a>
-                  {% else %}
-                  <p class="text-sm font-medium text-gray-900 truncate">{{ ev.title }}</p>
-                  {% endif %}
                   {% if ev.location %}
                   <p class="text-xs text-gray-500 truncate">{{ ev.location }}</p>
                   {% endif %}

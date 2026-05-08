@@ -3,8 +3,11 @@ from datetime import date, datetime, timedelta
 from typing import Annotated, Optional
 import secrets
 
+import csv
+import io
+
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import selectinload
@@ -20,8 +23,8 @@ from app.models.meetings import (
     Visitor, MeetingVisitor, MeetingGuest, MeetingWaitlist,
     DietaryRestriction, GuestStatus,
 )
-from app.models.identity import Member
-from app.models.lodge import MasonicYear
+from app.models.identity import Member, LodgeFunction
+from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice
 
 router = APIRouter(prefix="/meetings", tags=["meetings"])
 templates = Jinja2Templates(directory="app/templates")
@@ -230,6 +233,457 @@ async def meeting_detail(
     })
 
 
+# ── Export Excel agapes ───────────────────────────────────────────────────────
+
+@router.get("/{meeting_id}/agapes/export")
+async def agapes_export_excel(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin
+            or member.lodge_function == LodgeFunction.MAITRE_BANQUETS):
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    result = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+            selectinload(Meeting.meeting_guests),
+        )
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = result.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    from openpyxl import Workbook
+    from openpyxl.styles import (
+        PatternFill, Font, Alignment, Border, Side, GradientFill
+    )
+    from openpyxl.utils import get_column_letter
+
+    diet_labels = {
+        "NONE": "—",
+        "VEGETARIAN": "Végétarien 🥦",
+        "VEGAN": "Vegan 🌱",
+        "NO_PORK": "Sans porc 🚫",
+        "OTHER": "Régime spécial ⚠",
+    }
+
+    # Couleurs
+    C_HEADER   = "4A3728"   # brun foncé
+    C_FRERE    = "E8F0FE"   # bleu pâle
+    C_VISITEUR = "EFF6FF"   # bleu plus pâle
+    C_INVITE   = "FFFBEB"   # ambre pâle
+    C_SECTION  = "F8FAFC"   # gris très clair
+    C_TOTAL    = "FEF3C7"   # ambre léger
+    C_DIET     = "FEF9C3"   # jaune pâle
+
+    thin = Side(style="thin", color="D1D5DB")
+    border = Border(left=thin, right=thin, top=thin, bottom=thin)
+
+    wb = Workbook()
+
+    # ── Feuille 1 : Liste nominative ─────────────────────────────────────────
+    ws = wb.active
+    ws.title = "Liste banquet"
+    ws.sheet_view.showGridLines = False
+
+    # Titre
+    ws.merge_cells("A1:F1")
+    ws["A1"] = f"🍽  Agapes du {meeting.meeting_date.strftime('%d/%m/%Y')} — {_type_label(meeting.type)}"
+    ws["A1"].font = Font(bold=True, size=14, color="FFFFFF")
+    ws["A1"].fill = PatternFill("solid", fgColor=C_HEADER)
+    ws["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[1].height = 28
+
+    # Sous-titre
+    ws.merge_cells("A2:F2")
+    ws["A2"] = f"Exporté le {datetime.now().strftime('%d/%m/%Y à %H:%M')}"
+    ws["A2"].font = Font(italic=True, size=9, color="9CA3AF")
+    ws["A2"].alignment = Alignment(horizontal="center")
+    ws.row_dimensions[2].height = 16
+
+    # En-têtes colonnes
+    headers = ["Nom", "Prénom", "Catégorie", "Loge / Origine", "Invités (+)", "Régime alimentaire"]
+    for col, h in enumerate(headers, 1):
+        cell = ws.cell(row=4, column=col, value=h)
+        cell.font = Font(bold=True, color="FFFFFF", size=10)
+        cell.fill = PatternFill("solid", fgColor="374151")
+        cell.alignment = Alignment(horizontal="center", vertical="center")
+        cell.border = border
+    ws.row_dimensions[4].height = 22
+
+    row = 5
+
+    def _section_row(ws, label, color, row):
+        ws.merge_cells(f"A{row}:F{row}")
+        cell = ws[f"A{row}"]
+        cell.value = label
+        cell.font = Font(bold=True, size=9, color="374151")
+        cell.fill = PatternFill("solid", fgColor=color)
+        cell.alignment = Alignment(indent=1, vertical="center")
+        ws.row_dimensions[row].height = 18
+        return row + 1
+
+    def _data_row(ws, values, fill_color, row, bold_col=None):
+        for col, val in enumerate(values, 1):
+            cell = ws.cell(row=row, column=col, value=val)
+            cell.fill = PatternFill("solid", fgColor=fill_color)
+            cell.border = border
+            cell.alignment = Alignment(vertical="center", indent=1)
+            if bold_col and col == bold_col:
+                cell.font = Font(bold=True)
+        ws.row_dimensions[row].height = 18
+        return row + 1
+
+    # Membres
+    agape_members = sorted([a for a in meeting.attendances if a.agape],
+                           key=lambda a: a.member.last_name)
+    if agape_members:
+        row = _section_row(ws, f"  Membres de la loge ({len(agape_members)})", "DBEAFE", row)
+        for att in agape_members:
+            civ = "S∴" if att.member.civility == "S" else "F∴"
+            row = _data_row(ws, [
+                att.member.last_name,
+                f"{civ} {att.member.first_name}",
+                "Frère / Sœur",
+                "Loge Socrate",
+                att.agape_guests if att.agape_guests else "—",
+                "—",
+            ], C_FRERE, row)
+
+    # Visiteurs
+    agape_visitors = sorted([mv for mv in meeting.meeting_visitors
+                             if mv.agape and mv.status.value == "CONFIRMED"],
+                            key=lambda mv: mv.visitor.last_name)
+    if agape_visitors:
+        row = _section_row(ws, f"  Maçons passants ({len(agape_visitors)})", "BFDBFE", row)
+        for mv in agape_visitors:
+            civ = "S∴" if mv.visitor.civility == "S" else "F∴"
+            row = _data_row(ws, [
+                mv.visitor.last_name,
+                f"{civ} {mv.visitor.first_name}",
+                "Maçon passant",
+                mv.visitor.lodge_name or "—",
+                mv.agape_guests if mv.agape_guests else "—",
+                "—",
+            ], C_VISITEUR, row)
+
+    # Invités profanes
+    agape_guests = sorted([g for g in meeting.meeting_guests
+                           if g.agape and g.status.value == "CONFIRMED"],
+                          key=lambda g: g.last_name)
+    if agape_guests:
+        row = _section_row(ws, f"  Invités profanes ({len(agape_guests)})", "FDE68A", row)
+        for g in agape_guests:
+            diet_val = g.dietary_restrictions.value if g.dietary_restrictions else "NONE"
+            diet_str = diet_labels.get(diet_val, "—")
+            fill = C_DIET if diet_val != "NONE" else C_INVITE
+            row = _data_row(ws, [
+                g.last_name, g.first_name, "Invité profane", "—", "—", diet_str
+            ], fill, row)
+
+    # Ligne total
+    total_covers = (
+        sum(1 + a.agape_guests for a in agape_members)
+        + sum(1 + mv.agape_guests for mv in agape_visitors)
+        + len(agape_guests)
+    )
+    ws.merge_cells(f"A{row}:E{row}")
+    ws[f"A{row}"] = "TOTAL COUVERTS À PRÉPARER"
+    ws[f"A{row}"].font = Font(bold=True, size=11, color=C_HEADER)
+    ws[f"A{row}"].fill = PatternFill("solid", fgColor=C_TOTAL)
+    ws[f"A{row}"].alignment = Alignment(horizontal="right", vertical="center", indent=1)
+    ws[f"F{row}"] = total_covers
+    ws[f"F{row}"].font = Font(bold=True, size=14, color=C_HEADER)
+    ws[f"F{row}"].fill = PatternFill("solid", fgColor=C_TOTAL)
+    ws[f"F{row}"].alignment = Alignment(horizontal="center", vertical="center")
+    ws.row_dimensions[row].height = 26
+    for col in range(1, 7):
+        ws.cell(row=row, column=col).border = border
+
+    # Largeurs colonnes
+    ws.column_dimensions["A"].width = 20
+    ws.column_dimensions["B"].width = 22
+    ws.column_dimensions["C"].width = 18
+    ws.column_dimensions["D"].width = 22
+    ws.column_dimensions["E"].width = 14
+    ws.column_dimensions["F"].width = 22
+
+    # ── Feuille 2 : Récapitulatif ─────────────────────────────────────────────
+    ws2 = wb.create_sheet("Récapitulatif")
+    ws2.sheet_view.showGridLines = False
+
+    ws2.merge_cells("A1:C1")
+    ws2["A1"] = "Récapitulatif agapes"
+    ws2["A1"].font = Font(bold=True, size=13, color="FFFFFF")
+    ws2["A1"].fill = PatternFill("solid", fgColor=C_HEADER)
+    ws2["A1"].alignment = Alignment(horizontal="center", vertical="center")
+    ws2.row_dimensions[1].height = 26
+
+    recap = [
+        ("Membres de la loge", len(agape_members),
+         sum(1 + a.agape_guests for a in agape_members)),
+        ("Maçons passants",    len(agape_visitors),
+         sum(1 + mv.agape_guests for mv in agape_visitors)),
+        ("Invités profanes",   len(agape_guests), len(agape_guests)),
+    ]
+    ws2.cell(row=3, column=1, value="Catégorie").font = Font(bold=True, color="FFFFFF")
+    ws2.cell(row=3, column=2, value="Personnes").font = Font(bold=True, color="FFFFFF")
+    ws2.cell(row=3, column=3, value="Couverts").font = Font(bold=True, color="FFFFFF")
+    for c in range(1, 4):
+        ws2.cell(row=3, column=c).fill = PatternFill("solid", fgColor="374151")
+        ws2.cell(row=3, column=c).alignment = Alignment(horizontal="center")
+        ws2.cell(row=3, column=c).border = border
+
+    fills = [C_FRERE, C_VISITEUR, C_INVITE]
+    for i, (label, persons, covers) in enumerate(recap):
+        r = 4 + i
+        for c, val in enumerate([label, persons, covers], 1):
+            cell = ws2.cell(row=r, column=c, value=val)
+            cell.fill = PatternFill("solid", fgColor=fills[i])
+            cell.border = border
+            cell.alignment = Alignment(horizontal="center" if c > 1 else "left",
+                                       indent=1 if c == 1 else 0)
+
+    # Total
+    ws2.cell(row=7, column=1, value="TOTAL").font = Font(bold=True)
+    ws2.cell(row=7, column=3, value=total_covers).font = Font(bold=True, size=12, color=C_HEADER)
+    for c in range(1, 4):
+        ws2.cell(row=7, column=c).fill = PatternFill("solid", fgColor=C_TOTAL)
+        ws2.cell(row=7, column=c).border = border
+        ws2.cell(row=7, column=c).alignment = Alignment(horizontal="center")
+    ws2.row_dimensions[7].height = 22
+
+    # Régimes
+    diet_counts: dict[str, int] = {}
+    for g in agape_guests:
+        v = g.dietary_restrictions.value if g.dietary_restrictions else "NONE"
+        if v != "NONE":
+            diet_counts[v] = diet_counts.get(v, 0) + 1
+
+    if diet_counts:
+        ws2.cell(row=9, column=1, value="Régimes alimentaires").font = Font(bold=True)
+        ws2.merge_cells("A9:C9")
+        ws2["A9"].fill = PatternFill("solid", fgColor="FEF3C7")
+        ws2["A9"].border = border
+        for i, (code, count) in enumerate(diet_counts.items()):
+            r = 10 + i
+            ws2.cell(row=r, column=1, value=diet_labels.get(code, code))
+            ws2.cell(row=r, column=2, value=count)
+            ws2.cell(row=r, column=3, value="personne(s)")
+            for c in range(1, 4):
+                ws2.cell(row=r, column=c).fill = PatternFill("solid", fgColor=C_DIET)
+                ws2.cell(row=r, column=c).border = border
+                ws2.cell(row=r, column=c).alignment = Alignment(
+                    horizontal="center" if c > 1 else "left", indent=1 if c == 1 else 0
+                )
+
+    ws2.column_dimensions["A"].width = 24
+    ws2.column_dimensions["B"].width = 14
+    ws2.column_dimensions["C"].width = 14
+
+    buf = io.BytesIO()
+    wb.save(buf)
+    filename = f"agapes_{meeting.meeting_date.strftime('%Y%m%d')}.xlsx"
+    return Response(
+        content=buf.getvalue(),
+        media_type="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+# ── Page Tracé (Secrétaire) ──────────────────────────────────────────────────
+
+@router.get("/{meeting_id}/trace", response_class=HTMLResponse)
+async def meeting_trace(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=403, detail="Accès réservé à la Secrétaire et aux officiers")
+
+    result = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+            selectinload(Meeting.degrees),
+        )
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = result.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    # Offices pour afficher les fonctions des membres
+    offices_r = await db.execute(
+        select(LodgeOffice).where(LodgeOffice.member_id.isnot(None))
+    )
+    offices = offices_r.scalars().all()
+    member_office: dict[int, str] = {o.member_id: o.label for o in offices}
+
+    # Lodge infos
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+
+    present  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.PRESENT],
+                      key=lambda a: a.member.last_name)
+    excused  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.EXCUSED],
+                      key=lambda a: a.member.last_name)
+    absent   = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.ABSENT],
+                      key=lambda a: a.member.last_name)
+    visitors = sorted([mv for mv in meeting.meeting_visitors
+                       if mv.status.value == "CONFIRMED"],
+                      key=lambda mv: mv.visitor.last_name)
+
+    # ── Date maçonnique ────────────────────────────────────────────────────
+    d = meeting.meeting_date
+    masonic_year  = d.year + 4000
+    masonic_month = d.month - 2 if d.month >= 3 else d.month + 10
+    day_suffix    = "er" if d.day == 1 else "ème"
+    month_suffix  = "er" if masonic_month == 1 else "ème"
+
+    # VM de la loge (office label = VM)
+    vm_office = next((o for o in offices if o.label == "VM"), None)
+    vm_name = ""
+    if vm_office and vm_office.member_id:
+        for att in present:
+            if att.member_id == vm_office.member_id:
+                vm_name = f"{att.member.first_name} {att.member.last_name}"
+                break
+
+    can_edit = can_manage_meeting(member) or user.is_admin
+
+    return templates.TemplateResponse(request, "pages/meetings/trace.html", {
+        "current_member": member,
+        "current_user": user,
+        "meeting": meeting,
+        "lodge": lodge,
+        "present": present,
+        "excused": excused,
+        "absent": absent,
+        "visitors": visitors,
+        "member_office": member_office,
+        "type_label": _type_label,
+        "grade_label": _grade_label,
+        "masonic_year": masonic_year,
+        "masonic_month": masonic_month,
+        "day_suffix": day_suffix,
+        "month_suffix": month_suffix,
+        "vm_name": vm_name,
+        "can_edit": can_edit,
+    })
+
+
+# ── Sauvegarde du corps narratif du tracé ────────────────────────────────────
+
+@router.post("/{meeting_id}/trace/save")
+async def trace_save(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    compte_rendu_html: str = Form(""),
+):
+    from fastapi.responses import JSONResponse
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    result = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
+    meeting = result.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    meeting.compte_rendu_html = compte_rendu_html or None
+    await db.commit()
+    return JSONResponse({"ok": True})
+
+
+# ── Page Banquet (Maître des banquets) ───────────────────────────────────────
+
+@router.get("/{meeting_id}/banquet", response_class=HTMLResponse)
+async def meeting_banquet(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    can_banquet = (
+        user.is_admin
+        or can_manage_meeting(member)
+        or member.lodge_function == LodgeFunction.MAITRE_BANQUETS
+    )
+    if not can_banquet:
+        raise HTTPException(status_code=403, detail="Accès réservé au Maître des Banquets")
+
+    result = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+            selectinload(Meeting.meeting_guests),
+            selectinload(Meeting.waitlist),
+        )
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = result.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    agape_members  = sorted([a for a in meeting.attendances if a.agape],
+                            key=lambda a: a.member.last_name)
+    agape_visitors = sorted([mv for mv in meeting.meeting_visitors
+                             if mv.agape and mv.status.value == "CONFIRMED"],
+                            key=lambda mv: mv.visitor.last_name)
+    agape_guests   = sorted([g for g in meeting.meeting_guests
+                             if g.agape and g.status.value == "CONFIRMED"],
+                            key=lambda g: g.last_name)
+
+    total_covers = (
+        sum(1 + a.agape_guests for a in agape_members)
+        + sum(1 + mv.agape_guests for mv in agape_visitors)
+        + len(agape_guests)
+    )
+
+    # Résumé régimes
+    diet_counts: dict[str, int] = {}
+    for g in agape_guests:
+        v = g.dietary_restrictions.value if g.dietary_restrictions else "NONE"
+        if v != "NONE":
+            diet_counts[v] = diet_counts.get(v, 0) + 1
+
+    diet_labels = {
+        "VEGETARIAN": "Végétarien",
+        "VEGAN": "Vegan",
+        "NO_PORK": "Sans porc",
+        "OTHER": "Régime spécial",
+    }
+
+    return templates.TemplateResponse(request, "pages/meetings/banquet.html", {
+        "current_member": member,
+        "current_user": user,
+        "meeting": meeting,
+        "agape_members": agape_members,
+        "agape_visitors": agape_visitors,
+        "agape_guests": agape_guests,
+        "total_covers": total_covers,
+        "diet_counts": diet_counts,
+        "diet_labels": diet_labels,
+        "type_label": _type_label,
+    })
+
+
 # ── Formulaire nouvelle tenue ─────────────────────────────────────────────────
 
 @router.get("/new/form", response_class=HTMLResponse)
@@ -311,6 +765,17 @@ async def meeting_create(
     # Date de clôture des inscriptions = veille J-1 à 8h du matin
     reg_closes = datetime(d.year, d.month, d.day, 8, 0, 0) - timedelta(days=1)
 
+    # Auto-générer lien visio si configuré et aucun lien manuel fourni
+    final_visio_url = visio_url.strip() or None
+    if not final_visio_url:
+        ls_r = await db.execute(select(LodgeSettings).limit(1))
+        lodge_cfg = ls_r.scalar_one_or_none()
+        if lodge_cfg and lodge_cfg.visio_provider and lodge_cfg.visio_server_url:
+            prefix = lodge_cfg.visio_room_prefix or "loge"
+            room   = f"{prefix}-{d.strftime('%Y%m%d')}"
+            base   = lodge_cfg.visio_server_url.rstrip("/")
+            final_visio_url = f"{base}/{room}"
+
     new_meeting = Meeting(
         masonic_year_id=masonic_year.id if masonic_year else 1,
         meeting_date=d,
@@ -326,7 +791,7 @@ async def meeting_create(
         agape_enabled=bool(agape_enabled),
         agape_capacity=int(agape_capacity) if agape_capacity else None,
         agape_location=agape_location or None,
-        visio_url=visio_url or None,
+        visio_url=final_visio_url,
         registration_closes_at=reg_closes,
         created_by_id=member.id,
     )
@@ -565,11 +1030,15 @@ async def public_register_page(
     if not meeting:
         raise HTTPException(status_code=404, detail="Lien d'inscription invalide")
 
-    # Fermeture auto : si la tenue est passée
-    if meeting.meeting_date < date.today():
-        if meeting.registration_open:
-            meeting.registration_open = False
-            await db.commit()
+    # Fermeture auto : tenue passée OU date de clôture dépassée
+    now = datetime.now()
+    should_close = (
+        meeting.meeting_date < date.today()
+        or (meeting.registration_closes_at is not None and meeting.registration_closes_at <= now)
+    )
+    if should_close and meeting.registration_open:
+        meeting.registration_open = False
+        await db.commit()
 
     if not meeting.registration_open:
         return templates.TemplateResponse(request, "pages/meetings/register_closed.html", {

@@ -65,19 +65,19 @@
     {% set present_count = attendance_counts.get(m.id, 0) %}
     {% set is_past = m.meeting_date < today %}
 
-    <a href="/meetings/{{ m.id }}"
-       class="block bg-white rounded-xl shadow-sm border border-gray-100 hover:border-loge-300 transition-colors overflow-hidden">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 hover:border-loge-300 transition-colors overflow-hidden">
       <div class="flex items-stretch">
 
-        <!-- Bande de date -->
-        <div class="bg-loge-800 text-white flex flex-col items-center justify-center px-4 py-3 min-w-16 text-center">
+        <!-- Bande de date (cliquable) -->
+        <a href="/meetings/{{ m.id }}"
+           class="bg-loge-800 text-white flex flex-col items-center justify-center px-4 py-3 min-w-16 text-center hover:bg-loge-900 transition-colors">
           <div class="text-2xl font-bold leading-tight">{{ m.meeting_date.strftime('%d') }}</div>
           <div class="text-xs uppercase tracking-wide text-loge-300">{{ m.meeting_date.strftime('%b') }}</div>
           <div class="text-xs text-loge-400">{{ m.meeting_date.strftime('%Y') }}</div>
-        </div>
+        </a>
 
-        <!-- Contenu -->
-        <div class="flex-1 p-4">
+        <!-- Contenu (cliquable) -->
+        <a href="/meetings/{{ m.id }}" class="flex-1 p-4 hover:bg-loge-50/30 transition-colors">
           <div class="flex items-start justify-between gap-3">
             <div>
               <div class="flex items-center gap-2 flex-wrap">
@@ -96,45 +96,55 @@
               <p class="text-sm text-gray-500 mt-0.5">{{ m.theme }}</p>
               {% endif %}
               <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                {% if m.meeting_time %}
-                <span>⏰ {{ m.meeting_time }}</span>
-                {% endif %}
-                {% if m.location %}
-                <span>📍 {{ m.location }}</span>
-                {% endif %}
-                {% if not is_past %}
-                <span>👥 {{ present_count }} inscrits</span>
-                {% endif %}
+                {% if m.meeting_time %}<span>⏰ {{ m.meeting_time }}</span>{% endif %}
+                {% if m.location %}<span>📍 {{ m.location }}</span>{% endif %}
+                {% if not is_past %}<span>👥 {{ present_count }} inscrits</span>{% endif %}
               </div>
             </div>
 
-            <!-- Statut inscription du membre -->
+            <!-- Statut inscription -->
             <div class="shrink-0 text-right">
               {% if my_att %}
                 {% if my_att.status.value == 'PRESENT' %}
-                <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2.5 py-1">
-                  ✓ Présent
-                </span>
-                  {% if my_att.agape %}
-                  <div class="text-xs text-gray-400 mt-1">🍽 Agape</div>
-                  {% endif %}
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2.5 py-1">✓ Présent</span>
                 {% elif my_att.status.value == 'EXCUSED' %}
-                <span class="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-50 rounded-full px-2.5 py-1">
-                  ~ Excusé
-                </span>
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-yellow-700 bg-yellow-50 rounded-full px-2.5 py-1">~ Excusé</span>
                 {% else %}
-                <span class="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 rounded-full px-2.5 py-1">
-                  ✗ Absent
-                </span>
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-red-700 bg-red-50 rounded-full px-2.5 py-1">✗ Absent</span>
                 {% endif %}
               {% elif not is_past and m.registration_open %}
               <span class="text-xs text-gray-400 italic">Non inscrit</span>
               {% endif %}
             </div>
           </div>
+        </a>
+
+        <!-- Actions admin -->
+        {% if can_manage %}
+        <div class="flex flex-col items-center justify-center gap-1 px-3 border-l border-gray-100">
+          {% if not m.is_locked %}
+          <a href="/meetings/{{ m.id }}/edit"
+             title="Modifier"
+             class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:text-loge-700 hover:bg-loge-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+            </svg>
+          </a>
+          {% endif %}
+          <form method="post" action="/meetings/{{ m.id }}/delete"
+                onsubmit="return confirm('Supprimer la tenue du {{ m.meeting_date.strftime('%d/%m/%Y') }} ? Cette action est irréversible.')">
+            <button type="submit" title="Supprimer"
+                    class="w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-600 hover:bg-red-50 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+              </svg>
+            </button>
+          </form>
         </div>
+        {% endif %}
+
       </div>
-    </a>
+    </div>
 
     {% endfor %}
   </div>

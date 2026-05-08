@@ -1,0 +1,245 @@
+{% extends "base.html" %}
+{% block title %}Maçons passants — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-6xl mx-auto space-y-6">
+
+  <!-- En-tête -->
+  <div class="flex items-center justify-between flex-wrap gap-3">
+    <div>
+      <nav class="text-sm text-gray-400 flex items-center gap-1.5 mb-1">
+        <a href="/attendance/" class="hover:text-loge-700">Assiduité</a>
+        <span>›</span>
+        <span class="text-gray-700">Maçons passants</span>
+      </nav>
+      <h1 class="text-2xl font-bold text-gray-900">Maçons passants</h1>
+      <p class="text-sm text-gray-500 mt-0.5">{{ total_unique }} frère{{ 's' if total_unique != 1 }} · {{ total_visits }} visite{{ 's' if total_visits != 1 }} au total</p>
+    </div>
+    <a href="/attendance/bilan" class="text-sm bg-loge-700 text-white px-4 py-2 rounded-lg hover:bg-loge-800">
+      📊 Bilan d'activité
+    </a>
+  </div>
+
+  <!-- KPIs -->
+  <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-center">
+      <div class="text-3xl font-bold text-loge-700">{{ total_visits }}</div>
+      <div class="text-xs text-gray-400 mt-1">Visites totales</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-center">
+      <div class="text-3xl font-bold text-gray-700">{{ total_unique }}</div>
+      <div class="text-xs text-gray-400 mt-1">Visiteurs uniques</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-center">
+      <div class="text-3xl font-bold text-green-600">{{ optin_count }}</div>
+      <div class="text-xs text-gray-400 mt-1">Opt-in programme</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-center">
+      {% set assidus = visitor_rows | selectattr('visit_count', 'ge', 3) | list | length %}
+      <div class="text-3xl font-bold text-yellow-600">{{ assidus }}</div>
+      <div class="text-xs text-gray-400 mt-1">Passants assidus (≥3×)</div>
+    </div>
+  </div>
+
+  <!-- Stats top -->
+  <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+
+    <!-- Top loges -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 font-semibold text-gray-700 text-sm">🏛 Top loges</div>
+      <div class="divide-y divide-gray-50">
+        {% for name, n in top_lodges %}
+        {% set max_n = top_lodges[0][1] %}
+        <div class="px-5 py-2 flex items-center gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-gray-700 truncate">{{ name }}</div>
+            <div class="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+              <div class="h-full bg-loge-400 rounded-full" style="width:{{ (n * 100 // max_n) }}%"></div>
+            </div>
+          </div>
+          <span class="text-sm font-bold text-loge-700 flex-shrink-0">{{ n }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Top orients -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 font-semibold text-gray-700 text-sm">📍 Top orients</div>
+      <div class="divide-y divide-gray-50">
+        {% for name, n in top_orients %}
+        {% set max_n = top_orients[0][1] %}
+        <div class="px-5 py-2 flex items-center gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-gray-700 truncate">{{ name }}</div>
+            <div class="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+              <div class="h-full bg-blue-400 rounded-full" style="width:{{ (n * 100 // max_n) }}%"></div>
+            </div>
+          </div>
+          <span class="text-sm font-bold text-blue-700 flex-shrink-0">{{ n }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Top obédiences -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 font-semibold text-gray-700 text-sm">⚖ Top obédiences</div>
+      <div class="divide-y divide-gray-50">
+        {% for name, n in top_obediences %}
+        {% set max_n = top_obediences[0][1] %}
+        <div class="px-5 py-2 flex items-center gap-3">
+          <div class="flex-1 min-w-0">
+            <div class="text-sm text-gray-700 truncate">{{ name }}</div>
+            <div class="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+              <div class="h-full bg-purple-400 rounded-full" style="width:{{ (n * 100 // max_n) }}%"></div>
+            </div>
+          </div>
+          <span class="text-sm font-bold text-purple-700 flex-shrink-0">{{ n }}</span>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+
+  </div>
+
+  <!-- Tableau de tous les visiteurs -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-800">Tous les maçons passants</h2>
+      <input type="text" id="visitorSearch" placeholder="Rechercher…"
+             oninput="filterVisitors(this.value)"
+             class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 focus:outline-none focus:ring-2 focus:ring-loge-500 w-48">
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm border-collapse" id="visitorsTable">
+        <thead>
+          <tr class="bg-gray-50 border-b border-gray-200">
+            <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="0">
+              Nom <span class="sort-icon text-gray-300">↕</span>
+            </th>
+            <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="1">
+              Loge <span class="sort-icon text-gray-300">↕</span>
+            </th>
+            <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="2">
+              Orient <span class="sort-icon text-gray-300">↕</span>
+            </th>
+            <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="3">
+              Obédience <span class="sort-icon text-gray-300">↕</span>
+            </th>
+            <th class="sortable px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="4">
+              Visites <span class="sort-icon text-gray-300">↕</span>
+            </th>
+            <th class="sortable px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="5">
+              Dernière visite <span class="sort-icon text-gray-300">↕</span>
+            </th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50" id="visitorsBody">
+          {% for row in visitor_rows %}
+          {% set v = row.Visitor %}
+          {% set visits = row.visit_count or 0 %}
+          {% set last_date = row.last_visit %}
+          <tr class="hover:bg-loge-50/30 transition-colors visitor-row">
+            <td class="px-4 py-3">
+              <div class="flex items-center gap-2.5">
+                <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-loge-700"
+                     style="background:rgba(59,91,219,0.12);">
+                  {{ v.first_name[0] if v.first_name else '?' }}{{ v.last_name[0] if v.last_name else '?' }}
+                </div>
+                <div>
+                  <div class="font-medium text-gray-900">
+                    {% if v.civility == 'S' %}S∴{% else %}F∴{% endif %}
+                    {{ v.first_name }} {{ v.last_name }}
+                    {% if v.is_vm %}<span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-1.5 py-0.5 ml-1">V∴M∴</span>{% endif %}
+                  </div>
+                  {% if v.email %}<div class="text-xs text-gray-400">{{ v.email }}</div>{% endif %}
+                </div>
+              </div>
+            </td>
+            <td class="px-4 py-3 text-sm text-gray-700">{{ v.lodge_name or '—' }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">{{ v.orient_city or '—' }}</td>
+            <td class="px-4 py-3 text-sm text-gray-600">{{ v.obedience or '—' }}</td>
+            <td class="px-4 py-3 text-center">
+              {% if visits >= 5 %}
+              <span class="inline-flex items-center gap-1 text-xs font-medium bg-loge-100 text-loge-700 rounded-full px-2.5 py-1">⭐ {{ visits }} visites</span>
+              {% elif visits >= 3 %}
+              <span class="inline-flex items-center gap-1 text-xs font-medium bg-blue-50 text-blue-700 rounded-full px-2.5 py-1">{{ visits }}×</span>
+              {% elif visits >= 2 %}
+              <span class="text-sm text-gray-500">{{ visits }}×</span>
+              {% elif visits == 1 %}
+              <span class="text-xs text-gray-400">1 visite</span>
+              {% else %}
+              <span class="text-xs text-gray-300">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-3 text-center text-sm text-gray-500">
+              {{ last_date.strftime('%d/%m/%Y') if last_date else '—' }}
+            </td>
+            <td class="px-4 py-3 text-center">
+              <form method="post" action="/attendance/visitor/{{ v.id }}/delete"
+                    onsubmit="return confirm('Supprimer définitivement {{ v.first_name }} {{ v.last_name }} et toutes ses visites ?')">
+                <button type="submit"
+                        title="Supprimer ce visiteur"
+                        class="w-7 h-7 inline-flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                  </svg>
+                </button>
+              </form>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    <div class="px-5 py-3 border-t border-gray-100 text-xs text-gray-400 bg-gray-50">
+      {{ visitor_rows | length }} frère{{ 's' if visitor_rows | length != 1 }} · Cliquer sur une colonne pour trier
+    </div>
+  </div>
+
+</div>
+
+<script>
+// Tri de tableau
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col  = +th.dataset.col;
+    const tbody = document.getElementById('visitorsBody');
+    const rows  = Array.from(tbody.querySelectorAll('tr.visitor-row'));
+    const asc   = th.dataset.dir !== 'asc';
+    th.dataset.dir = asc ? 'asc' : 'desc';
+
+    document.querySelectorAll('th.sortable .sort-icon').forEach(i => { i.textContent = '↕'; i.className = 'sort-icon text-gray-300'; });
+    th.querySelector('.sort-icon').textContent = asc ? '↑' : '↓';
+    th.querySelector('.sort-icon').className   = 'sort-icon text-loge-600';
+
+    rows.sort((a, b) => {
+      const ta = a.cells[col]?.textContent.trim() || '';
+      const tb = b.cells[col]?.textContent.trim() || '';
+      const na = parseFloat(ta.replace(/[^\d.]/g, ''));
+      const nb = parseFloat(tb.replace(/[^\d.]/g, ''));
+      if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+      // Dates dd/mm/yyyy
+      const da = ta.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const db_ = tb.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (da && db_) {
+        const va = new Date(da[3], da[2]-1, da[1]);
+        const vb = new Date(db_[3], db_[2]-1, db_[1]);
+        return asc ? va - vb : vb - va;
+      }
+      return asc ? ta.localeCompare(tb, 'fr') : tb.localeCompare(ta, 'fr');
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  });
+});
+
+// Filtre texte
+function filterVisitors(q) {
+  const lq = q.toLowerCase();
+  document.querySelectorAll('tr.visitor-row').forEach(row => {
+    row.style.display = row.textContent.toLowerCase().includes(lq) ? '' : 'none';
+  });
+}
+</script>
+{% endblock %}

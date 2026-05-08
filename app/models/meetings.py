@@ -95,6 +95,7 @@ class Meeting(Base):
 
     # Contenu
     agenda_html: Mapped[Optional[str]]   = mapped_column(Text)   # Ordre du jour
+    compte_rendu_html: Mapped[Optional[str]] = mapped_column(Text)  # Corps narratif du tracé
 
     # Workflow
     is_locked: Mapped[bool]               = mapped_column(Boolean, default=False)

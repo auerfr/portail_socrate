@@ -7,6 +7,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+class MembershipType(str, enum.Enum):
+    APPARTENANCE = "APPARTENANCE"  # Membre plein : part asso + capitation nationale + part régionale
+    AFFILIATION  = "AFFILIATION"   # Affilié : part associative seulement
+
+
 class MasonicGrade(str, enum.Enum):
     APPRENTI  = "APPRENTI"
     COMPAGNON = "COMPAGNON"
@@ -115,14 +120,19 @@ class Member(Base):
     birth_date: Mapped[Optional[datetime]] = mapped_column(Date)
     photo_url: Mapped[Optional[str]]       = mapped_column(String(500))
 
+    membership_type: Mapped[MembershipType] = mapped_column(
+        Enum(MembershipType), default=MembershipType.APPARTENANCE
+    )
+
     masonic_grade: Mapped[MasonicGrade] = mapped_column(
         Enum(MasonicGrade), default=MasonicGrade.APPRENTI, index=True
     )
     status: Mapped[MemberStatus] = mapped_column(
         Enum(MemberStatus), default=MemberStatus.ACTIVE, index=True
     )
-    status_date: Mapped[Optional[datetime]]     = mapped_column(Date)
-    initiation_date: Mapped[Optional[datetime]] = mapped_column(Date)
+    membership_start_date: Mapped[Optional[datetime]] = mapped_column(Date)  # date d'entrée/affiliation
+    status_date: Mapped[Optional[datetime]]           = mapped_column(Date)  # date de départ (démission, radiation…)
+    initiation_date: Mapped[Optional[datetime]]   = mapped_column(Date)
     companion_date: Mapped[Optional[datetime]]  = mapped_column(Date)
     master_date: Mapped[Optional[datetime]]     = mapped_column(Date)
 
@@ -135,6 +145,8 @@ class Member(Base):
 
     pin_code_hash: Mapped[Optional[str]] = mapped_column(String(200))
     program_optin: Mapped[bool]          = mapped_column(Boolean, default=True)
+    # Notifications email : True = reçoit un email à chaque message reçu sur le portail
+    email_notifications: Mapped[bool]   = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

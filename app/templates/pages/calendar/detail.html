@@ -1,0 +1,295 @@
+{% extends "base.html" %}
+{% block title %}{{ event.title }} — Agenda{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-2xl mx-auto"
+     x-data="{
+       editing: false,
+       allDay: {{ 'true' if event.all_day else 'false' }},
+       visibility: '{{ event.visibility.value }}'
+     }">
+
+  {# ── Fil d'Ariane ─────────────────────────────────────────────────────── #}
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/calendar/list" class="hover:text-loge-700">Agenda</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800 truncate">{{ event.title }}</span>
+  </nav>
+
+  {# ════════════════════════════════════════════════════════════════════════
+     VUE LECTURE
+  ════════════════════════════════════════════════════════════════════════ #}
+  <div x-show="!editing">
+
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+
+      {# Bandeau type #}
+      {% set type_cfg = {
+        'RITUAL':   ('Tenue rituelle',       'bg-loge-700'),
+        'AGAPE':    ('Agape / repas',         'bg-orange-500'),
+        'EXTERNAL': ('Événement extérieur',   'bg-teal-600'),
+        'ADMIN':    ('Réunion administrative','bg-gray-500'),
+        'DEADLINE': ('Échéance',              'bg-red-600'),
+        'OTHER':    ('Autre',                 'bg-purple-600'),
+      } %}
+      {% set tcfg = type_cfg.get(event.event_type.value, ('Événement', 'bg-gray-500')) %}
+      <div class="h-1.5 {{ tcfg[1] }}"></div>
+
+      <div class="p-6 space-y-4">
+
+        {# Titre + badge type #}
+        <div class="flex items-start gap-3 justify-between">
+          <h1 class="text-2xl font-bold text-gray-900">{{ event.title }}</h1>
+          <span class="flex-shrink-0 inline-block mt-1 px-2.5 py-1 text-xs font-semibold rounded-full text-white {{ tcfg[1] }}">
+            {{ tcfg[0] }}
+          </span>
+        </div>
+
+        {# Date & heure #}
+        <div class="flex items-center gap-2 text-sm text-gray-700">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"/>
+          </svg>
+          {% set day_names = ['Lundi','Mardi','Mercredi','Jeudi','Vendredi','Samedi','Dimanche'] %}
+          {% set month_names = ['','Janvier','Février','Mars','Avril','Mai','Juin','Juillet','Août','Septembre','Octobre','Novembre','Décembre'] %}
+          <span>
+            {{ day_names[event.start_datetime.weekday()] }}
+            {{ event.start_datetime.strftime('%d') }}
+            {{ month_names[event.start_datetime.month] }}
+            {{ event.start_datetime.year }}
+            {% if not event.all_day %}
+              à {{ event.start_datetime.strftime('%H:%M') }}
+              {% if event.end_datetime %}– {{ event.end_datetime.strftime('%H:%M') }}{% endif %}
+            {% else %}
+              <span class="text-gray-400">(journée entière)</span>
+            {% endif %}
+            {% if event.end_datetime and event.all_day and event.end_datetime.date() != event.start_datetime.date() %}
+              → {{ day_names[event.end_datetime.weekday()] }} {{ event.end_datetime.strftime('%d') }} {{ month_names[event.end_datetime.month] }} {{ event.end_datetime.year }}
+            {% endif %}
+          </span>
+        </div>
+
+        {# Lieu #}
+        {% if event.location %}
+        <div class="flex items-center gap-2 text-sm text-gray-700">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 10.5a3 3 0 11-6 0 3 3 0 016 0z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 10.5c0 7.142-7.5 11.25-7.5 11.25S4.5 17.642 4.5 10.5a7.5 7.5 0 1115 0z"/>
+          </svg>
+          <span>{{ event.location }}</span>
+        </div>
+        {% endif %}
+
+        {# Lien visio #}
+        {% if event.meeting_url %}
+        <div class="flex items-center gap-2">
+          <svg class="w-4 h-4 text-indigo-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+          </svg>
+          <a href="{{ event.meeting_url }}" target="_blank" rel="noopener"
+             class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:underline">
+            Rejoindre la réunion à distance
+          </a>
+        </div>
+        {% endif %}
+
+        {# Visibilité #}
+        <div class="flex items-center gap-2 text-sm text-gray-500">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+          </svg>
+          <span>{{ vis_label }}</span>
+        </div>
+
+        {# Description #}
+        {% if event.description %}
+        <div class="border-t border-gray-100 pt-4">
+          <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-line">{{ event.description }}</p>
+        </div>
+        {% endif %}
+
+      </div>
+
+      {# Actions #}
+      {% if can_edit %}
+      <div class="px-6 py-3 bg-gray-50 border-t border-gray-100 flex items-center justify-between gap-3">
+        <button @click="editing = true"
+                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-loge-700 border border-loge-200 rounded-lg hover:bg-loge-50 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
+          </svg>
+          Modifier
+        </button>
+
+        <form method="post" action="/calendar/events/{{ event.id }}/delete"
+              onsubmit="return confirm('Supprimer cet événement définitivement ?')">
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+            </svg>
+            Supprimer
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <a href="/calendar/list"
+       class="inline-flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-800 transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+      </svg>
+      Retour à l'agenda
+    </a>
+
+  </div>{# /!editing #}
+
+
+  {# ════════════════════════════════════════════════════════════════════════
+     FORMULAIRE ÉDITION (inline)
+  ════════════════════════════════════════════════════════════════════════ #}
+  {% if can_edit %}
+  <div x-show="editing" x-cloak>
+
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-xl font-bold text-gray-900">Modifier l'événement</h2>
+      <button @click="editing = false" class="text-sm text-gray-500 hover:text-gray-800">✕ Annuler</button>
+    </div>
+
+    <form method="post" action="/calendar/events/{{ event.id }}/edit" class="space-y-5">
+
+      {# Informations #}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Informations</h3>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Titre <span class="text-red-500">*</span></label>
+          <input type="text" name="title" required maxlength="300" value="{{ event.title }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+          <textarea name="description" rows="3"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none">{{ event.description or '' }}</textarea>
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
+          <input type="text" name="location" maxlength="300" value="{{ event.location or '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Lien de réunion à distance</label>
+          <input type="url" name="meeting_url" maxlength="500" value="{{ event.meeting_url or '' }}"
+                 placeholder="https://meet.jit.si/…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+
+      {# Date & heure #}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Date & heure</h3>
+
+        <label class="inline-flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="all_day" value="on" x-model="allDay"
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+          <span class="text-sm font-medium text-gray-700">Journée entière</span>
+        </label>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Date de début <span class="text-red-500">*</span></label>
+            <input type="date" name="start_date" required
+                   value="{{ event.start_datetime.strftime('%Y-%m-%d') }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div x-show="!allDay" x-cloak>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Heure de début</label>
+            <input type="time" name="start_time"
+                   value="{{ event.start_datetime.strftime('%H:%M') if not event.all_day else '19:00' }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+        </div>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Date de fin <span class="text-gray-400 font-normal">(optionnel)</span></label>
+            <input type="date" name="end_date"
+                   value="{{ event.end_datetime.strftime('%Y-%m-%d') if event.end_datetime else '' }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div x-show="!allDay" x-cloak>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Heure de fin</label>
+            <input type="time" name="end_time"
+                   value="{{ event.end_datetime.strftime('%H:%M') if event.end_datetime and not event.all_day else '22:00' }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+        </div>
+      </div>
+
+      {# Type & Visibilité #}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 space-y-4">
+        <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wider">Catégorie & accès</h3>
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Type</label>
+            <select name="event_type"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+              {% set type_labels = {'RITUAL':'Tenue rituelle','AGAPE':'Agape / repas','EXTERNAL':'Événement extérieur','ADMIN':'Réunion administrative','DEADLINE':'Échéance','OTHER':'Autre'} %}
+              {% for et in event_types %}
+              <option value="{{ et.value }}" {% if et.value == event.event_type.value %}selected{% endif %}>
+                {{ type_labels.get(et.value, et.value) }}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Visibilité</label>
+            <select name="visibility" x-model="visibility"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+              <option value="ALL">👥 Tous les membres</option>
+              <option value="MAITRES">🔵 Maîtres uniquement</option>
+              <option value="COMPAGNONS_ET_MAITRES">🟡 Compagnons et Maîtres</option>
+              <option value="APPRENTIS">🟢 Apprentis uniquement</option>
+              <option value="OFFICERS">⚒ Conseil d'officiers</option>
+              <option value="GROUP">🏷 Groupe spécifique…</option>
+              <option value="ADMIN">🔒 Administrateurs</option>
+            </select>
+            <div x-show="visibility === 'GROUP'" x-cloak class="mt-2">
+              <select name="visibility_group_id"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+                <option value="">— Choisir un groupe —</option>
+                {% for g in all_groups %}
+                <option value="{{ g.id }}" {% if event.visibility_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {# Boutons #}
+      <div class="flex items-center gap-3">
+        <button type="submit"
+                class="flex-1 bg-loge-700 text-white py-2.5 rounded-xl font-semibold hover:bg-loge-800 transition-colors text-sm">
+          Enregistrer les modifications
+        </button>
+        <button type="button" @click="editing = false"
+                class="px-5 py-2.5 border border-gray-200 rounded-xl text-gray-600 text-sm font-medium hover:bg-gray-50 transition-colors">
+          Annuler
+        </button>
+      </div>
+
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

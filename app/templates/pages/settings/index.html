@@ -208,6 +208,71 @@
       </div>
     </div>
 
+    <!-- Seuils assiduité -->
+    <div class="border-t border-gray-100 pt-5">
+      <h3 class="text-sm font-semibold text-gray-700 mb-3">📊 Seuils assiduité</h3>
+      <p class="text-xs text-gray-400 mb-3">Seuils de pourcentage de présence utilisés dans la grille d'assiduité.</p>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">⚠ Alerte (fond orange)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" name="attendance_threshold_warn" min="1" max="100"
+                   value="{{ lodge.attendance_threshold_warn if lodge else 70 }}"
+                   class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <span class="text-sm text-gray-500">%</span>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">🔴 Danger (fond rouge)</label>
+          <div class="flex items-center gap-2">
+            <input type="number" name="attendance_threshold_danger" min="1" max="100"
+                   value="{{ lodge.attendance_threshold_danger if lodge else 50 }}"
+                   class="w-24 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <span class="text-sm text-gray-500">%</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Visio -->
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">📹 Visioconférence</h2>
+      <p class="text-xs text-gray-400">Configurez votre serveur visio pour générer automatiquement les liens de tenue.</p>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Fournisseur</label>
+          <select name="visio_provider"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="" {% if not lodge or not lodge.visio_provider %}selected{% endif %}>— Désactivé —</option>
+            <option value="jitsi" {% if lodge and lodge.visio_provider == 'jitsi' %}selected{% endif %}>Jitsi Meet</option>
+            <option value="bbb"   {% if lodge and lodge.visio_provider == 'bbb'   %}selected{% endif %}>BigBlueButton</option>
+            <option value="custom" {% if lodge and lodge.visio_provider == 'custom' %}selected{% endif %}>URL personnalisée</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Préfixe de salle</label>
+          <input type="text" name="visio_room_prefix"
+                 value="{{ lodge.visio_room_prefix if lodge and lodge.visio_room_prefix else '' }}"
+                 placeholder="ex : loge-socrate"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <p class="text-xs text-gray-400 mt-1">La salle sera : <code>préfixe-AAAAMMJJ</code></p>
+        </div>
+        <div class="sm:col-span-2">
+          <label class="block text-xs font-medium text-gray-500 mb-1">URL du serveur</label>
+          <input type="url" name="visio_server_url"
+                 value="{{ lodge.visio_server_url if lodge and lodge.visio_server_url else '' }}"
+                 placeholder="https://meet.jitsi.si  ou  https://votre-serveur.fr"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      {% if lodge and lodge.visio_provider and lodge.visio_server_url %}
+      <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700">
+        ✅ Visio active — les nouvelles tenues recevront automatiquement un lien de salle.
+        <br>Exemple : <code>{{ lodge.visio_server_url.rstrip('/') }}/{{ lodge.visio_room_prefix or 'loge' }}-20260101</code>
+      </div>
+      {% endif %}
+    </div>
+
     <!-- Boutons -->
     <div class="flex gap-3">
       <button type="submit"
@@ -317,5 +382,178 @@
     </div>
 
   </form>
+
+  <!-- ── Configuration SMTP ──────────────────────────────────────────── -->
+  <form method="post" action="/settings/smtp" class="mt-8">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <div class="flex items-center justify-between">
+        <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">
+          Configuration email (SMTP)
+        </h2>
+        <span class="text-xs text-gray-400">Serveur d'envoi des notifications</span>
+      </div>
+
+      {% if smtp_saved %}
+      <div class="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 text-sm">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+        </svg>
+        Paramètres SMTP enregistrés — utilisez "Envoyer un email de test" pour vérifier.
+      </div>
+      {% endif %}
+      {% if smtp_ok %}
+      <div class="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 text-sm font-medium">
+        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+        </svg>
+        Email de test envoyé à <strong class="ml-1">{{ request.query_params.get('smtp_to', '?') }}</strong> — vérifiez votre boîte mail.
+      </div>
+      {% endif %}
+      {% if smtp_fail %}
+      <div class="bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+        <div class="flex items-center gap-2 font-medium mb-1">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+          </svg>
+          Échec de l'envoi — vérifiez le mot de passe, le serveur et le port.
+        </div>
+        {% if smtp_err %}
+        <code class="block text-xs text-red-600 bg-red-100 rounded px-2 py-1 mt-1 break-all">{{ smtp_err }}</code>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Serveur SMTP</label>
+          <input type="text" name="smtp_host" value="{{ smtp_host }}"
+                 placeholder="mail.amisdesocrate.fr"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+          <input type="number" name="smtp_port" value="{{ smtp_port }}"
+                 placeholder="465"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Utilisateur (email d'envoi)</label>
+          <input type="email" name="smtp_user" value="{{ smtp_user }}"
+                 placeholder="cloud@amisdesocrate.fr"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Mot de passe
+            <span class="text-gray-400 font-normal">(laisser vide pour ne pas changer)</span>
+          </label>
+          <input type="password" name="smtp_pass" value=""
+                 placeholder="••••••••"
+                 autocomplete="new-password"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Sécurité</label>
+          <select name="smtp_secure"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            <option value="ssl"  {% if smtp_secure == 'ssl'  %}selected{% endif %}>SSL/TLS — port 465</option>
+            <option value="tls"  {% if smtp_secure == 'tls'  %}selected{% endif %}>STARTTLS — port 587</option>
+            <option value="none" {% if smtp_secure == 'none' %}selected{% endif %}>Aucune — non sécurisé</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Adresse expéditeur</label>
+          <input type="email" name="smtp_from" value="{{ smtp_from }}"
+                 placeholder="noreply@amisdesocrate.fr"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+
+      <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
+        💡 Les modifications sont écrites dans le fichier <code>.env</code> et prises en compte immédiatement.
+      </div>
+    </div>
+
+  <div class="mt-4 flex items-center gap-3 flex-wrap">
+      <button type="submit"
+              class="px-6 py-2.5 bg-loge-700 text-white text-sm font-semibold rounded-xl hover:bg-loge-800 transition-colors">
+        Enregistrer
+      </button>
+    </div>
+  </form>
+
+  <!-- Test SMTP — formulaire séparé, hors du formulaire principal -->
+  <form method="post" action="/settings/smtp/test" class="mt-3 flex items-center gap-2 flex-wrap">
+    <input type="email" name="test_to"
+           placeholder="adresse@exemple.fr (laisser vide = votre email de membre)"
+           class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 w-72">
+    <button type="submit"
+            class="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+      <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+      </svg>
+      Envoyer un email de test
+    </button>
+  </form>
+
+
+  <!-- ── Gestion des super-admins ───────────────────────────────────────── -->
+  <div class="mt-8 bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">Super-administrateurs</h2>
+      <span class="text-xs text-gray-400">Accès technique complet — n'apparaissent pas dans la liste des membres</span>
+    </div>
+
+    {% if saved == 'admin' %}
+    <div class="mb-3 text-sm text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2">Statut administrateur mis à jour.</div>
+    {% endif %}
+
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="border-b border-gray-100">
+          <th class="text-left py-2 text-xs text-gray-500 font-medium">Login</th>
+          <th class="text-left py-2 text-xs text-gray-500 font-medium">Membre lié</th>
+          <th class="text-center py-2 text-xs text-gray-500 font-medium">Super admin</th>
+          <th class="py-2"></th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for u in all_users %}
+        <tr class="{% if u.is_admin %}bg-amber-50{% endif %}">
+          <td class="py-2 font-mono text-gray-800">{{ u.login }}</td>
+          <td class="py-2 text-gray-600">
+            {% if u.member_id and u.member_id in all_member_map %}
+            {{ all_member_map[u.member_id].first_name }} {{ all_member_map[u.member_id].last_name }}
+            {% else %}
+            <span class="text-gray-400 italic">— compte système —</span>
+            {% endif %}
+          </td>
+          <td class="py-2 text-center">
+            {% if u.is_admin %}
+            <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
+            <span class="text-xs text-amber-700 ml-1">Oui</span>
+            {% else %}
+            <span class="text-xs text-gray-400">Non</span>
+            {% endif %}
+          </td>
+          <td class="py-2 text-right">
+            {% if u.id != current_user.id %}
+            <form method="post" action="/settings/users/{{ u.id }}/toggle-admin"
+                  onsubmit="return confirm('{% if u.is_admin %}Retirer les droits super-admin à {{ u.login }} ?{% else %}Donner les droits super-admin à {{ u.login }} ?{% endif %}')">
+              <button type="submit"
+                      class="text-xs px-3 py-1 rounded border {% if u.is_admin %}border-red-200 text-red-600 hover:bg-red-50{% else %}border-loge-200 text-loge-700 hover:bg-loge-50{% endif %}">
+                {% if u.is_admin %}Retirer admin{% else %}Rendre admin{% endif %}
+              </button>
+            </form>
+            {% else %}
+            <span class="text-xs text-gray-300">Vous</span>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
 </div>
 {% endblock %}

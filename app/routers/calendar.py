@@ -8,12 +8,16 @@ from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_auth
+from app.models.lodge import LodgeSettings
 from app.models.lodge_calendar import EventType, EventVisibility, LodgeEvent
-from app.models.identity import LodgeFunction, Member
+from app.models.identity import LodgeFunction, MasonicGrade, Member
 from app.models.meetings import Meeting
+from app.models.groups import LodgeGroup, GroupType
+from app.routers.groups import resolve_group_member_ids, ensure_system_groups
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 templates = Jinja2Templates(directory="app/templates")
@@ -21,13 +25,46 @@ templates = Jinja2Templates(directory="app/templates")
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
-def _event_visible_to(event_visibility: EventVisibility, member: Member) -> bool:
+OFFICER_FUNCTIONS = {
+    LodgeFunction.VM, LodgeFunction.PREMIER_S, LodgeFunction.SECOND_S,
+    LodgeFunction.ORATEUR, LodgeFunction.SECRETAIRE, LodgeFunction.TRESORIER,
+    LodgeFunction.EXPERT, LodgeFunction.MAITRE_CEREMONIES, LodgeFunction.HARMONISTE,
+    LodgeFunction.HOSPITALIER, LodgeFunction.TUILEUR, LodgeFunction.ARCHITECTE,
+    LodgeFunction.MAITRE_BANQUETS,
+}
+
+
+async def _event_visible_to(event: LodgeEvent, member: Member, db: AsyncSession, user) -> bool:
     """Renvoie True si l'événement est visible pour ce membre."""
-    if event_visibility == EventVisibility.ALL:
+    v = event.visibility
+
+    if v == EventVisibility.ALL:
         return True
-    if event_visibility == EventVisibility.OFFICERS:
-        return member.lodge_function != LodgeFunction.FRERE
-    # EventVisibility.ADMIN → géré via require_admin, jamais affiché ici
+
+    if v == EventVisibility.OFFICERS:
+        return member.lodge_function in OFFICER_FUNCTIONS
+
+    if v == EventVisibility.MAITRES:
+        return member.masonic_grade == MasonicGrade.MAITRE
+
+    if v == EventVisibility.COMPAGNONS_ET_MAITRES:
+        return member.masonic_grade in (MasonicGrade.COMPAGNON, MasonicGrade.MAITRE)
+
+    if v == EventVisibility.APPRENTIS:
+        return member.masonic_grade == MasonicGrade.APPRENTI
+
+    if v == EventVisibility.GROUP:
+        if not event.visibility_group_id:
+            return False
+        group = await db.get(LodgeGroup, event.visibility_group_id)
+        if not group:
+            return False
+        ids = await resolve_group_member_ids(db, group)
+        return member.id in ids
+
+    if v == EventVisibility.ADMIN:
+        return user.is_admin
+
     return False
 
 
@@ -54,7 +91,8 @@ def _lodge_event_to_dict(e: LodgeEvent) -> dict:
         "date": e.start_datetime.date() if e.start_datetime else None,
         "type": e.event_type.value,
         "location": e.location,
-        "url": None,
+        "meeting_url": e.meeting_url,
+        "url": f"/calendar/events/{e.id}",
         "is_meeting": False,
         "all_day": e.all_day,
         "start_datetime": e.start_datetime,
@@ -154,7 +192,7 @@ async def calendar_index(
         events_by_day.setdefault(d, []).append(ev)
 
     for e in lodge_events:
-        if not _event_visible_to(e.visibility, member):
+        if not await _event_visible_to(e, member, db, user):
             continue
         ev = _lodge_event_to_dict(e)
         d = e.start_datetime.date()
@@ -215,7 +253,7 @@ async def calendar_list(
     for m in meetings_list:
         all_events.append(_meeting_to_event(m))
     for e in lodge_events:
-        if not _event_visible_to(e.visibility, member):
+        if not await _event_visible_to(e, member, db, user):
             continue
         all_events.append(_lodge_event_to_dict(e))
 
@@ -261,12 +299,28 @@ async def calendar_compose(
     if not _can_create_event(user, member):
         raise HTTPException(status_code=403, detail="Accès refusé")
 
+    await ensure_system_groups(db)
+    await db.commit()
+
+    groups_r = await db.execute(
+        select(LodgeGroup).order_by(LodgeGroup.is_system.desc(), LodgeGroup.name)
+    )
+    all_groups = groups_r.scalars().all()
+
+    ls_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge_cfg = ls_r.scalar_one_or_none()
+    visio_server = lodge_cfg.visio_server_url.rstrip("/") if lodge_cfg and lodge_cfg.visio_server_url else ""
+    visio_prefix = (lodge_cfg.visio_room_prefix or "loge") if lodge_cfg else "loge"
+
     return templates.TemplateResponse(request, "pages/calendar/compose.html", {
         "current_member": member,
         "current_user": user,
         "event_types": EventType,
         "event_visibilities": EventVisibility,
+        "all_groups": all_groups,
         "today_str": date.today().isoformat(),
+        "visio_server": visio_server,
+        "visio_prefix": visio_prefix,
     })
 
 
@@ -287,6 +341,8 @@ async def calendar_create_event(
     all_day: Optional[str] = Form(None),
     event_type: str = Form(...),
     visibility: str = Form(...),
+    visibility_group_id: Optional[int] = Form(None),
+    meeting_url: Optional[str] = Form(None),
 ):
     user, member = ctx
     if not _can_create_event(user, member):
@@ -308,21 +364,167 @@ async def calendar_create_event(
         else:
             end_dt = datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M")
 
+    vis = EventVisibility(visibility)
+    grp_id = visibility_group_id if vis == EventVisibility.GROUP else None
+
+    url = (meeting_url or "").strip() or None
+    if url and not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    if not url:
+        ls_r = await db.execute(select(LodgeSettings).limit(1))
+        lodge_cfg = ls_r.scalar_one_or_none()
+        if lodge_cfg and lodge_cfg.visio_server_url:
+            prefix = lodge_cfg.visio_room_prefix or "loge"
+            d = datetime.strptime(start_date, "%Y-%m-%d")
+            room = f"{prefix}-{d.strftime('%Y%m%d')}"
+            url = f"{lodge_cfg.visio_server_url.rstrip('/')}/{room}"
+
     event = LodgeEvent(
         title=title,
         description=description or None,
         location=location or None,
+        meeting_url=url,
         start_datetime=start_dt,
         end_datetime=end_dt,
         all_day=is_all_day,
         event_type=EventType(event_type),
-        visibility=EventVisibility(visibility),
+        visibility=vis,
+        visibility_group_id=grp_id,
         created_by_id=member.id,
     )
     db.add(event)
     await db.flush()
 
     return RedirectResponse(url="/calendar/", status_code=302)
+
+
+# ── Détail d'un événement ─────────────────────────────────────────────────
+
+@router.get("/events/{event_id}", response_class=HTMLResponse)
+async def calendar_event_detail(
+    event_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+
+    result = await db.execute(select(LodgeEvent).where(LodgeEvent.id == event_id))
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Événement introuvable")
+
+    if not await _event_visible_to(event, member, db, user):
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    can_edit = user.is_admin or event.created_by_id == member.id or _can_create_event(user, member)
+
+    # Charger le groupe de visibilité si GROUP
+    vis_group = None
+    if event.visibility_group_id:
+        vis_group = await db.get(LodgeGroup, event.visibility_group_id)
+
+    # Charger tous les groupes pour le formulaire d'édition
+    groups_r = await db.execute(
+        select(LodgeGroup).order_by(LodgeGroup.is_system.desc(), LodgeGroup.name)
+    )
+    all_groups = groups_r.scalars().all()
+
+    vis_labels = {
+        "ALL": "Tous les membres",
+        "MAITRES": "Maîtres uniquement",
+        "COMPAGNONS_ET_MAITRES": "Compagnons et Maîtres",
+        "APPRENTIS": "Apprentis uniquement",
+        "OFFICERS": "Conseil d'officiers",
+        "GROUP": f"Groupe : {vis_group.name}" if vis_group else "Groupe spécifique",
+        "ADMIN": "Administrateurs seulement",
+    }
+    type_labels = {
+        "RITUAL": "Tenue rituelle",
+        "AGAPE": "Agape / repas",
+        "EXTERNAL": "Événement extérieur",
+        "ADMIN": "Réunion administrative",
+        "DEADLINE": "Échéance",
+        "OTHER": "Autre",
+    }
+
+    return templates.TemplateResponse(request, "pages/calendar/detail.html", {
+        "current_member": member,
+        "current_user": user,
+        "event": event,
+        "can_edit": can_edit,
+        "vis_group": vis_group,
+        "all_groups": all_groups,
+        "vis_label": vis_labels.get(event.visibility.value, event.visibility.value),
+        "type_label": type_labels.get(event.event_type.value, event.event_type.value),
+        "event_types": EventType,
+        "event_visibilities": EventVisibility,
+    })
+
+
+# ── Édition d'un événement ─────────────────────────────────────────────────
+
+@router.post("/events/{event_id}/edit")
+async def calendar_event_edit(
+    event_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    title: str = Form(...),
+    description: Optional[str] = Form(None),
+    location: Optional[str] = Form(None),
+    meeting_url: Optional[str] = Form(None),
+    start_date: str = Form(...),
+    start_time: Optional[str] = Form(None),
+    end_date: Optional[str] = Form(None),
+    end_time: Optional[str] = Form(None),
+    all_day: Optional[str] = Form(None),
+    event_type: str = Form(...),
+    visibility: str = Form(...),
+    visibility_group_id: Optional[int] = Form(None),
+):
+    user, member = ctx
+
+    result = await db.execute(select(LodgeEvent).where(LodgeEvent.id == event_id))
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404)
+
+    if not (user.is_admin or event.created_by_id == member.id or _can_create_event(user, member)):
+        raise HTTPException(status_code=403)
+
+    is_all_day = all_day == "on" or all_day == "1"
+    start_dt = (
+        datetime.strptime(start_date, "%Y-%m-%d")
+        if is_all_day or not start_time
+        else datetime.strptime(f"{start_date} {start_time}", "%Y-%m-%d %H:%M")
+    )
+    end_dt = None
+    if end_date:
+        end_dt = (
+            datetime.strptime(end_date, "%Y-%m-%d")
+            if is_all_day or not end_time
+            else datetime.strptime(f"{end_date} {end_time}", "%Y-%m-%d %H:%M")
+        )
+
+    vis = EventVisibility(visibility)
+    url = (meeting_url or "").strip() or None
+    if url and not url.startswith(("http://", "https://")):
+        url = "https://" + url
+
+    event.title = title.strip()
+    event.description = (description or "").strip() or None
+    event.location = (location or "").strip() or None
+    event.meeting_url = url
+    event.start_datetime = start_dt
+    event.end_datetime = end_dt
+    event.all_day = is_all_day
+    event.event_type = EventType(event_type)
+    event.visibility = vis
+    event.visibility_group_id = visibility_group_id if vis == EventVisibility.GROUP else None
+
+    await db.commit()
+    return RedirectResponse(url=f"/calendar/events/{event_id}", status_code=303)
 
 
 # ── Suppression d'un événement ─────────────────────────────────────────────
@@ -399,7 +601,7 @@ async def calendar_export_ics(
 
     # Événements libres
     for e in lodge_events:
-        if not _event_visible_to(e.visibility, member):
+        if not await _event_visible_to(e, member, db, user):
             continue
         uid = f"event-{e.id}@portail-socrate"
         summary = _ics_escape(e.title)

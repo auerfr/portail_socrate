@@ -1,0 +1,524 @@
+{% extends "base.html" %}
+{% block title %}Bilan d'activité — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-5xl mx-auto space-y-8">
+
+  <!-- En-tête -->
+  <div class="flex items-start justify-between flex-wrap gap-3 print:mb-6">
+    <div>
+      <nav class="text-sm text-gray-400 flex items-center gap-1.5 mb-1 print:hidden">
+        <a href="/attendance/" class="hover:text-loge-700">Assiduité</a>
+        <span>›</span>
+        <span class="text-gray-700">Bilan d'activité</span>
+      </nav>
+      <h1 class="text-2xl font-bold text-gray-900">Bilan d'activité</h1>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {{ lodge_name }} · du {{ d_from.strftime('%d/%m/%Y') }} au {{ d_to.strftime('%d/%m/%Y') }}
+      </p>
+    </div>
+    <button onclick="window.print()"
+            class="text-sm bg-loge-700 text-white px-4 py-2 rounded-lg hover:bg-loge-800 flex items-center gap-2 print:hidden">
+      🖨 Imprimer / PDF
+    </button>
+  </div>
+
+  <!-- Sélecteur de période -->
+  <form method="get" class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3 items-end print:hidden">
+    {% if years | length > 1 %}
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Année maçonnique</label>
+      <select name="year_id" onchange="this.form.submit()"
+              class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        {% for y in years %}
+        <option value="{{ y.id }}" {% if selected_year and selected_year.id == y.id %}selected{% endif %}>
+          {{ y.label }}{% if y.is_current %} (en cours){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+    <span class="text-gray-300 self-center pb-1">ou</span>
+    {% endif %}
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Du</label>
+      <input type="date" name="date_from" value="{{ d_from.strftime('%Y-%m-%d') }}"
+             class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <div>
+      <label class="block text-xs text-gray-500 mb-1">Au</label>
+      <input type="date" name="date_to" value="{{ d_to.strftime('%Y-%m-%d') }}"
+             class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm hover:bg-loge-800">
+      Générer
+    </button>
+  </form>
+
+  {% if not past_meetings %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center text-gray-400">
+    Aucune tenue réalisée sur cette période.
+  </div>
+  {% else %}
+
+  <!-- ══ 1. VUE D'ENSEMBLE ════════════════════════════════════════════════════ -->
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Vue d'ensemble</h2>
+
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4">
+      <!-- Tenues -->
+      <div class="bg-white rounded-xl border border-loge-100 shadow-sm px-5 py-4 text-center">
+        <div class="text-3xl font-bold text-loge-700">{{ past_meetings | length }}</div>
+        <div class="text-xs text-gray-400 mt-1">Tenues réalisées</div>
+      </div>
+      <!-- Travaux -->
+      {% set nb_travaux = mtg_travaux | length %}
+      <div class="bg-white rounded-xl border border-purple-100 shadow-sm px-5 py-4 text-center">
+        <div class="text-3xl font-bold text-purple-700">{{ nb_travaux }}</div>
+        <div class="text-xs text-gray-400 mt-1">Tenues avec planches</div>
+      </div>
+      <!-- Agapes -->
+      <div class="bg-white rounded-xl border border-amber-100 shadow-sm px-5 py-4 text-center">
+        <div class="text-3xl font-bold text-amber-600">{{ mtg_with_agape }}</div>
+        <div class="text-xs text-gray-400 mt-1">Agapes organisées</div>
+      </div>
+      <!-- Convives -->
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-center">
+        <div class="text-3xl font-bold text-gray-700">{{ total_agape_covers }}</div>
+        <div class="text-xs text-gray-400 mt-1">Couverts totaux</div>
+      </div>
+    </div>
+
+    <!-- Typologies -->
+    {% set shown_types = [] %}
+    {% for type_key, label in type_labels.items() %}
+    {% if type_counter.get(type_key, 0) > 0 %}{% set _ = shown_types.append(type_key) %}{% endif %}
+    {% endfor %}
+    {% if shown_types %}
+    <div class="mt-4 bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-3 font-semibold">Répartition par type</div>
+      <div class="flex flex-wrap gap-3">
+        {% for type_key, label in type_labels.items() %}
+        {% set n = type_counter.get(type_key, 0) %}
+        {% if n > 0 %}
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+          <span class="text-lg font-bold text-loge-700">{{ n }}</span>
+          <span class="text-sm text-gray-600">{{ label }}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- ══ 2. CALENDRIER DES TENUES ═════════════════════════════════════════════ -->
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Calendrier des tenues</h2>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm" id="bilanMeetingsTable">
+          <thead>
+            <tr class="bg-gray-50 border-b border-gray-200">
+              <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer select-none" data-col="0">N° <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer select-none" data-col="1">Date <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer select-none" data-col="2">Type <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer select-none" data-col="3">Grade <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer select-none" data-col="4">Thème / Titre <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-center font-semibold text-green-600 cursor-pointer select-none" data-col="5">P <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-center font-semibold text-yellow-500 cursor-pointer select-none" data-col="6">E <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-center font-semibold text-red-500 cursor-pointer select-none" data-col="7">A <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="sortable px-4 py-3 text-center font-semibold text-loge-600 cursor-pointer select-none" data-col="8">Passants <span class="sort-icon text-gray-300">↕</span></th>
+              <th class="px-4 py-3 text-center font-semibold text-amber-600 text-xs">Agape</th>
+              <th class="px-4 py-3 text-center font-semibold text-purple-600 text-xs">Travaux</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% set ns = namespace(num=0) %}
+            {% for m in past_meetings %}
+            {% set ns.num = ns.num + 1 %}
+            {% set ms = mtg_att_stats.get(m.id, {}) %}
+            {% set mv_n = mtg_visitor_counts.get(m.id, 0) %}
+            {% set agape_s = mtg_agape.get(m.id, {}) %}
+            {% set has_travaux = m.id in mtg_travaux %}
+            <tr class="hover:bg-gray-50/50 data-row">
+              <td class="px-4 py-2.5 text-gray-400 text-xs font-mono">{{ ns.num }}</td>
+              <td class="px-4 py-2.5 text-gray-700 font-medium whitespace-nowrap">
+                <a href="/attendance/meeting/{{ m.id }}/summary" class="hover:text-loge-700">
+                  {{ m.meeting_date.strftime('%d/%m/%Y') }}
+                </a>
+              </td>
+              <td class="px-4 py-2.5">
+                <span class="text-xs bg-loge-50 text-loge-700 rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
+                  {{ type_labels.get(m.type.value, m.type.value) }}
+                </span>
+              </td>
+              <td class="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
+                {% if m.grade %}
+                  {% set gv = m.grade.value if m.grade.value is defined else m.grade %}
+                  {% if gv == 'ALL' %}Tous{% elif gv == 'MAITRE' %}3e degré{% elif gv == 'COMPAGNON' %}2e degré{% elif gv == 'APPRENTI' %}1er degré{% else %}{{ gv }}{% endif %}
+                {% endif %}
+              </td>
+              <td class="px-4 py-2.5 text-gray-600 max-w-xs">
+                {% if m.theme %}<div class="font-medium text-gray-800 text-xs">{{ m.theme }}</div>{% endif %}
+                {% if m.title %}<div class="text-xs text-gray-500">{{ m.title }}</div>{% endif %}
+                {% if not m.theme and not m.title %}<span class="text-gray-300">—</span>{% endif %}
+              </td>
+              <td class="px-4 py-2.5 text-center">
+                <a href="/attendance/meeting/{{ m.id }}/summary" class="text-green-600 font-bold hover:underline">{{ ms.get('P', 0) }}</a>
+              </td>
+              <td class="px-4 py-2.5 text-center text-yellow-600 font-semibold">{{ ms.get('E', 0) }}</td>
+              <td class="px-4 py-2.5 text-center text-red-500 font-semibold">{{ ms.get('A', 0) }}</td>
+              <td class="px-4 py-2.5 text-center text-loge-600 font-semibold">{{ mv_n if mv_n else '—' }}</td>
+              <td class="px-4 py-2.5 text-center">
+                {% if agape_s %}
+                <span class="text-xs text-amber-700 bg-amber-50 rounded-full px-2 py-0.5 whitespace-nowrap"
+                      title="{{ agape_s.members }} membres + {{ agape_s.guests }} invités">
+                  🍽 {{ agape_s.members + agape_s.guests }}
+                </span>
+                {% else %}<span class="text-gray-200 text-xs">—</span>{% endif %}
+              </td>
+              <td class="px-4 py-2.5 text-center">
+                {% if has_travaux %}
+                <a href="#travaux-{{ m.id }}"
+                   class="inline-flex items-center justify-center w-6 h-6 rounded-full bg-purple-100 text-purple-700 text-xs font-bold hover:bg-purple-200 transition-colors"
+                   title="Voir les travaux">✓</a>
+                {% else %}<span class="text-gray-200 text-xs">—</span>{% endif %}
+              </td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ 3. TRAVAUX DE L'ANNÉE ════════════════════════════════════════════════ -->
+  {% if mtg_travaux %}
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
+      Travaux de l'année
+      <span class="ml-2 text-xs font-normal normal-case text-gray-400">(planches, conférences, rituels)</span>
+    </h2>
+    <div class="space-y-4">
+      {% for m in past_meetings %}
+      {% if m.id in mtg_travaux %}
+      <div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden" id="travaux-{{ m.id }}">
+        <!-- En-tête tenue -->
+        <div class="flex items-center justify-between px-5 py-3 bg-purple-50/60 border-b border-purple-100">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-purple-700 bg-purple-100 rounded-full px-2.5 py-1">
+              {{ m.meeting_date.strftime('%d/%m/%Y') }}
+            </span>
+            <span class="text-xs text-gray-500 bg-loge-50 text-loge-700 rounded-full px-2 py-0.5">
+              {{ type_labels.get(m.type.value, m.type.value) }}
+            </span>
+            {% if m.theme %}
+            <span class="text-sm font-semibold text-gray-800">{{ m.theme }}</span>
+            {% elif m.title %}
+            <span class="text-sm font-semibold text-gray-800">{{ m.title }}</span>
+            {% endif %}
+          </div>
+          <a href="/attendance/meeting/{{ m.id }}/summary" class="text-xs text-gray-400 hover:text-loge-600 print:hidden">
+            Synthèse →
+          </a>
+        </div>
+        <!-- Contenu travaux -->
+        <div class="px-5 py-4 prose prose-sm max-w-none text-gray-700 travaux-content">
+          {{ mtg_travaux[m.id] | safe }}
+        </div>
+        {% if m.id in mtg_odj %}
+        <details class="border-t border-gray-100">
+          <summary class="px-5 py-2.5 text-xs text-gray-400 cursor-pointer hover:text-gray-600 print:hidden">
+            Voir l'ordre du jour
+          </summary>
+          <div class="px-5 py-3 prose prose-sm max-w-none text-gray-600 bg-gray-50/50">
+            {{ mtg_odj[m.id] | safe }}
+          </div>
+        </details>
+        {% endif %}
+      </div>
+      {% endif %}
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ══ 4. ASSIDUITÉ GLOBALE ══════════════════════════════════════════════════ -->
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Assiduité globale</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+      <div class="bg-white rounded-xl border border-green-100 shadow-sm px-5 py-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Présence</div>
+        <div class="text-3xl font-bold text-green-600">{{ g_pct_pres }}%</div>
+        <div class="text-xs text-green-500 mt-1">{{ g_pres }} présences / {{ g_exp }} attendus</div>
+        <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-green-400 rounded-full" style="width:{{ g_pct_pres }}%"></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-yellow-100 shadow-sm px-5 py-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Excusés</div>
+        <div class="text-3xl font-bold text-yellow-500">{{ g_pct_exc }}%</div>
+        <div class="text-xs text-yellow-500 mt-1">{{ g_exc }} excusés</div>
+        <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-yellow-400 rounded-full" style="width:{{ g_pct_exc }}%"></div>
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-red-100 shadow-sm px-5 py-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Absences non excusées</div>
+        <div class="text-3xl font-bold text-red-500">{{ g_pct_abs }}%</div>
+        <div class="text-xs text-red-400 mt-1">{{ g_abs }} absences</div>
+        <div class="mt-3 h-2 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-red-400 rounded-full" style="width:{{ g_pct_abs }}%"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Distribution d'assiduité (anonymisée) -->
+    {% set ms_ok = member_stats | selectattr('expected', 'gt', 0) | list %}
+    {% set total_m = ms_ok | length %}
+    {% if total_m > 0 %}
+    {% set b_crit  = ms_ok | selectattr('pct', 'lt', 15) | list | length %}
+    {% set b_low   = ms_ok | selectattr('pct', 'ge', 15) | selectattr('pct', 'lt', 50) | list | length %}
+    {% set b_mid   = ms_ok | selectattr('pct', 'ge', 50) | selectattr('pct', 'lt', 75) | list | length %}
+    {% set b_good  = ms_ok | selectattr('pct', 'ge', 75) | selectattr('pct', 'lt', 100) | list | length %}
+    {% set b_perf  = ms_ok | selectattr('pct', 'equalto', 100) | list | length %}
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100">
+        <span class="text-sm font-semibold text-gray-800">Répartition de l'assiduité des membres</span>
+        <span class="ml-2 text-xs text-gray-400">{{ total_m }} frère{{ 's' if total_m > 1 }} concernés</span>
+      </div>
+
+      <!-- Barre empilée -->
+      <div class="px-5 pt-4 pb-2">
+        <div class="flex h-6 rounded-lg overflow-hidden w-full gap-px">
+          {% if b_crit  > 0 %}<div class="bg-red-500"     style="width:{{ (b_crit  * 100 // total_m) }}%" title="Critique &lt;15% : {{ b_crit }} frère{{ 's' if b_crit>1 }}"></div>{% endif %}
+          {% if b_low   > 0 %}<div class="bg-orange-400"  style="width:{{ (b_low   * 100 // total_m) }}%" title="Insuffisant 15–49% : {{ b_low }} frère{{ 's' if b_low>1 }}"></div>{% endif %}
+          {% if b_mid   > 0 %}<div class="bg-yellow-400"  style="width:{{ (b_mid   * 100 // total_m) }}%" title="Passable 50–74% : {{ b_mid }} frère{{ 's' if b_mid>1 }}"></div>{% endif %}
+          {% if b_good  > 0 %}<div class="bg-green-400"   style="width:{{ (b_good  * 100 // total_m) }}%" title="Bon 75–99% : {{ b_good }} frère{{ 's' if b_good>1 }}"></div>{% endif %}
+          {% if b_perf  > 0 %}<div class="bg-green-600"   style="width:{{ (b_perf  * 100 // total_m) }}%" title="Parfait 100% : {{ b_perf }} frère{{ 's' if b_perf>1 }}"></div>{% endif %}
+        </div>
+      </div>
+
+      <!-- Légende détaillée -->
+      <div class="px-5 pb-5 grid grid-cols-2 sm:grid-cols-5 gap-3 mt-2">
+        {% for label, color_bg, color_text, count, desc in [
+          ('< 15%',    'bg-red-50',    'text-red-700',    b_crit, 'Alerte critique'),
+          ('15–49%',   'bg-orange-50', 'text-orange-700', b_low,  'Insuffisant'),
+          ('50–74%',   'bg-yellow-50', 'text-yellow-700', b_mid,  'Passable'),
+          ('75–99%',   'bg-green-50',  'text-green-700',  b_good, 'Bien'),
+          ('100%',     'bg-emerald-50','text-emerald-700',b_perf, 'Parfait'),
+        ] %}
+        <div class="rounded-lg {{ color_bg }} px-3 py-2.5 text-center">
+          <div class="text-xs text-gray-400 mb-1">{{ desc }}</div>
+          <div class="text-xl font-bold {{ color_text }}">{{ count }}</div>
+          <div class="text-xs {{ color_text }} opacity-70 font-medium">{{ label }}</div>
+          {% if total_m > 0 %}
+          <div class="text-xs text-gray-400 mt-0.5">{{ (count * 100 // total_m) }}% des membres</div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+  </section>
+
+  <!-- ══ 5. AGAPES ════════════════════════════════════════════════════════════ -->
+  {% if mtg_agape %}
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Agapes</h2>
+    <div class="bg-white rounded-xl border border-amber-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-amber-100 bg-amber-50/40 flex items-center justify-between">
+        <span class="text-sm font-semibold text-amber-800">
+          {{ mtg_with_agape }} agape{{ 's' if mtg_with_agape > 1 }} · {{ total_agape_covers }} couvert{{ 's' if total_agape_covers > 1 }}
+        </span>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% for m in past_meetings %}
+        {% if m.id in mtg_agape %}
+        {% set ag = mtg_agape[m.id] %}
+        <div class="flex items-center gap-4 px-5 py-3">
+          <span class="text-sm text-gray-700 font-medium whitespace-nowrap w-28">{{ m.meeting_date.strftime('%d/%m/%Y') }}</span>
+          <span class="text-xs text-gray-500 flex-1">
+            {{ type_labels.get(m.type.value, m.type.value) }}
+            {% if m.title %} · {{ m.title }}{% endif %}
+          </span>
+          <span class="text-sm font-semibold text-amber-700 whitespace-nowrap">
+            🍽 {{ ag.members }} frère{{ 's' if ag.members > 1 }}
+            {% if ag.guests > 0 %} + {{ ag.guests }} invité{{ 's' if ag.guests > 1 }}{% endif %}
+          </span>
+          <span class="text-xs font-bold text-gray-600 bg-amber-50 rounded-full px-2.5 py-1 whitespace-nowrap">
+            {{ ag.members + ag.guests }} couverts
+          </span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+  </section>
+  {% endif %}
+
+  <!-- ══ 6. MAÇONS PASSANTS ════════════════════════════════════════════════════ -->
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">Maçons passants</h2>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 mb-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-center">
+        <div class="text-3xl font-bold text-loge-700">{{ visitor_total }}</div>
+        <div class="text-xs text-gray-400 mt-1">Visites au total</div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4 text-center">
+        <div class="text-3xl font-bold text-gray-700">{{ visitor_unique }}</div>
+        <div class="text-xs text-gray-400 mt-1">Visiteurs uniques</div>
+      </div>
+      {% if top_orients_bilan %}
+      <div class="bg-white rounded-xl border border-blue-50 shadow-sm px-5 py-4 text-center">
+        <div class="text-lg font-bold text-blue-700 leading-tight">{{ top_orients_bilan[0][0] }}</div>
+        <div class="text-xs text-gray-400 mt-1">1er orient · {{ top_orients_bilan[0][1] }} visite{{ 's' if top_orients_bilan[0][1] > 1 }}</div>
+      </div>
+      {% endif %}
+      {% if top_lodges_bilan %}
+      <div class="bg-white rounded-xl border border-loge-50 shadow-sm px-5 py-4 text-center">
+        <div class="text-base font-bold text-loge-700 leading-tight">{{ top_lodges_bilan[0][0] }}</div>
+        <div class="text-xs text-gray-400 mt-1">1re loge · {{ top_lodges_bilan[0][1] }} visite{{ 's' if top_lodges_bilan[0][1] > 1 }}</div>
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Top 5 visiteurs les plus assidus -->
+    {% if top_visitors %}
+    <div class="bg-white rounded-xl border border-loge-100 shadow-sm overflow-hidden mb-4">
+      <div class="px-5 py-3 border-b border-loge-50 bg-loge-50/40">
+        <span class="text-sm font-semibold text-loge-800">⭐ Top 5 — Passants les plus assidus</span>
+      </div>
+      <div class="divide-y divide-gray-50">
+        {% for row in top_visitors %}
+        {% set v = row.visitor %}
+        {% set n = row.visits %}
+        {% set rank = loop.index %}
+        <div class="flex items-center gap-3 px-5 py-3">
+          <span class="w-6 text-center text-sm font-bold {% if rank == 1 %}text-yellow-500{% elif rank == 2 %}text-gray-400{% elif rank == 3 %}text-amber-600{% else %}text-gray-300{% endif %}">
+            {% if rank == 1 %}🥇{% elif rank == 2 %}🥈{% elif rank == 3 %}🥉{% else %}{{ rank }}{% endif %}
+          </span>
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold flex-shrink-0 text-loge-700"
+               style="background:rgba(59,91,219,0.12);">
+            {{ v.first_name[0] if v.first_name else '?' }}{{ v.last_name[0] if v.last_name else '?' }}
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-gray-900">
+              {% if v.civility == 'S' %}S∴{% else %}F∴{% endif %}
+              {{ v.first_name }} {{ v.last_name }}
+              {% if v.is_vm %}<span class="text-xs text-loge-600 bg-loge-50 rounded-full px-1.5 py-0.5 ml-1">V∴M∴</span>{% endif %}
+            </div>
+            <div class="text-xs text-gray-400">
+              {{ [v.lodge_name, v.orient_city] | select | join(' · ') }}
+            </div>
+          </div>
+          <div class="flex-shrink-0 text-right">
+            <div class="text-lg font-bold text-loge-700">{{ n }}</div>
+            <div class="text-xs text-gray-400">visite{{ 's' if n > 1 }}</div>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    {% if top_lodges_bilan %}
+    <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-100 text-sm font-semibold text-gray-700">Loges les plus représentées</div>
+        <div class="divide-y divide-gray-50">
+          {% for name, n in top_lodges_bilan %}
+          {% set max_n = top_lodges_bilan[0][1] %}
+          <div class="px-5 py-2.5 flex items-center gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-gray-700 truncate">{{ name }}</div>
+              <div class="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                <div class="h-full bg-loge-400 rounded-full" style="width:{{ (n * 100 // max_n) }}%"></div>
+              </div>
+            </div>
+            <span class="text-sm font-bold text-loge-700 flex-shrink-0">{{ n }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% if top_orients_bilan | length > 1 %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+        <div class="px-5 py-3 border-b border-gray-100 text-sm font-semibold text-gray-700">Orients les plus représentés</div>
+        <div class="divide-y divide-gray-50">
+          {% for name, n in top_orients_bilan %}
+          {% set max_n = top_orients_bilan[0][1] %}
+          <div class="px-5 py-2.5 flex items-center gap-3">
+            <div class="flex-1 min-w-0">
+              <div class="text-sm text-gray-700 truncate">{{ name }}</div>
+              <div class="h-1.5 bg-gray-100 rounded-full mt-1 overflow-hidden">
+                <div class="h-full bg-blue-400 rounded-full" style="width:{{ (n * 100 // max_n) }}%"></div>
+              </div>
+            </div>
+            <span class="text-sm font-bold text-blue-700 flex-shrink-0">{{ n }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+  </section>
+
+  {% endif %}
+
+</div>
+
+<script>
+document.querySelectorAll('th.sortable').forEach(th => {
+  th.addEventListener('click', () => {
+    const col   = +th.dataset.col;
+    const table = th.closest('table');
+    const tbody = table.querySelector('tbody');
+    const rows  = Array.from(tbody.querySelectorAll('tr.data-row'));
+    const asc   = th.dataset.dir !== 'asc';
+    th.dataset.dir = asc ? 'asc' : 'desc';
+
+    table.querySelectorAll('th.sortable .sort-icon').forEach(i => { i.textContent = '↕'; i.className = 'sort-icon text-gray-300'; });
+    th.querySelector('.sort-icon').textContent = asc ? '↑' : '↓';
+    th.querySelector('.sort-icon').className   = 'sort-icon text-loge-600';
+
+    rows.sort((a, b) => {
+      const ta = a.cells[col]?.textContent.trim().replace(/\s+/g, ' ') || '';
+      const tb = b.cells[col]?.textContent.trim().replace(/\s+/g, ' ') || '';
+      const na = parseFloat(ta.replace(/[^\d.]/g, ''));
+      const nb = parseFloat(tb.replace(/[^\d.]/g, ''));
+      if (!isNaN(na) && !isNaN(nb)) return asc ? na - nb : nb - na;
+      const da = ta.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      const db_ = tb.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+      if (da && db_) {
+        return asc
+          ? new Date(da[3], da[2]-1, da[1]) - new Date(db_[3], db_[2]-1, db_[1])
+          : new Date(db_[3], db_[2]-1, db_[1]) - new Date(da[3], da[2]-1, da[1]);
+      }
+      return asc ? ta.localeCompare(tb, 'fr') : tb.localeCompare(ta, 'fr');
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  });
+});
+</script>
+
+<style>
+/* Nettoyage du contenu HTML des travaux */
+.travaux-content h1, .travaux-content h2, .travaux-content h3 { font-size: 1rem; font-weight: 600; margin: 0.5rem 0; }
+.travaux-content p { margin: 0.35rem 0; }
+.travaux-content ul { padding-left: 1.25rem; list-style: disc; }
+.travaux-content li { margin: 0.2rem 0; }
+
+@media print {
+  nav, button, form, .print\:hidden, details summary { display: none !important; }
+  details[open] > :not(summary) { display: block; }
+  details { open: true; }
+  body { background: white; font-size: 11pt; }
+  .shadow-sm { box-shadow: none; }
+  h2 { page-break-after: avoid; margin-top: 1.5rem; }
+  section { page-break-inside: avoid; }
+  .travaux-content { page-break-inside: avoid; }
+}
+</style>
+{% endblock %}

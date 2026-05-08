@@ -1,0 +1,73 @@
+{% extends "base.html" %}
+{% block title %}Notifications — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-xl mx-auto">
+
+  <nav class="text-sm text-gray-500 mb-4">
+    <a href="/" class="hover:text-loge-700">Accueil</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Mes notifications</span>
+  </nav>
+
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">Préférences de notification</h1>
+
+  {% if saved %}
+  <div class="mb-4 flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-xl px-4 py-3 text-sm font-medium">
+    <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+    </svg>
+    Préférences enregistrées.
+  </div>
+  {% endif %}
+
+  <form method="post" action="/settings/notifications">
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
+
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider">Email</h2>
+
+      {# Toggle notification email #}
+      <label class="flex items-start gap-4 cursor-pointer group">
+        <div class="flex-shrink-0 mt-0.5">
+          <input type="checkbox" name="email_notifications" value="on"
+                 {% if current_member.email_notifications %}checked{% endif %}
+                 class="w-5 h-5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
+        </div>
+        <div>
+          <div class="text-sm font-semibold text-gray-900 group-hover:text-loge-700 transition-colors">
+            Recevoir un email à chaque nouveau message
+          </div>
+          <p class="text-xs text-gray-500 mt-1 leading-relaxed">
+            Quand un officier vous envoie un message via le portail, vous recevrez une
+            notification à l'adresse <strong>{{ current_member.email }}</strong>.<br>
+            L'email contient un aperçu et un lien direct vers le message.
+            <br><span class="text-gray-400">Vous devrez vous connecter au portail pour répondre.</span>
+          </p>
+        </div>
+      </label>
+
+      <div class="border-t border-gray-100 pt-4">
+        <p class="text-xs text-gray-400">
+          Votre adresse email enregistrée :
+          <span class="font-medium text-gray-600">{{ current_member.email }}</span><br>
+          Pour la modifier, contactez le Secrétaire ou un administrateur.
+        </p>
+      </div>
+
+    </div>
+
+    <div class="mt-5 flex items-center gap-3">
+      <button type="submit"
+              class="px-6 py-2.5 bg-loge-700 text-white text-sm font-semibold rounded-xl hover:bg-loge-800 transition-colors">
+        Enregistrer
+      </button>
+      <a href="/"
+         class="px-5 py-2.5 text-sm text-gray-600 border border-gray-200 rounded-xl hover:bg-gray-50 transition-colors">
+        Annuler
+      </a>
+    </div>
+
+  </form>
+</div>
+{% endblock %}

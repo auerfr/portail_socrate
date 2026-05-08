@@ -25,11 +25,26 @@ from app.models.finance import (
     MemberContribution, ContributionStatus, Payment, PaymentMethod, Quitus,
     BudgetCategory, Transaction, TransactionType,
 )
-from app.models.identity import Member, MemberStatus
+from app.models.identity import Member, MemberStatus, MembershipType, User
 from app.models.lodge import MasonicYear
 
 router = APIRouter(prefix="/finance", tags=["finance"])
 templates = Jinja2Templates(directory="app/templates")
+
+def _capitation(full_capitation: float, member: Member) -> float:
+    """Retourne la capitation applicable : 0 pour les affiliés, pleine pour les membres en appartenance."""
+    if member.membership_type == MembershipType.AFFILIATION:
+        return 0.0
+    return full_capitation
+
+
+async def _affilié_ids(db: AsyncSession) -> set[int]:
+    """Retourne l'ensemble des IDs de membres affiliés (optimisation pour traitements en masse)."""
+    r = await db.execute(
+        select(Member.id).where(Member.membership_type == MembershipType.AFFILIATION)
+    )
+    return {row[0] for row in r.all()}
+
 
 # ── Coefficients fixes ─────────────────────────────────────────────────────
 TIER_COEFFICIENTS = {1: 0.4, 2: 0.7, 3: 1.0, 4: 1.3, 5: 1.6}
@@ -170,10 +185,11 @@ async def finance_dashboard(
     cfg = await _get_or_create_config(db, year.id)
     await db.refresh(cfg, ["tiers"])
 
-    # ── Membres actifs ───────────────────────────────────────────────────────
+    # ── Membres actifs (hors super-admins) ───────────────────────────────────
+    _admin_ids = select(User.member_id).where(User.is_admin == True, User.member_id.isnot(None))
     rm = await db.execute(
         select(Member)
-        .where(Member.status == MemberStatus.ACTIVE)
+        .where(Member.status == MemberStatus.ACTIVE, Member.id.not_in(_admin_ids))
         .order_by(Member.last_name, Member.first_name)
     )
     all_members = rm.scalars().all()
@@ -233,8 +249,9 @@ async def finance_dashboard(
             "is_ok": is_ok,
         })
 
-    # ── Stats globales (sur tous les membres, pas le filtre) ─────────────────
-    all_contribs = list(contributions_map.values())
+    # ── Stats globales (sur les membres non-admin uniquement) ────────────────
+    _member_ids = {m.id for m in all_members}
+    all_contribs = [c for c in contributions_map.values() if c.member_id in _member_ids]
     total_due   = sum(float(c.total_amount) for c in all_contribs)
     total_paid  = sum(float(c.amount_paid)  for c in all_contribs)
     total_remaining = max(0.0, total_due - total_paid)
@@ -491,7 +508,8 @@ async def config_update(
     await db.flush()  # s'assurer que les nouveaux tier.amount sont visibles
 
     tier_by_id = {t.id: t for t in cfg.tiers}
-    new_capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    full_capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    affiliés = await _affilié_ids(db)
 
     open_r = await db.execute(
         select(MemberContribution).where(
@@ -503,9 +521,10 @@ async def config_update(
         tier = tier_by_id.get(contrib.tier_id)
         if tier:
             new_base = float(tier.amount)
+            cap = 0.0 if contrib.member_id in affiliés else full_capitation
             contrib.base_amount = new_base
-            contrib.capitation_amount = new_capitation
-            contrib.total_amount = new_base + new_capitation
+            contrib.capitation_amount = cap
+            contrib.total_amount = new_base + cap
 
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
@@ -589,10 +608,13 @@ async def cotisations_view(
     cfg = None
 
     if selected_year:
-        # Membres actifs
+        # Membres actifs (hors super-admins)
+        admin_ids = select(User.member_id).where(
+            User.is_admin == True, User.member_id.isnot(None)
+        )
         rm = await db.execute(
             select(Member)
-            .where(Member.status == MemberStatus.ACTIVE)
+            .where(Member.status == MemberStatus.ACTIVE, Member.id.not_in(admin_ids))
             .order_by(Member.last_name, Member.first_name)
         )
         members_list = rm.scalars().all()
@@ -692,7 +714,8 @@ async def _close_appel_and_assign_defaults(
 
     # ── 5. Map tier_number → tier object (année courante) ───────────────────
     tier_by_number = {t.tier_number: t for t in cfg.tiers}
-    capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    full_capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    affiliés = await _affilié_ids(db)
 
     # ── 6. Affecter les membres sans cotisation ──────────────────────────────
     auto_assigned = 0
@@ -718,13 +741,14 @@ async def _close_appel_and_assign_defaults(
                 "pas de cotisation l'année précédente)"
             )
 
+        cap = 0.0 if m.id in affiliés else full_capitation
         new_contrib = MemberContribution(
             member_id=m.id,
             masonic_year_id=year_id,
             tier_id=tier.id,
             base_amount=float(tier.amount),
-            capitation_amount=capitation,
-            total_amount=float(tier.amount) + capitation,
+            capitation_amount=cap,
+            total_amount=float(tier.amount) + cap,
             status=ContributionStatus.PENDING,
             notes="\n".join(note_parts),
         )
@@ -742,7 +766,7 @@ async def _close_appel_and_assign_defaults(
 
     # ── 8. Resynchroniser toutes les cotisations PENDING / PARTIAL ───────────
     tier_by_id = {t.id: t for t in cfg.tiers}
-    new_capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    new_full_cap = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
 
     r_open = await db.execute(
         select(MemberContribution).where(
@@ -753,9 +777,10 @@ async def _close_appel_and_assign_defaults(
     for contrib in r_open.scalars().all():
         tier = tier_by_id.get(contrib.tier_id)
         if tier:
+            cap = 0.0 if contrib.member_id in affiliés else new_full_cap
             contrib.base_amount = float(tier.amount)
-            contrib.capitation_amount = new_capitation
-            contrib.total_amount = float(tier.amount) + new_capitation
+            contrib.capitation_amount = cap
+            contrib.total_amount = float(tier.amount) + cap
 
     return auto_assigned
 
@@ -800,7 +825,8 @@ async def resync_contributions(
     await db.refresh(cfg, ["tiers"])
 
     tier_by_id = {t.id: t for t in cfg.tiers}
-    capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    full_capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    affiliés = await _affilié_ids(db)
 
     open_r = await db.execute(
         select(MemberContribution).where(
@@ -812,9 +838,10 @@ async def resync_contributions(
     for contrib in open_r.scalars().all():
         tier = tier_by_id.get(contrib.tier_id)
         if tier:
+            cap = 0.0 if contrib.member_id in affiliés else full_capitation
             contrib.base_amount = float(tier.amount)
-            contrib.capitation_amount = capitation
-            contrib.total_amount = float(tier.amount) + capitation
+            contrib.capitation_amount = cap
+            contrib.total_amount = float(tier.amount) + cap
             updated += 1
 
     await db.commit()
@@ -839,9 +866,11 @@ async def assign_contribution(
     if not tier:
         raise HTTPException(400, "Tranche invalide")
 
-    capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    full_capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+    member_obj = await db.get(Member, member_id)
+    cap = 0.0 if (member_obj and member_obj.membership_type == MembershipType.AFFILIATION) else full_capitation
     base = float(tier.amount)
-    total = base + capitation
+    total = base + cap
 
     # Upsert
     r = await db.execute(
@@ -854,7 +883,7 @@ async def assign_contribution(
     if contrib:
         contrib.tier_id = tier.id
         contrib.base_amount = base
-        contrib.capitation_amount = capitation
+        contrib.capitation_amount = cap
         contrib.total_amount = total
         if notes.strip():
             contrib.notes = notes.strip()
@@ -864,7 +893,7 @@ async def assign_contribution(
             masonic_year_id=year_id,
             tier_id=tier.id,
             base_amount=base,
-            capitation_amount=capitation,
+            capitation_amount=cap,
             total_amount=total,
             due_date=date.fromisoformat(due_date) if due_date else None,
             status=ContributionStatus.PENDING,
@@ -891,7 +920,10 @@ async def assign_all_t3(
     if not tier3:
         raise HTTPException(400)
 
-    rm = await db.execute(select(Member).where(Member.status == MemberStatus.ACTIVE))
+    _adm = select(User.member_id).where(User.is_admin == True, User.member_id.isnot(None))
+    rm = await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE, Member.id.not_in(_adm))
+    )
     all_active = rm.scalars().all()
 
     rc = await db.execute(
@@ -978,6 +1010,33 @@ async def set_exempt(
     )
 
 
+@router.post("/cotisations/{contribution_id}/delete")
+async def delete_contribution(
+    contribution_id: int,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    r = await db.execute(
+        select(MemberContribution)
+        .options(selectinload(MemberContribution.payments), selectinload(MemberContribution.quitus))
+        .where(MemberContribution.id == contribution_id)
+    )
+    contrib = r.scalar_one_or_none()
+    if not contrib:
+        raise HTTPException(404)
+    year_id = contrib.masonic_year_id
+
+    # Supprimer quitus, paiements, puis cotisation
+    if contrib.quitus:
+        await db.delete(contrib.quitus)
+    for p in contrib.payments:
+        await db.delete(p)
+    await db.flush()
+    await db.delete(contrib)
+    await db.commit()
+    return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
+
+
 @router.post("/cotisations/{contribution_id}/quitus")
 async def issue_quitus(
     contribution_id: int,
@@ -1014,6 +1073,60 @@ async def issue_quitus(
 # ══════════════════════════════════════════════════════════════════════════════
 # SÉLECTION DE TRANCHE PAR LE MEMBRE
 # ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/membres/{member_id}", response_class=HTMLResponse)
+async def membre_finance_detail(
+    member_id: int,
+    request: Request,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, current_member = ctx
+
+    target = await db.get(Member, member_id)
+    if not target:
+        raise HTTPException(404)
+
+    # Toutes les années maçonniques
+    r_years = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    years = r_years.scalars().all()
+
+    # Toutes les contributions du membre
+    rc = await db.execute(
+        select(MemberContribution)
+        .where(MemberContribution.member_id == member_id)
+        .options(
+            selectinload(MemberContribution.payments),
+            selectinload(MemberContribution.quitus),
+        )
+        .order_by(MemberContribution.masonic_year_id.desc())
+    )
+    contributions = rc.scalars().all()
+
+    # Index années et tiers
+    year_map = {y.id: y for y in years}
+    all_tiers_r = await db.execute(select(ContributionTier))
+    tier_map = {t.id: t for t in all_tiers_r.scalars().all()}
+
+    # Configs par année (pour détail capitation)
+    all_cfg_r = await db.execute(select(ContributionConfig))
+    cfg_map = {c.masonic_year_id: c for c in all_cfg_r.scalars().all()}
+
+    return templates.TemplateResponse(request, "pages/finance/membre_detail.html", {
+        "current_member": current_member,
+        "current_user": user,
+        "target": target,
+        "contributions": contributions,
+        "year_map": year_map,
+        "tier_map": tier_map,
+        "cfg_map": cfg_map,
+        "method_labels": METHOD_LABELS,
+        "PaymentMethod": PaymentMethod,
+        "ContributionStatus": ContributionStatus,
+        "is_admin": user.is_admin,
+        "now": datetime.now(),
+    })
+
 
 @router.get("/cotisations/choisir", response_class=HTMLResponse)
 async def choisir_tranche_form(
@@ -1551,3 +1664,121 @@ async def bilan_export_csv(
         media_type="text/csv",
         headers={"Content-Disposition": f"attachment; filename={filename}"},
     )
+
+
+# ── Gestion individuelle des paiements ──────────────────────────────────────
+
+@router.post("/payments/{payment_id}/delete")
+async def delete_payment(
+    payment_id: int,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    payment = await db.get(Payment, payment_id)
+    if not payment:
+        raise HTTPException(404)
+    contrib_id = payment.member_contribution_id
+
+    r = await db.execute(
+        select(MemberContribution)
+        .options(selectinload(MemberContribution.payments))
+        .where(MemberContribution.id == contrib_id)
+    )
+    contrib = r.scalar_one_or_none()
+
+    await db.delete(payment)
+    await db.flush()
+
+    if contrib:
+        remaining_paid = sum(
+            float(p.amount) for p in contrib.payments if p.id != payment_id
+        )
+        if remaining_paid <= 0:
+            contrib.status = ContributionStatus.PENDING
+        elif remaining_paid < float(contrib.total_amount):
+            contrib.status = ContributionStatus.PARTIAL
+        else:
+            contrib.status = ContributionStatus.PAID
+
+    await db.commit()
+    year_id = contrib.masonic_year_id if contrib else ""
+    return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
+
+
+@router.post("/payments/{payment_id}/edit")
+async def edit_payment(
+    payment_id: int,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    amount: Annotated[float, Form()],
+    method: Annotated[str, Form()],
+    payment_date: Annotated[str, Form()],
+    reference: Annotated[str, Form()] = "",
+    notes: Annotated[str, Form()] = "",
+):
+    payment = await db.get(Payment, payment_id)
+    if not payment:
+        raise HTTPException(404)
+
+    payment.amount = amount
+    payment.method = PaymentMethod(method)
+    payment.payment_date = date.fromisoformat(payment_date)
+    payment.reference = reference.strip() or None
+    payment.notes = notes.strip() or None
+
+    contrib_id = payment.member_contribution_id
+    r = await db.execute(
+        select(MemberContribution)
+        .options(selectinload(MemberContribution.payments))
+        .where(MemberContribution.id == contrib_id)
+    )
+    contrib = r.scalar_one_or_none()
+    if contrib:
+        total_paid = sum(
+            float(p.amount) if p.id != payment_id else amount
+            for p in contrib.payments
+        )
+        if total_paid <= 0:
+            contrib.status = ContributionStatus.PENDING
+        elif total_paid < float(contrib.total_amount):
+            contrib.status = ContributionStatus.PARTIAL
+        else:
+            contrib.status = ContributionStatus.PAID
+
+    await db.commit()
+    year_id = contrib.masonic_year_id if contrib else ""
+    return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
+
+
+@router.post("/cotisations/{contribution_id}/set-amount")
+async def set_contribution_amount(
+    contribution_id: int,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    total_amount: Annotated[float, Form()],
+    notes: Annotated[str, Form()] = "",
+):
+    """Permet de forcer manuellement le montant dû d'une cotisation."""
+    r = await db.execute(
+        select(MemberContribution)
+        .options(selectinload(MemberContribution.payments))
+        .where(MemberContribution.id == contribution_id)
+    )
+    contrib = r.scalar_one_or_none()
+    if not contrib:
+        raise HTTPException(404)
+
+    contrib.total_amount = total_amount
+    if notes.strip():
+        contrib.notes = (contrib.notes or "") + f"\n[Montant modifié manuellement] {notes.strip()}"
+
+    total_paid = sum(float(p.amount) for p in contrib.payments)
+    if total_paid <= 0:
+        contrib.status = ContributionStatus.PENDING
+    elif total_paid < total_amount:
+        contrib.status = ContributionStatus.PARTIAL
+    else:
+        contrib.status = ContributionStatus.PAID
+
+    await db.commit()
+    return RedirectResponse(url=f"/finance/cotisations?year_id={contrib.masonic_year_id}", status_code=303)

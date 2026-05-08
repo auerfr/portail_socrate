@@ -1,0 +1,207 @@
+{% extends "base.html" %}
+{% block title %}Banquet — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-4xl mx-auto space-y-6">
+
+  <!-- Navigation -->
+  <div class="flex items-center justify-between print:hidden">
+    <nav class="text-sm text-gray-500">
+      <a href="/meetings/" class="hover:text-loge-700">Tenues</a>
+      <span class="mx-2">›</span>
+      <a href="/meetings/{{ meeting.id }}" class="hover:text-loge-700">{{ meeting.meeting_date.strftime('%d/%m/%Y') }}</a>
+      <span class="mx-2">›</span>
+      <span class="text-gray-800">Banquet</span>
+    </nav>
+    <a href="/meetings/{{ meeting.id }}/agapes/export"
+       class="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
+      ↓ Export Excel
+    </a>
+  </div>
+
+  <!-- En-tête -->
+  <div class="bg-gradient-to-r from-amber-700 to-amber-600 text-white rounded-2xl px-6 py-5 shadow">
+    <div class="flex items-center justify-between">
+      <div>
+        <div class="text-amber-200 text-xs uppercase tracking-widest mb-1">Fiche Maître des Banquets</div>
+        <h1 class="text-xl font-bold">🍽 Agapes du {{ meeting.meeting_date.strftime('%d/%m/%Y') }}</h1>
+        <div class="text-amber-200 text-sm mt-1">{{ type_label(meeting.type) }}{% if meeting.agape_location %} · 📍 {{ meeting.agape_location }}{% endif %}</div>
+      </div>
+      <div class="text-right">
+        <div class="text-5xl font-black">{{ total_covers }}</div>
+        <div class="text-amber-200 text-xs mt-1">couvert{{ 's' if total_covers > 1 else '' }}{% if meeting.agape_capacity %} / {{ meeting.agape_capacity }} max{% endif %}</div>
+      </div>
+    </div>
+
+    {% if meeting.agape_capacity %}
+    {% set pct = [(total_covers * 100 // meeting.agape_capacity), 100] | min %}
+    <div class="mt-4 h-3 bg-amber-900/40 rounded-full overflow-hidden">
+      <div class="h-full rounded-full transition-all
+        {% if pct >= 100 %}bg-red-400{% elif pct >= 80 %}bg-amber-300{% else %}bg-green-400{% endif %}"
+           style="width:{{ pct }}%"></div>
+    </div>
+    <div class="text-amber-300 text-xs mt-1 text-right">
+      {{ pct }}% de la capacité
+      {% if meeting.agape_capacity - total_covers > 0 %}
+      · {{ meeting.agape_capacity - total_covers }} place{{ 's' if meeting.agape_capacity - total_covers > 1 else '' }} disponible{{ 's' if meeting.agape_capacity - total_covers > 1 else '' }}
+      {% elif pct >= 100 %}
+      · Complet
+      {% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Répartition des couverts -->
+  <div class="grid grid-cols-3 gap-4">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+      <div class="text-3xl font-bold text-loge-700">{{ agape_members | sum(attribute='agape_guests') + agape_members | length }}</div>
+      <div class="text-xs text-gray-500 mt-1">Frères &amp; Sœurs</div>
+      <div class="text-xs text-gray-400">{{ agape_members | length }} membre{{ 's' if agape_members | length > 1 else '' }}
+        {% set extra_m = agape_members | sum(attribute='agape_guests') %}
+        {% if extra_m > 0 %}+ {{ extra_m }} invité{{ 's' if extra_m > 1 else '' }}{% endif %}
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+      <div class="text-3xl font-bold text-blue-600">{{ agape_visitors | sum(attribute='agape_guests') + agape_visitors | length }}</div>
+      <div class="text-xs text-gray-500 mt-1">Maçons passants</div>
+      <div class="text-xs text-gray-400">{{ agape_visitors | length }} visiteur{{ 's' if agape_visitors | length > 1 else '' }}
+        {% set extra_v = agape_visitors | sum(attribute='agape_guests') %}
+        {% if extra_v > 0 %}+ {{ extra_v }} invité{{ 's' if extra_v > 1 else '' }}{% endif %}
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
+      <div class="text-3xl font-bold text-amber-600">{{ agape_guests | length }}</div>
+      <div class="text-xs text-gray-500 mt-1">Invités profanes</div>
+      <div class="text-xs text-gray-400">{% if diet_counts %}{{ diet_counts.values() | sum }} avec régime{% else %}Aucun régime spécial{% endif %}</div>
+    </div>
+  </div>
+
+  <!-- Régimes alimentaires (si applicable) -->
+  {% if diet_counts %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-5">
+    <h2 class="text-sm font-semibold text-amber-800 mb-3">⚠ Régimes alimentaires à prévoir</h2>
+    <div class="flex flex-wrap gap-3">
+      {% for code, count in diet_counts.items() %}
+      {% set icons = {'VEGETARIAN': '🥦', 'VEGAN': '🌱', 'NO_PORK': '🚫', 'OTHER': '⚠'} %}
+      <div class="bg-white rounded-lg border border-amber-200 px-4 py-3 text-center min-w-[100px]">
+        <div class="text-2xl font-bold text-amber-700">{{ count }}</div>
+        <div class="text-xs text-amber-600 mt-0.5">{{ icons.get(code, '') }} {{ diet_labels.get(code, code) }}</div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% else %}
+  <div class="bg-green-50 border border-green-200 rounded-xl px-5 py-3 text-sm text-green-700">
+    ✅ Aucun régime alimentaire spécial à prévoir
+  </div>
+  {% endif %}
+
+  <!-- Liste nominative -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-800">Liste nominative des {{ total_covers }} couverts</h2>
+    </div>
+
+    <div class="divide-y divide-gray-50">
+
+      {% if agape_members %}
+      <div class="px-5 py-3 bg-gray-50">
+        <span class="text-xs font-semibold text-loge-600 uppercase tracking-wider">Membres de la loge</span>
+      </div>
+      {% for att in agape_members %}
+      <div class="flex items-center gap-3 px-5 py-3">
+        <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-700 flex items-center justify-center text-xs font-bold shrink-0">
+          {{ att.member.first_name[0] }}{{ att.member.last_name[0] }}
+        </div>
+        <div class="flex-1">
+          <span class="text-sm font-medium text-gray-900">
+            {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
+            {{ att.member.first_name }} {{ att.member.last_name }}
+          </span>
+          {% if att.agape_guests %}
+          <span class="text-xs text-gray-400 ml-2">+ {{ att.agape_guests }} invité{{ 's' if att.agape_guests > 1 else '' }}</span>
+          {% endif %}
+        </div>
+        <span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-2 py-0.5">
+          {{ 1 + att.agape_guests }} couvert{{ 's' if 1 + att.agape_guests > 1 else '' }}
+        </span>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      {% if agape_visitors %}
+      <div class="px-5 py-3 bg-gray-50">
+        <span class="text-xs font-semibold text-blue-600 uppercase tracking-wider">Maçons passants</span>
+      </div>
+      {% for mv in agape_visitors %}
+      <div class="flex items-center gap-3 px-5 py-3">
+        <div class="w-8 h-8 rounded-full bg-blue-50 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+          {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
+        </div>
+        <div class="flex-1">
+          <span class="text-sm text-gray-800">
+            {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
+            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+          </span>
+          <span class="text-xs text-gray-400 ml-1">— {{ mv.visitor.lodge_name or 'Passant' }}</span>
+          {% if mv.agape_guests %}
+          <span class="text-xs text-gray-400 ml-2">+ {{ mv.agape_guests }} invité{{ 's' if mv.agape_guests > 1 else '' }}</span>
+          {% endif %}
+        </div>
+        <span class="text-xs font-semibold text-blue-600 bg-blue-50 rounded-full px-2 py-0.5">
+          {{ 1 + mv.agape_guests }} couvert{{ 's' if 1 + mv.agape_guests > 1 else '' }}
+        </span>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      {% if agape_guests %}
+      <div class="px-5 py-3 bg-gray-50">
+        <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Invités profanes</span>
+      </div>
+      {% set diet_icons = {'VEGETARIAN': '🥦', 'VEGAN': '🌱', 'NO_PORK': '🚫', 'OTHER': '⚠', 'NONE': ''} %}
+      {% for g in agape_guests %}
+      <div class="flex items-center gap-3 px-5 py-3">
+        <div class="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xs font-bold shrink-0">
+          {{ g.first_name[0] }}{{ g.last_name[0] }}
+        </div>
+        <div class="flex-1">
+          <span class="text-sm text-gray-800">{{ g.first_name }} {{ g.last_name }}</span>
+          {% if g.dietary_restrictions and g.dietary_restrictions.value != 'NONE' %}
+          <span class="text-xs text-amber-600 ml-2 font-medium">
+            {{ diet_icons.get(g.dietary_restrictions.value, '') }}
+            {{ diet_labels.get(g.dietary_restrictions.value, '') }}
+          </span>
+          {% endif %}
+        </div>
+        <span class="text-xs font-semibold text-amber-600 bg-amber-50 rounded-full px-2 py-0.5">1 couvert</span>
+      </div>
+      {% endfor %}
+      {% endif %}
+
+      {% if not agape_members and not agape_visitors and not agape_guests %}
+      <div class="px-5 py-12 text-center text-gray-400 text-sm">
+        Aucune inscription aux agapes pour cette tenue
+      </div>
+      {% endif %}
+    </div>
+
+    <!-- Récapitulatif -->
+    {% if total_covers > 0 %}
+    <div class="px-5 py-4 bg-amber-50 border-t border-amber-100 flex items-center justify-between">
+      <span class="text-sm font-semibold text-amber-800">Total à préparer</span>
+      <span class="text-2xl font-black text-amber-700">{{ total_covers }} couverts</span>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Liste d'attente -->
+  {% if meeting.waitlist %}
+  <div class="bg-white rounded-xl border border-amber-200 shadow-sm p-5">
+    <h2 class="text-sm font-semibold text-amber-700 mb-2">⏳ Liste d'attente ({{ meeting.waitlist | length }})</h2>
+    <p class="text-xs text-gray-500">Ces personnes seront contactées si des places se libèrent.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

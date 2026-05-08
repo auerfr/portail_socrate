@@ -17,9 +17,13 @@ class EventType(str, enum.Enum):
 
 
 class EventVisibility(str, enum.Enum):
-    ALL      = "ALL"       # Tous les membres
-    OFFICERS = "OFFICERS"  # Officiers et au-dessus
-    ADMIN    = "ADMIN"     # Admin seulement
+    ALL                  = "ALL"                  # Tous les membres actifs
+    MAITRES              = "MAITRES"              # Maîtres uniquement
+    COMPAGNONS_ET_MAITRES = "COMPAGNONS_ET_MAITRES"  # Compagnons + Maîtres
+    APPRENTIS            = "APPRENTIS"            # Apprentis uniquement
+    OFFICERS             = "OFFICERS"             # Conseil d'officiers (toute fonction)
+    GROUP                = "GROUP"                # Groupe spécifique (visibility_group_id)
+    ADMIN                = "ADMIN"                # Administrateurs seulement
 
 
 class LodgeEvent(Base):
@@ -38,6 +42,14 @@ class LodgeEvent(Base):
     event_type: Mapped[EventType] = mapped_column(Enum(EventType))
     visibility: Mapped[EventVisibility] = mapped_column(
         Enum(EventVisibility), default=EventVisibility.ALL
+    )
+
+    # Lien de réunion à distance (Zoom, Teams, Jitsi…)
+    meeting_url: Mapped[Optional[str]] = mapped_column(String(500))
+
+    # Pour GroupType.GROUP : groupe ciblé (résolution dynamique)
+    visibility_group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lodge_groups.id", ondelete="SET NULL"), nullable=True
     )
 
     # Lien optionnel vers une tenue si cet event est issu d'une tenue

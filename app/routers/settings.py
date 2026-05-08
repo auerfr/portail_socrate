@@ -1,16 +1,20 @@
 """Router Paramètres — configuration loge, VM, Secrétaire, temple"""
-from typing import Annotated
-from fastapi import APIRouter, Depends, Request, HTTPException
+from pathlib import Path
+from typing import Annotated, Optional
+from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
+from app.config import get_settings
 from app.database import get_db
-from app.dependencies import require_admin
+from app.dependencies import require_admin, require_auth
 from app.models.lodge import LodgeSettings, LodgeOffice
-from app.models.identity import Member, MemberStatus, LodgeFunction
+from app.models.identity import Member, MemberStatus, LodgeFunction, User
+
+ENV_FILE = Path(__file__).parent.parent.parent / ".env"
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 templates = Jinja2Templates(directory="app/templates")
@@ -64,6 +68,18 @@ async def settings_page(
     members = await _get_active_members(db)
     offices = await _get_offices(db)
 
+    cfg = get_settings()
+
+    # Tous les utilisateurs avec leur fiche membre pour gestion super-admins
+    r_users = await db.execute(
+        select(User).order_by(User.login)
+    )
+    all_users = r_users.scalars().all()
+    member_by_id = {m.id: m for m in members}
+    # Charger aussi les membres non actifs pour avoir les noms des admins
+    r_all_members = await db.execute(select(Member).order_by(Member.last_name))
+    all_member_map = {m.id: m for m in r_all_members.scalars().all()}
+
     return templates.TemplateResponse(request, "pages/settings/index.html", {
         "current_member": member,
         "current_user": user,
@@ -71,7 +87,18 @@ async def settings_page(
         "members": members,
         "offices": offices,
         "is_admin": user.is_admin,
+        "all_users": all_users,
+        "all_member_map": all_member_map,
         "saved": request.query_params.get("saved"),
+        "smtp_saved": request.query_params.get("smtp_saved"),
+        "smtp_ok":    request.query_params.get("smtp_ok"),
+        "smtp_fail":  request.query_params.get("smtp_fail"),
+        "smtp_err":   request.query_params.get("smtp_err"),
+        "smtp_host": cfg.smtp_host,
+        "smtp_port": cfg.smtp_port,
+        "smtp_user": cfg.smtp_user,
+        "smtp_from": cfg.smtp_from,
+        "smtp_secure": cfg.smtp_secure,
     })
 
 
@@ -140,8 +167,21 @@ async def settings_save_lodge(
     lodge.standard_schedule = form.get("standard_schedule", "").strip() or None
     lodge.chantiers_info    = form.get("chantiers_info", "").strip() or None
 
+    # Seuils assiduité
+    tw = form.get("attendance_threshold_warn", "").strip()
+    td = form.get("attendance_threshold_danger", "").strip()
+    if tw.isdigit():
+        lodge.attendance_threshold_warn = max(1, min(100, int(tw)))
+    if td.isdigit():
+        lodge.attendance_threshold_danger = max(1, min(100, int(td)))
+
+    # Visio
+    lodge.visio_provider   = form.get("visio_provider", "").strip() or None
+    lodge.visio_server_url = form.get("visio_server_url", "").strip() or None
+    lodge.visio_room_prefix = form.get("visio_room_prefix", "").strip() or None
+
     await db.commit()
-    return RedirectResponse(url="/settings/?saved=1", status_code=303)
+    return RedirectResponse(url="/settings/?saved=lodge", status_code=303)
 
 
 @router.post("/officers", response_class=HTMLResponse)
@@ -193,4 +233,152 @@ async def settings_save_officers(
         ))
 
     await db.commit()
-    return RedirectResponse(url="/settings/?saved=1", status_code=303)
+    return RedirectResponse(url="/settings/?saved=officers", status_code=303)
+
+
+# ── Configuration SMTP (admin seulement) ──────────────────────────────────
+
+def _update_env(key: str, value: str) -> None:
+    """Met à jour (ou ajoute) une clé dans le fichier .env sans toucher aux autres."""
+    if not ENV_FILE.exists():
+        ENV_FILE.write_text(f"{key}={value}\n", encoding="utf-8")
+        return
+    lines = ENV_FILE.read_text(encoding="utf-8").splitlines()
+    found = False
+    new_lines = []
+    for line in lines:
+        if line.startswith(f"{key}=") or line.startswith(f"{key} ="):
+            new_lines.append(f"{key}={value}")
+            found = True
+        else:
+            new_lines.append(line)
+    if not found:
+        new_lines.append(f"{key}={value}")
+    ENV_FILE.write_text("\n".join(new_lines) + "\n", encoding="utf-8")
+
+
+@router.post("/smtp")
+async def settings_save_smtp(
+    request: Request,
+    ctx: Annotated[object, Depends(require_admin)],
+    smtp_host: str = Form(""),
+    smtp_port: str = Form("465"),
+    smtp_user: str = Form(""),
+    smtp_pass: str = Form(""),
+    smtp_secure: str = Form("ssl"),
+    smtp_from: str = Form(""),
+):
+    """Écrit les paramètres SMTP dans le .env."""
+    if smtp_host.strip():
+        _update_env("SMTP_HOST", smtp_host.strip())
+    if smtp_port.strip():
+        _update_env("SMTP_PORT", smtp_port.strip())
+    if smtp_user.strip():
+        _update_env("SMTP_USER", smtp_user.strip())
+        _update_env("SMTP_FROM", smtp_from.strip() or smtp_user.strip())
+    if smtp_pass.strip():          # ne pas écraser si vide = "ne pas changer"
+        _update_env("SMTP_PASS", smtp_pass.strip())
+    if smtp_secure in ("ssl", "tls", "none"):
+        _update_env("SMTP_SECURE", smtp_secure)
+
+    # Invalider le cache settings pour la session courante
+    get_settings.cache_clear()
+
+    return RedirectResponse(url="/settings/?smtp_saved=1", status_code=303)
+
+
+@router.post("/smtp/test")
+async def settings_test_smtp(
+    request: Request,
+    ctx: Annotated[object, Depends(require_admin)],
+    test_to: Optional[str] = Form(None),
+):
+    """Envoie un email de test à l'adresse spécifiée (ou celle du membre)."""
+    user, member = ctx
+    from app.services.email import _send_raw
+    from urllib.parse import quote
+
+    recipient = (test_to or "").strip() or member.email
+    if not recipient:
+        return RedirectResponse(url="/settings/?smtp_fail=1&smtp_err=Aucune+adresse+email+configurée", status_code=303)
+
+    html = f"""
+    <div style="font-family:Arial,sans-serif;max-width:480px;margin:0 auto;padding:24px;">
+      <h2 style="color:#2340b0;">✅ Configuration SMTP opérationnelle</h2>
+      <p style="color:#374151;">
+        Ce message de test a été envoyé depuis le <strong>Portail Socrate</strong>
+        à l'adresse <strong>{recipient}</strong>.
+      </p>
+      <p style="color:#6b7280;font-size:13px;">
+        Serveur : {get_settings().smtp_host}:{get_settings().smtp_port}
+        ({get_settings().smtp_secure.upper()})<br>
+        Compte : {get_settings().smtp_user}
+      </p>
+    </div>"""
+
+    text = (
+        f"Test SMTP — Portail Socrate\n\n"
+        f"Configuration opérationnelle.\n"
+        f"Serveur : {get_settings().smtp_host}:{get_settings().smtp_port}\n"
+        f"Compte  : {get_settings().smtp_user}"
+    )
+
+    ok, err = await _send_raw(
+        to=recipient,
+        subject="[Portail Socrate] Test de configuration SMTP",
+        html=html,
+        text=text,
+    )
+    if ok:
+        enc = quote(recipient)
+        return RedirectResponse(url=f"/settings/?smtp_ok=1&smtp_to={enc}", status_code=303)
+    else:
+        err_enc = quote(str(err)[:200])
+        return RedirectResponse(url=f"/settings/?smtp_fail=1&smtp_err={err_enc}", status_code=303)
+
+
+# ── Préférences personnelles (accessible à tous les membres) ───────────────
+
+@router.get("/notifications", response_class=HTMLResponse)
+async def notifications_prefs(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+):
+    user, member = ctx
+    return templates.TemplateResponse(request, "pages/settings/notifications.html", {
+        "current_member": member,
+        "current_user": user,
+        "saved": request.query_params.get("saved"),
+    })
+
+
+@router.post("/notifications")
+async def notifications_prefs_save(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    email_notifications: Optional[str] = Form(None),
+):
+    user, member = ctx
+    member.email_notifications = email_notifications == "on"
+    await db.commit()
+    return RedirectResponse(url="/settings/notifications?saved=1", status_code=303)
+
+
+@router.post("/users/{user_id}/toggle-admin")
+async def toggle_admin(
+    request: Request,
+    user_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    current_user, _ = ctx
+    target = await db.get(User, user_id)
+    if not target:
+        raise HTTPException(status_code=404)
+    if target.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Impossible de modifier son propre statut admin.")
+    target.is_admin = not target.is_admin
+    await db.commit()
+    return RedirectResponse(url="/settings/?saved=admin", status_code=303)
+

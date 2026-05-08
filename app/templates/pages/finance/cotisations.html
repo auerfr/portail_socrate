@@ -113,7 +113,8 @@
       {% set sum_contribs.v = sum_contribs.v + contrib.total_amount|float %}
       {% set tn_chk = (tiers | selectattr('id', 'equalto', contrib.tier_id) | list | first) %}
       {% if tn_chk %}
-        {% set expected_chk = tn_chk.amount|float + capitation %}
+        {% set cap_chk = 0.0 if (m.membership_type and m.membership_type.value == 'AFFILIATION') else capitation %}
+        {% set expected_chk = tn_chk.amount|float + cap_chk %}
         {% if (contrib.total_amount|float - expected_chk)|abs > 0.005 %}
           {% set has_desync.flag = true %}
         {% endif %}
@@ -173,7 +174,11 @@
         <thead>
           <tr class="border-b border-gray-100 bg-gray-50">
             <th class="text-left px-5 py-3 font-medium text-xs text-gray-500">Frère</th>
+            <th class="text-center px-3 py-3 font-medium text-xs text-gray-500">Type</th>
             <th class="text-center px-3 py-3 font-medium text-xs text-gray-500">Tranche</th>
+            <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Part asso.</th>
+            <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Cap. nat.</th>
+            <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Cap. rég.</th>
             <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Total dû</th>
             <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Encaissé</th>
             <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Solde</th>
@@ -205,6 +210,15 @@
               </a>
             </td>
 
+            <!-- Type -->
+            <td class="text-center px-3 py-3">
+              {% if m.membership_type and m.membership_type.value == 'AFFILIATION' %}
+              <span class="text-xs px-2 py-0.5 rounded-full bg-sky-100 text-sky-700">Affilié</span>
+              {% else %}
+              <span class="text-xs px-2 py-0.5 rounded-full bg-loge-100 text-loge-700">Appart.</span>
+              {% endif %}
+            </td>
+
             <!-- Tranche -->
             <td class="text-center px-3 py-3">
               {% if contrib %}
@@ -220,12 +234,32 @@
               {% endif %}
             </td>
 
+            <!-- Part associative -->
+            <td class="text-right px-3 py-3 tabular-nums text-gray-600">
+              {% if contrib %}{{ "%.2f"|format(contrib.base_amount|float) }} €{% else %}—{% endif %}
+            </td>
+
+            <!-- Capitation nationale -->
+            <td class="text-right px-3 py-3 tabular-nums text-gray-600">
+              {% if contrib and contrib.capitation_amount > 0 and cfg %}
+              {{ "%.2f"|format(cfg.national_capitation_rate|float) }} €
+              {% elif contrib %}0.00 €{% else %}—{% endif %}
+            </td>
+
+            <!-- Capitation régionale -->
+            <td class="text-right px-3 py-3 tabular-nums text-gray-600">
+              {% if contrib and contrib.capitation_amount > 0 and cfg %}
+              {{ "%.2f"|format(cfg.regional_capitation_rate|float) }} €
+              {% elif contrib %}0.00 €{% else %}—{% endif %}
+            </td>
+
             <!-- Total dû (avec détection désynchronisation barème) -->
             <td class="text-right px-3 py-3 font-medium text-gray-800 tabular-nums">
               {% if contrib %}
               {% set tn_amount = (tiers | selectattr('id', 'equalto', contrib.tier_id) | list | first) %}
               {% if tn_amount and cfg %}
-                {% set expected = tn_amount.amount|float + cfg.national_capitation_rate|float + cfg.regional_capitation_rate|float %}
+                {% set cap_m = 0.0 if (m.membership_type and m.membership_type.value == 'AFFILIATION') else (cfg.national_capitation_rate|float + cfg.regional_capitation_rate|float) %}
+                {% set expected = tn_amount.amount|float + cap_m %}
                 {% set stored = contrib.total_amount|float %}
                 {% if (stored - expected)|abs > 0.005 %}
                 <span class="text-amber-600" title="⚠ Montant désynchronisé — barème actuel : {{ '%.2f'|format(expected) }} €. Utilisez 'Recalculer les montants'.">
@@ -283,6 +317,12 @@
             <td class="px-5 py-3">
               <div class="flex gap-1 items-center">
 
+                <!-- Fiche membre finance -->
+                <a href="/finance/membres/{{ m.id }}"
+                   class="text-xs border border-loge-200 text-loge-700 px-2 py-1 rounded hover:bg-loge-50">
+                  Fiche
+                </a>
+
                 <!-- Bouton affecter tranche -->
                 <button @click="openAssign = !openAssign; openPay = false"
                         class="text-xs border border-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">
@@ -300,8 +340,16 @@
                 <!-- Exempter -->
                 {% if contrib and contrib.status.value not in ['PAID','EXEMPT'] %}
                 <form method="post" action="/finance/cotisations/{{ contrib.id }}/exempt"
-                      onsubmit="return confirm('Marquer ce frère comme exempté ?')">
+                      onsubmit="return confirm('Marquer ce frère comme exempté de cotisation ?')">
                   <button type="submit" class="text-xs text-gray-400 hover:text-purple-600 px-1 py-1" title="Exempter">⊘</button>
+                </form>
+                {% endif %}
+
+                <!-- Supprimer cotisation (quitus + paiements inclus) -->
+                {% if contrib %}
+                <form method="post" action="/finance/cotisations/{{ contrib.id }}/delete"
+                      onsubmit="return confirm('Supprimer définitivement cette cotisation{% if contrib.payments %} et ses {{ contrib.payments|length }} paiement(s){% endif %}{% if contrib.quitus %} + quitus{% endif %} ? Irréversible.')">
+                  <button type="submit" class="text-xs text-gray-400 hover:text-red-600 px-1 py-1" title="Supprimer la cotisation">🗑</button>
                 </form>
                 {% endif %}
 
@@ -351,40 +399,116 @@
                 </form>
               </div>
 
-              <!-- Form paiement (dropdown inline) -->
+              <!-- Panneau paiements + montant -->
               {% if contrib %}
-              <div x-show="openPay" x-cloak
-                   class="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50 text-xs space-y-2">
-                <form method="post" action="/finance/cotisations/{{ contrib.id }}/pay" class="space-y-2">
-                  <div class="grid grid-cols-2 gap-2">
-                    <div>
-                      <label class="block text-gray-600 mb-1">Montant (€)</label>
-                      <input type="number" name="amount" step="0.01" min="0"
-                             value="{{ "%.2f"|format(contrib.amount_remaining) }}"
-                             class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+              <div x-show="openPay" x-cloak x-data="{ editPayId: null }"
+                   class="mt-2 p-3 border border-gray-200 rounded-lg bg-gray-50 text-xs space-y-3">
+
+                <!-- Paiements existants -->
+                {% if contrib.payments %}
+                <div>
+                  <p class="text-gray-500 font-medium mb-1">Paiements enregistrés</p>
+                  {% for p in contrib.payments %}
+                  <div class="border border-gray-100 rounded bg-white p-2 mb-1">
+                    <div x-show="editPayId !== {{ p.id }}" class="flex items-center gap-2">
+                      <span class="font-semibold text-gray-800">{{ "%.2f"|format(p.amount|float) }} €</span>
+                      <span class="text-gray-500">{{ p.payment_date.strftime('%d/%m/%Y') if p.payment_date else '' }}</span>
+                      <span class="text-gray-400">{{ method_labels.get(p.method.value, p.method.value) }}</span>
+                      {% if p.reference %}<span class="text-gray-400 italic">{{ p.reference }}</span>{% endif %}
+                      <button type="button" @click="editPayId = {{ p.id }}"
+                              class="ml-auto text-blue-500 hover:text-blue-700 px-1">✏</button>
+                      <form method="post" action="/finance/payments/{{ p.id }}/delete"
+                            onsubmit="return confirm('Supprimer ce paiement de {{ "%.2f"|format(p.amount|float) }} € ?')">
+                        <button type="submit" class="text-red-400 hover:text-red-600 px-1">🗑</button>
+                      </form>
                     </div>
-                    <div>
-                      <label class="block text-gray-600 mb-1">Date</label>
-                      <input type="date" name="payment_date"
-                             value="{{ now.strftime('%Y-%m-%d') if now else '' }}"
-                             class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                    <!-- Formulaire d'édition inline -->
+                    <div x-show="editPayId === {{ p.id }}" x-cloak>
+                      <form method="post" action="/finance/payments/{{ p.id }}/edit" class="space-y-2">
+                        <div class="grid grid-cols-2 gap-2">
+                          <div>
+                            <label class="block text-gray-600 mb-1">Montant (€)</label>
+                            <input type="number" name="amount" step="0.01" min="0"
+                                   value="{{ "%.2f"|format(p.amount|float) }}"
+                                   class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                          </div>
+                          <div>
+                            <label class="block text-gray-600 mb-1">Date</label>
+                            <input type="date" name="payment_date"
+                                   value="{{ p.payment_date.strftime('%Y-%m-%d') if p.payment_date else '' }}"
+                                   class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                          </div>
+                        </div>
+                        <select name="method" class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                          {% for val, lbl in method_labels.items() %}
+                          <option value="{{ val }}" {% if p.method.value == val %}selected{% endif %}>{{ lbl }}</option>
+                          {% endfor %}
+                        </select>
+                        <input type="text" name="reference" value="{{ p.reference or '' }}"
+                               placeholder="Référence" class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                        <div class="flex gap-2">
+                          <button type="submit" class="flex-1 bg-blue-600 text-white py-1 rounded text-xs font-semibold hover:bg-blue-700">Enregistrer</button>
+                          <button type="button" @click="editPayId = null" class="flex-1 border border-gray-200 py-1 rounded text-xs hover:bg-gray-100">Annuler</button>
+                        </div>
+                      </form>
                     </div>
                   </div>
-                  <div>
-                    <label class="block text-gray-600 mb-1">Mode</label>
+                  {% endfor %}
+                </div>
+                {% endif %}
+
+                <!-- Nouveau paiement -->
+                {% if contrib.status.value not in ['PAID','EXEMPT'] %}
+                <div>
+                  <p class="text-gray-500 font-medium mb-1">Ajouter un paiement</p>
+                  <form method="post" action="/finance/cotisations/{{ contrib.id }}/pay" class="space-y-2">
+                    <div class="grid grid-cols-2 gap-2">
+                      <div>
+                        <label class="block text-gray-600 mb-1">Montant (€)</label>
+                        <input type="number" name="amount" step="0.01" min="0"
+                               value="{{ "%.2f"|format(contrib.amount_remaining) }}"
+                               class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                      </div>
+                      <div>
+                        <label class="block text-gray-600 mb-1">Date</label>
+                        <input type="date" name="payment_date"
+                               value="{{ now.strftime('%Y-%m-%d') if now else '' }}"
+                               class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                      </div>
+                    </div>
                     <select name="method" class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
                       {% for val, lbl in method_labels.items() %}
                       <option value="{{ val }}">{{ lbl }}</option>
                       {% endfor %}
                     </select>
-                  </div>
-                  <input type="text" name="reference" placeholder="Référence (optionnel)"
-                         class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
-                  <button type="submit"
-                          class="w-full bg-green-700 text-white py-1.5 rounded text-xs font-semibold hover:bg-green-800">
-                    Enregistrer le paiement
-                  </button>
-                </form>
+                    <input type="text" name="reference" placeholder="Référence (optionnel)"
+                           class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                    <button type="submit"
+                            class="w-full bg-green-700 text-white py-1.5 rounded text-xs font-semibold hover:bg-green-800">
+                      Enregistrer le paiement
+                    </button>
+                  </form>
+                </div>
+                {% endif %}
+
+                <!-- Modifier le montant dû -->
+                <details class="border border-amber-200 rounded bg-amber-50">
+                  <summary class="px-2 py-1.5 cursor-pointer text-amber-700 font-medium">Modifier le montant dû manuellement</summary>
+                  <form method="post" action="/finance/cotisations/{{ contrib.id }}/set-amount" class="p-2 space-y-2">
+                    <div class="flex gap-2 items-end">
+                      <div class="flex-1">
+                        <label class="block text-gray-600 mb-1">Nouveau montant dû (€)</label>
+                        <input type="number" name="total_amount" step="0.01" min="0"
+                               value="{{ "%.2f"|format(contrib.total_amount|float) }}"
+                               class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                      </div>
+                      <button type="submit" class="bg-amber-600 text-white px-3 py-1 rounded text-xs font-semibold hover:bg-amber-700">OK</button>
+                    </div>
+                    <input type="text" name="notes" placeholder="Raison (optionnel)"
+                           class="w-full border border-gray-200 rounded px-2 py-1 text-xs">
+                  </form>
+                </details>
+
               </div>
               {% endif %}
 

@@ -1,0 +1,549 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Tenue solennelle du 07/05/2026</title>
+
+  <script src="https://cdn.tailwindcss.com"></script>
+
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Libre+Baskerville:ital,wght@0,400;0,700;1,400&display=swap');
+
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #bbb;
+      font-family: 'Libre Baskerville', 'Times New Roman', serif;
+      font-size: 11.5pt;
+      color: #111;
+    }
+
+    /* ══ PAGE A4 ══ */
+    .page {
+      width: 210mm;
+      height: 297mm;
+      background: white;
+      margin: 0 auto;
+      padding: 13mm 17mm 11mm;
+      box-shadow: 0 4px 20px rgba(0,0,0,0.25);
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .page + .page { margin-top: 8mm; }
+
+    /* ══ HEADER ══ */
+    .header {
+      display: grid;
+      grid-template-columns: 86px 1fr 64px;
+      align-items: center;
+      gap: 10px;
+      padding-bottom: 7px;
+      border-bottom: 1.5px solid #222;
+      flex-shrink: 0;
+    }
+    .header img { display: block; }
+    .header-title { text-align: center; line-height: 1.3; }
+    .header-title .loge-name {
+      font-size: 16.5pt;
+      font-weight: 700;
+      letter-spacing: 0.3px;
+    }
+    .header-title .loge-sub { font-size: 10pt; }
+    .rite-line {
+      text-align: center;
+      font-size: 10pt;
+      font-style: italic;
+      margin-top: 6px;
+      color: #444;
+      flex-shrink: 0;
+    }
+
+    /* ══ CORPS — occupe tout l'espace disponible, distribue verticalement ══ */
+    .body {
+      margin-top: 10px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+      min-height: 0;
+    }
+
+    /* Bloc intro (salutation + texte invitation) */
+    .intro-block { flex-shrink: 0; margin-bottom: 6px; }
+    .salutation { font-size: 11pt; font-style: italic; margin-bottom: 4px; }
+    .invitation { font-size: 11pt; line-height: 1.55; }
+
+    /* ══ TENUES ══ */
+    .meetings-block { flex-shrink: 0; }
+    .meeting-block { margin-bottom: 16px; page-break-inside: avoid; }
+    .meeting-title-line {
+      font-size: 11pt;
+      font-weight: 700;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      line-height: 1.4;
+    }
+    .meeting-triangle { font-size: 12pt; flex-shrink: 0; }
+    .meeting-items { margin-left: 20px; margin-bottom: 5px; }
+    .meeting-item {
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      font-size: 10pt;
+      margin-bottom: 3px;
+      line-height: 1.5;
+    }
+    .meeting-item::before { content: "•"; font-size: 10pt; flex-shrink: 0; color: #333; }
+    .meeting-agenda-free {
+      margin-left: 20px;
+      font-size: 10pt;
+      color: #333;
+      white-space: pre-line;
+      line-height: 1.5;
+      margin-bottom: 5px;
+    }
+
+    /* QR + URL */
+    .meeting-qr-inline {
+      margin-left: 24px;
+      margin-top: 6px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .meeting-qr-inline .qr-wrap svg { width: 60px; height: 60px; display: block; }
+    .meeting-qr-inline .qr-url {
+      font-family: monospace;
+      font-size: 8.5pt;
+      color: #1a0099;
+      word-break: break-all;
+      max-width: 120mm;
+    }
+
+    /* ══ OJ COMMUN — 2 colonnes pour tenir sur moins de hauteur ══ */
+    .oj-section {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      page-break-inside: avoid;
+      min-height: 0;
+    }
+    .oj-title-line {
+      font-size: 10pt;
+      font-weight: 700;
+      margin-bottom: 5px;
+      display: flex;
+      align-items: baseline;
+      gap: 5px;
+      flex-shrink: 0;
+    }
+    .oj-rows {
+      margin-left: 8px;
+      flex: 1;
+      columns: 2;
+      column-gap: 18px;
+      column-fill: balance;
+    }
+    .oj-time-row {
+      font-weight: 700;
+      font-size: 8pt;
+      line-height: 1.35;
+      margin-top: 4px;
+      break-after: avoid;
+      color: #111;
+    }
+    .oj-time-row:first-child { margin-top: 0; }
+    .oj-desc-row {
+      padding-left: 8px;
+      font-size: 8pt;
+      line-height: 1.35;
+      break-inside: avoid;
+    }
+
+    /* ══ À NOTER ══ */
+    .anote-section { flex-shrink: 0; font-size: 11pt; line-height: 1.55; margin-top: 8px; }
+
+    /* ══ FOOTER — toujours en bas ══ */
+    .footer {
+      border-top: 1.5px solid #222;
+      padding-top: 8px;
+      flex-shrink: 0;
+    }
+    .footer-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr 1fr;
+      gap: 8px;
+      font-size: 9.5pt;
+      line-height: 1.55;
+    }
+    .footer-col-title { font-weight: 700; font-size: 10.5pt; margin-bottom: 2px; }
+    .footer-col.center { text-align: center; }
+    .footer-col.right  { text-align: right; }
+    .footer-schedule {
+      margin-top: 7px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 3px 16px;
+      font-size: 9pt;
+      border-top: 0.75px solid #999;
+      padding-top: 5px;
+      color: #333;
+    }
+
+    /* ══ PAGE 2 — PORTRAIT PLEINE PAGE ══ */
+    .page-portrait {
+      padding: 0;
+      position: relative;
+      overflow: hidden;
+    }
+    .page-portrait img.portrait {
+      width: 210mm;
+      height: 297mm;
+      object-fit: cover;
+      object-position: center top;
+      display: block;
+    }
+    .page-portrait .symbols {
+      position: absolute;
+      left: 0; right: 0;
+      font-size: 16pt;
+      letter-spacing: 10px;
+      color: rgba(255,255,255,0.75);
+      text-align: center;
+      text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+    .page-portrait .symbols.top    { top: 12mm; }
+    .page-portrait .symbols.bottom { bottom: 12mm; }
+
+    /* ══ IMPRESSION ══ */
+    @page {
+      size: A4 portrait;
+      margin: 0mm;
+    }
+    @media print {
+      html {
+        background: white !important;
+        -webkit-print-color-adjust: exact;
+        print-color-adjust: exact;
+      }
+      body { background: white !important; margin: 0; padding: 0; }
+      .no-print  { display: none !important; }
+      .page {
+        box-shadow: none !important;
+        margin: 0 !important;
+        width: 210mm !important;
+        height: 297mm !important;
+      }
+      .page + .page {
+        page-break-before: always;
+        break-before: page;
+        margin-top: 0;
+      }
+    }
+  </style>
+</head>
+
+<body>
+
+  <!-- ── Barre d'actions (écran seulement) ── -->
+  <div class="no-print" style="width:210mm;margin:0 auto;padding:10px 0;">
+
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;align-items:center;">
+        <a href="/programs/" style="font-size:12px;padding:5px 14px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;text-decoration:none;">← Retour</a>
+        
+        
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;">
+        
+        <button onclick="window.print()"
+                style="font-size:12px;padding:7px 18px;background:#374151;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">
+          🖨 Imprimer / PDF
+        </button>
+      </div>
+    </div>
+
+    
+
+    <!-- Conseil impression imprimante physique -->
+    <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:8px 12px;font-size:11px;color:#92400e;line-height:1.5;">
+      <strong>⚠ Impression sur imprimante physique :</strong>
+      dans la boîte de dialogue, aller dans <em>« Plus de paramètres »</em> (Chrome/Edge)
+      et vérifier : <strong>Marges = Aucune</strong> · <strong>Mise à l'échelle = 100%</strong> ·
+      <strong>Décocher « En-têtes et pieds de page »</strong>.
+      Pour générer un PDF fidèle, choisir l'imprimante <em>« Microsoft Print to PDF »</em> ou <em>« Enregistrer en PDF »</em>.
+    </div>
+
+  </div>
+
+  <!-- ════════════════════
+       PAGE 1 — PROGRAMME
+  ════════════════════ -->
+  <div class="page">
+
+    <!-- EN-TÊTE -->
+    <div class="header">
+      <!-- Sceau gauche -->
+      <div style="text-align:center;">
+        <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau" style="width:80px;height:auto;">
+      </div>
+
+      <!-- Titre central -->
+      <div class="header-title">
+        <div class="loge-name">SOCRATE – Raison et Progrès</div>
+        <div class="loge-sub">Au nom et sous les auspices du Grand Orient de France</div>
+        <div class="loge-sub">Or∴ de Mousson R∴L∴ n°4276</div>
+      </div>
+
+      <!-- Rosace droite -->
+      <div style="text-align:center;">
+        <img src="/static/img/rosace-godf.jpg" alt="Rosace" style="width:56px;height:auto;">
+      </div>
+    </div>
+
+    <!-- Rite -->
+    <div class="rite-line">
+      — ϕ — Rite Français Philosophique — ϕ —
+    </div>
+
+    <!-- CORPS -->
+    <div class="body">
+
+      <div class="intro-block">
+        <p class="salutation">Mon T∴C∴F∴, ma T∴C∴S∴,</p>
+        <p class="invitation">
+          lkjfljfdslkj
+        </p>
+      </div>
+
+      <!-- ── TENUES ── -->
+      <div class="meetings-block">
+      
+      
+      
+
+      <div class="meeting-block">
+
+        <!-- Titre de la tenue -->
+        <div class="meeting-title-line">
+          <span class="meeting-triangle">△</span>
+          <span>
+            
+              
+              88ème Ten∴
+            
+            Ten∴ Sol∴
+            du 5 mai 2026
+            en Loge d'M∴
+          </span>
+        </div>
+
+        <!-- Ordre du jour de la tenue -->
+        
+        <div class="meeting-agenda-free">lkjhfdlkhds
+ujsfjhsf
+jfjdsfj
+lkjsdlsj</div>
+        
+
+        <!-- Degrés multiples si besoin -->
+        
+
+        <!-- Agape -->
+        
+        <div class="meeting-items">
+          <div class="meeting-item">
+            Agape fraternelle à l'issue — None
+            (Réservation impérative avant la Tenue)
+          </div>
+        </div>
+        
+
+        <!-- QR + URL -->
+        <div class="meeting-qr-inline">
+          <div class="qr-wrap"><svg width="24.6mm" height="24.6mm" version="1.1" viewBox="0 0 24.6 24.6" xmlns="http://www.w3.org/2000/svg"><path d="M1.2,1.2H1.8V1.8H1.2zM1.8,1.2H2.4V1.8H1.8zM2.4,1.2H3V1.8H2.4zM3,1.2H3.6V1.8H3zM3.6,1.2H4.2V1.8H3.6zM4.2,1.2H4.8V1.8H4.2zM4.8,1.2H5.4V1.8H4.8zM6,1.2H6.6V1.8H6zM6.6,1.2H7.2V1.8H6.6zM7.8,1.2H8.4V1.8H7.8zM8.4,1.2H9V1.8H8.4zM9,1.2H9.6V1.8H9zM10.2,1.2H10.8V1.8H10.2zM10.8,1.2H11.4V1.8H10.8zM11.4,1.2H12V1.8H11.4zM12.6,1.2H13.2V1.8H12.6zM13.8,1.2H14.4V1.8H13.8zM15,1.2H15.6V1.8H15zM16.8,1.2H17.4V1.8H16.8zM17.4,1.2H18V1.8H17.4zM18,1.2H18.6V1.8H18zM19.2,1.2H19.8V1.8H19.2zM19.8,1.2H20.4V1.8H19.8zM20.4,1.2H21V1.8H20.4zM21,1.2H21.6V1.8H21zM21.6,1.2H22.2V1.8H21.6zM22.2,1.2H22.8V1.8H22.2zM22.8,1.2H23.4V1.8H22.8zM1.2,1.8H1.8V2.4H1.2zM4.8,1.8H5.4V2.4H4.8zM6,1.8H6.6V2.4H6zM7.2,1.8H7.8V2.4H7.2zM7.8,1.8H8.4V2.4H7.8zM8.4,1.8H9V2.4H8.4zM12,1.8H12.6V2.4H12zM13.8,1.8H14.4V2.4H13.8zM15,1.8H15.6V2.4H15zM16.8,1.8H17.4V2.4H16.8zM19.2,1.8H19.8V2.4H19.2zM22.8,1.8H23.4V2.4H22.8zM1.2,2.4H1.8V3H1.2zM2.4,2.4H3V3H2.4zM3,2.4H3.6V3H3zM3.6,2.4H4.2V3H3.6zM4.8,2.4H5.4V3H4.8zM6.6,2.4H7.2V3H6.6zM9.6,2.4H10.2V3H9.6zM10.8,2.4H11.4V3H10.8zM12,2.4H12.6V3H12zM15,2.4H15.6V3H15zM15.6,2.4H16.2V3H15.6zM16.2,2.4H16.8V3H16.2zM16.8,2.4H17.4V3H16.8zM18,2.4H18.6V3H18zM19.2,2.4H19.8V3H19.2zM20.4,2.4H21V3H20.4zM21,2.4H21.6V3H21zM21.6,2.4H22.2V3H21.6zM22.8,2.4H23.4V3H22.8zM1.2,3H1.8V3.6H1.2zM2.4,3H3V3.6H2.4zM3,3H3.6V3.6H3zM3.6,3H4.2V3.6H3.6zM4.8,3H5.4V3.6H4.8zM6,3H6.6V3.6H6zM9,3H9.6V3.6H9zM9.6,3H10.2V3.6H9.6zM10.2,3H10.8V3.6H10.2zM10.8,3H11.4V3.6H10.8zM11.4,3H12V3.6H11.4zM12.6,3H13.2V3.6H12.6zM14.4,3H15V3.6H14.4zM16.2,3H16.8V3.6H16.2zM18,3H18.6V3.6H18zM19.2,3H19.8V3.6H19.2zM20.4,3H21V3.6H20.4zM21,3H21.6V3.6H21zM21.6,3H22.2V3.6H21.6zM22.8,3H23.4V3.6H22.8zM1.2,3.6H1.8V4.2H1.2zM2.4,3.6H3V4.2H2.4zM3,3.6H3.6V4.2H3zM3.6,3.6H4.2V4.2H3.6zM4.8,3.6H5.4V4.2H4.8zM6.6,3.6H7.2V4.2H6.6zM7.2,3.6H7.8V4.2H7.2zM8.4,3.6H9V4.2H8.4zM9,3.6H9.6V4.2H9zM9.6,3.6H10.2V4.2H9.6zM10.2,3.6H10.8V4.2H10.2zM11.4,3.6H12V4.2H11.4zM12.6,3.6H13.2V4.2H12.6zM13.2,3.6H13.8V4.2H13.2zM13.8,3.6H14.4V4.2H13.8zM15.6,3.6H16.2V4.2H15.6zM17.4,3.6H18V4.2H17.4zM19.2,3.6H19.8V4.2H19.2zM20.4,3.6H21V4.2H20.4zM21,3.6H21.6V4.2H21zM21.6,3.6H22.2V4.2H21.6zM22.8,3.6H23.4V4.2H22.8zM1.2,4.2H1.8V4.8H1.2zM4.8,4.2H5.4V4.8H4.8zM6.6,4.2H7.2V4.8H6.6zM8.4,4.2H9V4.8H8.4zM9,4.2H9.6V4.8H9zM12,4.2H12.6V4.8H12zM12.6,4.2H13.2V4.8H12.6zM13.8,4.2H14.4V4.8H13.8zM14.4,4.2H15V4.8H14.4zM18,4.2H18.6V4.8H18zM19.2,4.2H19.8V4.8H19.2zM22.8,4.2H23.4V4.8H22.8zM1.2,4.8H1.8V5.4H1.2zM1.8,4.8H2.4V5.4H1.8zM2.4,4.8H3V5.4H2.4zM3,4.8H3.6V5.4H3zM3.6,4.8H4.2V5.4H3.6zM4.2,4.8H4.8V5.4H4.2zM4.8,4.8H5.4V5.4H4.8zM6,4.8H6.6V5.4H6zM7.2,4.8H7.8V5.4H7.2zM8.4,4.8H9V5.4H8.4zM9.6,4.8H10.2V5.4H9.6zM10.8,4.8H11.4V5.4H10.8zM12,4.8H12.6V5.4H12zM13.2,4.8H13.8V5.4H13.2zM14.4,4.8H15V5.4H14.4zM15.6,4.8H16.2V5.4H15.6zM16.8,4.8H17.4V5.4H16.8zM18,4.8H18.6V5.4H18zM19.2,4.8H19.8V5.4H19.2zM19.8,4.8H20.4V5.4H19.8zM20.4,4.8H21V5.4H20.4zM21,4.8H21.6V5.4H21zM21.6,4.8H22.2V5.4H21.6zM22.2,4.8H22.8V5.4H22.2zM22.8,4.8H23.4V5.4H22.8zM6,5.4H6.6V6H6zM8.4,5.4H9V6H8.4zM9,5.4H9.6V6H9zM9.6,5.4H10.2V6H9.6zM10.8,5.4H11.4V6H10.8zM11.4,5.4H12V6H11.4zM12.6,5.4H13.2V6H12.6zM15.6,5.4H16.2V6H15.6zM16.8,5.4H17.4V6H16.8zM17.4,5.4H18V6H17.4zM18,5.4H18.6V6H18zM1.2,6H1.8V6.6H1.2zM2.4,6H3V6.6H2.4zM3,6H3.6V6.6H3zM4.2,6H4.8V6.6H4.2zM4.8,6H5.4V6.6H4.8zM5.4,6H6V6.6H5.4zM6.6,6H7.2V6.6H6.6zM7.2,6H7.8V6.6H7.2zM7.8,6H8.4V6.6H7.8zM9,6H9.6V6.6H9zM10.8,6H11.4V6.6H10.8zM13.8,6H14.4V6.6H13.8zM15,6H15.6V6.6H15zM16.2,6H16.8V6.6H16.2zM16.8,6H17.4V6.6H16.8zM17.4,6H18V6.6H17.4zM18,6H18.6V6.6H18zM19.2,6H19.8V6.6H19.2zM21,6H21.6V6.6H21zM22.2,6H22.8V6.6H22.2zM22.8,6H23.4V6.6H22.8zM1.2,6.6H1.8V7.2H1.2zM2.4,6.6H3V7.2H2.4zM3.6,6.6H4.2V7.2H3.6zM5.4,6.6H6V7.2H5.4zM6,6.6H6.6V7.2H6zM6.6,6.6H7.2V7.2H6.6zM7.2,6.6H7.8V7.2H7.2zM9.6,6.6H10.2V7.2H9.6zM10.2,6.6H10.8V7.2H10.2zM10.8,6.6H11.4V7.2H10.8zM11.4,6.6H12V7.2H11.4zM12,6.6H12.6V7.2H12zM13.2,6.6H13.8V7.2H13.2zM13.8,6.6H14.4V7.2H13.8zM15,6.6H15.6V7.2H15zM16.2,6.6H16.8V7.2H16.2zM16.8,6.6H17.4V7.2H16.8zM18,6.6H18.6V7.2H18zM18.6,6.6H19.2V7.2H18.6zM19.2,6.6H19.8V7.2H19.2zM19.8,6.6H20.4V7.2H19.8zM21,6.6H21.6V7.2H21zM22.2,6.6H22.8V7.2H22.2zM1.8,7.2H2.4V7.8H1.8zM3,7.2H3.6V7.8H3zM4.2,7.2H4.8V7.8H4.2zM4.8,7.2H5.4V7.8H4.8zM6,7.2H6.6V7.8H6zM7.2,7.2H7.8V7.8H7.2zM10.2,7.2H10.8V7.8H10.2zM11.4,7.2H12V7.8H11.4zM12,7.2H12.6V7.8H12zM13.8,7.2H14.4V7.8H13.8zM15,7.2H15.6V7.8H15zM15.6,7.2H16.2V7.8H15.6zM16.2,7.2H16.8V7.8H16.2zM16.8,7.2H17.4V7.8H16.8zM18.6,7.2H19.2V7.8H18.6zM21.6,7.2H22.2V7.8H21.6zM1.8,7.8H2.4V8.4H1.8zM3,7.8H3.6V8.4H3zM4.2,7.8H4.8V8.4H4.2zM5.4,7.8H6V8.4H5.4zM6,7.8H6.6V8.4H6zM7.2,7.8H7.8V8.4H7.2zM7.8,7.8H8.4V8.4H7.8zM8.4,7.8H9V8.4H8.4zM9,7.8H9.6V8.4H9zM9.6,7.8H10.2V8.4H9.6zM10.2,7.8H10.8V8.4H10.2zM12,7.8H12.6V8.4H12zM12.6,7.8H13.2V8.4H12.6zM16.2,7.8H16.8V8.4H16.2zM18,7.8H18.6V8.4H18zM19.2,7.8H19.8V8.4H19.2zM21,7.8H21.6V8.4H21zM21.6,7.8H22.2V8.4H21.6zM3,8.4H3.6V9H3zM3.6,8.4H4.2V9H3.6zM4.2,8.4H4.8V9H4.2zM4.8,8.4H5.4V9H4.8zM6.6,8.4H7.2V9H6.6zM7.2,8.4H7.8V9H7.2zM8.4,8.4H9V9H8.4zM9,8.4H9.6V9H9zM12.6,8.4H13.2V9H12.6zM14.4,8.4H15V9H14.4zM15,8.4H15.6V9H15zM15.6,8.4H16.2V9H15.6zM16.2,8.4H16.8V9H16.2zM17.4,8.4H18V9H17.4zM19.2,8.4H19.8V9H19.2zM19.8,8.4H20.4V9H19.8zM20.4,8.4H21V9H20.4zM22.2,8.4H22.8V9H22.2zM22.8,8.4H23.4V9H22.8zM1.2,9H1.8V9.6H1.2zM1.8,9H2.4V9.6H1.8zM2.4,9H3V9.6H2.4zM3.6,9H4.2V9.6H3.6zM4.2,9H4.8V9.6H4.2zM5.4,9H6V9.6H5.4zM6,9H6.6V9.6H6zM7.8,9H8.4V9.6H7.8zM8.4,9H9V9.6H8.4zM10.8,9H11.4V9.6H10.8zM12.6,9H13.2V9.6H12.6zM14.4,9H15V9.6H14.4zM15.6,9H16.2V9.6H15.6zM17.4,9H18V9.6H17.4zM19.2,9H19.8V9.6H19.2zM20.4,9H21V9.6H20.4zM21,9H21.6V9.6H21zM22.8,9H23.4V9.6H22.8zM1.2,9.6H1.8V10.2H1.2zM3,9.6H3.6V10.2H3zM3.6,9.6H4.2V10.2H3.6zM4.8,9.6H5.4V10.2H4.8zM5.4,9.6H6V10.2H5.4zM6.6,9.6H7.2V10.2H6.6zM7.2,9.6H7.8V10.2H7.2zM7.8,9.6H8.4V10.2H7.8zM8.4,9.6H9V10.2H8.4zM9,9.6H9.6V10.2H9zM10.8,9.6H11.4V10.2H10.8zM11.4,9.6H12V10.2H11.4zM12,9.6H12.6V10.2H12zM12.6,9.6H13.2V10.2H12.6zM13.2,9.6H13.8V10.2H13.2zM13.8,9.6H14.4V10.2H13.8zM15.6,9.6H16.2V10.2H15.6zM16.2,9.6H16.8V10.2H16.2zM16.8,9.6H17.4V10.2H16.8zM18,9.6H18.6V10.2H18zM21.6,9.6H22.2V10.2H21.6zM3,10.2H3.6V10.8H3zM4.2,10.2H4.8V10.8H4.2zM6,10.2H6.6V10.8H6zM6.6,10.2H7.2V10.8H6.6zM7.2,10.2H7.8V10.8H7.2zM8.4,10.2H9V10.8H8.4zM10.2,10.2H10.8V10.8H10.2zM11.4,10.2H12V10.8H11.4zM12,10.2H12.6V10.8H12zM12.6,10.2H13.2V10.8H12.6zM13.2,10.2H13.8V10.8H13.2zM13.8,10.2H14.4V10.8H13.8zM15.6,10.2H16.2V10.8H15.6zM17.4,10.2H18V10.8H17.4zM19.2,10.2H19.8V10.8H19.2zM22.2,10.2H22.8V10.8H22.2zM3,10.8H3.6V11.4H3zM3.6,10.8H4.2V11.4H3.6zM4.8,10.8H5.4V11.4H4.8zM7.8,10.8H8.4V11.4H7.8zM8.4,10.8H9V11.4H8.4zM9,10.8H9.6V11.4H9zM10.8,10.8H11.4V11.4H10.8zM11.4,10.8H12V11.4H11.4zM12,10.8H12.6V11.4H12zM12.6,10.8H13.2V11.4H12.6zM13.8,10.8H14.4V11.4H13.8zM14.4,10.8H15V11.4H14.4zM15.6,10.8H16.2V11.4H15.6zM16.2,10.8H16.8V11.4H16.2zM18,10.8H18.6V11.4H18zM19.8,10.8H20.4V11.4H19.8zM20.4,10.8H21V11.4H20.4zM21,10.8H21.6V11.4H21zM21.6,10.8H22.2V11.4H21.6zM22.2,10.8H22.8V11.4H22.2zM1.2,11.4H1.8V12H1.2zM5.4,11.4H6V12H5.4zM6,11.4H6.6V12H6zM7.2,11.4H7.8V12H7.2zM9,11.4H9.6V12H9zM9.6,11.4H10.2V12H9.6zM10.8,11.4H11.4V12H10.8zM11.4,11.4H12V12H11.4zM12.6,11.4H13.2V12H12.6zM13.2,11.4H13.8V12H13.2zM15.6,11.4H16.2V12H15.6zM16.8,11.4H17.4V12H16.8zM18.6,11.4H19.2V12H18.6zM21,11.4H21.6V12H21zM21.6,11.4H22.2V12H21.6zM22.2,11.4H22.8V12H22.2zM22.8,11.4H23.4V12H22.8zM2.4,12H3V12.6H2.4zM3,12H3.6V12.6H3zM4.2,12H4.8V12.6H4.2zM4.8,12H5.4V12.6H4.8zM5.4,12H6V12.6H5.4zM6,12H6.6V12.6H6zM10.2,12H10.8V12.6H10.2zM10.8,12H11.4V12.6H10.8zM15.6,12H16.2V12.6H15.6zM17.4,12H18V12.6H17.4zM18.6,12H19.2V12.6H18.6zM19.2,12H19.8V12.6H19.2zM19.8,12H20.4V12.6H19.8zM22.2,12H22.8V12.6H22.2zM22.8,12H23.4V12.6H22.8zM1.8,12.6H2.4V13.2H1.8zM2.4,12.6H3V13.2H2.4zM3,12.6H3.6V13.2H3zM3.6,12.6H4.2V13.2H3.6zM4.2,12.6H4.8V13.2H4.2zM5.4,12.6H6V13.2H5.4zM7.8,12.6H8.4V13.2H7.8zM8.4,12.6H9V13.2H8.4zM9,12.6H9.6V13.2H9zM11.4,12.6H12V13.2H11.4zM12.6,12.6H13.2V13.2H12.6zM13.2,12.6H13.8V13.2H13.2zM15,12.6H15.6V13.2H15zM16.8,12.6H17.4V13.2H16.8zM19.2,12.6H19.8V13.2H19.2zM19.8,12.6H20.4V13.2H19.8zM20.4,12.6H21V13.2H20.4zM21,12.6H21.6V13.2H21zM22.2,12.6H22.8V13.2H22.2zM1.8,13.2H2.4V13.8H1.8zM3,13.2H3.6V13.8H3zM4.8,13.2H5.4V13.8H4.8zM5.4,13.2H6V13.8H5.4zM7.2,13.2H7.8V13.8H7.2zM8.4,13.2H9V13.8H8.4zM12,13.2H12.6V13.8H12zM12.6,13.2H13.2V13.8H12.6zM13.8,13.2H14.4V13.8H13.8zM17.4,13.2H18V13.8H17.4zM20.4,13.2H21V13.8H20.4zM22.8,13.2H23.4V13.8H22.8zM3,13.8H3.6V14.4H3zM3.6,13.8H4.2V14.4H3.6zM4.2,13.8H4.8V14.4H4.2zM5.4,13.8H6V14.4H5.4zM6,13.8H6.6V14.4H6zM9.6,13.8H10.2V14.4H9.6zM10.2,13.8H10.8V14.4H10.2zM10.8,13.8H11.4V14.4H10.8zM12.6,13.8H13.2V14.4H12.6zM13.2,13.8H13.8V14.4H13.2zM13.8,13.8H14.4V14.4H13.8zM15,13.8H15.6V14.4H15zM16.2,13.8H16.8V14.4H16.2zM16.8,13.8H17.4V14.4H16.8zM21,13.8H21.6V14.4H21zM22.2,13.8H22.8V14.4H22.2zM3,14.4H3.6V15H3zM4.8,14.4H5.4V15H4.8zM6,14.4H6.6V15H6zM7.2,14.4H7.8V15H7.2zM9,14.4H9.6V15H9zM9.6,14.4H10.2V15H9.6zM11.4,14.4H12V15H11.4zM13.8,14.4H14.4V15H13.8zM15,14.4H15.6V15H15zM15.6,14.4H16.2V15H15.6zM16.8,14.4H17.4V15H16.8zM18.6,14.4H19.2V15H18.6zM19.8,14.4H20.4V15H19.8zM1.2,15H1.8V15.6H1.2zM2.4,15H3V15.6H2.4zM3,15H3.6V15.6H3zM6,15H6.6V15.6H6zM7.8,15H8.4V15.6H7.8zM8.4,15H9V15.6H8.4zM9.6,15H10.2V15.6H9.6zM10.2,15H10.8V15.6H10.2zM12,15H12.6V15.6H12zM12.6,15H13.2V15.6H12.6zM14.4,15H15V15.6H14.4zM15,15H15.6V15.6H15zM15.6,15H16.2V15.6H15.6zM16.2,15H16.8V15.6H16.2zM17.4,15H18V15.6H17.4zM19.2,15H19.8V15.6H19.2zM20.4,15H21V15.6H20.4zM21.6,15H22.2V15.6H21.6zM1.2,15.6H1.8V16.2H1.2zM1.8,15.6H2.4V16.2H1.8zM4.8,15.6H5.4V16.2H4.8zM5.4,15.6H6V16.2H5.4zM6.6,15.6H7.2V16.2H6.6zM7.8,15.6H8.4V16.2H7.8zM9,15.6H9.6V16.2H9zM12,15.6H12.6V16.2H12zM12.6,15.6H13.2V16.2H12.6zM13.2,15.6H13.8V16.2H13.2zM15,15.6H15.6V16.2H15zM16.8,15.6H17.4V16.2H16.8zM19.2,15.6H19.8V16.2H19.2zM19.8,15.6H20.4V16.2H19.8zM21.6,15.6H22.2V16.2H21.6zM22.8,15.6H23.4V16.2H22.8zM4.2,16.2H4.8V16.8H4.2zM5.4,16.2H6V16.8H5.4zM6.6,16.2H7.2V16.8H6.6zM7.2,16.2H7.8V16.8H7.2zM7.8,16.2H8.4V16.8H7.8zM9,16.2H9.6V16.8H9zM10.8,16.2H11.4V16.8H10.8zM11.4,16.2H12V16.8H11.4zM12,16.2H12.6V16.8H12zM12.6,16.2H13.2V16.8H12.6zM13.8,16.2H14.4V16.8H13.8zM14.4,16.2H15V16.8H14.4zM15,16.2H15.6V16.8H15zM15.6,16.2H16.2V16.8H15.6zM17.4,16.2H18V16.8H17.4zM18,16.2H18.6V16.8H18zM19.2,16.2H19.8V16.8H19.2zM19.8,16.2H20.4V16.8H19.8zM20.4,16.2H21V16.8H20.4zM21,16.2H21.6V16.8H21zM21.6,16.2H22.2V16.8H21.6zM22.2,16.2H22.8V16.8H22.2zM22.8,16.2H23.4V16.8H22.8zM1.8,16.8H2.4V17.4H1.8zM2.4,16.8H3V17.4H2.4zM4.2,16.8H4.8V17.4H4.2zM4.8,16.8H5.4V17.4H4.8zM7.2,16.8H7.8V17.4H7.2zM8.4,16.8H9V17.4H8.4zM9,16.8H9.6V17.4H9zM10.2,16.8H10.8V17.4H10.2zM10.8,16.8H11.4V17.4H10.8zM12,16.8H12.6V17.4H12zM12.6,16.8H13.2V17.4H12.6zM13.2,16.8H13.8V17.4H13.2zM14.4,16.8H15V17.4H14.4zM16.2,16.8H16.8V17.4H16.2zM18,16.8H18.6V17.4H18zM18.6,16.8H19.2V17.4H18.6zM19.2,16.8H19.8V17.4H19.2zM21.6,16.8H22.2V17.4H21.6zM22.2,16.8H22.8V17.4H22.2zM1.2,17.4H1.8V18H1.2zM2.4,17.4H3V18H2.4zM3,17.4H3.6V18H3zM3.6,17.4H4.2V18H3.6zM5.4,17.4H6V18H5.4zM6,17.4H6.6V18H6zM6.6,17.4H7.2V18H6.6zM8.4,17.4H9V18H8.4zM10.8,17.4H11.4V18H10.8zM13.8,17.4H14.4V18H13.8zM14.4,17.4H15V18H14.4zM15,17.4H15.6V18H15zM20.4,17.4H21V18H20.4zM22.2,17.4H22.8V18H22.2zM22.8,17.4H23.4V18H22.8zM3,18H3.6V18.6H3zM3.6,18H4.2V18.6H3.6zM4.2,18H4.8V18.6H4.2zM4.8,18H5.4V18.6H4.8zM5.4,18H6V18.6H5.4zM6,18H6.6V18.6H6zM7.2,18H7.8V18.6H7.2zM7.8,18H8.4V18.6H7.8zM9.6,18H10.2V18.6H9.6zM10.2,18H10.8V18.6H10.2zM11.4,18H12V18.6H11.4zM12,18H12.6V18.6H12zM13.2,18H13.8V18.6H13.2zM13.8,18H14.4V18.6H13.8zM14.4,18H15V18.6H14.4zM16.2,18H16.8V18.6H16.2zM16.8,18H17.4V18.6H16.8zM18,18H18.6V18.6H18zM18.6,18H19.2V18.6H18.6zM19.2,18H19.8V18.6H19.2zM19.8,18H20.4V18.6H19.8zM20.4,18H21V18.6H20.4zM21.6,18H22.2V18.6H21.6zM22.8,18H23.4V18.6H22.8zM6,18.6H6.6V19.2H6zM7.2,18.6H7.8V19.2H7.2zM9.6,18.6H10.2V19.2H9.6zM10.2,18.6H10.8V19.2H10.2zM11.4,18.6H12V19.2H11.4zM12,18.6H12.6V19.2H12zM13.2,18.6H13.8V19.2H13.2zM15,18.6H15.6V19.2H15zM16.8,18.6H17.4V19.2H16.8zM18,18.6H18.6V19.2H18zM20.4,18.6H21V19.2H20.4zM22.2,18.6H22.8V19.2H22.2zM22.8,18.6H23.4V19.2H22.8zM1.2,19.2H1.8V19.8H1.2zM1.8,19.2H2.4V19.8H1.8zM2.4,19.2H3V19.8H2.4zM3,19.2H3.6V19.8H3zM3.6,19.2H4.2V19.8H3.6zM4.2,19.2H4.8V19.8H4.2zM4.8,19.2H5.4V19.8H4.8zM6,19.2H6.6V19.8H6zM6.6,19.2H7.2V19.8H6.6zM7.2,19.2H7.8V19.8H7.2zM8.4,19.2H9V19.8H8.4zM10.2,19.2H10.8V19.8H10.2zM10.8,19.2H11.4V19.8H10.8zM11.4,19.2H12V19.8H11.4zM13.8,19.2H14.4V19.8H13.8zM14.4,19.2H15V19.8H14.4zM15.6,19.2H16.2V19.8H15.6zM16.2,19.2H16.8V19.8H16.2zM18,19.2H18.6V19.8H18zM19.2,19.2H19.8V19.8H19.2zM20.4,19.2H21V19.8H20.4zM21,19.2H21.6V19.8H21zM21.6,19.2H22.2V19.8H21.6zM22.2,19.2H22.8V19.8H22.2zM22.8,19.2H23.4V19.8H22.8zM1.2,19.8H1.8V20.4H1.2zM4.8,19.8H5.4V20.4H4.8zM6,19.8H6.6V20.4H6zM7.2,19.8H7.8V20.4H7.2zM7.8,19.8H8.4V20.4H7.8zM9.6,19.8H10.2V20.4H9.6zM10.8,19.8H11.4V20.4H10.8zM14.4,19.8H15V20.4H14.4zM15,19.8H15.6V20.4H15zM16.8,19.8H17.4V20.4H16.8zM18,19.8H18.6V20.4H18zM20.4,19.8H21V20.4H20.4zM22.2,19.8H22.8V20.4H22.2zM1.2,20.4H1.8V21H1.2zM2.4,20.4H3V21H2.4zM3,20.4H3.6V21H3zM3.6,20.4H4.2V21H3.6zM4.8,20.4H5.4V21H4.8zM7.2,20.4H7.8V21H7.2zM7.8,20.4H8.4V21H7.8zM8.4,20.4H9V21H8.4zM9,20.4H9.6V21H9zM12,20.4H12.6V21H12zM12.6,20.4H13.2V21H12.6zM16.8,20.4H17.4V21H16.8zM18,20.4H18.6V21H18zM18.6,20.4H19.2V21H18.6zM19.2,20.4H19.8V21H19.2zM19.8,20.4H20.4V21H19.8zM20.4,20.4H21V21H20.4zM22.2,20.4H22.8V21H22.2zM1.2,21H1.8V21.6H1.2zM2.4,21H3V21.6H2.4zM3,21H3.6V21.6H3zM3.6,21H4.2V21.6H3.6zM4.8,21H5.4V21.6H4.8zM6,21H6.6V21.6H6zM7.2,21H7.8V21.6H7.2zM10.2,21H10.8V21.6H10.2zM11.4,21H12V21.6H11.4zM12,21H12.6V21.6H12zM13.2,21H13.8V21.6H13.2zM13.8,21H14.4V21.6H13.8zM14.4,21H15V21.6H14.4zM16.8,21H17.4V21.6H16.8zM17.4,21H18V21.6H17.4zM19.2,21H19.8V21.6H19.2zM20.4,21H21V21.6H20.4zM21,21H21.6V21.6H21zM21.6,21H22.2V21.6H21.6zM22.8,21H23.4V21.6H22.8zM1.2,21.6H1.8V22.2H1.2zM2.4,21.6H3V22.2H2.4zM3,21.6H3.6V22.2H3zM3.6,21.6H4.2V22.2H3.6zM4.8,21.6H5.4V22.2H4.8zM6,21.6H6.6V22.2H6zM6.6,21.6H7.2V22.2H6.6zM7.2,21.6H7.8V22.2H7.2zM10.8,21.6H11.4V22.2H10.8zM11.4,21.6H12V22.2H11.4zM15,21.6H15.6V22.2H15zM15.6,21.6H16.2V22.2H15.6zM16.8,21.6H17.4V22.2H16.8zM19.2,21.6H19.8V22.2H19.2zM20.4,21.6H21V22.2H20.4zM21.6,21.6H22.2V22.2H21.6zM1.2,22.2H1.8V22.8H1.2zM4.8,22.2H5.4V22.8H4.8zM7.2,22.2H7.8V22.8H7.2zM7.8,22.2H8.4V22.8H7.8zM9.6,22.2H10.2V22.8H9.6zM10.8,22.2H11.4V22.8H10.8zM12,22.2H12.6V22.8H12zM12.6,22.2H13.2V22.8H12.6zM14.4,22.2H15V22.8H14.4zM15.6,22.2H16.2V22.8H15.6zM16.2,22.2H16.8V22.8H16.2zM17.4,22.2H18V22.8H17.4zM20.4,22.2H21V22.8H20.4zM21,22.2H21.6V22.8H21zM21.6,22.2H22.2V22.8H21.6zM1.2,22.8H1.8V23.4H1.2zM1.8,22.8H2.4V23.4H1.8zM2.4,22.8H3V23.4H2.4zM3,22.8H3.6V23.4H3zM3.6,22.8H4.2V23.4H3.6zM4.2,22.8H4.8V23.4H4.2zM4.8,22.8H5.4V23.4H4.8zM6,22.8H6.6V23.4H6zM7.2,22.8H7.8V23.4H7.2zM7.8,22.8H8.4V23.4H7.8zM8.4,22.8H9V23.4H8.4zM9.6,22.8H10.2V23.4H9.6zM10.2,22.8H10.8V23.4H10.2zM10.8,22.8H11.4V23.4H10.8zM11.4,22.8H12V23.4H11.4zM12.6,22.8H13.2V23.4H12.6zM13.2,22.8H13.8V23.4H13.2zM14.4,22.8H15V23.4H14.4zM16.2,22.8H16.8V23.4H16.2zM17.4,22.8H18V23.4H17.4zM18.6,22.8H19.2V23.4H18.6zM19.2,22.8H19.8V23.4H19.2zM19.8,22.8H20.4V23.4H19.8zM20.4,22.8H21V23.4H20.4zM21,22.8H21.6V23.4H21zM21.6,22.8H22.2V23.4H21.6zM22.2,22.8H22.8V23.4H22.2zM22.8,22.8H23.4V23.4H22.8z" id="qr-path" fill="#000000" fill-opacity="1" fill-rule="nonzero" stroke="none" /></svg></div>
+          <div class="qr-url">
+            <span style="font-family:'Libre Baskerville',serif;font-style:italic;font-size:10pt;">Inscription tenue et agape : </span>
+            <a href="http://127.0.0.1:8000/inscription/mLUYunPDps2UljiUVPR12hPhRTxZuNPYfjfr5YArYK4">http://127.0.0.1:8000/inscription/mLUYunPDps2UljiUVPR12hPhRTxZuNPYfjfr5YArYK4</a>
+          </div>
+        </div>
+
+      </div>
+      
+      </div><!-- /meetings-block -->
+
+      <!-- ── ORDRE DU JOUR COMMUN ── -->
+      
+      <div class="oj-section">
+        <div class="oj-title-line">
+          <span class="meeting-triangle">△</span>
+          <span>Ordre du jour commun à toutes les TTen∴</span>
+        </div>
+        <div class="oj-rows">
+          
+          
+          
+            
+            <div class="oj-time-row">19H30</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Accueil et habillage (installation) du Temple</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-time-row">20H00</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Fondation, trace et reglage de la loge (ouverture symbolique)</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Livre d&#39;architecture et correspondances officielles</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Minute des correspondants aux commissions</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Point sur les travaux des chantiers et groupes de travail</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Dialogue rituel</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Conclusion de l&#39;Orateur - Chaine d&#39;Union - Circulation des troncs</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Effacement et fermeture de la loge (Fermeture symbolique)</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-time-row">22H30</div>
+            
+          
+          
+          
+          
+            
+            <div class="oj-desc-row">Agape fraternelle (Reservation imperative 2 jours au moins avant la Tenue)</div>
+            
+          
+          
+        </div>
+      </div>
+      
+
+      <!-- ── À NOTER ── -->
+      
+      <div class="anote-section">lkjfljsdlkfjsld</div>
+      
+
+    </div><!-- /body -->
+
+    <!-- FOOTER -->
+    <div class="footer">
+      <div class="footer-grid">
+        <div class="footer-col">
+          <div class="footer-col-title">V∴M∴</div>
+          <div>Alain FVR∴</div>
+          <div>vm@amisdesocrate.fr</div>
+          <div>06 82 35 32 23</div>
+        </div>
+        <div class="footer-col center">
+          <div class="footer-col-title">Temple</div>
+          <div>Salle &#34;la Colonie&#34;</div>
+          
+          <div>
+            <a href="https://maps.google.com/?q=Eglise%20de%20l%27Assomption%2C%2054700%20Mousson"
+               target="_blank"
+               style="color:inherit;text-decoration:underline;text-underline-offset:2px;">
+              Eglise de l&#39;Assomption, 54700 Mousson
+            </a>
+          </div>
+          
+          <div style="font-style:italic;">((lieu profane))</div>
+        </div>
+        <div class="footer-col right">
+          <div class="footer-col-title">Sec∴</div>
+          <div>Aline CNL∴</div>
+          <div>secretaire@amisdesocrate.fr</div>
+        </div>
+      </div>
+
+      
+      <div class="footer-schedule">
+        
+        <div>TTen. le 1er jeudi et le 3eme mercredi</div>
+        
+        <div>Chantiers App. : les 2eme mardi du mois</div>
+        
+        <div>Chantiers Comp. : les 2eme jeudi du mois</div>
+        
+        <div>Chantiers MM. : les 4eme mardi du mois</div>
+        
+      </div>
+      
+    </div>
+
+  </div><!-- /page 1 -->
+
+
+  <!-- ════════════════════
+       PAGE 2 — PORTRAIT
+  ════════════════════ -->
+  <div class="page page-portrait">
+    <img src="/static/img/socrate-portrait.jpg" alt="Socrate" class="portrait">
+    <div class="symbols top">○ □ △</div>
+    <div class="symbols bottom">○ □ △</div>
+  </div>
+
+  <div class="no-print" style="height:20px;"></div>
+
+  <script>
+    
+    window.addEventListener('load', () => setTimeout(() => window.print(), 400));
+    
+  </script>
+
+</body>
+</html>

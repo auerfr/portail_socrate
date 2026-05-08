@@ -38,6 +38,10 @@ class DocSpace(Base):
         Enum(DocAccessMode), default=DocAccessMode.GRADE
     )
     min_grade: Mapped[MinGrade] = mapped_column(Enum(MinGrade), default=MinGrade.ALL)
+    # Accès restreint à un groupe spécifique (prioritaire sur min_grade si défini)
+    group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lodge_groups.id", ondelete="SET NULL"), nullable=True
+    )
     is_public: Mapped[bool]     = mapped_column(Boolean, default=False)
     order_position: Mapped[int] = mapped_column(Integer, default=0)
 
@@ -54,7 +58,7 @@ class DocSpace(Base):
 
 
 class DocFolder(Base):
-    """Dossier hiérarchique avec droits d'accès par grade."""
+    """Dossier hiérarchique avec droits d'accès par grade ou groupe."""
     __tablename__ = "doc_folders"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -64,6 +68,10 @@ class DocFolder(Base):
     name: Mapped[str]               = mapped_column(String(200))
     description: Mapped[Optional[str]] = mapped_column(Text)
     min_grade: Mapped[MinGrade]     = mapped_column(Enum(MinGrade), default=MinGrade.ALL)
+    # Accès restreint à un groupe spécifique (prioritaire sur min_grade si défini)
+    group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lodge_groups.id", ondelete="SET NULL"), nullable=True
+    )
     order_position: Mapped[int]     = mapped_column(Integer, default=0)
 
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
@@ -87,10 +95,12 @@ class Document(Base):
 
     name: Mapped[str]                  = mapped_column(String(300))
     description: Mapped[Optional[str]] = mapped_column(Text)
-    original_filename: Mapped[str]     = mapped_column(String(300))
+    original_filename: Mapped[Optional[str]] = mapped_column(String(300))
     mime_type: Mapped[Optional[str]]   = mapped_column(String(100))
     file_size: Mapped[Optional[int]]   = mapped_column(Integer)
-    storage_path: Mapped[str]          = mapped_column(String(500))
+    storage_path: Mapped[Optional[str]] = mapped_column(String(500))
+    # Lien externe (Spotify, Apple Music, Deezer…) — exclusif avec storage_path
+    link_url: Mapped[Optional[str]]    = mapped_column(String(2000))
     download_count: Mapped[int]        = mapped_column(Integer, default=0)
 
     # Workflow

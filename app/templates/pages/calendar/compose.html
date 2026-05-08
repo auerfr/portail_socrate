@@ -16,7 +16,15 @@
   <form method="post" action="/calendar/events" class="space-y-6"
         x-data="{
           allDay: true,
-          toggleAllDay() { this.allDay = !this.allDay }
+          visibility: 'ALL',
+          generateVisio() {
+            const server = '{{ visio_server }}';
+            const prefix = '{{ visio_prefix }}';
+            if (!server) { alert('Serveur visio non configuré — vérifiez les paramètres.'); return; }
+            const d = document.getElementById('start_date').value || new Date().toISOString().slice(0,10);
+            const ymd = d.replace(/-/g, '');
+            document.getElementById('meeting_url').value = server + '/' + prefix + '-' + ymd;
+          }
         }">
 
     {# ── Titre & description ────────────────────────────────────────────── #}
@@ -49,6 +57,31 @@
                placeholder="Adresse ou nom du lieu"
                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
+
+      <div>
+        <label for="meeting_url" class="block text-sm font-medium text-gray-700 mb-1">
+          Lien de réunion à distance <span class="text-gray-400 font-normal">(optionnel)</span>
+        </label>
+        <div class="flex gap-2">
+          <div class="relative flex-1">
+            <div class="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+              <svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 10.5l4.72-4.72a.75.75 0 011.28.53v11.38a.75.75 0 01-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 002.25-2.25v-9a2.25 2.25 0 00-2.25-2.25h-9A2.25 2.25 0 002.25 7.5v9a2.25 2.25 0 002.25 2.25z"/>
+              </svg>
+            </div>
+            <input type="url" id="meeting_url" name="meeting_url" maxlength="500"
+                   placeholder="https://meet.jit.si/loge-… ou lien Zoom / Teams"
+                   class="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          {% if visio_server %}
+          <button type="button" @click="generateVisio()"
+                  class="flex-shrink-0 px-3 py-2 text-xs font-semibold bg-loge-50 text-loge-700 border border-loge-200 rounded-lg hover:bg-loge-100 transition-colors whitespace-nowrap">
+            ⚡ Générer
+          </button>
+          {% endif %}
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Zoom, Teams, Jitsi, Google Meet… Le lien sera affiché dans l'événement.</p>
+      </div>
     </div>
 
     {# ── Date & heure ───────────────────────────────────────────────────── #}
@@ -56,17 +89,14 @@
       <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Date & heure</h2>
 
       {# Checkbox Journée entière #}
-      <label class="flex items-center gap-3 cursor-pointer group">
+      <label class="inline-flex items-center gap-3 cursor-pointer select-none">
         <input type="checkbox" name="all_day" value="on"
                x-model="allDay"
-               @change="toggleAllDay()"
-               checked
                class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
-        <span class="text-sm font-medium text-gray-700 group-hover:text-gray-900">
-          Journée entière
-        </span>
+        <span class="text-sm font-medium text-gray-700">Journée entière</span>
       </label>
 
+      {# Ligne début #}
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
           <label for="start_date" class="block text-sm font-medium text-gray-700 mb-1">
@@ -76,17 +106,16 @@
                  value="{{ today_str }}"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
-
-        <div x-show="!allDay" x-transition>
+        <div x-show="!allDay" x-cloak>
           <label for="start_time" class="block text-sm font-medium text-gray-700 mb-1">
             Heure de début
           </label>
-          <input type="time" id="start_time" name="start_time"
-                 value="19:00"
+          <input type="time" id="start_time" name="start_time" value="19:00"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
       </div>
 
+      {# Ligne fin #}
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
           <label for="end_date" class="block text-sm font-medium text-gray-700 mb-1">
@@ -95,13 +124,11 @@
           <input type="date" id="end_date" name="end_date"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
-
-        <div x-show="!allDay" x-transition>
+        <div x-show="!allDay" x-cloak>
           <label for="end_time" class="block text-sm font-medium text-gray-700 mb-1">
             Heure de fin
           </label>
-          <input type="time" id="end_time" name="end_time"
-                 value="22:00"
+          <input type="time" id="end_time" name="end_time" value="22:00"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
       </div>
@@ -139,20 +166,44 @@
             Visibilité
           </label>
           <select id="visibility" name="visibility"
+                  x-model="visibility"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
-            {% set vis_labels = {
-              'ALL':      'Tous les membres',
-              'OFFICERS': 'Officiers uniquement',
-              'ADMIN':    'Administrateurs seulement',
-            } %}
-            {% for ev in event_visibilities %}
-            <option value="{{ ev.value }}" {% if ev.value == 'ALL' %}selected{% endif %}>
-              {{ vis_labels.get(ev.value, ev.value) }}
-            </option>
-            {% endfor %}
+            <optgroup label="── Tous ──">
+              <option value="ALL">👥 Tous les membres</option>
+            </optgroup>
+            <optgroup label="── Par grade ──">
+              <option value="MAITRES">🔵 Maîtres uniquement</option>
+              <option value="COMPAGNONS_ET_MAITRES">🟡 Compagnons et Maîtres</option>
+              <option value="APPRENTIS">🟢 Apprentis uniquement</option>
+            </optgroup>
+            <optgroup label="── Par fonction ──">
+              <option value="OFFICERS">⚒ Conseil d'officiers</option>
+            </optgroup>
+            <optgroup label="── Groupe spécifique ──">
+              <option value="GROUP">🏷 Choisir un groupe…</option>
+            </optgroup>
+            <optgroup label="── Restreint ──">
+              <option value="ADMIN">🔒 Administrateurs seulement</option>
+            </optgroup>
           </select>
+
+          {# Sélecteur de groupe — visible uniquement si "GROUP" choisi #}
+          <div x-show="visibility === 'GROUP'" x-transition class="mt-2">
+            <label for="visibility_group_id" class="block text-xs font-medium text-gray-600 mb-1">
+              Groupe cible <span class="text-red-500">*</span>
+            </label>
+            <select id="visibility_group_id" name="visibility_group_id"
+                    :required="visibility === 'GROUP'"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+              <option value="">— Choisir un groupe —</option>
+              {% for g in all_groups %}
+              <option value="{{ g.id }}">{{ g.name }}</option>
+              {% endfor %}
+            </select>
+          </div>
+
           <p class="text-xs text-gray-400 mt-1">
-            "Officiers" = VM, Surveillants, Secrétaire et autres offices.
+            Définit qui peut voir cet événement dans l'agenda.
           </p>
         </div>
       </div>

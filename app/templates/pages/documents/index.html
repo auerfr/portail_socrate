@@ -1,0 +1,146 @@
+{% extends "base.html" %}
+{% block title %}Bibliothèque — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 space-y-6">
+
+  <!-- En-tête -->
+  <div class="flex items-center justify-between">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Bibliothèque</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Documents, planches et archives de la loge</p>
+    </div>
+    {% if is_admin %}
+    <button onclick="document.getElementById('modal-space').classList.remove('hidden')"
+            class="flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+      </svg>
+      Nouvel espace
+    </button>
+    {% endif %}
+  </div>
+
+  {% if saved %}
+  <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm">✓ Modification enregistrée.</div>
+  {% endif %}
+
+  <!-- Grille des espaces -->
+  {% if spaces %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+    {% for space in spaces %}
+    <a href="/documents/space/{{ space.id }}"
+       class="group block bg-white border border-gray-200 rounded-xl p-5 hover:border-loge-400 hover:shadow-md transition-all">
+      <div class="flex items-start justify-between mb-3">
+        <!-- Icône dossier -->
+        <div class="w-10 h-10 rounded-lg flex items-center justify-center flex-shrink-0"
+             style="background:linear-gradient(135deg,#e0e9ff,#c7d7ff);">
+          <svg class="w-5 h-5 text-loge-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
+          </svg>
+        </div>
+        <!-- Badge accès -->
+        {% set grp = groups_map.get(space.group_id) if space.group_id else None %}
+        {% if grp %}
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium bg-indigo-100 text-indigo-700 truncate max-w-[130px]"
+                title="Groupe : {{ grp.name }}">{{ grp.name }}</span>
+        {% elif space.min_grade.value != 'ALL' %}
+          <span class="text-xs px-2 py-0.5 rounded-full font-medium
+            {% if space.min_grade.value == 'MAITRE' %}bg-purple-100 text-purple-700
+            {% elif space.min_grade.value == 'COMPAGNON' %}bg-blue-100 text-blue-700
+            {% else %}bg-gray-100 text-gray-600{% endif %}">
+            {{ space.min_grade.value|replace('MAITRE','M∴')|replace('COMPAGNON','Comp∴')|replace('APPRENTI','App∴') }}+
+          </span>
+        {% endif %}
+      </div>
+      <div class="font-semibold text-gray-900 group-hover:text-loge-700 transition-colors">{{ space.name }}</div>
+      {% if space.description %}
+      <div class="text-xs text-gray-500 mt-1 line-clamp-2">{{ space.description }}</div>
+      {% endif %}
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="text-center py-16 text-gray-400">
+    <svg class="w-12 h-12 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 12.75V12A2.25 2.25 0 014.5 9.75h15A2.25 2.25 0 0121.75 12v.75m-8.69-6.44l-2.12-2.12a1.5 1.5 0 00-1.061-.44H4.5A2.25 2.25 0 002.25 6v12a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9a2.25 2.25 0 00-2.25-2.25h-5.379a1.5 1.5 0 01-1.06-.44z"/>
+    </svg>
+    <p class="font-medium">Aucun espace documentaire</p>
+    {% if is_admin %}<p class="text-sm mt-1">Créez le premier espace pour commencer</p>{% endif %}
+  </div>
+  {% endif %}
+
+</div>
+
+<!-- Modal — Créer un espace (admin) -->
+{% if is_admin %}
+<div id="modal-space" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6 max-h-screen overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold text-gray-900">Nouvel espace documentaire</h2>
+      <button onclick="document.getElementById('modal-space').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <form method="post" action="/documents/admin/space" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nom de l'espace *</label>
+        <input name="name" required placeholder="Ex : Administratif, Rituels, Planches…"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
+        <textarea name="description" rows="2"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent resize-none"></textarea>
+      </div>
+
+      <!-- Accès : grade OU groupe -->
+      <div x-data="{ mode: 'grade' }">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Restriction d'accès</label>
+        <div class="flex gap-2 mb-3">
+          <button type="button" @click="mode='grade'"
+                  :class="mode==='grade' ? 'bg-loge-700 text-white' : 'bg-gray-100 text-gray-700'"
+                  class="flex-1 text-xs font-medium py-1.5 rounded-lg transition-colors">Par grade</button>
+          <button type="button" @click="mode='group'"
+                  :class="mode==='group' ? 'bg-loge-700 text-white' : 'bg-gray-100 text-gray-700'"
+                  class="flex-1 text-xs font-medium py-1.5 rounded-lg transition-colors">Par groupe</button>
+        </div>
+        <div x-show="mode==='grade'" x-cloak>
+          <select name="min_grade"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+            <option value="ALL">Tous les membres</option>
+            <option value="APPRENTI">App∴ et plus</option>
+            <option value="COMPAGNON">Comp∴ et plus</option>
+            <option value="MAITRE">M∴ uniquement</option>
+          </select>
+        </div>
+        <div x-show="mode==='group'" x-cloak>
+          <select name="group_id"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+            <option value="">— Choisir un groupe —</option>
+            {% for g in all_groups %}
+            <option value="{{ g.id }}">{{ g.name }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-400 mt-1">Le groupe est prioritaire sur le grade si les deux sont définis.</p>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Ordre d'affichage</label>
+        <input name="order_position" type="number" value="0" min="0"
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="document.getElementById('modal-space').classList.add('hidden')"
+                class="flex-1 border border-gray-300 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Annuler</button>
+        <button type="submit"
+                class="flex-1 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium py-2 rounded-lg transition-colors">Créer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+{% endblock %}

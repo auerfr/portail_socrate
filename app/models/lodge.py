@@ -58,6 +58,10 @@ class LodgeSettings(Base):
     visio_server_url: Mapped[Optional[str]]  = mapped_column(String(500))
     visio_room_prefix: Mapped[Optional[str]] = mapped_column(String(100))
 
+    # Seuils assiduité (pourcentages)
+    attendance_threshold_warn:   Mapped[int] = mapped_column(Integer, default=70)
+    attendance_threshold_danger: Mapped[int] = mapped_column(Integer, default=50)
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

@@ -1,0 +1,463 @@
+{% extends "base.html" %}
+{% block title %}Chat — Portail Socrate{% endblock %}
+
+{% block content %}
+{% set type_icons = {'GENERAL':'#','GRADE':'△','FUNCTION':'⚙','COMMISSION':'●','DIRECT':'●'} %}
+
+{# Full-height layout : desktop = 100vh, mobile = 100vh - 80px (bottom nav) #}
+<div class="flex overflow-hidden"
+     style="height:calc(100vh - 80px);"
+     x-data>
+  <style>@media(min-width:1024px){.chat-root{height:100vh!important}}</style>
+  <script>document.currentScript.closest('[x-data]').classList.add('chat-root')</script>
+
+  <!-- ══════════ SIDEBAR CANAUX ══════════ -->
+  <div class="{% if active_channel %}hidden lg:flex{% else %}flex{% endif %} w-full lg:w-64 shrink-0 flex-col bg-white border-r border-gray-200">
+
+    <!-- En-tête -->
+    <div class="px-4 py-3 border-b border-gray-200 flex items-center gap-2 bg-gray-50">
+      <h1 class="text-sm font-bold text-gray-800 flex-1">Chat</h1>
+
+      <!-- Nouveau groupe -->
+      <button onclick="document.getElementById('modal-new-group').classList.remove('hidden')"
+              title="Nouveau groupe"
+              class="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
+        </svg>
+      </button>
+
+      <!-- Discussion directe -->
+      <button onclick="document.getElementById('modal-new-dm').classList.remove('hidden')"
+              title="Discussion directe"
+              class="w-7 h-7 rounded-lg bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-500 hover:text-gray-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 12a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375M21 12c0 4.556-4.03 8.25-9 8.25a9.764 9.764 0 01-2.555-.337A5.972 5.972 0 015.41 20.97a5.969 5.969 0 01-.474-.065 4.48 4.48 0 00.978-2.025c.09-.457-.133-.901-.467-1.226C3.93 16.178 3 14.189 3 12c0-4.556 4.03-8.25 9-8.25s9 3.694 9 8.25z"/>
+        </svg>
+      </button>
+
+      {% if can_manage %}
+      <!-- Nouveau canal officiel -->
+      <button onclick="document.getElementById('modal-new-channel').classList.remove('hidden')"
+              title="Nouveau canal"
+              class="w-7 h-7 rounded-lg bg-loge-100 hover:bg-loge-200 flex items-center justify-center text-loge-700 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+      </button>
+      {% endif %}
+    </div>
+
+    <!-- Liste des canaux -->
+    <div class="flex-1 overflow-y-auto">
+
+      {% set general_chs  = channels | selectattr('type.value', 'in', ['GENERAL']) | list %}
+      {% set grade_chs    = channels | selectattr('type.value', 'equalto', 'GRADE') | list %}
+      {% set function_chs = channels | selectattr('type.value', 'equalto', 'FUNCTION') | list %}
+      {% set group_chs    = channels | selectattr('type.value', 'equalto', 'COMMISSION') | list %}
+      {% set dm_chs       = channels | selectattr('type.value', 'equalto', 'DIRECT') | list %}
+
+      {% macro channel_item(ch) %}
+      {% set ch_unread = unread.get(ch.id, 0) %}
+      {% set is_active = active_channel and active_channel.id == ch.id %}
+      <a href="/chat/{{ ch.id }}"
+         class="flex items-center gap-2.5 px-3 py-2 mx-2 my-0.5 rounded-lg transition-colors
+                {% if is_active %}bg-loge-50 text-loge-700{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}">
+        <span class="text-xs text-gray-400 font-mono shrink-0 w-3 text-center select-none">{{ type_icons.get(ch.type.value, '●') }}</span>
+        <span class="text-sm {% if is_active %}font-semibold{% else %}font-medium{% endif %} flex-1 truncate">{{ ch.name }}</span>
+        {% if ch_unread > 0 %}
+        <span class="shrink-0 bg-loge-500 text-white text-xs font-bold rounded-full px-1.5 min-w-[18px] text-center leading-5">
+          {{ ch_unread if ch_unread < 100 else '99+' }}
+        </span>
+        {% endif %}
+      </a>
+      {% endmacro %}
+
+      {% if general_chs %}
+      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Canaux</div>
+      {% for ch in general_chs %}{{ channel_item(ch) }}{% endfor %}
+      {% endif %}
+
+      {% if grade_chs %}
+      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Par grade</div>
+      {% for ch in grade_chs %}{{ channel_item(ch) }}{% endfor %}
+      {% endif %}
+
+      {% if function_chs %}
+      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Officiers</div>
+      {% for ch in function_chs %}{{ channel_item(ch) }}{% endfor %}
+      {% endif %}
+
+      {% if group_chs %}
+      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Groupes</div>
+      {% for ch in group_chs %}{{ channel_item(ch) }}{% endfor %}
+      {% endif %}
+
+      {% if dm_chs %}
+      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Directs</div>
+      {% for ch in dm_chs %}{{ channel_item(ch) }}{% endfor %}
+      {% endif %}
+
+      {% if not channels %}
+      <div class="px-4 py-8 text-xs text-gray-400 text-center">Aucun canal disponible</div>
+      {% endif %}
+    </div>
+  </div>
+
+  <!-- ═══════════════ ZONE MESSAGES ═══════════════ -->
+  <div class="{% if not active_channel %}hidden lg:flex{% else %}flex{% endif %} flex-1 flex-col min-w-0 bg-gray-50"
+       x-data="chatApp({{ last_msg_id | default(0) }}, {{ active_channel.id if active_channel else 'null' }})"
+       @keydown.escape.window="replyTo = null">
+
+    {% if active_channel %}
+
+    <!-- En-tête canal -->
+    <div class="bg-white border-b border-gray-200 px-4 py-3 flex items-center gap-3 shrink-0 shadow-sm">
+      <!-- Bouton retour mobile -->
+      <a href="/chat/"
+         class="lg:hidden -ml-1 p-1.5 rounded-lg text-gray-400 hover:text-gray-600 hover:bg-gray-100 transition-colors flex-shrink-0">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+        </svg>
+      </a>
+      <div class="flex-1 min-w-0">
+        <div class="font-semibold text-gray-900 flex items-center gap-2">
+          <span class="text-gray-400 font-mono text-sm">{{ type_icons.get(active_channel.type.value, '●') }}</span>
+          <span class="truncate">{{ active_channel.name }}</span>
+          {% if active_channel.is_readonly %}
+          <span class="text-xs text-gray-400 font-normal bg-gray-100 rounded px-1.5 py-0.5 shrink-0">Lecture seule</span>
+          {% endif %}
+        </div>
+        {% if active_channel.description %}
+        <div class="text-xs text-gray-400 truncate">{{ active_channel.description }}</div>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-1.5 text-xs text-gray-400 shrink-0">
+        <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
+        <span class="hidden sm:inline">En direct</span>
+      </div>
+    </div>
+
+    <!-- Messages -->
+    <div class="flex-1 overflow-y-auto px-3 sm:px-4 py-4 space-y-1" id="messages-container">
+
+      {% set prev_date = namespace(val='') %}
+      {% for msg in messages %}
+      {% set msg_date = msg.created_at.strftime('%d/%m/%Y') %}
+      {% if msg_date != prev_date.val %}
+      <div class="flex items-center gap-3 my-4">
+        <div class="flex-1 h-px bg-gray-200"></div>
+        <span class="text-xs text-gray-400 font-medium">{{ msg_date }}</span>
+        <div class="flex-1 h-px bg-gray-200"></div>
+      </div>
+      {% set prev_date.val = msg_date %}
+      {% endif %}
+
+      {% set is_mine = msg.sender_id == current_member.id %}
+      <div class="flex {% if is_mine %}justify-end{% endif %} items-end gap-2 group" id="msg-{{ msg.id }}">
+        {% if not is_mine %}
+        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5">
+          {{ msg.sender.first_name[0] }}{{ msg.sender.last_name[0] }}
+        </div>
+        {% endif %}
+        <div class="max-w-[80%] sm:max-w-[70%]">
+          {% if not is_mine %}
+          <div class="text-xs text-gray-500 mb-1 pl-1">{{ msg.sender.first_name }} {{ msg.sender.last_name }}</div>
+          {% endif %}
+          {% if msg.reply_to %}
+          <div class="text-xs bg-gray-100 border-l-2 border-loge-400 rounded px-2 py-1 mb-1 text-gray-500 truncate">
+            ↩ {{ msg.reply_to.sender.first_name }} : {{ (msg.reply_to.content or '')[:60] }}
+          </div>
+          {% endif %}
+          <div class="relative group/msg">
+            <div class="px-3 py-2 rounded-2xl text-sm leading-relaxed break-words
+                        {% if is_mine %}bg-loge-700 text-white rounded-br-sm{% else %}bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm{% endif %}">
+              {{ msg.content | replace('\n', '<br>') | safe }}
+            </div>
+            <button @click="replyTo = {id: {{ msg.id }}, sender: '{{ msg.sender.first_name }}', preview: {{ msg.content[:60] | tojson }}}"
+                    class="absolute -top-2 {% if is_mine %}left-0{% else %}right-0{% endif %}
+                           opacity-0 group-hover/msg:opacity-100 transition-opacity
+                           w-6 h-6 rounded-full bg-white border border-gray-200 shadow-sm
+                           flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
+                    title="Répondre">↩</button>
+          </div>
+          <div class="text-xs text-gray-400 mt-0.5 {% if is_mine %}text-right pr-1{% else %}pl-1{% endif %}">
+            {{ msg.created_at.strftime('%H:%M') }}
+          </div>
+        </div>
+      </div>
+      {% endfor %}
+
+      <!-- Nouveaux messages via polling -->
+      <template x-for="msg in newMessages" :key="msg.id">
+        <div class="flex items-end gap-2" :class="msg.is_mine ? 'justify-end' : ''" :id="'msg-' + msg.id">
+          <template x-if="!msg.is_mine">
+            <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5"
+                 x-text="msg.sender_initials"></div>
+          </template>
+          <div class="max-w-[80%] sm:max-w-[70%]">
+            <template x-if="!msg.is_mine">
+              <div class="text-xs text-gray-500 mb-1 pl-1" x-text="msg.sender_name"></div>
+            </template>
+            <template x-if="msg.reply">
+              <div class="text-xs bg-gray-100 border-l-2 border-loge-400 rounded px-2 py-1 mb-1 text-gray-500 truncate">
+                ↩ <span x-text="msg.reply.sender"></span> : <span x-text="msg.reply.preview"></span>
+              </div>
+            </template>
+            <div class="px-3 py-2 rounded-2xl text-sm leading-relaxed break-words"
+                 :class="msg.is_mine ? 'bg-loge-700 text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm'"
+                 x-html="msg.content.replace(/\n/g, '<br>')"></div>
+            <div class="text-xs text-gray-400 mt-0.5"
+                 :class="msg.is_mine ? 'text-right pr-1' : 'pl-1'"
+                 x-text="msg.created_at"></div>
+          </div>
+        </div>
+      </template>
+
+      <div id="bottom-anchor"></div>
+    </div>
+
+    <!-- Zone de saisie -->
+    {% if not active_channel.is_readonly or can_manage %}
+    <div class="shrink-0 bg-white border-t border-gray-200 px-3 sm:px-4 py-3">
+      <div x-show="replyTo" x-cloak
+           class="flex items-center gap-2 bg-loge-50 border-l-2 border-loge-500 rounded px-3 py-2 mb-2 text-sm text-gray-600">
+        <span class="text-loge-600 font-medium">↩ <span x-text="replyTo?.sender"></span></span>
+        <span class="text-gray-400 truncate flex-1" x-text="replyTo?.preview"></span>
+        <button @click="replyTo = null" class="text-gray-400 hover:text-gray-600 shrink-0">✕</button>
+      </div>
+      <form method="post" action="/chat/{{ active_channel.id }}/send"
+            class="flex gap-2 items-end"
+            @submit="scrollToBottom()">
+        <input type="hidden" name="reply_to_id" :value="replyTo?.id || 0">
+        <textarea name="content" rows="1" placeholder="Écrire un message…"
+                  class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm
+                         focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none
+                         max-h-32 overflow-y-auto bg-gray-50"
+                  @keydown.enter.exact.prevent="$el.closest('form').submit()"
+                  @keydown.enter.shift.exact="$el.rows = Math.min($el.rows + 1, 6)"
+                  @input="$el.style.height='auto'; $el.style.height=$el.scrollHeight+'px'"></textarea>
+        <button type="submit"
+                class="w-10 h-10 rounded-xl bg-loge-700 hover:bg-loge-800 text-white flex items-center justify-center shrink-0 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+          </svg>
+        </button>
+      </form>
+    </div>
+    {% else %}
+    <div class="shrink-0 bg-gray-50 border-t border-gray-200 px-4 py-3 text-center text-xs text-gray-400">
+      Canal en lecture seule — seuls les administrateurs peuvent écrire
+    </div>
+    {% endif %}
+
+    {% else %}
+    <!-- Aucun canal sélectionné -->
+    <div class="flex-1 flex items-center justify-center text-gray-400">
+      <div class="text-center">
+        <div class="w-16 h-16 rounded-2xl bg-gray-100 flex items-center justify-center mx-auto mb-4">
+          <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.625 9.75a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H8.25m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0H12m4.125 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm0 0h-.375m-13.5 3.01c0 1.6 1.123 2.994 2.707 3.227 1.087.16 2.185.283 3.293.369V21l4.184-4.183a1.14 1.14 0 01.778-.332 48.294 48.294 0 005.83-.498c1.585-.233 2.708-1.626 2.708-3.228V6.741c0-1.602-1.123-2.995-2.707-3.228A48.394 48.394 0 0012 3c-2.392 0-4.744.175-7.043.513C3.373 3.746 2.25 5.14 2.25 6.741v6.018z"/>
+          </svg>
+        </div>
+        <p class="text-sm font-medium text-gray-600">Choisissez une conversation</p>
+        <p class="text-xs text-gray-400 mt-1">ou démarrez un groupe / discussion directe</p>
+      </div>
+    </div>
+    {% endif %}
+
+  </div>
+</div>
+
+
+<!-- ═══════════ MODAL NOUVEAU GROUPE ═══════════ -->
+<div id="modal-new-group" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+     onclick="if(event.target===this) this.classList.add('hidden')">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md overflow-hidden max-h-[90vh] flex flex-col"
+       x-data="{
+         search: '',
+         selected: [],
+         toggle(id) {
+           const i = this.selected.indexOf(id);
+           if (i >= 0) this.selected.splice(i, 1); else this.selected.push(id);
+         },
+         isSelected(id) { return this.selected.includes(id); }
+       }">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+      <h2 class="font-semibold text-gray-900">Nouveau groupe</h2>
+      <button onclick="document.getElementById('modal-new-group').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+    </div>
+    <form method="post" action="/chat/groups/new" class="flex flex-col overflow-hidden">
+      <div class="p-5 space-y-4 overflow-y-auto flex-1">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Nom du groupe *</label>
+          <input type="text" name="name" required placeholder="Ex : Équipe tracés, Commission finances…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Membres à ajouter</label>
+          <input type="text" x-model="search" placeholder="Rechercher un membre…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 mb-2">
+          <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
+            {% for m in active_members %}
+            <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                   x-show="!search || '{{ (m.first_name ~ ' ' ~ m.last_name) | lower }}'.includes(search.toLowerCase())">
+              <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {{ m.first_name[0] }}{{ m.last_name[0] }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name }}</div>
+                <div class="text-xs text-gray-400">{{ m.masonic_grade.value }}</div>
+              </div>
+              <input type="checkbox" class="rounded border-gray-300 text-loge-600 focus:ring-loge-500"
+                     value="{{ m.id }}" @change="toggle({{ m.id }})">
+            </label>
+            {% endfor %}
+          </div>
+          <input type="hidden" name="member_ids" :value="selected.join(',')">
+          <p class="text-xs text-gray-400 mt-1"><span x-text="selected.length"></span> membre(s) sélectionné(s)</p>
+        </div>
+      </div>
+      <div class="flex gap-3 p-5 pt-0 border-t border-gray-100 shrink-0">
+        <button type="button" onclick="document.getElementById('modal-new-group').classList.add('hidden')"
+                class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm hover:bg-gray-50">Annuler</button>
+        <button type="submit"
+                class="flex-1 bg-loge-700 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">Créer le groupe</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+
+<!-- ═══════════ MODAL DISCUSSION DIRECTE ═══════════ -->
+<div id="modal-new-dm" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+     onclick="if(event.target===this) this.classList.add('hidden')">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-sm overflow-hidden max-h-[85vh] flex flex-col"
+       x-data="{ search: '' }">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+      <h2 class="font-semibold text-gray-900">Discussion directe</h2>
+      <button onclick="document.getElementById('modal-new-dm').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+    </div>
+    <div class="p-4 shrink-0">
+      <input type="text" x-model="search" placeholder="Rechercher…"
+             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <div class="overflow-y-auto flex-1 divide-y divide-gray-100 pb-4">
+      {% for m in active_members %}
+      <form method="post" action="/chat/dm">
+        <input type="hidden" name="target_id" value="{{ m.id }}">
+        <button type="submit"
+                class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
+                x-show="!search || '{{ (m.first_name ~ ' ' ~ m.last_name) | lower }}'.includes(search.toLowerCase())">
+          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-sm font-bold shrink-0">
+            {{ m.first_name[0] }}{{ m.last_name[0] }}
+          </div>
+          <div class="flex-1 min-w-0 text-left">
+            <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name }}</div>
+            <div class="text-xs text-gray-400">
+              {% if m.lodge_function and m.lodge_function.value != 'FRERE' %}{{ m.lodge_function.value }} · {% endif %}
+              {{ m.masonic_grade.value }}
+            </div>
+          </div>
+          <svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+          </svg>
+        </button>
+      </form>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+
+<!-- ═══════════ MODAL NOUVEAU CANAL (admin) ═══════════ -->
+{% if can_manage %}
+<div id="modal-new-channel" class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+     onclick="if(event.target===this) this.classList.add('hidden')">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md overflow-hidden">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-900">Nouveau canal officiel</h2>
+      <button onclick="document.getElementById('modal-new-channel').classList.add('hidden')" class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+    </div>
+    <form method="post" action="/chat/channels/new" class="p-6 space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Nom du canal *</label>
+        <input type="text" name="name" required placeholder="ex : Officiers, Maîtres…"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Description (optionnel)</label>
+        <input type="text" name="description" placeholder="Objet du canal"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Type d'accès</label>
+        <select name="channel_type"
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="GENERAL">Tous les membres</option>
+          <option value="GRADE">Par grade minimum</option>
+          <option value="FUNCTION">Par fonction</option>
+        </select>
+      </div>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" name="is_readonly" value="1"
+               class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+        <span class="text-sm text-gray-700">Annonces (lecture seule pour les membres)</span>
+      </label>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="document.getElementById('modal-new-channel').classList.add('hidden')"
+                class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm hover:bg-gray-50">Annuler</button>
+        <button type="submit"
+                class="flex-1 bg-loge-700 text-white py-2.5 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">Créer le canal</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+
+<script>
+function chatApp(initialLastId, channelId) {
+  return {
+    lastId: initialLastId,
+    newMessages: [],
+    replyTo: null,
+    pollInterval: null,
+
+    init() {
+      this.scrollToBottom();
+      if (channelId) {
+        this.pollInterval = setInterval(() => this.poll(), 4000);
+      }
+    },
+
+    destroy() {
+      if (this.pollInterval) clearInterval(this.pollInterval);
+    },
+
+    async poll() {
+      if (!channelId) return;
+      try {
+        const res = await fetch(`/chat/${channelId}/messages?since_id=${this.lastId}`);
+        if (!res.ok) return;
+        const data = await res.json();
+        if (data.messages && data.messages.length > 0) {
+          this.newMessages.push(...data.messages);
+          this.lastId = data.last_id;
+          this.$nextTick(() => this.scrollToBottom());
+        }
+      } catch (e) { /* réseau indispo */ }
+    },
+
+    scrollToBottom() {
+      const anchor = document.getElementById('bottom-anchor');
+      if (anchor) anchor.scrollIntoView({ behavior: 'smooth' });
+    },
+  };
+}
+</script>
+
+<style>
+[x-cloak] { display: none !important; }
+</style>
+{% endblock %}

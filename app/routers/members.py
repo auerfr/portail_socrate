@@ -14,7 +14,7 @@ from app.dependencies import (
     hash_password, can_manage_members,
 )
 from app.models.identity import (
-    Member, User, MasonicGrade, MemberStatus, LodgeFunction,
+    Member, User, MasonicGrade, MemberStatus, LodgeFunction, MembershipType,
     MemberResponsibility, ResponsibilityType, RoleQualifier,
     Group, GroupType,
 )
@@ -84,7 +84,7 @@ async def _get_offices(db: AsyncSession) -> list:
 
 
 async def _current_office_id(db: AsyncSession, member_id: int) -> int | None:
-    r = await db.execute(select(LodgeOffice.id).where(LodgeOffice.member_id == member_id))
+    r = await db.execute(select(LodgeOffice.id).where(LodgeOffice.member_id == member_id).limit(1))
     return r.scalar_one_or_none()
 
 
@@ -124,7 +124,15 @@ async def members_list(
 ):
     user, member = ctx
 
-    query = select(Member).order_by(Member.last_name, Member.first_name)
+    # Exclure les super-admins (comptes techniques) de la liste
+    admin_member_ids = select(User.member_id).where(
+        User.is_admin == True, User.member_id.isnot(None)
+    )
+    query = (
+        select(Member)
+        .where(Member.id.not_in(admin_member_ids))
+        .order_by(Member.last_name, Member.first_name)
+    )
     if search:
         term = f"%{search}%"
         query = query.where(
@@ -153,6 +161,7 @@ async def members_list(
         "grade_label": _grade_label,
         "status_label": _status_label,
         "MasonicGrade": MasonicGrade,
+        "MembershipType": MembershipType,
         "MemberStatus": MemberStatus,
         "can_manage": can_manage_members(member) or user.is_admin,
     })
@@ -242,6 +251,7 @@ async def member_new_form(
         "offices": offices,
         "current_office_id": None,
         "MasonicGrade": MasonicGrade,
+        "MembershipType": MembershipType,
         "MemberStatus": MemberStatus,
         "grade_label": _grade_label,
         "status_label": _status_label,
@@ -290,6 +300,7 @@ async def member_create(
             "offices": offices,
             "current_office_id": int(office_id) if office_id.isdigit() else None,
             "MasonicGrade": MasonicGrade,
+        "MembershipType": MembershipType,
             "MemberStatus": MemberStatus,
             "grade_label": _grade_label,
             "status_label": _status_label,
@@ -374,6 +385,7 @@ async def member_edit_form(
         "offices": offices,
         "current_office_id": current_office_id,
         "MasonicGrade": MasonicGrade,
+        "MembershipType": MembershipType,
         "MemberStatus": MemberStatus,
         "grade_label": _grade_label,
         "status_label": _status_label,
@@ -394,15 +406,18 @@ async def member_update(
     email:           str = Form(...),
     civility:        str = Form(""),
     phone:           str = Form(""),
-    masonic_grade:   str = Form("APPRENTI"),
-    office_id:       str = Form(""),
-    member_status:   str = Form("ACTIVE"),
-    birth_date:      str = Form(""),
-    initiation_date: str = Form(""),
-    companion_date:  str = Form(""),
-    master_date:     str = Form(""),
-    program_optin:   str = Form(""),
-    pin_code:        str = Form(""),
+    masonic_grade:    str = Form("APPRENTI"),
+    membership_type:  str = Form("APPARTENANCE"),
+    office_id:        str = Form(""),
+    member_status:    str = Form("ACTIVE"),
+    birth_date:       str = Form(""),
+    initiation_date:       str = Form(""),
+    companion_date:        str = Form(""),
+    master_date:           str = Form(""),
+    membership_start_date: str = Form(""),
+    status_date:           str = Form(""),
+    program_optin:         str = Form(""),
+    pin_code:              str = Form(""),
 ):
     user, current_member = ctx
     if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
@@ -433,6 +448,7 @@ async def member_update(
             "offices": offices,
             "current_office_id": current_office_id,
             "MasonicGrade": MasonicGrade,
+        "MembershipType": MembershipType,
             "MemberStatus": MemberStatus,
             "grade_label": _grade_label,
             "status_label": _status_label,
@@ -459,12 +475,33 @@ async def member_update(
 
     # Seuls admin/VM/Secrétaire peuvent changer grade/statut/fonction
     if can_manage_members(current_member) or user.is_admin:
-        target.masonic_grade   = MasonicGrade(masonic_grade)
-        target.status          = MemberStatus(member_status)
-        target.initiation_date = parse_date(initiation_date)
-        target.companion_date  = parse_date(companion_date)
-        target.master_date     = parse_date(master_date)
+        prev_status = target.status
+        target.masonic_grade          = MasonicGrade(masonic_grade)
+        target.membership_type        = MembershipType(membership_type)
+        target.status                 = MemberStatus(member_status)
+        target.initiation_date        = parse_date(initiation_date)
+        target.companion_date         = parse_date(companion_date)
+        target.master_date            = parse_date(master_date)
+        target.membership_start_date  = parse_date(membership_start_date)
+        target.status_date            = parse_date(status_date)
         await _assign_office(db, member_id, int(office_id) if office_id.isdigit() else None)
+
+        # Démission / radiation → exempter cotisations + auto-remplir date de départ
+        leaving = {MemberStatus.RESIGNED, MemberStatus.STRUCK, MemberStatus.DECEASED}
+        if target.status in leaving and prev_status not in leaving:
+            if not target.status_date:
+                target.status_date = date.today()
+        if target.status in leaving and prev_status not in leaving:
+            from app.models.finance import MemberContribution, ContributionStatus
+            open_r = await db.execute(
+                select(MemberContribution).where(
+                    MemberContribution.member_id == member_id,
+                    MemberContribution.status.in_([ContributionStatus.PENDING, ContributionStatus.PARTIAL]),
+                )
+            )
+            for c in open_r.scalars().all():
+                c.status = ContributionStatus.EXEMPT
+                c.notes = (c.notes or "") + f"\nExempté automatiquement — {target.status.value} le {date.today()}"
         if pin_code.strip():
             target.pin_code_hash = hash_password(pin_code.strip())
 
@@ -472,6 +509,43 @@ async def member_update(
 
     await db.commit()
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
+
+
+# ── Reset mot de passe (admin) ────────────────────────────────────────────────
+
+@router.post("/{member_id}/reset-password", response_class=HTMLResponse)
+async def reset_member_password(
+    member_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    user, current_member = ctx
+    if not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    if new_password != confirm_password:
+        return RedirectResponse(
+            url=f"/members/{member_id}/edit?pwd_error=mismatch",
+            status_code=302,
+        )
+    if len(new_password) < 8:
+        return RedirectResponse(
+            url=f"/members/{member_id}/edit?pwd_error=tooshort",
+            status_code=302,
+        )
+
+    user_result = await db.execute(select(User).where(User.member_id == member_id))
+    target_user = user_result.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=404, detail="Ce membre n'a pas de compte")
+
+    target_user.password_hash = hash_password(new_password)
+    await db.commit()
+
+    return RedirectResponse(url=f"/members/{member_id}/edit?pwd_ok=1", status_code=302)
 
 
 # ── Activation / Désactivation du compte ──────────────────────────────────────
@@ -649,3 +723,69 @@ async def responsibility_delete(
         await db.commit()
 
     return RedirectResponse(url=f"/members/{member_id}/responsibilities", status_code=302)
+
+
+@router.post("/{member_id}/delete")
+async def member_delete(
+    request: Request,
+    member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, current_member = ctx
+    if not ((current_member and can_manage_members(current_member)) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    result = await db.execute(select(Member).where(Member.id == member_id))
+    target = result.scalar_one_or_none()
+    if not target:
+        raise HTTPException(status_code=404)
+
+    if current_member and current_member.id == member_id:
+        raise HTTPException(status_code=400, detail="Impossible de supprimer votre propre compte.")
+
+    # Delete User account
+    u_result = await db.execute(select(User).where(User.member_id == member_id))
+    u = u_result.scalar_one_or_none()
+    if u:
+        await db.delete(u)
+
+    # Delete payments, quitus, then contributions
+    from app.models.finance import Payment, Quitus
+    c_result = await db.execute(
+        select(MemberContribution).where(MemberContribution.member_id == member_id)
+    )
+    for c in c_result.scalars().all():
+        q_result = await db.execute(
+            select(Quitus).where(Quitus.contribution_id == c.id)
+        )
+        for q in q_result.scalars().all():
+            await db.delete(q)
+        p_result = await db.execute(
+            select(Payment).where(Payment.member_contribution_id == c.id)
+        )
+        for p in p_result.scalars().all():
+            await db.delete(p)
+        await db.flush()
+        await db.delete(c)
+
+    # Delete responsibilities
+    r_result = await db.execute(
+        select(MemberResponsibility).where(MemberResponsibility.member_id == member_id)
+    )
+    for r in r_result.scalars().all():
+        await db.delete(r)
+
+    # Nullify nullable FK references in lodge offices
+    from app.models.lodge import LodgeOffice
+    off_result = await db.execute(
+        select(LodgeOffice).where(LodgeOffice.member_id == member_id)
+    )
+    for off in off_result.scalars().all():
+        off.member_id = None
+
+    await db.flush()
+    await db.delete(target)
+    await db.commit()
+
+    return RedirectResponse(url="/members/", status_code=303)

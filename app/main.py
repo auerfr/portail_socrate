@@ -16,10 +16,14 @@ from app.routers import settings as settings_router
 from app.routers import messages as messages_router
 from app.routers import calendar as calendar_router
 from app.routers import groups as groups_router
+from app.routers import documents as documents_router
+from app.routers import chat as chat_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.lodge_calendar  # noqa: F401
 import app.models.groups          # noqa: F401
+import app.models.documents       # noqa: F401
+import app.models.chat            # noqa: F401
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -32,6 +36,9 @@ from app.models.meetings import (
 )
 from app.models.communication import Announcement, AnnouncementRead
 from app.models.messaging import MessageRecipient as MsgRecipient, Message as Msg
+from app.models.lodge_calendar import LodgeEvent
+from app.routers.calendar import _event_visible_to
+from app.models.chat import ChatChannel, ChatChannelMember, ChatMessage, ChatRead, ChannelType
 
 settings = get_settings()
 
@@ -44,6 +51,22 @@ async def lifespan(app: FastAPI):
 
     # ── Migrations légères (ajout de colonnes manquantes) ──────────────────
     async with engine.begin() as conn:
+        # members.email_notifications
+        r_mem = await conn.exec_driver_sql("PRAGMA table_info(members)")
+        cols_mem = [row[1] for row in r_mem.fetchall()]
+        if "email_notifications" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN email_notifications BOOLEAN NOT NULL DEFAULT 1"
+            )
+        if "membership_type" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN membership_type VARCHAR(20) NOT NULL DEFAULT 'APPARTENANCE'"
+            )
+        if "membership_start_date" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN membership_start_date DATE"
+            )
+
         # budget_lines.category_label
         r = await conn.exec_driver_sql("PRAGMA table_info(budget_lines)")
         cols = [row[1] for row in r.fetchall()]
@@ -65,11 +88,137 @@ async def lifespan(app: FastAPI):
             )
 
         # ── Messagerie interne ──────────────────────────────────────────────
-        # Les tables messages et message_recipients sont créées par Base.metadata.create_all
-        # (nouveaux modèles — pas besoin d'ALTER TABLE)
+        r_msg = await conn.exec_driver_sql("PRAGMA table_info(messages)")
+        cols_msg = [row[1] for row in r_msg.fetchall()]
+        if "parent_id" not in cols_msg:
+            await conn.exec_driver_sql(
+                "ALTER TABLE messages ADD COLUMN parent_id INTEGER REFERENCES messages(id)"
+            )
+        if "visio_url" not in cols_msg:
+            await conn.exec_driver_sql(
+                "ALTER TABLE messages ADD COLUMN visio_url VARCHAR(500)"
+            )
+        # message_attachments : créée par Base.metadata.create_all (nouveau modèle)
 
         # ── Agenda ─────────────────────────────────────────────────────────
         # La table lodge_events est créée par Base.metadata.create_all
+        r_ev = await conn.exec_driver_sql("PRAGMA table_info(lodge_events)")
+        cols_ev = [row[1] for row in r_ev.fetchall()]
+        if "visibility_group_id" not in cols_ev:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_events ADD COLUMN visibility_group_id INTEGER REFERENCES lodge_groups(id)"
+            )
+        if "meeting_url" not in cols_ev:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_events ADD COLUMN meeting_url VARCHAR(500)"
+            )
+
+        # ── Tracé de tenue — corps narratif ────────────────────────────────
+        r_mtg = await conn.exec_driver_sql("PRAGMA table_info(meetings)")
+        cols_mtg = [row[1] for row in r_mtg.fetchall()]
+        if "compte_rendu_html" not in cols_mtg:
+            await conn.exec_driver_sql(
+                "ALTER TABLE meetings ADD COLUMN compte_rendu_html TEXT"
+            )
+
+        # ── GED — group_id sur doc_spaces et doc_folders ───────────────────
+        r_ds = await conn.exec_driver_sql("PRAGMA table_info(doc_spaces)")
+        cols_ds = [row[1] for row in r_ds.fetchall()]
+        if "group_id" not in cols_ds:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_spaces ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id)"
+            )
+
+        r_df = await conn.exec_driver_sql("PRAGMA table_info(doc_folders)")
+        cols_df = [row[1] for row in r_df.fetchall()]
+        if "group_id" not in cols_df:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id)"
+            )
+
+        # ── GED — link_url sur documents + original_filename nullable ───────
+        r_doc = await conn.exec_driver_sql("PRAGMA table_info(documents)")
+        cols_doc_info = r_doc.fetchall()
+        cols_doc = [row[1] for row in cols_doc_info]
+
+        if "link_url" not in cols_doc:
+            await conn.exec_driver_sql(
+                "ALTER TABLE documents ADD COLUMN link_url VARCHAR(2000)"
+            )
+
+        # Rendre original_filename nullable (NOT NULL → NULL) via recréation SQLite
+        orig_col = next((row for row in cols_doc_info if row[1] == "original_filename"), None)
+        if orig_col and orig_col[3] == 1:  # notnull == 1
+            await conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS documents_new (
+                    id INTEGER PRIMARY KEY,
+                    folder_id INTEGER NOT NULL REFERENCES doc_folders(id) ON DELETE CASCADE,
+                    name VARCHAR(300) NOT NULL,
+                    description TEXT,
+                    original_filename VARCHAR(300),
+                    mime_type VARCHAR(100),
+                    file_size INTEGER,
+                    storage_path VARCHAR(500),
+                    link_url VARCHAR(2000),
+                    download_count INTEGER NOT NULL DEFAULT 0,
+                    status VARCHAR(20) NOT NULL,
+                    author_id INTEGER REFERENCES members(id),
+                    validated_by_id INTEGER REFERENCES members(id),
+                    validated_at DATETIME,
+                    created_at DATETIME,
+                    updated_at DATETIME
+                )
+            """)
+            await conn.exec_driver_sql(
+                "INSERT OR IGNORE INTO documents_new SELECT * FROM documents"
+            )
+            await conn.exec_driver_sql("DROP TABLE documents")
+            await conn.exec_driver_sql("ALTER TABLE documents_new RENAME TO documents")
+
+        # ── Correction logo blanc → transparent dans lodge_settings ──────────
+        await conn.exec_driver_sql(
+            "UPDATE lodge_settings SET logo_url = '/static/img/sceau-socrate-transparent.png' "
+            "WHERE logo_url = '/static/img/sceau-socrate-blanc.png'"
+        )
+
+        # ── Seuils assiduité dans lodge_settings ──────────────────────────────
+        r_ls = await conn.exec_driver_sql("PRAGMA table_info(lodge_settings)")
+        ls_cols = {row[1] for row in r_ls.fetchall()}
+        if "attendance_threshold_warn" not in ls_cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN attendance_threshold_warn INTEGER DEFAULT 70"
+            )
+        if "attendance_threshold_danger" not in ls_cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN attendance_threshold_danger INTEGER DEFAULT 50"
+            )
+        if "visio_provider" not in ls_cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN visio_provider VARCHAR(50)"
+            )
+        if "visio_server_url" not in ls_cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN visio_server_url VARCHAR(500)"
+            )
+        if "visio_room_prefix" not in ls_cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN visio_room_prefix VARCHAR(100)"
+            )
+
+    # ── Canal "Général" par défaut ─────────────────────────────────────────
+    async with engine.begin() as conn:
+        from sqlalchemy import text
+        result = await conn.execute(text("SELECT COUNT(*) FROM chat_channels"))
+        count = result.scalar()
+        if count == 0:
+            await conn.execute(text(
+                "INSERT INTO chat_channels (name, description, type, is_readonly, created_at) "
+                "VALUES ('Général', 'Canal principal de la loge', 'GENERAL', 0, datetime('now'))"
+            ))
+            await conn.execute(text(
+                "INSERT INTO chat_channels (name, description, type, is_readonly, created_at) "
+                "VALUES ('Annonces', 'Annonces officielles', 'GENERAL', 1, datetime('now'))"
+            ))
 
     yield
     # Arrêt
@@ -112,11 +261,9 @@ app.include_router(announcements.router)
 app.include_router(messages_router.router)
 app.include_router(calendar_router.router)
 app.include_router(groups_router.router)
-# app.include_router(finance.router)
-# app.include_router(documents.router)
-# app.include_router(calendar.router)
+app.include_router(documents_router.router)
+app.include_router(chat_router.router)
 # app.include_router(forum.router)
-# app.include_router(chat.router)
 # app.include_router(admin.router)
 
 
@@ -308,6 +455,53 @@ async def home(
     )
     global_unread_messages = unread_msg_r.scalar_one() or 0
 
+    # ── Messages chat non lus ─────────────────────────────────────────────
+    try:
+        from app.routers.chat import _accessible_channels, _unread_count_per_channel
+        chat_channels = await _accessible_channels(member, db)
+        chat_ch_ids = [c.id for c in chat_channels]
+        chat_unread_map = await _unread_count_per_channel(member.id, chat_ch_ids, db)
+        global_unread_chat = sum(chat_unread_map.values())
+    except Exception:
+        global_unread_chat = 0
+
+    # ── Prochains événements agenda (visibles par ce membre) ────────────────
+    upcoming_events_r = await db.execute(
+        select(LodgeEvent)
+        .where(LodgeEvent.start_datetime >= datetime.combine(today, datetime.min.time()))
+        .order_by(LodgeEvent.start_datetime)
+        .limit(20)  # on filtre côté Python après vérification visibilité
+    )
+    _all_upcoming_events = upcoming_events_r.scalars().all()
+    upcoming_events = []
+    for ev in _all_upcoming_events:
+        if await _event_visible_to(ev, member, db, user):
+            upcoming_events.append(ev)
+            if len(upcoming_events) >= 4:
+                break
+
+    # ── Messages récents non lus ─────────────────────────────────────────────
+    recent_msgs_r = await db.execute(
+        select(MsgRecipient)
+        .join(Msg, Msg.id == MsgRecipient.message_id)
+        .where(
+            MsgRecipient.member_id == member.id,
+            MsgRecipient.read_at.is_(None),
+            Msg.sent_at.isnot(None),
+        )
+        .options(selectinload(MsgRecipient.message))
+        .order_by(Msg.sent_at.desc())
+        .limit(4)
+    )
+    recent_unread_msgs = recent_msgs_r.scalars().all()
+
+    # Expéditeurs des messages récents
+    recent_sender_ids = {r.message.sender_id for r in recent_unread_msgs}
+    recent_senders_map: dict[int, Member] = {}
+    if recent_sender_ids:
+        rs = await db.execute(select(Member).where(Member.id.in_(recent_sender_ids)))
+        recent_senders_map = {m.id: m for m in rs.scalars().all()}
+
     # ── Derniers maçons passants ─────────────────────────────────────────────
     recent_visitors_r = await db.execute(
         select(MeetingVisitor)
@@ -315,8 +509,9 @@ async def home(
             selectinload(MeetingVisitor.visitor),
             selectinload(MeetingVisitor.meeting),
         )
+        .join(Meeting, Meeting.id == MeetingVisitor.meeting_id)
         .where(MeetingVisitor.status == VisitorStatus.CONFIRMED)
-        .order_by(MeetingVisitor.registered_at.desc())
+        .order_by(Meeting.meeting_date.desc(), MeetingVisitor.id.desc())
         .limit(4)
     )
     recent_visitors = recent_visitors_r.scalars().all()
@@ -352,6 +547,11 @@ async def home(
         "read_announcements": read_announcements,
         # pastille messages
         "global_unread_messages": global_unread_messages,
+        "global_unread_chat": global_unread_chat,
+        # agenda & messages pour dashboard
+        "upcoming_events": upcoming_events,
+        "recent_unread_msgs": recent_unread_msgs,
+        "recent_senders_map": recent_senders_map,
     })
 
 

@@ -13,20 +13,63 @@
         {% if selected_year %}· {{ selected_year.label }}{% endif %}
       </p>
     </div>
-    {% if years %}
-    <div class="flex items-center gap-2">
-      <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Année :</label>
-      <select onchange="window.location='/attendance/?year_id='+this.value"
-              class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
-        {% for y in years %}
-        <option value="{{ y.id }}" {% if selected_year and y.id == selected_year.id %}selected{% endif %}>
-          {{ y.label }}{% if y.is_current %} (en cours){% endif %}
-        </option>
-        {% endfor %}
-      </select>
+    <div class="flex items-center gap-3 flex-wrap">
+      <a href="/attendance/visitors"
+         class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 shadow-sm">
+        👥 Maçons passants
+      </a>
+      <a href="/attendance/bilan"
+         class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 shadow-sm">
+        📊 Bilan d'activité
+      </a>
+      {% if selected_year %}
+      <a href="/attendance/export/csv?year_id={{ selected_year.id }}"
+         class="text-xs bg-white border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg hover:bg-gray-50 transition-colors flex items-center gap-1.5 shadow-sm">
+        ↓ Export Excel
+      </a>
+      {% endif %}
+      {% if years %}
+      <div class="flex items-center gap-2">
+        <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Année :</label>
+        <select onchange="window.location='/attendance/?year_id='+this.value"
+                class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+          {% for y in years %}
+          <option value="{{ y.id }}" {% if selected_year and y.id == selected_year.id %}selected{% endif %}>
+            {{ y.label }}{% if y.is_current %} (en cours){% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
+
+  <!-- ════════════════════════════════════════════════════════
+       KPIs CUMULÉS
+  ════════════════════════════════════════════════════════ -->
+  {% if g_expected > 0 %}
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+    <div class="bg-white rounded-xl border border-green-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Présence (réalisé)</div>
+      <div class="text-3xl font-bold text-green-600">{{ g_pct_present }}%</div>
+      <div class="text-xs text-green-500 mt-1">Présents : {{ g_present }} / {{ g_expected }}</div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-yellow-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Excusés (réalisé)</div>
+      <div class="text-3xl font-bold text-yellow-500">{{ g_pct_excused }}%</div>
+      <div class="text-xs text-yellow-500 mt-1">Excusés : {{ g_excused }}</div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-red-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Absences (réalisé)</div>
+      <div class="text-3xl font-bold text-red-500">{{ g_pct_absent }}%</div>
+      <div class="text-xs text-red-400 mt-1">Absents : {{ g_absent }}</div>
+    </div>
+
+  </div>
+  {% endif %}
 
   <!-- ════════════════════════════════════════════════════════
        SECTION 1 — TENUES À VENIR
@@ -106,10 +149,11 @@
       <div class="overflow-x-auto">
         <table class="text-sm border-collapse" style="min-width:100%;">
           <thead>
-            <tr style="background:#f8fafc; border-bottom:2px solid #e5e7eb;">
-              <th class="text-left px-5 py-3 font-semibold text-gray-600 whitespace-nowrap"
-                  style="position:sticky; left:0; background:#f8fafc; z-index:10; min-width:200px; border-right:1px solid #e5e7eb;">
-                Membre
+            <tr style="background:#f8fafc; border-bottom:2px solid #e5e7eb;" id="dashHeaderRow">
+              <th class="text-left px-5 py-3 font-semibold text-gray-600 whitespace-nowrap cursor-pointer hover:text-loge-700 select-none"
+                  style="position:sticky; left:0; background:#f8fafc; z-index:10; min-width:200px; border-right:1px solid #e5e7eb;"
+                  onclick="sortDash('name')" title="Trier par nom">
+                Membre <span id="sortIcon-name" class="text-gray-300 text-xs">↕</span>
               </th>
               {% for m in meetings %}
               <th class="px-1 py-2 text-center" style="min-width:40px; max-width:44px;">
@@ -123,10 +167,10 @@
                 </a>
               </th>
               {% endfor %}
-              <th class="px-3 py-3 text-center text-xs font-semibold text-green-600 whitespace-nowrap" style="border-left:2px solid #e5e7eb;">P</th>
-              <th class="px-3 py-3 text-center text-xs font-semibold text-yellow-500 whitespace-nowrap">E</th>
-              <th class="px-3 py-3 text-center text-xs font-semibold text-red-500 whitespace-nowrap">A</th>
-              <th class="px-3 py-3 text-center text-xs font-semibold text-loge-600 whitespace-nowrap">%</th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-green-600 whitespace-nowrap cursor-pointer hover:text-green-700 select-none" style="border-left:2px solid #e5e7eb;" onclick="sortDash('p')" title="Trier par présences">P <span id="sortIcon-p" class="text-gray-300">↕</span></th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-yellow-500 whitespace-nowrap cursor-pointer hover:text-yellow-600 select-none" onclick="sortDash('e')" title="Trier par excusés">E <span id="sortIcon-e" class="text-gray-300">↕</span></th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-red-500 whitespace-nowrap cursor-pointer hover:text-red-600 select-none" onclick="sortDash('a')" title="Trier par absences">A <span id="sortIcon-a" class="text-gray-300">↕</span></th>
+              <th class="px-3 py-3 text-center text-xs font-semibold text-loge-600 whitespace-nowrap cursor-pointer hover:text-loge-700 select-none" onclick="sortDash('pct')" title="Trier par taux de présence">% <span id="sortIcon-pct" class="text-gray-300">↕</span></th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
@@ -136,11 +180,17 @@
             {% set excused = s.get('EXCUSED', 0) %}
             {% set absent  = s.get('ABSENT', 0) %}
             {% set recorded = present + excused + absent %}
-            {% set pct = (present * 100 // total_meetings) if total_meetings else 0 %}
+            {% set applicable = member_applicable.get(mbr.id, []) %}
+            {% set expected = applicable | length %}
+            {% set pct = (present * 100 // expected) if expected else 0 %}
             {% set member_grid = grid.get(mbr.id, {}) %}
-            <tr class="{% if absent >= 3 %}bg-red-50/40{% endif %} hover:bg-blue-50/20 transition-colors">
+            {% set is_danger = expected > 0 and recorded > 0 and pct < threshold_danger %}
+            {% set is_warn   = expected > 0 and recorded > 0 and pct < threshold_warn and not is_danger %}
+            <tr class="dash-member-row {% if is_danger %}bg-red-50/40{% elif is_warn %}bg-amber-50/40{% endif %} hover:bg-blue-50/20 transition-colors"
+                data-name="{{ mbr.last_name }} {{ mbr.first_name }}"
+                data-p="{{ present }}" data-e="{{ excused }}" data-a="{{ absent }}" data-pct="{{ pct }}">
 
-              <td style="position:sticky; left:0; background:{% if absent >= 3 %}#fff1f2{% else %}#ffffff{% endif %}; z-index:5; border-right:1px solid #e5e7eb;"
+              <td style="position:sticky; left:0; background:{% if is_danger %}#fff1f2{% elif is_warn %}#fffbeb{% else %}#ffffff{% endif %}; z-index:5; border-right:1px solid #e5e7eb;"
                   class="px-4 py-2 whitespace-nowrap">
                 <a href="/attendance/member/{{ mbr.id }}" class="flex items-center gap-2.5 group">
                   <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
@@ -152,8 +202,10 @@
                       {% if mbr.civility == 'S' %}S∴{% else %}F∴{% endif %}
                       {{ mbr.first_name }} {{ mbr.last_name }}
                     </div>
-                    {% if absent >= 3 %}
-                    <div class="text-xs text-red-500 font-medium leading-tight">⚠ {{ absent }} absences</div>
+                    {% if is_danger %}
+                    <div class="text-xs text-red-500 font-medium leading-tight">🔴 Assiduité {{ pct }}%</div>
+                    {% elif is_warn %}
+                    <div class="text-xs text-amber-600 font-medium leading-tight">⚠ Assiduité {{ pct }}%</div>
                     {% endif %}
                   </div>
                 </a>
@@ -161,8 +213,11 @@
 
               {% for mtg in meetings %}
               {% set cell = member_grid.get(mtg.id, '') %}
+              {% set is_applicable = mtg.id in applicable %}
               <td class="px-0.5 py-2 text-center">
-                {% if cell == 'PRESENT' %}
+                {% if not is_applicable %}
+                  <span class="inline-flex items-center justify-center w-6 h-6 rounded text-gray-300 text-xs" style="background:repeating-linear-gradient(45deg,#f3f4f6,#f3f4f6 2px,#e5e7eb 2px,#e5e7eb 4px);" title="Non concerné"></span>
+                {% elif cell == 'PRESENT' %}
                   <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-green-100 text-green-700 text-xs font-bold" title="Présent">✓</span>
                 {% elif cell == 'EXCUSED' %}
                   <span class="inline-flex items-center justify-center w-6 h-6 rounded bg-yellow-100 text-yellow-600 text-xs font-bold" title="Excusé">E</span>
@@ -186,8 +241,8 @@
               <td class="px-3 py-2 text-center">
                 <span class="inline-flex items-center justify-center rounded-full text-xs font-semibold px-1.5 py-0.5
                   {% if recorded == 0 %}text-gray-400
-                  {% elif pct >= 80 %}bg-green-100 text-green-700
-                  {% elif pct >= 50 %}bg-yellow-100 text-yellow-700
+                  {% elif pct >= threshold_warn %}bg-green-100 text-green-700
+                  {% elif pct >= threshold_danger %}bg-amber-100 text-amber-700
                   {% else %}bg-red-100 text-red-600{% endif %}">
                   {% if recorded > 0 %}{{ pct }}%{% else %}—{% endif %}
                 </span>
@@ -241,13 +296,47 @@
           <span class="inline-flex items-center justify-center w-5 h-5 rounded bg-red-100 text-red-600 font-bold text-xs">✗</span> Absent
         </span>
         <span class="flex items-center gap-1.5">
-          <span class="w-4 h-4 rounded bg-red-50 border border-red-200 inline-block"></span> ≥ 3 absences
+          <span class="w-4 h-4 rounded bg-amber-50 border border-amber-200 inline-block"></span> ⚠ &lt; {{ threshold_warn }}%
         </span>
-        <span class="ml-auto">Cliquer sur une date → synthèse de la tenue · Cliquer sur un nom → historique</span>
+        <span class="flex items-center gap-1.5">
+          <span class="w-4 h-4 rounded bg-red-50 border border-red-200 inline-block"></span> 🔴 &lt; {{ threshold_danger }}%
+        </span>
+        <span class="ml-auto">Cliquer sur une date → synthèse · Cliquer sur un nom → historique</span>
       </div>
     </div>
     {% endif %}
   </section>
 
 </div>
+
+<script>
+(function() {
+  const keys = ['name', 'p', 'e', 'a', 'pct'];
+  let sortDir = {};
+
+  window.sortDash = function(key) {
+    const tbody = document.querySelector('tbody.divide-y');
+    if (!tbody) return;
+    const rows = Array.from(tbody.querySelectorAll('tr.dash-member-row'));
+    const asc = sortDir[key] !== 'asc';
+    sortDir = {};
+    sortDir[key] = asc ? 'asc' : 'desc';
+
+    keys.forEach(k => {
+      const el = document.getElementById('sortIcon-' + k);
+      if (el) { el.textContent = '↕'; el.className = 'text-gray-300'; }
+    });
+    const icon = document.getElementById('sortIcon-' + key);
+    if (icon) { icon.textContent = asc ? '↑' : '↓'; icon.className = 'text-loge-600'; }
+
+    rows.sort((a, b) => {
+      const va = a.dataset[key] || '';
+      const vb = b.dataset[key] || '';
+      if (key === 'name') return asc ? va.localeCompare(vb, 'fr') : vb.localeCompare(va, 'fr');
+      return asc ? (+va) - (+vb) : (+vb) - (+va);
+    });
+    rows.forEach(r => tbody.appendChild(r));
+  };
+})();
+</script>
 {% endblock %}

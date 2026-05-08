@@ -1,0 +1,716 @@
+{% extends "base.html" %}
+{% block title %}{{ folder.name }} — Bibliothèque{% endblock %}
+
+{% block content %}
+<!-- Scope Alpine englobant (layout + modales fixes) -->
+<div x-data="{
+       view: localStorage.getItem('docView') || 'list',
+       setView(v) { this.view = v; localStorage.setItem('docView', v); },
+       preview: null,
+       openPreview(id, name, type) { this.preview = { id, name, type }; document.body.style.overflow='hidden'; },
+       closePreview() { this.preview = null; document.body.style.overflow=''; },
+       embeds: {},
+       toggleEmbed(id) { this.embeds[id] = !this.embeds[id]; },
+       isEmbedOpen(id) { return !!this.embeds[id]; }
+     }"
+     @keydown.escape.window="closePreview()">
+
+<div class="max-w-5xl mx-auto px-4 py-6 space-y-5">
+
+  <!-- Fil d'ariane -->
+  <nav class="flex items-center gap-1.5 text-sm text-gray-500 flex-wrap">
+    {% for crumb in breadcrumb %}
+      {% if crumb.url %}
+      <a href="{{ crumb.url }}" class="hover:text-loge-700 transition-colors truncate max-w-[180px]">{{ crumb.label }}</a>
+      <svg class="w-3.5 h-3.5 text-gray-300 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+      </svg>
+      {% else %}
+      <span class="text-gray-800 font-medium">{{ crumb.label }}</span>
+      {% endif %}
+    {% endfor %}
+  </nav>
+
+  <!-- En-tête -->
+  <div class="flex items-center justify-between gap-3">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">{{ folder.name }}</h1>
+      {% if folder.description %}
+      <p class="text-sm text-gray-500 mt-0.5">{{ folder.description }}</p>
+      {% endif %}
+    </div>
+    {% if is_admin %}
+    <div class="flex gap-2 flex-shrink-0">
+      <button onclick="document.getElementById('modal-subfolder').classList.remove('hidden')"
+              class="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        Sous-dossier
+      </button>
+      <form method="post" action="/documents/admin/folder/{{ folder.id }}/delete"
+            onsubmit="return confirm('Supprimer ce dossier et tout son contenu ?')">
+        <button type="submit"
+                class="flex items-center gap-1.5 border border-red-200 text-red-500 text-sm font-medium px-3 py-2 rounded-lg hover:bg-red-50 transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+          </svg>
+          Supprimer
+        </button>
+      </form>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Bannieres -->
+  {% if saved %}
+  <div class="bg-green-50 border border-green-200 text-green-800 px-4 py-3 rounded-lg text-sm">✓ Modification enregistrée.</div>
+  {% endif %}
+  {% if error %}
+  <div class="bg-red-50 border border-red-200 text-red-800 px-4 py-3 rounded-lg text-sm">{{ error }}</div>
+  {% endif %}
+
+  <!-- Sous-dossiers -->
+  {% if subfolders %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+    {% for sf in subfolders %}
+    <div class="group relative">
+      <a href="/documents/folder/{{ sf.id }}"
+         class="flex items-center gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3.5 hover:border-loge-400 hover:shadow-sm transition-all">
+        <svg class="w-5 h-5 text-yellow-500 flex-shrink-0" fill="currentColor" viewBox="0 0 24 24">
+          <path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z"/>
+        </svg>
+        <div class="min-w-0 flex-1">
+          <div class="font-medium text-gray-800 group-hover:text-loge-700 text-sm truncate">{{ sf.name }}</div>
+          {% set sfgrp = groups_map.get(sf.group_id) if sf.group_id else None %}
+          {% if sfgrp %}
+            <div class="text-xs text-indigo-600 truncate">{{ sfgrp.name }}</div>
+          {% elif sf.min_grade.value != 'ALL' %}
+            <div class="text-xs text-gray-400">{{ sf.min_grade.value|replace('MAITRE','M∴')|replace('COMPAGNON','Comp∴')|replace('APPRENTI','App∴') }}+</div>
+          {% endif %}
+        </div>
+      </a>
+      {% if is_admin %}
+      <form method="post" action="/documents/admin/folder/{{ sf.id }}/delete"
+            class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity"
+            onsubmit="return confirm('Supprimer ce dossier ?')">
+        <button type="submit" class="w-6 h-6 flex items-center justify-center rounded text-red-400 hover:bg-red-50 hover:text-red-600">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+          </svg>
+        </button>
+      </form>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <!-- Documents & Liens -->
+  {% if documents or is_admin %}
+  <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+
+    <!-- Barre d'outils : compteur + tri + bascule vue -->
+    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+
+      <!-- Gauche : titre + tri -->
+      <div class="flex items-center gap-3 flex-wrap">
+        <div class="text-sm font-semibold text-gray-700">
+          Fichiers &amp; Liens
+          {% if documents %}
+          <span class="ml-1.5 text-xs font-normal text-gray-400">{{ documents|length }} élément{{ 's' if documents|length > 1 }}</span>
+          {% endif %}
+        </div>
+
+        {% if documents %}
+        <div class="flex items-center gap-0.5 text-xs border-l border-gray-100 pl-3">
+          <span class="text-gray-400 mr-1">Trier :</span>
+          {% set sorts = [('name','Nom'), ('date','Date'), ('size','Taille')] %}
+          {% for s, label in sorts %}
+          {% set next_dir = 'asc' if (sort != s or dir == 'desc') else 'desc' %}
+          <a href="?sort={{ s }}&dir={{ next_dir }}"
+             class="flex items-center gap-0.5 px-2 py-1 rounded-md transition-colors
+             {% if sort == s %}bg-loge-50 text-loge-700 font-medium{% else %}text-gray-400 hover:text-gray-700 hover:bg-gray-50{% endif %}">
+            {{ label }}
+            {% if sort == s %}
+            <svg class="w-3 h-3 ml-0.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+              {% if dir == 'asc' %}
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75l7.5-7.5 7.5 7.5"/>
+              {% else %}
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+              {% endif %}
+            </svg>
+            {% endif %}
+          </a>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Droite : toggle vue liste / grille -->
+      <div class="flex gap-0.5 bg-gray-100 p-0.5 rounded-lg flex-shrink-0">
+        <button @click="setView('list')" title="Vue liste"
+                :class="view==='list' ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400 hover:text-gray-600'"
+                class="p-1.5 rounded-md transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 6.75h12M8.25 12h12m-12 5.25h12M3.75 6.75h.007v.008H3.75V6.75zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zM3.75 12h.007v.008H3.75V12zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0zm-.375 5.25h.007v.008H3.75v-.008zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+          </svg>
+        </button>
+        <button @click="setView('grid')" title="Vue grille"
+                :class="view==='grid' ? 'bg-white shadow-sm text-gray-700' : 'text-gray-400 hover:text-gray-600'"
+                class="p-1.5 rounded-md transition-all">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.75 6A2.25 2.25 0 016 3.75h2.25A2.25 2.25 0 0110.5 6v2.25a2.25 2.25 0 01-2.25 2.25H6a2.25 2.25 0 01-2.25-2.25V6zM3.75 15.75A2.25 2.25 0 016 13.5h2.25a2.25 2.25 0 012.25 2.25V18a2.25 2.25 0 01-2.25 2.25H6A2.25 2.25 0 013.75 18v-2.25zM13.5 6a2.25 2.25 0 012.25-2.25H18A2.25 2.25 0 0120.25 6v2.25A2.25 2.25 0 0118 10.5h-2.25a2.25 2.25 0 01-2.25-2.25V6zM13.5 15.75a2.25 2.25 0 012.25-2.25H18a2.25 2.25 0 012.25 2.25V18A2.25 2.25 0 0118 20.25h-2.25A2.25 2.25 0 0113.5 18v-2.25z"/>
+          </svg>
+        </button>
+      </div>
+    </div>
+
+    {% if documents %}
+
+    <!-- ═══ VUE LISTE ═══ -->
+    <ul x-show="view==='list'" class="divide-y divide-gray-50">
+      {% for doc in documents %}
+      {% set is_link = doc.link_url %}
+      {% set platform = platforms.get(doc.id) if is_link else None %}
+      {% set has_embed = platform and platform.embed_url %}
+      {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if doc.original_filename and '.' in doc.original_filename else '' %}
+
+      <li class="group">
+
+        <!-- Ligne principale -->
+        <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+
+          <!-- Icône plateforme ou type fichier -->
+          {% if is_link and platform %}
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0"
+               style="background:{{ platform.bg }};">
+            <svg class="w-4 h-4" fill="currentColor" viewBox="0 0 24 24"
+                 style="color:{{ platform.color }};">
+              {{ platform.icon | safe }}
+            </svg>
+          </div>
+          {% else %}
+          <div class="w-8 h-8 rounded-lg flex items-center justify-center flex-shrink-0
+            {% if ext == 'pdf' %}bg-red-100
+            {% elif ext in ['doc','docx','odt'] %}bg-blue-100
+            {% elif ext in ['xls','xlsx','ods'] %}bg-green-100
+            {% elif ext in ['jpg','jpeg','png','gif','webp'] %}bg-purple-100
+            {% else %}bg-gray-100{% endif %}">
+            {% if ext == 'pdf' %}
+            <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+            </svg>
+            {% elif ext in ['jpg','jpeg','png','gif','webp'] %}
+            <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+            </svg>
+            {% else %}
+            <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+            </svg>
+            {% endif %}
+          </div>
+          {% endif %}
+
+          <!-- Infos -->
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-medium text-gray-800 truncate">{{ doc.name }}</div>
+            <div class="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
+              {% if is_link and platform %}
+                <span style="color:{{ platform.color }};" class="font-medium">{{ platform.name }}</span>
+                {% if doc.description %}<span>·</span><span class="truncate max-w-[200px]">{{ doc.description }}</span>{% endif %}
+              {% else %}
+                {% if doc.original_filename %}<span>{{ ext.upper() or '?' }}</span>{% endif %}
+                {% if doc.file_size %}
+                <span>·</span>
+                <span>{% if doc.file_size > 1048576 %}{{ "%.1f"|format(doc.file_size / 1048576) }} Mo
+                {% elif doc.file_size > 1024 %}{{ (doc.file_size // 1024) }} Ko
+                {% else %}{{ doc.file_size }} o{% endif %}</span>
+                {% endif %}
+                {% if doc.created_at %}
+                <span>·</span><span>{{ doc.created_at.strftime('%d/%m/%Y') }}</span>
+                {% endif %}
+              {% endif %}
+              {% if doc.download_count %}
+              <span>·</span><span>{{ doc.download_count }}×</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <!-- Actions (visibles au survol) -->
+          <div class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+
+            {% if has_embed %}
+            <!-- Bouton lecteur embarqué -->
+            <button @click="toggleEmbed({{ doc.id }})"
+                    class="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors"
+                    style="color:{{ platform.color }};background:{{ platform.bg }};">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"/>
+              </svg>
+              <span x-text="isEmbedOpen({{ doc.id }}) ? 'Fermer' : 'Écouter'"></span>
+            </button>
+            {% endif %}
+
+            <!-- Aperçu (PDF et images uniquement) -->
+            {% if ext == 'pdf' or is_image %}
+            <button data-doc-id="{{ doc.id }}"
+                    data-doc-name="{{ doc.name | e }}"
+                    data-doc-type="{{ 'pdf' if ext == 'pdf' else 'image' }}"
+                    @click="openPreview($el.dataset.docId, $el.dataset.docName, $el.dataset.docType)"
+                    class="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Aperçu
+            </button>
+            {% endif %}
+
+            <!-- Ouvrir / Télécharger -->
+            <a href="/documents/file/{{ doc.id }}/download"
+               {% if is_link %}target="_blank" rel="noopener"{% endif %}
+               class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors"
+               style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2340b0;background:#eef1ff;{% endif %}">
+              {% if is_link %}
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
+              </svg>
+              Ouvrir
+              {% else %}
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+              </svg>
+              Télécharger
+              {% endif %}
+            </a>
+
+            {% if is_admin %}
+            <form method="post" action="/documents/admin/file/{{ doc.id }}/delete"
+                  onsubmit="return confirm('Supprimer ?')">
+              <button type="submit" class="flex items-center justify-center w-7 h-7 rounded-lg text-red-400 hover:bg-red-50 hover:text-red-600 transition-colors">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                </svg>
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Lecteur embarqué (extensible) -->
+        {% if has_embed %}
+        <div x-show="isEmbedOpen({{ doc.id }})" x-cloak class="px-5 pb-4 bg-gray-50">
+          <iframe src="{{ platform.embed_url }}"
+                  width="100%"
+                  {% if platform.name in ('SoundCloud', 'YouTube Music') %}height="200"
+                  {% elif platform.name == 'Apple Music' %}height="175"
+                  {% else %}height="152"{% endif %}
+                  frameborder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  allowtransparency="true"
+                  loading="lazy"
+                  class="rounded-xl w-full">
+          </iframe>
+        </div>
+        {% endif %}
+
+      </li>
+      {% endfor %}
+    </ul>
+
+    <!-- ═══ VUE GRILLE ═══ -->
+    <div x-show="view==='grid'" x-cloak
+         class="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-4 gap-3 p-4">
+      {% for doc in documents %}
+      {% set is_link = doc.link_url %}
+      {% set platform = platforms.get(doc.id) if is_link else None %}
+      {% set has_embed = platform and platform.embed_url %}
+      {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if doc.original_filename and '.' in doc.original_filename else '' %}
+      {% set is_image = ext in ['jpg','jpeg','png','gif','webp'] %}
+
+      <div class="group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-loge-300 hover:shadow-sm transition-all flex flex-col">
+
+        <!-- Miniature / aperçu haut de carte -->
+        {% if is_link and platform %}
+        <!-- Carte plateforme musicale -->
+        <div class="h-28 flex flex-col items-center justify-center gap-2 flex-shrink-0"
+             style="background:{{ platform.bg }};">
+          <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"
+               style="color:{{ platform.color }};">
+            {{ platform.icon | safe }}
+          </svg>
+          <span class="text-xs font-bold tracking-wide" style="color:{{ platform.color }};">{{ platform.name }}</span>
+        </div>
+
+        {% elif is_image %}
+        <!-- Vignette image réelle -->
+        <div class="h-28 bg-gray-100 overflow-hidden flex-shrink-0">
+          <img src="/documents/file/{{ doc.id }}/preview"
+               alt="{{ doc.name }}"
+               class="w-full h-full object-cover"
+               loading="lazy">
+        </div>
+
+        {% elif ext == 'pdf' %}
+        <!-- Aperçu PDF -->
+        <div class="h-28 bg-red-50 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+          <svg class="w-9 h-9 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+          </svg>
+          <span class="text-xs font-bold text-red-400 tracking-widest">PDF</span>
+        </div>
+
+        {% elif ext in ['doc','docx','odt'] %}
+        <div class="h-28 bg-blue-50 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+          <svg class="w-9 h-9 text-blue-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+          </svg>
+          <span class="text-xs font-bold text-blue-400 tracking-widest">{{ ext.upper() }}</span>
+        </div>
+
+        {% elif ext in ['xls','xlsx','ods'] %}
+        <div class="h-28 bg-green-50 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+          <svg class="w-9 h-9 text-green-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3.375 19.5h17.25m-17.25 0a1.125 1.125 0 01-1.125-1.125M3.375 19.5h7.5c.621 0 1.125-.504 1.125-1.125m-9.75 0V5.625m0 12.75v-1.5c0-.621.504-1.125 1.125-1.125m18.375 2.625V5.625m0 12.75c0 .621-.504 1.125-1.125 1.125m1.125-1.125v-1.5c0-.621-.504-1.125-1.125-1.125m0 3.75h-7.5A1.125 1.125 0 0112 18.375m9.75-12.75c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125m19.5 0v1.5c0 .621-.504 1.125-1.125 1.125M2.25 5.625v1.5c0 .621.504 1.125 1.125 1.125m0 0h17.25m-17.25 0h7.5c.621 0 1.125.504 1.125 1.125M3.375 8.25c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m17.25-3.75h-7.5c-.621 0-1.125.504-1.125 1.125m8.625-1.125c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125m-17.25 0h7.5m-7.5 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125M12 10.875v-1.5m0 1.5c0 .621-.504 1.125-1.125 1.125M12 10.875c0 .621.504 1.125 1.125 1.125m-2.25 0c-.621 0-1.125.504-1.125 1.125v1.5c0 .621.504 1.125 1.125 1.125m2.25-3.75c.621 0 1.125.504 1.125 1.125v1.5c0 .621-.504 1.125-1.125 1.125"/>
+          </svg>
+          <span class="text-xs font-bold text-green-400 tracking-widest">{{ ext.upper() }}</span>
+        </div>
+
+        {% else %}
+        <!-- Fichier générique -->
+        <div class="h-28 bg-gray-50 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+          <svg class="w-9 h-9 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+          </svg>
+          {% if ext %}<span class="text-xs font-bold text-gray-300 tracking-widest uppercase">{{ ext }}</span>{% endif %}
+        </div>
+        {% endif %}
+
+        <!-- Pied de carte -->
+        <div class="px-3 py-2.5 flex-1 flex flex-col justify-between">
+          <div>
+            <div class="text-xs font-medium text-gray-800 line-clamp-2 leading-snug">{{ doc.name }}</div>
+            {% if doc.description %}
+            <div class="text-xs text-gray-400 truncate mt-0.5">{{ doc.description }}</div>
+            {% endif %}
+            {% if doc.file_size and not is_link %}
+            <div class="text-xs text-gray-300 mt-0.5">
+              {% if doc.file_size > 1048576 %}{{ "%.1f"|format(doc.file_size / 1048576) }} Mo
+              {% elif doc.file_size > 1024 %}{{ (doc.file_size // 1024) }} Ko
+              {% else %}{{ doc.file_size }} o{% endif %}
+            </div>
+            {% endif %}
+          </div>
+
+          <!-- Boutons d'action (visibles au survol) -->
+          <div class="mt-2 space-y-1 opacity-0 group-hover:opacity-100 transition-opacity">
+            {% if has_embed %}
+            <button @click="toggleEmbed({{ doc.id }})"
+                    class="w-full text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
+                    style="color:{{ platform.color }};background:{{ platform.bg }};">
+              <span x-text="isEmbedOpen({{ doc.id }}) ? '▾ Fermer le lecteur' : '♫ Écouter'"></span>
+            </button>
+            {% endif %}
+            {% if ext == 'pdf' or is_image %}
+            <button data-doc-id="{{ doc.id }}"
+                    data-doc-name="{{ doc.name | e }}"
+                    data-doc-type="{{ 'pdf' if ext == 'pdf' else 'image' }}"
+                    @click="openPreview($el.dataset.docId, $el.dataset.docName, $el.dataset.docType)"
+                    class="w-full flex items-center justify-center gap-1 text-center text-xs font-medium py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
+              </svg>
+              Aperçu
+            </button>
+            {% endif %}
+            <a href="/documents/file/{{ doc.id }}/download"
+               {% if is_link %}target="_blank" rel="noopener"{% endif %}
+               class="block text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
+               style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2340b0;background:#eef1ff;{% endif %}">
+              {% if is_link %}Ouvrir{% else %}Télécharger{% endif %}
+            </a>
+            {% if is_admin %}
+            <form method="post" action="/documents/admin/file/{{ doc.id }}/delete"
+                  onsubmit="return confirm('Supprimer ?')">
+              <button type="submit" class="block w-full text-center text-xs text-red-400 hover:text-red-600 py-0.5 transition-colors">
+                Supprimer
+              </button>
+            </form>
+            {% endif %}
+          </div>
+        </div>
+
+        <!-- Lecteur embarqué dans la carte grille -->
+        {% if has_embed %}
+        <div x-show="isEmbedOpen({{ doc.id }})" x-cloak class="px-2 pb-2">
+          <iframe src="{{ platform.embed_url }}"
+                  width="100%"
+                  {% if platform.name in ('SoundCloud', 'YouTube Music') %}height="200"
+                  {% elif platform.name == 'Apple Music' %}height="175"
+                  {% else %}height="152"{% endif %}
+                  frameborder="0"
+                  allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  allowtransparency="true"
+                  loading="lazy"
+                  class="rounded-lg w-full">
+          </iframe>
+        </div>
+        {% endif %}
+
+      </div>
+      {% endfor %}
+    </div>
+
+    {% else %}
+    <div class="px-5 py-10 text-center text-gray-400 text-sm">
+      <svg class="w-8 h-8 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+      </svg>
+      Aucun fichier ni lien dans ce dossier
+    </div>
+    {% endif %}
+
+    <!-- Zone d'ajout : onglets Fichier / Lien (admins seulement) -->
+    {% if is_admin %}
+    <div class="px-5 py-4 bg-gray-50 border-t border-gray-100" x-data="{ tab: 'file' }">
+
+      <!-- Onglets -->
+      <div class="flex gap-1 mb-3 bg-gray-100 p-0.5 rounded-lg w-fit">
+        <button type="button" @click="tab='file'"
+                :class="tab==='file' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'"
+                class="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+          </svg>
+          Ajouter un fichier
+        </button>
+        <button type="button" @click="tab='link'"
+                :class="tab==='link' ? 'bg-white shadow-sm text-gray-800' : 'text-gray-500 hover:text-gray-700'"
+                class="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-md transition-all">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
+          </svg>
+          Lien musical
+        </button>
+      </div>
+
+      <!-- Panneau : Upload fichier -->
+      <div x-show="tab==='file'">
+        <form method="post" action="/documents/folder/{{ folder.id }}/upload"
+              enctype="multipart/form-data"
+              x-data="{ files: [], dragging: false }"
+              @dragover.prevent="dragging = true"
+              @dragleave.prevent="dragging = false"
+              @drop.prevent="dragging = false; files = Array.from($event.dataTransfer.files); $refs.fileInput.files = $event.dataTransfer.files">
+
+          <label class="block border-2 border-dashed rounded-xl px-4 py-4 text-center cursor-pointer transition-colors"
+                 :class="dragging ? 'border-loge-400 bg-loge-50' : 'border-gray-200 hover:border-loge-300 hover:bg-gray-50'">
+            <input x-ref="fileInput" type="file" name="files" multiple
+                   @change="files = Array.from($event.target.files)"
+                   class="hidden"
+                   accept=".pdf,.doc,.docx,.odt,.xls,.xlsx,.ods,.ppt,.pptx,.odp,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.rtf,.zip,.7z">
+            <div x-show="files.length === 0">
+              <svg class="w-6 h-6 mx-auto mb-1.5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
+              </svg>
+              <p class="text-xs text-gray-400">Glissez-déposez ou <span class="text-loge-700 font-medium">choisissez des fichiers</span></p>
+              <p class="text-xs text-gray-300 mt-0.5">PDF, Word, Excel, images… max 50 Mo</p>
+            </div>
+            <div x-show="files.length > 0" class="text-xs text-gray-700">
+              <span x-text="files.length + ' fichier' + (files.length > 1 ? 's' : '') + ' sélectionné' + (files.length > 1 ? 's' : '')"></span>
+              <template x-for="f in files" :key="f.name">
+                <div class="text-gray-400 truncate" x-text="f.name"></div>
+              </template>
+            </div>
+          </label>
+
+          <div x-show="files.length === 1" x-cloak class="mt-2">
+            <input name="doc_name" placeholder="Nom affiché (laisser vide = nom du fichier)"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+          </div>
+
+          <button type="submit" x-show="files.length > 0" x-cloak
+                  class="mt-2 w-full bg-loge-700 hover:bg-loge-800 text-white text-xs font-medium py-2 rounded-lg transition-colors">
+            Envoyer
+          </button>
+        </form>
+      </div>
+
+      <!-- Panneau : Ajouter un lien musical -->
+      <div x-show="tab==='link'" x-cloak>
+        <form method="post" action="/documents/folder/{{ folder.id }}/add-link" class="space-y-2.5">
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nom du lien *</label>
+            <input name="name" required placeholder="ex : Playlist Ouverture des travaux"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">URL *</label>
+            <input name="url" type="url" required
+                   placeholder="https://open.spotify.com/… ou https://music.apple.com/…"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+            <p class="mt-0.5 text-xs text-gray-400">Compatible Spotify, Apple Music, Deezer, YouTube Music, SoundCloud, Tidal…</p>
+          </div>
+
+          <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Description <span class="font-normal text-gray-400">(optionnel)</span></label>
+            <input name="description" placeholder="ex : Musiques pour l'ouverture et la fermeture des travaux"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+          </div>
+
+          <button type="submit"
+                  class="w-full bg-loge-700 hover:bg-loge-800 text-white text-xs font-medium py-2 rounded-lg transition-colors flex items-center justify-center gap-1.5">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+            </svg>
+            Ajouter le lien
+          </button>
+        </form>
+      </div>
+
+    </div>
+    {% endif %}
+
+  </div>
+  {% elif not subfolders %}
+  <div class="text-center py-12 text-gray-400">
+    <svg class="w-10 h-10 mx-auto mb-2 opacity-30" fill="currentColor" viewBox="0 0 24 24">
+      <path d="M19.5 21a3 3 0 003-3v-4.5a3 3 0 00-3-3h-15a3 3 0 00-3 3V18a3 3 0 003 3h15zM1.5 10.146V6a3 3 0 013-3h5.379a2.25 2.25 0 011.59.659l2.122 2.121c.14.141.331.22.53.22H19.5a3 3 0 013 3v1.146A4.483 4.483 0 0019.5 9h-15a4.483 4.483 0 00-3 1.146z"/>
+    </svg>
+    <p class="text-sm font-medium">Ce dossier est vide</p>
+  </div>
+  {% endif %}
+
+</div><!-- /max-w-5xl -->
+
+<!-- Modal — Créer un sous-dossier -->
+{% if is_admin %}
+<div id="modal-subfolder" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold text-gray-900">Nouveau sous-dossier</h2>
+      <button onclick="document.getElementById('modal-subfolder').classList.add('hidden')" class="text-gray-400 hover:text-gray-600">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+    <form method="post" action="/documents/admin/folder" class="space-y-4">
+      <input type="hidden" name="space_id" value="{{ space.id }}">
+      <input type="hidden" name="parent_id" value="{{ folder.id }}">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Nom *</label>
+        <input name="name" required
+               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+      </div>
+      <!-- Accès : grade OU groupe -->
+      <div x-data="{ mode: 'grade' }">
+        <label class="block text-sm font-medium text-gray-700 mb-2">Restriction d'accès</label>
+        <div class="flex gap-2 mb-3">
+          <button type="button" @click="mode='grade'"
+                  :class="mode==='grade' ? 'bg-loge-700 text-white' : 'bg-gray-100 text-gray-700'"
+                  class="flex-1 text-xs font-medium py-1.5 rounded-lg transition-colors">Par grade</button>
+          <button type="button" @click="mode='group'"
+                  :class="mode==='group' ? 'bg-loge-700 text-white' : 'bg-gray-100 text-gray-700'"
+                  class="flex-1 text-xs font-medium py-1.5 rounded-lg transition-colors">Par groupe</button>
+        </div>
+        <div x-show="mode==='grade'" x-cloak>
+          <select name="min_grade"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+            <option value="ALL">Tous les membres</option>
+            <option value="APPRENTI">App∴ et plus</option>
+            <option value="COMPAGNON">Comp∴ et plus</option>
+            <option value="MAITRE">M∴ uniquement</option>
+          </select>
+        </div>
+        <div x-show="mode==='group'" x-cloak>
+          <select name="group_id"
+                  class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+            <option value="">— Choisir un groupe —</option>
+            {% for g in all_groups %}
+            <option value="{{ g.id }}">{{ g.name }}</option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="button" onclick="document.getElementById('modal-subfolder').classList.add('hidden')"
+                class="flex-1 border border-gray-300 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50 transition-colors">Annuler</button>
+        <button type="submit"
+                class="flex-1 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium py-2 rounded-lg transition-colors">Créer</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<!-- ═══ Modale d'aperçu (PDF / image) ═══ -->
+<div x-show="preview"
+     x-cloak
+     class="fixed inset-0 z-[60] flex flex-col bg-black/85 backdrop-blur-sm"
+     @click.self="closePreview()">
+
+  <!-- Barre de titre -->
+  <div class="flex items-center justify-between px-5 py-3 bg-white/5 border-b border-white/10 flex-shrink-0">
+    <div class="flex items-center gap-3 min-w-0">
+      <template x-if="preview && preview.type === 'pdf'">
+        <div class="w-7 h-7 bg-red-500/20 rounded flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-red-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m2.25 0H5.625c-.621 0-1.125.504-1.125 1.125v17.25c0 .621.504 1.125 1.125 1.125h12.75c.621 0 1.125-.504 1.125-1.125V11.25a9 9 0 00-9-9z"/>
+          </svg>
+        </div>
+      </template>
+      <template x-if="preview && preview.type === 'image'">
+        <div class="w-7 h-7 bg-purple-500/20 rounded flex items-center justify-center flex-shrink-0">
+          <svg class="w-4 h-4 text-purple-400" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+          </svg>
+        </div>
+      </template>
+      <span x-text="preview ? preview.name : ''" class="text-white font-medium text-sm truncate"></span>
+    </div>
+    <div class="flex items-center gap-2 flex-shrink-0 ml-4">
+      <template x-if="preview">
+        <a :href="`/documents/file/${preview.id}/download`"
+           class="flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg bg-white/10 text-white hover:bg-white/20 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
+          </svg>
+          Télécharger
+        </a>
+      </template>
+      <button @click="closePreview()"
+              class="w-8 h-8 flex items-center justify-center rounded-lg bg-white/10 text-white hover:bg-white/25 transition-colors">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+        </svg>
+      </button>
+    </div>
+  </div>
+
+  <!-- Zone de contenu -->
+  <div class="flex-1 overflow-hidden min-h-0">
+
+    <!-- PDF : rendu natif navigateur (inline) -->
+    <template x-if="preview && preview.type === 'pdf'">
+      <embed :src="`/documents/file/${preview.id}/preview`"
+             type="application/pdf"
+             class="w-full h-full">
+    </template>
+
+    <!-- Image : centrée avec fond sombre (inline) -->
+    <template x-if="preview && preview.type === 'image'">
+      <div class="w-full h-full flex items-center justify-center p-8">
+        <img :src="`/documents/file/${preview.id}/preview`"
+             :alt="preview ? preview.name : ''"
+             class="max-w-full max-h-full object-contain rounded-xl shadow-2xl select-none">
+      </div>
+    </template>
+
+  </div>
+</div><!-- /scope Alpine -->
+
+{% endblock %}

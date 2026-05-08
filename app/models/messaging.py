@@ -3,7 +3,7 @@ import enum
 from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
-    String, Enum, Boolean, DateTime, ForeignKey, Text,
+    String, Enum, Boolean, DateTime, ForeignKey, Text, Integer,
     UniqueConstraint, func,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -34,6 +34,8 @@ class Message(Base):
     # Réponse à un message (thread)
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("messages.id"))
 
+    visio_url: Mapped[Optional[str]]      = mapped_column(String(500))
+
     sent_at: Mapped[Optional[datetime]]  = mapped_column(DateTime)   # None = brouillon
     created_at: Mapped[datetime]         = mapped_column(DateTime, server_default=func.now())
 
@@ -44,9 +46,34 @@ class Message(Base):
         "Message", foreign_keys="[Message.parent_id]",
         cascade="all, delete-orphan",
     )
+    attachments: Mapped[list["MessageAttachment"]] = relationship(
+        back_populates="message", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Message #{self.id} '{self.subject}'>"
+
+
+class MessageAttachment(Base):
+    """Pièce jointe à un message interne."""
+    __tablename__ = "message_attachments"
+
+    id: Mapped[int]          = mapped_column(primary_key=True)
+    message_id: Mapped[int]  = mapped_column(ForeignKey("messages.id", ondelete="CASCADE"))
+
+    # Nom original du fichier (affiché à l'utilisateur)
+    filename: Mapped[str]    = mapped_column(String(300))
+    # Nom de stockage sur disque (uuid + ext, sans caractères dangereux)
+    stored_name: Mapped[str] = mapped_column(String(300), unique=True)
+    mime_type: Mapped[Optional[str]] = mapped_column(String(100))
+    size_bytes: Mapped[Optional[int]] = mapped_column(Integer)
+
+    uploaded_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    message: Mapped["Message"] = relationship(back_populates="attachments")
+
+    def __repr__(self) -> str:
+        return f"<MessageAttachment '{self.filename}' msg={self.message_id}>"
 
 
 class MessageRecipient(Base):

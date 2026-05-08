@@ -78,63 +78,100 @@
     </div>
 
     <!-- Sélection des tenues -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-      <h2 class="font-semibold text-gray-800 mb-4">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5" x-data="{ showPast: false }">
+      <h2 class="font-semibold text-gray-800 mb-1">
         Tenues à inclure
         <span class="text-sm text-gray-400 font-normal ml-2">— cochez les tenues à faire apparaître</span>
       </h2>
+      <p class="text-xs text-gray-400 mb-4">Programme rétrospectif possible : les tenues passées sont disponibles ci-dessous.</p>
 
-      {% if not upcoming %}
-      <div class="text-center text-gray-400 text-sm py-6">
-        Aucune tenue à venir — <a href="/meetings/create" class="text-loge-600 hover:underline">créer une tenue</a>
-      </div>
-      {% else %}
-      <div class="space-y-2">
-        {% for m in upcoming %}
-        <div class="border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors" x-data="{ checked: false }">
-          <label class="flex items-start gap-3 p-3 cursor-pointer">
-            <input type="checkbox" name="meeting_ids" value="{{ m.id }}"
-                   x-model="checked"
-                   class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 flex-shrink-0">
-
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="font-medium text-gray-800 text-sm">
-                  {{ m.meeting_date.strftime('%A %d %B %Y') | capitalize }}
-                </span>
-                {% if m.meeting_time %}
-                <span class="text-xs text-gray-500">{{ m.meeting_time }}</span>
-                {% endif %}
-                <span class="text-xs px-1.5 py-0.5 rounded font-medium
-                  {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
-                  {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-100 text-amber-700
-                  {% else %}bg-blue-100 text-blue-700{% endif %}">
-                  {{ MEETING_TYPE_LABELS.get(m.type.value, m.type.value) }}
-                </span>
-                <span class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">
-                  {{ GRADE_LABELS.get(m.grade.value, m.grade.value) }}
-                </span>
+      <!-- Tenues à venir -->
+      {% if upcoming %}
+      <div class="mb-4">
+        <div class="text-xs font-semibold text-loge-600 uppercase tracking-wider mb-2">Tenues à venir</div>
+        <div class="space-y-2">
+          {% for m in upcoming %}
+          {% include "pages/programs/_meeting_row.html" ignore missing %}
+          <div class="border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors" x-data="{ checked: false }">
+            <label class="flex items-start gap-3 p-3 cursor-pointer">
+              <input type="checkbox" name="meeting_ids" value="{{ m.id }}" x-model="checked"
+                     class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 flex-shrink-0">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium text-gray-800 text-sm">{{ m.meeting_date.strftime('%A %d %B %Y') | capitalize }}</span>
+                  {% if m.meeting_time %}<span class="text-xs text-gray-500">{{ m.meeting_time }}</span>{% endif %}
+                  <span class="text-xs px-1.5 py-0.5 rounded font-medium
+                    {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
+                    {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-100 text-amber-700
+                    {% else %}bg-blue-100 text-blue-700{% endif %}">
+                    {{ MEETING_TYPE_LABELS.get(m.type.value, m.type.value) }}
+                  </span>
+                  <span class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{{ GRADE_LABELS.get(m.grade.value, m.grade.value) }}</span>
+                </div>
+                {% if m.title %}<div class="text-xs text-gray-500 mt-0.5">{{ m.title }}</div>{% endif %}
+                {% if m.location %}<div class="text-xs text-gray-400">📍 {{ m.location }}</div>{% endif %}
               </div>
-              {% if m.title %}
-              <div class="text-xs text-gray-500 mt-0.5">{{ m.title }}</div>
-              {% endif %}
-              {% if m.location %}
-              <div class="text-xs text-gray-400">📍 {{ m.location }}</div>
-              {% endif %}
+            </label>
+            <div x-show="checked" x-transition class="px-3 pb-3 flex items-center gap-2" style="display:none">
+              <label class="text-xs text-gray-500 shrink-0">N° de tenue :</label>
+              <input type="number" name="meeting_number_{{ m.id }}" value="{{ m.meeting_number or '' }}"
+                     min="1" placeholder="ex: 57"
+                     class="w-24 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-loge-500">
+              <span class="text-xs text-gray-400">(optionnel)</span>
             </div>
-          </label>
-
-          <!-- Numéro de tenue — visible uniquement si la tenue est cochée -->
-          <div x-show="checked" x-transition class="px-3 pb-3 flex items-center gap-2" style="display:none">
-            <label class="text-xs text-gray-500 shrink-0">N° de tenue :</label>
-            <input type="number" name="meeting_number_{{ m.id }}"
-                   value="{{ m.meeting_number or '' }}"
-                   min="1" placeholder="ex: 57"
-                   class="w-24 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-loge-500">
-            <span class="text-xs text-gray-400">(optionnel — s'affiche comme « 57ème tenue »)</span>
           </div>
+          {% endfor %}
         </div>
-        {% endfor %}
+      </div>
+      {% endif %}
+
+      <!-- Tenues passées (accordéon) -->
+      {% if past %}
+      <div>
+        <button type="button" @click="showPast = !showPast"
+                class="flex items-center gap-2 text-xs font-semibold text-gray-500 hover:text-loge-700 transition-colors mb-2">
+          <svg class="w-3.5 h-3.5 transition-transform" :class="showPast ? 'rotate-90' : ''" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+          </svg>
+          <span x-text="showPast ? 'Masquer les tenues passées' : 'Afficher les tenues passées ({{ past | length }})'"></span>
+        </button>
+
+        <div x-show="showPast" x-transition class="space-y-2 border-l-2 border-gray-100 pl-3">
+          {% for m in past %}
+          <div class="border border-gray-100 rounded-lg hover:bg-gray-50 transition-colors bg-gray-50/40" x-data="{ checked: false }">
+            <label class="flex items-start gap-3 p-3 cursor-pointer">
+              <input type="checkbox" name="meeting_ids" value="{{ m.id }}" x-model="checked"
+                     class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 flex-shrink-0">
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2 flex-wrap">
+                  <span class="font-medium text-gray-600 text-sm">{{ m.meeting_date.strftime('%A %d %B %Y') | capitalize }}</span>
+                  <span class="text-xs px-1.5 py-0.5 rounded font-medium
+                    {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
+                    {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-100 text-amber-700
+                    {% else %}bg-blue-100 text-blue-700{% endif %}">
+                    {{ MEETING_TYPE_LABELS.get(m.type.value, m.type.value) }}
+                  </span>
+                  <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ GRADE_LABELS.get(m.grade.value, m.grade.value) }}</span>
+                </div>
+                {% if m.title %}<div class="text-xs text-gray-500 mt-0.5">{{ m.title }}</div>{% endif %}
+              </div>
+            </label>
+            <div x-show="checked" x-transition class="px-3 pb-3 flex items-center gap-2" style="display:none">
+              <label class="text-xs text-gray-500 shrink-0">N° de tenue :</label>
+              <input type="number" name="meeting_number_{{ m.id }}" value="{{ m.meeting_number or '' }}"
+                     min="1" placeholder="ex: 57"
+                     class="w-24 border border-gray-200 rounded px-2 py-1 text-xs focus:outline-none focus:ring-1 focus:ring-loge-500">
+              <span class="text-xs text-gray-400">(optionnel)</span>
+            </div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      {% if not upcoming and not past %}
+      <div class="text-center text-gray-400 text-sm py-6">
+        Aucune tenue — <a href="/meetings/create" class="text-loge-600 hover:underline">créer une tenue</a>
       </div>
       {% endif %}
     </div>

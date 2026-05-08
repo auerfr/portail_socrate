@@ -428,5 +428,158 @@
   </div>
   {% endif %}
 
+
+  <!-- ════════════════════════════════════════════════════════
+       LIGNE 3 : Agenda à venir + Messages non lus
+  ════════════════════════════════════════════════════════ -->
+  {% if upcoming_events or recent_unread_msgs %}
+  <div class="grid lg:grid-cols-2 gap-4">
+
+    <!-- Prochains événements agenda -->
+    {% if upcoming_events %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <svg class="w-4 h-4 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+          </svg>
+          Agenda à venir
+        </h3>
+        <a href="/calendar/list" class="text-xs text-loge-600 hover:text-loge-800 font-medium">Voir tout →</a>
+      </div>
+
+      {% set type_dot = {
+        'RITUAL':   'bg-loge-700',
+        'AGAPE':    'bg-orange-500',
+        'EXTERNAL': 'bg-teal-600',
+        'ADMIN':    'bg-gray-500',
+        'DEADLINE': 'bg-red-600',
+        'OTHER':    'bg-purple-600',
+      } %}
+      {% set type_label = {
+        'RITUAL':   'Tenue',
+        'AGAPE':    'Agape',
+        'EXTERNAL': 'Externe',
+        'ADMIN':    'Admin',
+        'DEADLINE': 'Échéance',
+        'OTHER':    'Événement',
+      } %}
+      {% set month_names = ['','Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'] %}
+
+      <div class="divide-y divide-gray-50">
+        {% for ev in upcoming_events %}
+        <a href="/calendar/events/{{ ev.id }}"
+           class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors group">
+
+          {# Mini-calendrier date #}
+          <div class="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0
+                      {% if ev.event_type.value == 'RITUAL' %}bg-loge-50
+                      {% elif ev.event_type.value == 'AGAPE' %}bg-orange-50
+                      {% elif ev.event_type.value == 'DEADLINE' %}bg-red-50
+                      {% else %}bg-gray-100{% endif %}">
+            <span class="text-sm font-black leading-none
+                         {% if ev.event_type.value == 'RITUAL' %}text-loge-700
+                         {% elif ev.event_type.value == 'AGAPE' %}text-orange-600
+                         {% elif ev.event_type.value == 'DEADLINE' %}text-red-600
+                         {% else %}text-gray-600{% endif %}">
+              {{ ev.start_datetime.strftime('%d') }}
+            </span>
+            <span class="text-gray-400 leading-none" style="font-size:9px;">
+              {{ month_names[ev.start_datetime.month] | upper }}
+            </span>
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="text-sm font-semibold text-gray-800 group-hover:text-loge-700 truncate transition-colors">
+              {{ ev.title }}
+            </div>
+            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
+              {% if not ev.all_day %}
+              <span class="text-xs text-gray-400">{{ ev.start_datetime.strftime('%H:%M') }}</span>
+              {% endif %}
+              {% if ev.location %}
+              <span class="text-xs text-gray-400 truncate">📍 {{ ev.location }}</span>
+              {% endif %}
+              {% if ev.meeting_url %}
+              <span class="text-xs text-indigo-500 font-medium">🎥 Visio</span>
+              {% endif %}
+            </div>
+          </div>
+
+          <span class="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full text-white {{ type_dot.get(ev.event_type.value, 'bg-gray-400') }}">
+            {{ type_label.get(ev.event_type.value, 'Evt') }}
+          </span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+
+    <!-- Messages non lus -->
+    {% if recent_unread_msgs %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
+          <svg class="w-4 h-4 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+          </svg>
+          Messages non lus
+          {% if global_unread_messages > 0 %}
+          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold">
+            {{ global_unread_messages if global_unread_messages <= 99 else '99+' }}
+          </span>
+          {% endif %}
+        </h3>
+        <a href="/messages/" class="text-xs text-loge-600 hover:text-loge-800 font-medium">Messagerie →</a>
+      </div>
+
+      <div class="divide-y divide-gray-50">
+        {% for rec in recent_unread_msgs %}
+        {% set sender = recent_senders_map.get(rec.message.sender_id) %}
+        <a href="/messages/{{ rec.message_id }}"
+           class="flex items-start gap-3 px-5 py-3 hover:bg-loge-50/50 transition-colors group">
+
+          {# Avatar expéditeur #}
+          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+               style="background: linear-gradient(135deg,#3b5bdb,#2340b0);">
+            {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name[0] }}{% else %}?{% endif %}
+          </div>
+
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-xs font-semibold text-gray-700 truncate">
+                {{ (sender.first_name ~ ' ' ~ sender.last_name) if sender else 'Expéditeur inconnu' }}
+              </span>
+              <span class="text-[10px] text-gray-400 flex-shrink-0">
+                {{ rec.message.sent_at.strftime('%d/%m %H:%M') if rec.message.sent_at else '' }}
+              </span>
+            </div>
+            <div class="text-sm font-medium text-gray-900 truncate group-hover:text-loge-700 transition-colors">
+              {{ rec.message.subject }}
+            </div>
+            <div class="text-xs text-gray-400 truncate mt-0.5">
+              {{ rec.message.body[:80] }}…
+            </div>
+          </div>
+
+          {# Pastille non lu #}
+          <div class="w-2 h-2 rounded-full bg-loge-500 flex-shrink-0 mt-2"></div>
+        </a>
+        {% endfor %}
+      </div>
+
+      {% if global_unread_messages > 4 %}
+      <div class="px-5 py-2.5 bg-gray-50 border-t border-gray-100 text-center">
+        <a href="/messages/" class="text-xs text-loge-600 hover:text-loge-800 font-medium">
+          Voir {{ global_unread_messages - 4 }} autre{{ 's' if global_unread_messages - 4 > 1 }} message{{ 's' if global_unread_messages - 4 > 1 }} non lu{{ 's' if global_unread_messages - 4 > 1 }} →
+        </a>
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+  {% endif %}
+
 </div>
 {% endblock %}
