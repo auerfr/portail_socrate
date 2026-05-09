@@ -268,7 +268,7 @@
   {% endif %}
 
   <!-- Documents & Liens -->
-  {% if documents or is_admin %}
+  {% if documents or can_upload %}
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">
 
     <!-- Barre d'outils : compteur + tri + bascule vue -->
@@ -697,8 +697,8 @@
     </div>
     {% endif %}
 
-    <!-- Zone d'ajout : onglets Fichier / Lien (admins seulement) -->
-    {% if is_admin %}
+    <!-- Zone d'ajout : onglets Fichier / Lien -->
+    {% if can_upload %}
     <div class="px-5 py-4 bg-gray-50 border-t border-gray-100" x-data="{ tab: 'file' }">
 
       <!-- Onglets -->
@@ -756,6 +756,30 @@
                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent">
           </div>
 
+          <div x-show="files.length > 0" x-cloak x-data="{ notify: false }">
+            <label class="flex items-center gap-2 mt-2 cursor-pointer">
+              <input type="checkbox" name="notify_members" value="1" x-model="notify"
+                     class="w-3.5 h-3.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+              <span class="text-xs text-gray-500">📬 Notifier les membres par message</span>
+            </label>
+            <div x-show="notify" x-cloak class="mt-1.5">
+              <select name="notify_target"
+                      class="w-full border border-gray-200 rounded-lg px-2.5 py-1.5 text-xs focus:ring-2 focus:ring-loge-500">
+                <option value="">Tous les membres</option>
+                <optgroup label="Par grade">
+                  <option value="COMPAGNON">Compagnon et au-dessus</option>
+                  <option value="MAITRE">Maîtres uniquement</option>
+                </optgroup>
+                {% if all_groups %}
+                <optgroup label="Par groupe">
+                  {% for g in all_groups %}
+                  <option value="group:{{ g.id }}">{{ g.name }}</option>
+                  {% endfor %}
+                </optgroup>
+                {% endif %}
+              </select>
+            </div>
+          </div>
           <button type="submit" x-show="files.length > 0" x-cloak
                   class="mt-2 w-full bg-loge-700 hover:bg-loge-800 text-white text-xs font-medium py-2 rounded-lg transition-colors">
             Envoyer

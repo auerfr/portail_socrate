@@ -47,6 +47,23 @@
     </button>
   </form>
 
+  <!-- Mon espace personnel -->
+  <a href="/documents/perso"
+     class="group flex items-center gap-4 bg-loge-50 border border-loge-200 rounded-xl p-4 hover:border-loge-400 hover:shadow-md transition-all">
+    <div class="w-10 h-10 rounded-lg bg-loge-100 flex items-center justify-center flex-shrink-0">
+      <svg class="w-5 h-5 text-loge-700" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 10.5V6.75a4.5 4.5 0 10-9 0v3.75m-.75 11.25h10.5a2.25 2.25 0 002.25-2.25v-6.75a2.25 2.25 0 00-2.25-2.25H6.75a2.25 2.25 0 00-2.25 2.25v6.75a2.25 2.25 0 002.25 2.25z"/>
+      </svg>
+    </div>
+    <div class="flex-1 min-w-0">
+      <div class="font-semibold text-loge-800 group-hover:text-loge-900">Mon espace personnel</div>
+      <div class="text-xs text-loge-600 mt-0.5">Documents privés — visibles uniquement par vous</div>
+    </div>
+    <svg class="w-4 h-4 text-loge-400 group-hover:text-loge-600 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
+    </svg>
+  </a>
+
   <!-- Grille des espaces -->
   {% if spaces %}
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">

@@ -1,8 +1,13 @@
 """Router Paramètres — configuration loge, VM, Secrétaire, temple"""
+import uuid
 from pathlib import Path
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
+
+LOGO_DIR = Path("app/static/uploads/logo")
+LOGO_DIR.mkdir(parents=True, exist_ok=True)
+_LOGO_ALLOWED = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -11,12 +16,42 @@ from sqlalchemy.orm import selectinload
 from app.config import get_settings
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
-from app.models.lodge import LodgeSettings, LodgeOffice
+from app.models.lodge import LodgeSettings, LodgeOffice, ExternalContact
 from app.models.identity import Member, MemberStatus, LodgeFunction, User
 
 ENV_FILE = Path(__file__).parent.parent.parent / ".env"
 
 router = APIRouter(prefix="/settings", tags=["settings"])
+
+# Mapping label (sous-chaîne insensible à la casse) → LodgeFunction
+_LABEL_FUNCTION_MAP = [
+    ("vénérable", LodgeFunction.VM),
+    ("v.m.", LodgeFunction.VM),
+    ("premier surv", LodgeFunction.PREMIER_S),
+    ("1er s.", LodgeFunction.PREMIER_S),
+    ("second surv", LodgeFunction.SECOND_S),
+    ("2e s.", LodgeFunction.SECOND_S),
+    ("orateur", LodgeFunction.ORATEUR),
+    ("secrétaire", LodgeFunction.SECRETAIRE),
+    ("trésorier", LodgeFunction.TRESORIER),
+    ("expert", LodgeFunction.EXPERT),
+    ("cérémonies", LodgeFunction.MAITRE_CEREMONIES),
+    ("harmoniste", LodgeFunction.HARMONISTE),
+    ("hospitalier", LodgeFunction.HOSPITALIER),
+    ("tuileur", LodgeFunction.TUILEUR),
+    ("couvreur", LodgeFunction.TUILEUR),
+    ("architecte", LodgeFunction.ARCHITECTE),
+    ("banquets", LodgeFunction.MAITRE_BANQUETS),
+]
+
+
+def _detect_function(label: str) -> LodgeFunction | None:
+    """Détecte la LodgeFunction à partir du libellé d'un office."""
+    normalized = label.lower().replace("∴", ".").replace(":", "")
+    for keyword, fn in _LABEL_FUNCTION_MAP:
+        if keyword in normalized:
+            return fn
+    return None
 templates = Jinja2Templates(directory="app/templates")
 
 
@@ -60,10 +95,13 @@ OFFICES = [
 @router.get("/", response_class=HTMLResponse)
 async def settings_page(
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
+    from app.dependencies import can_manage_members
+    if not user.is_admin and not can_manage_members(member):
+        raise HTTPException(403)
     lodge = await _get_lodge(db)
     members = await _get_active_members(db)
     offices = await _get_offices(db)
@@ -80,6 +118,12 @@ async def settings_page(
     r_all_members = await db.execute(select(Member).order_by(Member.last_name))
     all_member_map = {m.id: m for m in r_all_members.scalars().all()}
 
+    r_contacts = await db.execute(select(ExternalContact).order_by(ExternalContact.contact_type, ExternalContact.name))
+    external_contacts = r_contacts.scalars().all()
+
+    from app.dependencies import can_manage_members
+    can_manage_contacts = user.is_admin or can_manage_members(member)
+
     return templates.TemplateResponse(request, "pages/settings/index.html", {
         "current_member": member,
         "current_user": user,
@@ -87,8 +131,10 @@ async def settings_page(
         "members": members,
         "offices": offices,
         "is_admin": user.is_admin,
+        "can_manage_contacts": can_manage_contacts,
         "all_users": all_users,
         "all_member_map": all_member_map,
+        "external_contacts": external_contacts,
         "saved": request.query_params.get("saved"),
         "smtp_saved": request.query_params.get("smtp_saved"),
         "smtp_ok":    request.query_params.get("smtp_ok"),
@@ -180,6 +226,17 @@ async def settings_save_lodge(
     lodge.visio_server_url = form.get("visio_server_url", "").strip() or None
     lodge.visio_room_prefix = form.get("visio_room_prefix", "").strip() or None
 
+    # Logo upload
+    logo_file = form.get("logo_file")
+    if logo_file and getattr(logo_file, "filename", None):
+        ext = Path(logo_file.filename).suffix.lower()
+        if ext in _LOGO_ALLOWED:
+            content = await logo_file.read()
+            if content:
+                filename = f"logo_{uuid.uuid4().hex}{ext}"
+                (LOGO_DIR / filename).write_bytes(content)
+                lodge.logo_url = f"/static/uploads/logo/{filename}"
+
     await db.commit()
     return RedirectResponse(url="/settings/?saved=lodge", status_code=303)
 
@@ -231,6 +288,25 @@ async def settings_save_officers(
             sort_order=max_order + 10 + i,
             member_id=int(raw_mid) if raw_mid.isdigit() else None,
         ))
+
+    await db.flush()
+
+    # ── Synchroniser Member.lodge_function depuis les offices ───────────────
+    # 1. Remettre à FRERE tous les membres qui avaient une fonction reconnue
+    known_fns = {fn for _, fn in _LABEL_FUNCTION_MAP}
+    r_reset = await db.execute(select(Member).where(Member.lodge_function.in_(known_fns)))
+    for m in r_reset.scalars().all():
+        m.lodge_function = LodgeFunction.FRERE
+    # 2. Re-assigner selon les libellés des offices actuels
+    r_offices_all = await db.execute(select(LodgeOffice))
+    for office in r_offices_all.scalars().all():
+        if not office.member_id:
+            continue
+        fn = _detect_function(office.label)
+        if fn:
+            mem = await db.get(Member, office.member_id)
+            if mem:
+                mem.lodge_function = fn
 
     await db.commit()
     return RedirectResponse(url="/settings/?saved=officers", status_code=303)
@@ -335,6 +411,95 @@ async def settings_test_smtp(
     else:
         err_enc = quote(str(err)[:200])
         return RedirectResponse(url=f"/settings/?smtp_fail=1&smtp_err={err_enc}", status_code=303)
+
+
+# ── Correspondants externes ───────────────────────────────────────────────
+
+@router.post("/external-contacts/add")
+async def external_contact_add(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(...),
+    email: str = Form(...),
+    organization: str = Form(""),
+    contact_type: str = Form("EXTERNAL"),
+    notes: str = Form(""),
+):
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+    db.add(ExternalContact(
+        name=name.strip(),
+        email=email.strip().lower(),
+        organization=organization.strip() or None,
+        contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL",
+        notes=notes.strip() or None,
+        is_active=True,
+    ))
+    await db.commit()
+    return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
+
+
+@router.post("/external-contacts/{contact_id}/delete")
+async def external_contact_delete(
+    contact_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+    contact = await db.get(ExternalContact, contact_id)
+    if contact:
+        await db.delete(contact)
+        await db.commit()
+    return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
+
+
+@router.post("/external-contacts/{contact_id}/edit")
+async def external_contact_edit(
+    contact_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(...),
+    email: str = Form(...),
+    organization: str = Form(""),
+    contact_type: str = Form("EXTERNAL"),
+    notes: str = Form(""),
+):
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+    contact = await db.get(ExternalContact, contact_id)
+    if not contact:
+        raise HTTPException(404)
+    contact.name = name.strip()
+    contact.email = email.strip().lower()
+    contact.organization = organization.strip() or None
+    contact.contact_type = contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL"
+    contact.notes = notes.strip() or None
+    await db.commit()
+    return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
+
+
+@router.post("/external-contacts/{contact_id}/toggle")
+async def external_contact_toggle(
+    contact_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+    contact = await db.get(ExternalContact, contact_id)
+    if contact:
+        contact.is_active = not contact.is_active
+        await db.commit()
+    return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
 
 
 # ── Préférences personnelles (accessible à tous les membres) ───────────────

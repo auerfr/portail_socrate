@@ -1,6 +1,9 @@
 """Router Programmes — génération mensuelle avec URL d'inscription et QR codes"""
 import io
+import logging
 import uuid
+
+logger = logging.getLogger(__name__)
 from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated, Optional
@@ -18,12 +21,24 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import require_auth, require_admin
 from app.models.programs import Program, ProgramMeeting
+from app.models.identity import LodgeFunction
 from app.models.meetings import Meeting, MeetingType, MeetingGrade
-from app.models.lodge import MasonicYear, LodgeSettings
+from app.models.lodge import MasonicYear, LodgeSettings, ExternalContact
 from app.models.documents import DocFolder, DocSpace, DocStatus, Document
 
 router = APIRouter(prefix="/programs", tags=["programs"])
 templates = Jinja2Templates(directory="app/templates")
+
+_PROGRAM_MANAGERS = {LodgeFunction.VM, LodgeFunction.SECRETAIRE}
+
+
+async def _require_program_manager(ctx: Annotated[object, Depends(require_auth)]):
+    from fastapi import HTTPException
+    user, member = ctx
+    if not (user.is_admin or member.lodge_function in _PROGRAM_MANAGERS):
+        raise HTTPException(403, "Réservé au Secrétaire, au VM ou à l'administrateur")
+    return ctx
+
 
 # ── Helpers ────────────────────────────────────────────────────────────────
 
@@ -112,12 +127,15 @@ async def programs_list(
     )
     programs = r.scalars().all()
 
+    can_manage = user.is_admin or member.lodge_function in _PROGRAM_MANAGERS
     return templates.TemplateResponse(request, "pages/programs/list.html", {
         "current_member": member,
         "current_user": user,
         "programs": programs,
         "MOIS_FR": MOIS_FR,
         "is_admin": user.is_admin,
+        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
+        "can_manage_programs": can_manage,
         "now": datetime.now(),
     })
 
@@ -129,7 +147,7 @@ async def programs_list(
 @router.get("/create", response_class=HTMLResponse)
 async def programs_create_form(
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(_require_program_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
@@ -162,13 +180,14 @@ async def programs_create_form(
         "MEETING_TYPE_LABELS": MEETING_TYPE_LABELS,
         "GRADE_LABELS": GRADE_LABELS,
         "is_admin": user.is_admin,
+        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
     })
 
 
 @router.post("/create")
 async def programs_create(
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(_require_program_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
@@ -255,6 +274,12 @@ async def program_detail(
         url = pm.registration_url or _inscription_url(request, pm.meeting.token)
         qr_codes[pm.meeting_id] = _qr_svg(url)
 
+    r_contacts = await db.execute(
+        select(ExternalContact).where(ExternalContact.is_active == True)
+        .order_by(ExternalContact.contact_type, ExternalContact.name)
+    )
+    external_contacts = r_contacts.scalars().all()
+
     return templates.TemplateResponse(request, "pages/programs/detail.html", {
         "current_member": member,
         "current_user": user,
@@ -269,8 +294,11 @@ async def program_detail(
         "date_civil": _date_civil,
         "inscription_url": lambda token: _inscription_url(request, token),
         "is_admin": user.is_admin,
+        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
         "print_mode": print_mode,
         "now": datetime.now(),
+        "external_contacts": external_contacts,
+        "email_sent": request.query_params.get("email_sent"),
     })
 
 
@@ -282,7 +310,7 @@ async def program_detail(
 async def program_edit_form(
     program_id: int,
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(_require_program_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
@@ -316,6 +344,7 @@ async def program_edit_form(
         "MEETING_TYPE_LABELS": MEETING_TYPE_LABELS,
         "GRADE_LABELS": GRADE_LABELS,
         "is_admin": user.is_admin,
+        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
     })
 
 
@@ -323,7 +352,7 @@ async def program_edit_form(
 async def program_edit_save(
     program_id: int,
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(_require_program_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
@@ -382,7 +411,7 @@ async def program_edit_save(
 @router.post("/{program_id}/delete")
 async def program_delete(
     program_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(_require_program_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     program = await db.get(Program, program_id)
@@ -445,7 +474,7 @@ async def _find_ged_folder(db: AsyncSession, year_label: str) -> DocFolder | Non
 async def program_transmit(
     program_id: int,
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(_require_program_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """
@@ -559,3 +588,282 @@ async def program_transmit(
         url=f"/programs/{program_id}?transmitted=1",
         status_code=303,
     )
+
+
+# ══════════════════════════════════════════════════════════════════════════════
+# ENVOI EMAIL AUX CORRESPONDANTS EXTERNES
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.post("/{program_id}/send-external")
+async def program_send_external(
+    program_id: int,
+    request: Request,
+    ctx: Annotated[object, Depends(_require_program_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from app.services.email import _send_raw
+    user, member = ctx
+
+    program = await db.get(
+        Program, program_id,
+        options=[selectinload(Program.meetings).selectinload(ProgramMeeting.meeting).selectinload(Meeting.degrees)]
+    )
+    if not program:
+        raise HTTPException(404)
+
+    lodge = await _get_lodge(db)
+    form = await request.form()
+
+    # Contacts cochés
+    contact_ids = [int(v) for v in form.getlist("contact_ids") if v.isdigit()]
+    extra_emails_raw = form.get("extra_emails", "").strip()
+    extra_emails = [e.strip() for e in extra_emails_raw.replace(";", ",").split(",") if e.strip() and "@" in e]
+
+    # Récupérer les emails des contacts sélectionnés
+    recipients = []
+    if contact_ids:
+        r = await db.execute(select(ExternalContact).where(ExternalContact.id.in_(contact_ids), ExternalContact.is_active == True))
+        for c in r.scalars().all():
+            recipients.append((c.name, c.email))
+    for e in extra_emails:
+        recipients.append(("", e))
+
+    if not recipients:
+        return RedirectResponse(url=f"/programs/{program_id}?email_sent=0", status_code=303)
+
+    # Pièce jointe optionnelle (affiche, flyer…)
+    attachments = []
+    attach_field = form.get("attachment")
+    if attach_field and getattr(attach_field, "filename", None):
+        attach_bytes = await attach_field.read()
+        if attach_bytes:
+            attachments.append((
+                attach_field.filename,
+                attach_bytes,
+                attach_field.content_type or "application/octet-stream",
+            ))
+
+    # Générer le HTML du programme via le template email dédié
+    pm_sorted = sorted([pm for pm in program.meetings if pm.meeting], key=lambda pm: pm.meeting.meeting_date)
+
+    # ── PDF du programme (pièce jointe systématique) ──────────────────────
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buf, pagesize=A4,
+            leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm,
+        )
+
+        TEAL = colors.HexColor("#1a5252")
+        TEAL_LIGHT = colors.HexColor("#ecfdf5")
+        TEAL_BORDER = colors.HexColor("#d1fae5")
+        GRAY = colors.HexColor("#374151")
+        GRAY_LIGHT = colors.HexColor("#9ca3af")
+
+        styles = getSampleStyleSheet()
+        h1 = ParagraphStyle("h1", parent=styles["Normal"], fontSize=16, textColor=colors.white,
+                             fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=2)
+        sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#a7d4d4"),
+                             fontName="Helvetica", alignment=TA_CENTER)
+        body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, textColor=GRAY,
+                              fontName="Helvetica", leading=14, spaceAfter=4)
+        meeting_title = ParagraphStyle("mt", parent=styles["Normal"], fontSize=11, textColor=TEAL,
+                                       fontName="Helvetica-Bold", leading=14)
+        small = ParagraphStyle("small", parent=styles["Normal"], fontSize=9, textColor=GRAY,
+                               fontName="Helvetica", leading=12)
+        url_style = ParagraphStyle("url", parent=styles["Normal"], fontSize=8, textColor=TEAL,
+                                   fontName="Helvetica", leading=10)
+        footer_label = ParagraphStyle("fl", parent=styles["Normal"], fontSize=9, textColor=TEAL,
+                                      fontName="Helvetica-Bold", leading=12)
+        footer_val = ParagraphStyle("fv", parent=styles["Normal"], fontSize=9, textColor=GRAY,
+                                    fontName="Helvetica", leading=12)
+
+        story = []
+
+        # ── En-tête ──
+        lodge_name = lodge.name if lodge else "Socrate — Raison et Progrès"
+        obedience = lodge.obedience if lodge else "Grand Orient de France"
+        orient = lodge.orient_city if lodge else ""
+        loge_num = f" — R∴L∴ n°{lodge.loge_number}" if lodge and lodge.loge_number else ""
+        rite = lodge.rite if lodge and lodge.rite else None
+
+        header_text = [
+            Paragraph(lodge_name, h1),
+            Paragraph(f"Au nom et sous les auspices du {obedience}<br/>Or∴ de {orient}{loge_num}", sub),
+        ]
+        if rite:
+            header_text.append(Paragraph(f"— ϕ — {rite} — ϕ —", sub))
+
+        header_table = Table([[header_text]], colWidths=[doc.width])
+        header_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), TEAL),
+            ("TOPPADDING", (0, 0), (-1, -1), 14),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
+            ("LEFTPADDING", (0, 0), (-1, -1), 16),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 16),
+            ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+        ]))
+        story.append(header_table)
+        story.append(Spacer(1, 0.4*cm))
+
+        # ── Salutation / intro ──
+        story.append(Paragraph("Mon T∴C∴F∴, ma T∴C∴S∴,", body))
+        if program.content_html:
+            import re as _re
+            clean_intro = _re.sub(r"<[^>]+>", " ", program.content_html).strip()
+            story.append(Paragraph(clean_intro, body))
+        story.append(Spacer(1, 0.3*cm))
+
+        # ── Tenues ──
+        MEETING_TYPE_SHORT = {
+            "BLANCHE": "Ten∴ Bl∴", "SOLENNELLE": "Ten∴ Sol∴", "INSTRUCTION": "Ten∴ d'Instr∴",
+            "INITIATION": "Ten∴ d'Init∴", "INSTALLATION": "Installation",
+            "ELECTION": "Élection du V∴M∴", "PASSAGE": "Passage au 2e degré",
+            "ELEVATION": "Élévation au 3e degré", "FETE": "Fête mac∴", "EXTRA": "Ten∴ extraordinaire",
+        }
+
+        for pm in pm_sorted:
+            m = pm.meeting
+            url = pm.registration_url or _inscription_url(request, m.token)
+
+            n = m.meeting_number
+            num_label = f"{n}{'ère' if n == 1 else 'ème'} " if n else ""
+            type_label = MEETING_TYPE_SHORT.get(m.type.value, m.type.value)
+            grade_label = {"APPRENTI": "App∴", "COMPAGNON": "Comp∴", "MAITRE": "M∴"}.get(m.grade.value, "TLR∴")
+            title_str = f"△ {num_label}{type_label} du {_date_civil(m.meeting_date)} en Loge d'{grade_label}"
+
+            card_rows = [[Paragraph(title_str, meeting_title)]]
+
+            if m.agenda_html:
+                import re as _re
+                agenda_clean = _re.sub(r"<[^>]+>", " ", m.agenda_html).strip()
+                card_rows.append([Paragraph(agenda_clean, small)])
+
+            if m.degrees and len(m.degrees) > 1:
+                for deg in m.degrees:
+                    deg_label = deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value)
+                    card_rows.append([Paragraph(f"• {deg_label}", small)])
+
+            if m.agape_enabled:
+                agape_text = f"• Agape fraternelle à l'issue"
+                if m.agape_location:
+                    agape_text += f" — {m.agape_location}"
+                agape_text += " <font color='#b45309'><b>(Réservation impérative)</b></font>"
+                card_rows.append([Paragraph(agape_text, small)])
+
+            card_rows.append([Paragraph(f"Inscription : {url}", url_style)])
+
+            card = Table(card_rows, colWidths=[doc.width])
+            card.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (0, 0), TEAL_LIGHT),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                ("BOX", (0, 0), (-1, -1), 0.5, TEAL_BORDER),
+                ("LINEBELOW", (0, 0), (0, 0), 0.5, TEAL_BORDER),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("ROUNDEDCORNERS", [4, 4, 4, 4]),
+            ]))
+            story.append(card)
+            story.append(Spacer(1, 0.3*cm))
+
+        # ── Ordre du jour commun ──
+        if lodge and lodge.common_agenda:
+            story.append(Paragraph("△ Ordre du jour commun à toutes les TTen∴", meeting_title))
+            for line in lodge.common_agenda.split("\n"):
+                stripped = line.strip()
+                if stripped:
+                    story.append(Paragraph(stripped, small))
+            story.append(Spacer(1, 0.3*cm))
+
+        # ── À noter ──
+        if program.next_meetings_text:
+            import re as _re
+            note_clean = _re.sub(r"<[^>]+>", " ", program.next_meetings_text).strip()
+            story.append(Paragraph(note_clean, body))
+            story.append(Spacer(1, 0.3*cm))
+
+        # ── Footer VM / Temple / Sec ──
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb")))
+        story.append(Spacer(1, 0.2*cm))
+
+        vm_lines = [Paragraph("V∴M∴", footer_label)]
+        if lodge and lodge.vm_name_display:
+            vm_lines.append(Paragraph(lodge.vm_name_display, footer_val))
+        if lodge and lodge.vm_email_display:
+            vm_lines.append(Paragraph(lodge.vm_email_display, footer_val))
+
+        temple_lines = [Paragraph("Temple", footer_label)]
+        if lodge and lodge.temple_name:
+            temple_lines.append(Paragraph(lodge.temple_name, footer_val))
+        if lodge and lodge.temple_address:
+            temple_lines.append(Paragraph(lodge.temple_address, footer_val))
+
+        sec_lines = [Paragraph("Sec∴", footer_label)]
+        if lodge and lodge.secretary_name_display:
+            sec_lines.append(Paragraph(lodge.secretary_name_display, footer_val))
+        if lodge and lodge.secretary_email_display:
+            sec_lines.append(Paragraph(lodge.secretary_email_display, footer_val))
+
+        footer_table = Table([[vm_lines, temple_lines, sec_lines]], colWidths=[doc.width/3]*3)
+        footer_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(footer_table)
+
+        doc.build(story)
+        pdf_bytes = buf.getvalue()
+        attachments.insert(0, (f"{program.title}.pdf", pdf_bytes, "application/pdf"))
+    except Exception as _e:
+        logger.warning("PDF non généré (ReportLab) : %s", _e, exc_info=True)
+
+    lodge_name = lodge.name if lodge else "La Loge"
+    subject = f"[{lodge_name}] {program.title}"
+    base_url = str(request.base_url).rstrip("/")
+
+    sent = 0
+    for name, email in recipients:
+        greeting = f"Bonjour{' ' + name if name else ''},"
+        html_content = templates.TemplateResponse(request, "emails/programme.html", {
+            "program": program,
+            "pm_sorted": pm_sorted,
+            "lodge": lodge,
+            "GRADE_LABELS": GRADE_LABELS,
+            "date_civil": _date_civil,
+            "inscription_url": lambda token: _inscription_url(request, token),
+            "greeting": greeting,
+            "base_url": base_url,
+            "has_attachment": attachments is not None,
+            "attachment_name": attachments[0][0] if attachments else None,
+        })
+        html_str = html_content.body.decode("utf-8")
+
+        # Texte alternatif plain-text
+        text_lines = [greeting, "", program.title, ""]
+        for pm in pm_sorted:
+            m = pm.meeting
+            url = pm.registration_url or _inscription_url(request, m.token)
+            text_lines.append(f"△ {_date_civil(m.meeting_date)}")
+            text_lines.append(f"   Inscription : {url}")
+            text_lines.append("")
+        if attachments:
+            text_lines.append(f"📎 Pièce jointe : {attachments[0][0]}")
+            text_lines.append("")
+        text_lines.append(f"— {lodge_name}")
+        text = "\n".join(text_lines)
+
+        ok, _ = await _send_raw(email, subject, html_str, text, attachments=attachments or None)
+        if ok:
+            sent += 1
+
+    return RedirectResponse(url=f"/programs/{program_id}?email_sent={sent}", status_code=303)

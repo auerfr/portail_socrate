@@ -255,13 +255,13 @@
     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
       <div style="display:flex;gap:8px;align-items:center;">
         <a href="/programs/" style="font-size:12px;padding:5px 14px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;text-decoration:none;">← Retour</a>
-        {% if is_admin %}
+        {% if can_manage_programs %}
         <a href="/programs/{{ program.id }}/edit" style="font-size:12px;padding:5px 14px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff;color:#1d4ed8;text-decoration:none;">✏ Modifier</a>
         <form method="post" action="/programs/{{ program.id }}/delete" onsubmit="return confirm('Supprimer ?')">
           <button style="font-size:12px;padding:5px 14px;border:1px solid #fca5a5;border-radius:6px;background:white;color:#dc2626;cursor:pointer;">Supprimer</button>
         </form>
         {% endif %}
-        {% if is_admin %}
+        {% if can_manage_programs %}
           {% if program.sent_at %}
           <!-- Déjà transmis — réarchiver -->
           <form method="post" action="/programs/{{ program.id }}/transmit" onsubmit="return confirm('Mettre à jour l\'archive dans la bibliothèque ?')">
@@ -293,6 +293,83 @@
     {% if request.query_params.get('transmitted') %}
     <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:8px 12px;font-size:12px;color:#065f46;margin-bottom:8px;">
       ✓ Programme transmis et archivé dans la <a href="/documents" style="color:#065f46;font-weight:600;">Bibliothèque</a> → Planches Programmes.
+    </div>
+    {% endif %}
+
+    {% if email_sent is not none and email_sent != '' %}
+      {% if email_sent | int > 0 %}
+      <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:8px 12px;font-size:12px;color:#065f46;margin-bottom:8px;">
+        ✉ Programme envoyé à {{ email_sent }} destinataire{{ 's' if email_sent | int > 1 }}.
+      </div>
+      {% else %}
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:8px;">
+        ⚠ Aucun email envoyé — vérifiez la configuration SMTP ou les destinataires sélectionnés.
+      </div>
+      {% endif %}
+    {% endif %}
+
+    {% if can_manage_programs and external_contacts %}
+    <details style="margin-bottom:8px;">
+      <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#1a5252;padding:8px 12px;background:#e6f4f1;border:1px solid #8eccc6;border-radius:6px;list-style:none;">
+        ✉ Envoyer par email aux correspondants externes ({{ external_contacts | length }} contact{{ 's' if external_contacts | length > 1 }})
+      </summary>
+      <form method="post" action="/programs/{{ program.id }}/send-external"
+            enctype="multipart/form-data"
+            style="border:1px solid #d1fae5;border-top:none;border-radius:0 0 6px 6px;padding:12px;background:#f0fdf4;">
+
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+          {% set visitors = external_contacts | selectattr('contact_type', 'eq', 'VISITOR') | list %}
+          {% set externals = external_contacts | selectattr('contact_type', 'eq', 'EXTERNAL') | list %}
+
+          {% if visitors %}
+          <div>
+            <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">👤 F∴/S∴ passant·e·s</div>
+            {% for c in visitors %}
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;margin-bottom:3px;cursor:pointer;">
+              <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
+              <span>{{ c.name }}{% if c.organization %} <span style="color:#9ca3af;">· {{ c.organization }}</span>{% endif %}</span>
+            </label>
+            {% endfor %}
+          </div>
+          {% endif %}
+
+          {% if externals %}
+          <div>
+            <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">🏛 Contacts institutionnels</div>
+            {% for c in externals %}
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;margin-bottom:3px;cursor:pointer;">
+              <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
+              <span>{{ c.name }}{% if c.organization %} <span style="color:#9ca3af;">· {{ c.organization }}</span>{% endif %}</span>
+            </label>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+
+        <div style="margin-bottom:10px;">
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">Adresses supplémentaires (séparées par des virgules)</label>
+          <input type="text" name="extra_emails" placeholder="autre@exemple.com, contact@loge.fr"
+                 style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:5px 10px;font-size:12px;">
+        </div>
+
+        <div style="margin-bottom:12px;">
+          <label style="font-size:11px;font-weight:600;color:#374151;display:block;margin-bottom:3px;">
+            📎 Pièce jointe <span style="font-weight:normal;color:#9ca3af;">(optionnel — affiche, flyer, PDF…)</span>
+          </label>
+          <input type="file" name="attachment"
+                 accept=".pdf,.jpg,.jpeg,.png,.gif,.webp,.doc,.docx,.odt"
+                 style="width:100%;border:1px solid #d1d5db;border-radius:5px;padding:4px 8px;font-size:12px;background:white;cursor:pointer;">
+        </div>
+
+        <button type="submit"
+                style="background:#1a5252;color:white;border:none;border-radius:6px;padding:7px 16px;font-size:12px;font-weight:600;cursor:pointer;">
+          ✉ Envoyer le programme
+        </button>
+      </form>
+    </details>
+    {% elif can_manage_programs %}
+    <div style="font-size:12px;color:#9ca3af;margin-bottom:8px;padding:8px;background:#f9fafb;border-radius:6px;border:1px solid #e5e7eb;">
+      ℹ Aucun correspondant externe — <a href="/settings/" style="color:#1a5252;">ajoutez-en dans les paramètres</a>.
     </div>
     {% endif %}
 

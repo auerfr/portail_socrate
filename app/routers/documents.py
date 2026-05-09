@@ -24,6 +24,8 @@ templates = Jinja2Templates(directory="app/templates")
 UPLOAD_DIR = Path("uploads/documents")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
 
+PERSONAL_SPACE_NAME = "__PERSONAL__"
+
 MAX_FILE_SIZE = 50 * 1024 * 1024  # 50 Mo
 ALLOWED_EXTENSIONS = {
     ".pdf", ".doc", ".docx", ".odt",
@@ -53,15 +55,21 @@ async def _can_access(
     min_grade: MinGrade,
     group_id: Optional[int],
     db: AsyncSession,
+    *,
+    personal_owner_id: Optional[int] = None,
 ) -> bool:
     """
     Règle d'accès :
     - Admin → toujours True
+    - Si personal_owner_id défini → dossier perso, réservé au propriétaire
     - Si group_id défini → le membre doit appartenir à ce groupe
     - Sinon → vérification par grade minimum
     """
     if user.is_admin:
         return True
+
+    if personal_owner_id is not None:
+        return member.id == personal_owner_id
 
     if group_id:
         group = await db.get(LodgeGroup, group_id)
@@ -75,10 +83,60 @@ async def _can_access(
     return member_lvl >= required
 
 
+async def _get_or_create_personal_space(db: AsyncSession) -> DocSpace:
+    r = await db.execute(select(DocSpace).where(DocSpace.name == PERSONAL_SPACE_NAME))
+    space = r.scalar_one_or_none()
+    if not space:
+        space = DocSpace(
+            name=PERSONAL_SPACE_NAME,
+            description="Espaces documentaires personnels",
+            min_grade=MinGrade.ALL,
+            is_public=False,
+            order_position=9999,
+        )
+        db.add(space)
+        await db.flush()
+    return space
+
+
 async def _load_groups(db: AsyncSession) -> list[LodgeGroup]:
     """Charge tous les groupes pour les sélecteurs."""
     r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
     return r.scalars().all()
+
+
+# ── Espace personnel ────────────────────────────────────────────────────────
+
+@router.get("/perso")
+async def documents_perso(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    space = await _get_or_create_personal_space(db)
+
+    r = await db.execute(
+        select(DocFolder).where(
+            DocFolder.space_id == space.id,
+            DocFolder.personal_owner_id == member.id,
+            DocFolder.parent_id == None,
+        )
+    )
+    folder = r.scalar_one_or_none()
+    if not folder:
+        folder = DocFolder(
+            space_id=space.id,
+            name=f"{member.first_name} {member.last_name}",
+            min_grade=MinGrade.ALL,
+            personal_owner_id=member.id,
+            created_by_id=member.id,
+        )
+        db.add(folder)
+        await db.flush()
+
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{folder.id}", status_code=302)
 
 
 # ── Page racine — liste des espaces ────────────────────────────────────────
@@ -95,9 +153,11 @@ async def documents_home(
     )
     all_spaces = spaces_r.scalars().all()
 
-    # Filtrer selon droits (grade ou groupe)
+    # Filtrer selon droits (grade ou groupe) — exclure l'espace interne "__PERSONAL__"
     spaces = []
     for s in all_spaces:
+        if s.name == PERSONAL_SPACE_NAME:
+            continue
         if await _can_access(member, user, s.min_grade, s.group_id, db):
             spaces.append(s)
 
@@ -187,12 +247,18 @@ async def documents_folder(
     user, member = ctx
 
     folder = await db.get(DocFolder, folder_id)
-    if not folder or not await _can_access(member, user, folder.min_grade, folder.group_id, db):
+    if not folder or not await _can_access(
+        member, user, folder.min_grade, folder.group_id, db,
+        personal_owner_id=folder.personal_owner_id,
+    ):
         raise HTTPException(status_code=404)
 
+    is_personal_folder = folder.personal_owner_id is not None
+
     space = await db.get(DocSpace, folder.space_id)
-    if not space or not await _can_access(member, user, space.min_grade, space.group_id, db):
-        raise HTTPException(status_code=404)
+    if not is_personal_folder:
+        if not space or not await _can_access(member, user, space.min_grade, space.group_id, db):
+            raise HTTPException(status_code=404)
 
     # Sous-dossiers
     sub_r = await db.execute(
@@ -202,7 +268,10 @@ async def documents_folder(
     )
     subfolders = []
     for f in sub_r.scalars().all():
-        if await _can_access(member, user, f.min_grade, f.group_id, db):
+        if await _can_access(
+            member, user, f.min_grade, f.group_id, db,
+            personal_owner_id=f.personal_owner_id,
+        ):
             subfolders.append(f)
 
     # Tri des documents
@@ -239,8 +308,12 @@ async def documents_folder(
     all_groups = await _load_groups(db) if user.is_admin else []
 
     # Fil d'ariane
-    breadcrumb = [{"label": "Bibliothèque", "url": "/documents/"},
-                  {"label": space.name,     "url": f"/documents/space/{space.id}"}]
+    if is_personal_folder:
+        breadcrumb = [{"label": "Bibliothèque", "url": "/documents/"},
+                      {"label": "Mon espace",   "url": "/documents/perso"}]
+    else:
+        breadcrumb = [{"label": "Bibliothèque", "url": "/documents/"},
+                      {"label": space.name,     "url": f"/documents/space/{space.id}"}]
     ancestors = []
     cur_id = folder.parent_id
     while cur_id:
@@ -275,6 +348,7 @@ async def documents_folder(
         "all_groups": all_groups,
         "breadcrumb": breadcrumb,
         "is_admin": user.is_admin,
+        "can_upload": True,
         "saved": request.query_params.get("saved"),
         "error": request.query_params.get("error"),
         "sort": sort,
@@ -296,14 +370,20 @@ async def documents_upload(
     db: Annotated[AsyncSession, Depends(get_db)],
     files: List[UploadFile] = File(...),
     doc_name: str = Form(""),
+    notify_members: str = Form(""),
+    notify_target: str = Form(""),
 ):
     user, member = ctx
 
     folder = await db.get(DocFolder, folder_id)
-    if not folder or not await _can_access(member, user, folder.min_grade, folder.group_id, db):
+    if not folder or not await _can_access(
+        member, user, folder.min_grade, folder.group_id, db,
+        personal_owner_id=folder.personal_owner_id,
+    ):
         raise HTTPException(status_code=403)
 
     errors = []
+    added_docs = []
     for f in files:
         if not f.filename:
             continue
@@ -333,8 +413,36 @@ async def documents_upload(
             author_id=member.id,
         )
         db.add(doc)
+        added_docs.append(display_name)
 
     await db.commit()
+
+    if notify_members and added_docs:
+        from app.utils.notifications import send_notification
+        folder_url = str(request.base_url).rstrip("/") + f"/documents/folder/{folder_id}"
+        names = ", ".join(added_docs)
+        # Parse notify_target: "" | "COMPAGNON" | "MAITRE" | "group:N"
+        notif_grade: Optional[str] = None
+        notif_group_id: Optional[int] = None
+        if notify_target.startswith("group:"):
+            try:
+                notif_group_id = int(notify_target[6:])
+            except ValueError:
+                pass
+        elif notify_target in ("COMPAGNON", "MAITRE"):
+            notif_grade = notify_target
+        else:
+            # Par défaut : reprendre la restriction du dossier
+            folder_grade = folder.min_grade.value if folder.min_grade and folder.min_grade.value != "ALL" else None
+            notif_grade = folder_grade
+        await send_notification(
+            db, member.id,
+            f"📎 Nouveau(x) document(s) dans « {folder.name} »",
+            f"De nouveaux documents ont été déposés dans le dossier « {folder.name} » :\n\n{names}\n\n{folder_url}",
+            min_grade=notif_grade,
+            target_group_id=notif_group_id,
+        )
+        await db.commit()
 
     if errors:
         from urllib.parse import quote
@@ -423,7 +531,10 @@ async def documents_add_link(
     user, member = ctx
 
     folder = await db.get(DocFolder, folder_id)
-    if not folder or not await _can_access(member, user, folder.min_grade, folder.group_id, db):
+    if not folder or not await _can_access(
+        member, user, folder.min_grade, folder.group_id, db,
+        personal_owner_id=folder.personal_owner_id,
+    ):
         raise HTTPException(status_code=403)
 
     link_url = url.strip()
@@ -455,10 +566,15 @@ async def _get_authorized_doc(doc_id: int, user, member, db: AsyncSession):
     if not doc or doc.status != DocStatus.PUBLISHED:
         raise HTTPException(status_code=404)
     folder = doc.folder
-    space  = await db.get(DocSpace, folder.space_id)
-    if (not await _can_access(member, user, folder.min_grade, folder.group_id, db)
-            or not await _can_access(member, user, space.min_grade, space.group_id, db)):
+    if not await _can_access(
+        member, user, folder.min_grade, folder.group_id, db,
+        personal_owner_id=folder.personal_owner_id,
+    ):
         raise HTTPException(status_code=403)
+    if not folder.personal_owner_id:
+        space = await db.get(DocSpace, folder.space_id)
+        if not await _can_access(member, user, space.min_grade, space.group_id, db):
+            raise HTTPException(status_code=403)
     return doc
 
 

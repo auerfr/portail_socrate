@@ -1,5 +1,7 @@
 """Service d'envoi d'emails via SMTP (aiosmtplib)."""
 import logging
+from email import encoders
+from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
 from typing import Optional
@@ -11,22 +13,45 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
-async def _send_raw(to: str, subject: str, html: str, text: str) -> bool:
-    """Envoie un email brut. Retourne True si succès."""
+async def _send_raw(
+    to: str,
+    subject: str,
+    html: str,
+    text: str,
+    attachments: Optional[list[tuple[str, bytes, str]]] = None,
+) -> tuple[bool, Optional[str]]:
+    """
+    Envoie un email brut. Retourne (True, None) si succès.
+    attachments : liste de (filename, content_bytes, mime_type)
+    """
     settings = get_settings()
 
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
         logger.warning("SMTP non configuré — email ignoré (to=%s subject=%s)", to, subject)
-        return False
+        return False, "SMTP non configuré"
 
-    msg = MIMEMultipart("alternative")
+    # Corps alternatif html/text
+    alt = MIMEMultipart("alternative")
+    alt.attach(MIMEText(text, "plain", "utf-8"))
+    alt.attach(MIMEText(html, "html",  "utf-8"))
+
+    if attachments:
+        msg = MIMEMultipart("mixed")
+        msg.attach(alt)
+        for filename, content, mime_type in attachments:
+            main_type, sub_type = (mime_type or "application/octet-stream").split("/", 1)
+            part = MIMEBase(main_type, sub_type)
+            part.set_payload(content)
+            encoders.encode_base64(part)
+            part.add_header("Content-Disposition", "attachment", filename=filename)
+            msg.attach(part)
+    else:
+        msg = alt
+
     msg["Subject"] = subject
     msg["From"]    = f"{settings.lodge_name} <{settings.smtp_from}>"
     msg["To"]      = to
     msg["X-Mailer"] = "Portail Socrate"
-
-    msg.attach(MIMEText(text, "plain", "utf-8"))
-    msg.attach(MIMEText(html, "html",  "utf-8"))
 
     try:
         use_ssl  = settings.smtp_secure == "ssl"
