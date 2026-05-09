@@ -20,6 +20,7 @@ from app.routers import documents as documents_router
 from app.routers import chat as chat_router
 from app.routers import sharing as sharing_router
 from app.routers import news as news_router
+from app.routers import polls as polls_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.lodge_calendar  # noqa: F401
@@ -324,6 +325,7 @@ app.include_router(chat_router.router)
 app.include_router(sharing_router.router)          # /documents/file/{id}/share/…
 app.include_router(sharing_router.public_router)   # /share/{token} — accès public sans auth
 app.include_router(news_router.router)
+app.include_router(polls_router.router)
 # app.include_router(forum.router)
 # app.include_router(admin.router)
 
@@ -592,6 +594,24 @@ async def home(
     )
     recent_news = _news_r.scalars().all()
 
+    # ── Sondages actifs (dashboard widget) ───────────────────────────────────
+    from app.models.content import Poll as _Poll, PollVote as _PollVote
+    from app.routers.polls import _can_access as _poll_can_access
+    _polls_r = await db.execute(
+        select(_Poll)
+        .options(selectinload(_Poll.votes))
+        .where(or_(_Poll.ends_at == None, _Poll.ends_at > datetime.now()))
+        .order_by(_Poll.created_at.desc())
+        .limit(20)
+    )
+    _active_polls = _polls_r.scalars().all()
+    _active_polls_filtered = [p for p in _active_polls if _poll_can_access(p, member, user.is_admin)]
+    _voted_ids_r = await db.execute(
+        select(_PollVote.poll_id).where(_PollVote.member_id == member.id)
+    )
+    _voted_ids = {r[0] for r in _voted_ids_r.all()}
+    pending_polls = [p for p in _active_polls_filtered if p.id not in _voted_ids][:3]
+
     return templates.TemplateResponse(request, "pages/dashboard.html", {
         "current_member": member,
         "current_user": user,
@@ -629,6 +649,7 @@ async def home(
         "recent_unread_msgs": recent_unread_msgs,
         "recent_senders_map": recent_senders_map,
         "recent_news": recent_news,
+        "pending_polls": pending_polls,
     })
 
 

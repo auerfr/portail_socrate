@@ -1,0 +1,99 @@
+{% extends "base.html" %}
+{% block title %}Nouveau sondage — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="/polls/" class="text-gray-400 hover:text-gray-600 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+      </svg>
+    </a>
+    <h1 class="text-xl font-bold text-gray-900">Nouveau sondage</h1>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+    <form method="post" action="/polls/new" class="space-y-5">
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Question / titre *</label>
+        <input type="text" name="title" required
+               placeholder="Ex : Êtes-vous disponible pour la tenue exceptionnelle du 15 juin ?"
+               class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Description (optionnel)</label>
+        <textarea name="description" rows="2"
+                  placeholder="Contexte ou précisions supplémentaires"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"></textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Options de réponse *</label>
+        <textarea name="options_raw" rows="5" required
+                  placeholder="Une option par ligne :&#10;Oui, je serai présent&#10;Non, je serai absent&#10;Peut-être"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y font-mono"></textarea>
+        <p class="text-xs text-gray-400 mt-1">Une option par ligne, minimum 2</p>
+      </div>
+
+      <div class="grid sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Accès minimum</label>
+          <select name="min_grade"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="">Tous les membres</option>
+            <option value="COMPAGNON">Compagnon et au-dessus</option>
+            <option value="MAITRE">Maîtres uniquement</option>
+          </select>
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Clôture automatique</label>
+          <input type="datetime-local" name="ends_at"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+
+      <div class="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl">
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="is_multiple" value="1"
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+          <div>
+            <div class="text-sm font-medium text-gray-700">Choix multiples</div>
+            <div class="text-xs text-gray-400">Chaque membre peut voter pour plusieurs options</div>
+          </div>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="is_anonymous" value="1"
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+          <div>
+            <div class="text-sm font-medium text-gray-700">🙈 Vote anonyme</div>
+            <div class="text-xs text-gray-400">L'identité des votants ne sera pas enregistrée</div>
+          </div>
+        </label>
+        <label class="flex items-center gap-3 cursor-pointer">
+          <input type="checkbox" name="is_public_vote" value="1"
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+          <div>
+            <div class="text-sm font-medium text-gray-700">Vote nominatif visible</div>
+            <div class="text-xs text-gray-400">Les noms des votants sont affichés sous chaque option</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="flex gap-3 pt-2 border-t border-gray-100">
+        <a href="/polls/" class="flex-1 text-center border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm hover:bg-gray-50 transition-colors">
+          Annuler
+        </a>
+        <button type="submit"
+                class="flex-1 bg-loge-700 hover:bg-loge-800 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
+          Créer le sondage
+        </button>
+      </div>
+
+    </form>
+  </div>
+
+</div>
+{% endblock %}

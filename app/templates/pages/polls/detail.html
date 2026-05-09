@@ -1,0 +1,151 @@
+{% extends "base.html" %}
+{% block title %}{{ poll.title }} — Sondages{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <a href="/polls/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-loge-600 mb-6 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+    </svg>
+    Tous les sondages
+  </a>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+
+    <!-- En-tête -->
+    <div class="px-6 py-5 border-b border-gray-100">
+      <div class="flex items-start justify-between gap-3 flex-wrap">
+        <div class="flex-1 min-w-0">
+          <div class="flex flex-wrap items-center gap-2 mb-2">
+            {% if is_open %}
+            <span class="inline-flex items-center gap-1 text-xs font-medium bg-green-50 text-green-700 rounded-full px-2.5 py-1">
+              <span class="w-1.5 h-1.5 rounded-full bg-green-500 animate-pulse inline-block"></span>
+              En cours
+            </span>
+            {% else %}
+            <span class="text-xs font-medium bg-gray-100 text-gray-500 rounded-full px-2.5 py-1">🔒 Clôturé</span>
+            {% endif %}
+            {% if poll.is_anonymous %}
+            <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-2.5 py-1">🙈 Anonyme</span>
+            {% endif %}
+            {% if poll.is_multiple %}
+            <span class="text-xs bg-blue-50 text-blue-600 rounded-full px-2.5 py-1">Choix multiples</span>
+            {% endif %}
+            {% if poll.min_grade %}
+            <span class="text-xs bg-amber-50 text-amber-600 rounded-full px-2.5 py-1">{{ poll.min_grade }}+</span>
+            {% endif %}
+          </div>
+          <h1 class="text-xl font-bold text-gray-900 leading-snug">{{ poll.title }}</h1>
+          {% if poll.description %}
+          <p class="text-sm text-gray-500 mt-1.5 leading-relaxed">{{ poll.description }}</p>
+          {% endif %}
+        </div>
+        {% if can_manage %}
+        <div class="flex items-center gap-2 shrink-0">
+          {% if is_open %}
+          <form method="post" action="/polls/{{ poll.id }}/close" onsubmit="return confirm('Clôturer ce sondage ?')">
+            <button type="submit" class="text-xs text-gray-400 hover:text-amber-600 transition-colors border border-gray-200 rounded-lg px-2.5 py-1.5">Clôturer</button>
+          </form>
+          {% endif %}
+          <form method="post" action="/polls/{{ poll.id }}/delete" onsubmit="return confirm('Supprimer ce sondage et tous ses votes ?')">
+            <button type="submit" class="text-xs text-gray-400 hover:text-red-500 transition-colors border border-gray-200 rounded-lg px-2.5 py-1.5">Supprimer</button>
+          </form>
+        </div>
+        {% endif %}
+      </div>
+
+      <div class="flex items-center gap-3 mt-3 text-xs text-gray-400">
+        <span>{{ total_votes }} vote{{ 's' if total_votes != 1 }}</span>
+        {% if author %}
+        <span>·</span>
+        <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name }}</span>
+        {% endif %}
+        {% if poll.ends_at %}
+        <span>·</span>
+        {% if is_open %}
+        <span class="text-amber-500">Clôture {{ poll.ends_at.strftime('%d/%m/%Y à %H:%M') }}</span>
+        {% else %}
+        <span>Clôturé {{ poll.ends_at.strftime('%d/%m/%Y') }}</span>
+        {% endif %}
+        {% endif %}
+      </div>
+    </div>
+
+    <!-- Zone vote / résultats -->
+    <div class="p-6">
+
+      {% if is_open and not has_voted %}
+      <!-- Formulaire de vote -->
+      <form method="post" action="/polls/{{ poll.id }}/vote" class="space-y-3">
+        {% for r in results %}
+        <label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-loge-300 hover:bg-loge-50/30 cursor-pointer transition-colors group">
+          {% if poll.is_multiple %}
+          <input type="checkbox" name="option_id" value="{{ r.option.id }}"
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500 shrink-0">
+          {% else %}
+          <input type="radio" name="option_id" value="{{ r.option.id }}"
+                 class="w-4 h-4 border-gray-300 text-loge-600 focus:ring-loge-500 shrink-0">
+          {% endif %}
+          <span class="text-sm font-medium text-gray-800">{{ r.option.label }}</span>
+        </label>
+        {% endfor %}
+
+        <button type="submit"
+                class="w-full mt-2 bg-loge-700 hover:bg-loge-800 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
+          {% if poll.is_multiple %}Valider mes choix{% else %}Voter{% endif %}
+        </button>
+
+        {% if poll.is_anonymous %}
+        <p class="text-xs text-center text-gray-400">🙈 Vote anonyme — votre identité ne sera pas enregistrée</p>
+        {% endif %}
+      </form>
+
+      {% else %}
+      <!-- Résultats -->
+      {% if has_voted and is_open %}
+      <div class="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-xl px-4 py-2.5 mb-4">
+        <span>✅</span>
+        <span class="font-medium">Votre vote a été enregistré</span>
+      </div>
+      {% endif %}
+
+      <div class="space-y-4">
+        {% set max_pct = results | map(attribute='pct') | max if results else 0 %}
+        {% for r in results %}
+        <div>
+          <div class="flex items-center justify-between mb-1.5">
+            <span class="text-sm font-medium text-gray-800 flex items-center gap-1.5">
+              {% if r.is_mine %}<span class="text-loge-600">✓</span>{% endif %}
+              {{ r.option.label }}
+            </span>
+            <span class="text-sm font-bold {% if r.pct == max_pct %}text-loge-700{% else %}text-gray-500{% endif %}">
+              {{ r.count }} <span class="font-normal text-gray-400">({{ r.pct }}%)</span>
+            </span>
+          </div>
+          <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full transition-all duration-500 {% if r.is_mine %}bg-loge-600{% else %}bg-loge-300{% endif %}"
+                 style="width: {{ r.pct }}%"></div>
+          </div>
+          {% if r.voters %}
+          <div class="flex flex-wrap gap-1 mt-1.5">
+            {% for voter in r.voters %}
+            <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
+              {{ voter.first_name }} {{ voter.last_name }}
+            </span>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% endfor %}
+      </div>
+
+      {% if not is_open and total_votes == 0 %}
+      <p class="text-sm text-center text-gray-400 italic mt-4">Aucun vote enregistré</p>
+      {% endif %}
+      {% endif %}
+
+    </div>
+  </div>
+</div>
+{% endblock %}

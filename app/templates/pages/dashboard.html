@@ -107,6 +107,33 @@
   </div>
   {% endif %}
 
+  <!-- ════════════════════════════════════════════════════════
+       SONDAGES EN ATTENTE DE VOTE
+  ════════════════════════════════════════════════════════ -->
+  {% if pending_polls %}
+  <div>
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
+        <span>🗳️</span> Sondages — votre vote est attendu
+      </h2>
+      <a href="/polls/" class="text-xs text-loge-600 hover:text-loge-800 font-medium transition-colors">Voir tout →</a>
+    </div>
+    <div class="space-y-2">
+      {% for poll in pending_polls %}
+      <a href="/polls/{{ poll.id }}"
+         class="flex items-center gap-3 bg-white rounded-xl border border-loge-100 hover:border-loge-300 hover:shadow-sm px-4 py-3 transition-all group">
+        <span class="text-lg shrink-0">🗳️</span>
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-gray-800 group-hover:text-loge-700 transition-colors truncate">{{ poll.title }}</div>
+          <div class="text-xs text-gray-400 mt-0.5">{{ poll.votes | length }} vote{{ 's' if poll.votes | length != 1 }}{% if poll.ends_at %} · clôture {{ poll.ends_at.strftime('%d/%m') }}{% endif %}</div>
+        </div>
+        <span class="text-xs bg-loge-50 text-loge-700 font-medium rounded-full px-2.5 py-1 shrink-0">Voter →</span>
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <!-- En-tête personnalisé -->
   <div class="flex items-center justify-between">
     <div>

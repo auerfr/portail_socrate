@@ -190,6 +190,12 @@
         Actualités
       </a>
 
+      <a href="/polls/"
+         class="nav-item {% if '/polls' in request.url.path %}active{% endif %}">
+        <i class="ti ti-chart-bar"></i>
+        Sondages
+      </a>
+
       <a href="/calendar/"
          class="nav-item {% if '/calendar' in request.url.path %}active{% endif %}">
         <i class="ti ti-calendar"></i>
