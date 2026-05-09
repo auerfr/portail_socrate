@@ -184,6 +184,12 @@
         {% endif %}
       </a>
 
+      <a href="/news/"
+         class="nav-item {% if '/news' in request.url.path %}active{% endif %}">
+        <i class="ti ti-news"></i>
+        Actualités
+      </a>
+
       <a href="/calendar/"
          class="nav-item {% if '/calendar' in request.url.path %}active{% endif %}">
         <i class="ti ti-calendar"></i>

@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}{{ article.title }} — Actualités{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <!-- Retour -->
+  <a href="/news/" class="inline-flex items-center gap-1.5 text-sm text-gray-400 hover:text-loge-600 mb-6 transition-colors">
+    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+    </svg>
+    Toutes les actualités
+  </a>
+
+  <article class="bg-white rounded-2xl shadow-sm border {% if article.is_featured %}border-loge-200{% else %}border-gray-100{% endif %} overflow-hidden">
+    {% if article.is_featured %}
+    <div class="h-1.5 bg-gradient-to-r from-loge-600 to-loge-400"></div>
+    {% endif %}
+    <div class="p-6 sm:p-8">
+      <!-- Badges -->
+      <div class="flex flex-wrap items-center gap-2 mb-4">
+        {% if article.is_featured %}
+        <span class="inline-flex items-center gap-1 text-xs font-medium bg-loge-50 text-loge-700 rounded-full px-3 py-1">
+          📌 À la une
+        </span>
+        {% endif %}
+        {% if article.min_grade %}
+        <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-3 py-1">{{ article.min_grade }} et au-dessus</span>
+        {% endif %}
+      </div>
+
+      <!-- Titre -->
+      <h1 class="text-2xl font-bold text-gray-900 leading-snug mb-3">{{ article.title }}</h1>
+
+      <!-- Meta -->
+      <div class="flex items-center gap-3 text-xs text-gray-400 mb-6 pb-6 border-b border-gray-100">
+        <span>{{ article.created_at.strftime('%d %B %Y') }}</span>
+        {% if author %}
+        <span>·</span>
+        <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name }}</span>
+        {% endif %}
+        {% if article.updated_at and article.updated_at != article.created_at %}
+        <span>· Mis à jour {{ article.updated_at.strftime('%d/%m/%Y') }}</span>
+        {% endif %}
+        {% if current_user.is_admin %}
+        <a href="/news/{{ article.id }}/edit" class="ml-auto text-loge-600 hover:text-loge-800 font-medium">Modifier</a>
+        {% endif %}
+      </div>
+
+      <!-- Contenu -->
+      <div class="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+        {{ article.content_html | safe }}
+      </div>
+    </div>
+  </article>
+
+</div>
+{% endblock %}

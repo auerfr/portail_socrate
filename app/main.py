@@ -19,13 +19,15 @@ from app.routers import groups as groups_router
 from app.routers import documents as documents_router
 from app.routers import chat as chat_router
 from app.routers import sharing as sharing_router
+from app.routers import news as news_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.lodge_calendar  # noqa: F401
 import app.models.groups          # noqa: F401
 import app.models.documents       # noqa: F401
 import app.models.chat            # noqa: F401
-from sqlalchemy import select, func as sql_func
+import app.models.content       # noqa: F401
+from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -321,6 +323,7 @@ app.include_router(documents_router.router)
 app.include_router(chat_router.router)
 app.include_router(sharing_router.router)          # /documents/file/{id}/share/…
 app.include_router(sharing_router.public_router)   # /share/{token} — accès public sans auth
+app.include_router(news_router.router)
 # app.include_router(forum.router)
 # app.include_router(admin.router)
 
@@ -574,6 +577,21 @@ async def home(
     )
     recent_visitors = recent_visitors_r.scalars().all()
 
+    # ── Actualités récentes (dashboard widget) ────────────────────────────────
+    from app.models.content import NewsArticle as _NewsArticle
+    _now = datetime.now()
+    _news_r = await db.execute(
+        select(_NewsArticle)
+        .where(
+            _NewsArticle.is_online == True,
+            or_(_NewsArticle.publish_from == None, _NewsArticle.publish_from <= _now),
+            or_(_NewsArticle.publish_until == None, _NewsArticle.publish_until >= _now),
+        )
+        .order_by(_NewsArticle.is_featured.desc(), _NewsArticle.created_at.desc())
+        .limit(3)
+    )
+    recent_news = _news_r.scalars().all()
+
     return templates.TemplateResponse(request, "pages/dashboard.html", {
         "current_member": member,
         "current_user": user,
@@ -610,6 +628,7 @@ async def home(
         "upcoming_events": upcoming_events,
         "recent_unread_msgs": recent_unread_msgs,
         "recent_senders_map": recent_senders_map,
+        "recent_news": recent_news,
     })
 
 
