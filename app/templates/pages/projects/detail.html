@@ -1,0 +1,823 @@
+{% extends "base.html" %}
+{% block title %}{{ project.name }} — Projets{% endblock %}
+
+{% block content %}
+{% set status_labels = {
+  'TODO': ('À faire', 'bg-gray-100 text-gray-700'),
+  'IN_PROGRESS': ('En cours', 'bg-amber-100 text-amber-800'),
+  'DONE': ('Terminé', 'bg-emerald-100 text-emerald-800'),
+  'CANCELLED': ('Annulé', 'bg-red-100 text-red-700'),
+} %}
+{% set priority_labels = {
+  'LOW': ('Basse', 'bg-gray-100 text-gray-600'),
+  'MEDIUM': ('Moyenne', 'bg-blue-50 text-blue-700'),
+  'HIGH': ('Haute', 'bg-red-50 text-red-700'),
+} %}
+
+<div x-data="{ taskModal: null, editTask: null }" class="max-w-7xl mx-auto px-4 py-6 lg:py-8 space-y-5">
+
+  {# ── Breadcrumb + entête ── #}
+  <div class="flex items-center gap-2 text-xs text-gray-400">
+    <a href="/projects/" class="hover:text-loge-700">Projets</a>
+    <i class="ti ti-chevron-right"></i>
+    <span class="text-gray-700">{{ project.name }}</span>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 lg:p-6">
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div class="min-w-0">
+        <div class="flex items-center gap-2 mb-1">
+          <span class="w-3 h-3 rounded-full" style="background:{{ project.color or '#4a9d8f' }}"></span>
+          <h1 class="text-2xl font-bold text-gray-900">{{ project.name }}</h1>
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full
+            {% if project.status.value == 'ACTIVE' %}bg-emerald-50 text-emerald-700
+            {% elif project.status.value == 'COMPLETED' %}bg-blue-50 text-blue-700
+            {% else %}bg-gray-100 text-gray-600{% endif %}">
+            {{ project.status.value }}
+          </span>
+        </div>
+        {% if project.description %}
+        <p class="text-sm text-gray-600 mt-2">{{ project.description }}</p>
+        {% endif %}
+        {% if project.start_date or project.end_date %}
+        <p class="text-xs text-gray-400 mt-2">
+          <i class="ti ti-calendar"></i>
+          {% if project.start_date %}{{ project.start_date.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+          →
+          {% if project.end_date %}{{ project.end_date.strftime('%d/%m/%Y') }}{% else %}—{% endif %}
+        </p>
+        {% endif %}
+      </div>
+      <div class="flex items-center gap-2">
+        <a href="/projects/{{ project.id }}/ical"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl"
+           title="Export iCal">
+          <i class="ti ti-calendar-plus"></i> iCal
+        </a>
+        <a href="/projects/{{ project.id }}/export.pdf" target="_blank"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl"
+           title="Export PDF">
+          <i class="ti ti-file-type-pdf"></i> PDF
+        </a>
+        {% if can_manage %}
+        <button @click="taskModal = 'new'"
+                class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl">
+          <i class="ti ti-plus"></i> Nouvelle tâche
+        </button>
+        <div x-data="{ menu: false }" class="relative">
+          <button @click="menu = !menu" @click.outside="menu = false"
+                  class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-xl"
+                  title="Options">
+            <i class="ti ti-dots-vertical"></i>
+          </button>
+          <div x-show="menu" x-cloak x-transition
+               class="absolute right-0 mt-1 w-52 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1">
+            <button @click="menu = false; $dispatch('open-modal', 'edit-project')"
+                    class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2">
+              <i class="ti ti-edit text-gray-400"></i> Modifier
+            </button>
+            {% if project.status.value != 'COMPLETED' %}
+            <form method="post" action="/projects/{{ project.id }}/edit"
+                  onsubmit="return confirm('Marquer ce projet comme terminé ?')">
+              <input type="hidden" name="name" value="{{ project.name }}">
+              <input type="hidden" name="description" value="{{ project.description or '' }}">
+              <input type="hidden" name="color" value="{{ project.color or '#4a9d8f' }}">
+              <input type="hidden" name="status" value="COMPLETED">
+              {% if project.start_date %}<input type="hidden" name="start_date" value="{{ project.start_date.isoformat() }}">{% endif %}
+              {% if project.end_date %}<input type="hidden" name="end_date" value="{{ project.end_date.isoformat() }}">{% endif %}
+              <button type="submit"
+                      class="w-full text-left px-3 py-2 text-sm text-emerald-700 hover:bg-emerald-50 inline-flex items-center gap-2">
+                <i class="ti ti-check"></i> Marquer terminé
+              </button>
+            </form>
+            {% endif %}
+            {% if project.status.value != 'ARCHIVED' %}
+            <form method="post" action="/projects/{{ project.id }}/edit"
+                  onsubmit="return confirm('Archiver ce projet ?')">
+              <input type="hidden" name="name" value="{{ project.name }}">
+              <input type="hidden" name="description" value="{{ project.description or '' }}">
+              <input type="hidden" name="color" value="{{ project.color or '#4a9d8f' }}">
+              <input type="hidden" name="status" value="ARCHIVED">
+              {% if project.start_date %}<input type="hidden" name="start_date" value="{{ project.start_date.isoformat() }}">{% endif %}
+              {% if project.end_date %}<input type="hidden" name="end_date" value="{{ project.end_date.isoformat() }}">{% endif %}
+              <button type="submit"
+                      class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2">
+                <i class="ti ti-archive text-gray-400"></i> Archiver
+              </button>
+            </form>
+            {% else %}
+            <form method="post" action="/projects/{{ project.id }}/edit">
+              <input type="hidden" name="name" value="{{ project.name }}">
+              <input type="hidden" name="description" value="{{ project.description or '' }}">
+              <input type="hidden" name="color" value="{{ project.color or '#4a9d8f' }}">
+              <input type="hidden" name="status" value="ACTIVE">
+              {% if project.start_date %}<input type="hidden" name="start_date" value="{{ project.start_date.isoformat() }}">{% endif %}
+              {% if project.end_date %}<input type="hidden" name="end_date" value="{{ project.end_date.isoformat() }}">{% endif %}
+              <button type="submit"
+                      class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2">
+                <i class="ti ti-rotate-clockwise text-gray-400"></i> Réactiver
+              </button>
+            </form>
+            {% endif %}
+            <div class="border-t border-gray-100 my-1"></div>
+            <form method="post" action="/projects/{{ project.id }}/delete"
+                  onsubmit="return confirm('Supprimer définitivement ce projet et toutes ses tâches ? Cette action est irréversible.')">
+              <button type="submit"
+                      class="w-full text-left px-3 py-2 text-sm text-red-600 hover:bg-red-50 inline-flex items-center gap-2">
+                <i class="ti ti-trash"></i> Supprimer
+              </button>
+            </form>
+          </div>
+        </div>
+        {% endif %}
+      </div>
+    </div>
+
+    {# ── Onglets vues ── #}
+    <div class="flex items-center gap-1 mt-5 border-b border-gray-100 -mx-1 -mb-1">
+      {% for v, lbl, ic in [('list','Liste','ti-list'),('kanban','Kanban','ti-layout-kanban'),('gantt','Gantt','ti-timeline')] %}
+      <a href="/projects/{{ project.id }}?view={{ v }}"
+         class="inline-flex items-center gap-1.5 px-3 py-2 text-sm font-medium border-b-2 -mb-px
+                {% if view == v %}border-loge-700 text-loge-800{% else %}border-transparent text-gray-500 hover:text-gray-700{% endif %}">
+        <i class="ti {{ ic }}"></i> {{ lbl }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {# ── Barre recherche + filtres ── #}
+  <form method="get" action="/projects/{{ project.id }}"
+        class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-2 flex-wrap">
+    <input type="hidden" name="view" value="{{ view }}">
+    <div class="relative flex-1 min-w-[180px]">
+      <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+      <input type="text" name="q" value="{{ filters.q }}" placeholder="Rechercher…"
+             class="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+    </div>
+    <select name="f_status" class="border border-gray-200 rounded-xl px-2 py-2 text-xs">
+      <option value="">Tous statuts</option>
+      {% for s in TaskStatus %}<option value="{{ s.value }}" {% if filters.f_status == s.value %}selected{% endif %}>{{ status_labels[s.value][0] }}</option>{% endfor %}
+    </select>
+    <select name="f_priority" class="border border-gray-200 rounded-xl px-2 py-2 text-xs">
+      <option value="">Toutes priorités</option>
+      {% for p in TaskPriority %}<option value="{{ p.value }}" {% if filters.f_priority == p.value %}selected{% endif %}>{{ priority_labels[p.value][0] }}</option>{% endfor %}
+    </select>
+    <select name="f_assignee" class="border border-gray-200 rounded-xl px-2 py-2 text-xs">
+      <option value="">Tous assignés</option>
+      <option value="none" {% if filters.f_assignee == 'none' %}selected{% endif %}>Non assigné</option>
+      <optgroup label="Membres">
+        {% for m in all_active %}<option value="m:{{ m.id }}" {% if filters.f_assignee == 'm:' ~ m.id %}selected{% endif %}>{{ m.first_name }} {{ m.last_name }}</option>{% endfor %}
+      </optgroup>
+      <optgroup label="Groupes">
+        {% for g in all_groups %}<option value="g:{{ g.id }}" {% if filters.f_assignee == 'g:' ~ g.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
+      </optgroup>
+    </select>
+    <button class="px-3 py-2 bg-loge-700 hover:bg-loge-800 text-white text-xs font-semibold rounded-xl">Filtrer</button>
+    {% if filters.q or filters.f_status or filters.f_priority or filters.f_assignee %}
+    <a href="/projects/{{ project.id }}?view={{ view }}" class="text-xs text-gray-500 hover:text-gray-800">Reset</a>
+    {% endif %}
+  </form>
+
+  {# ════════════════════════ VUE LISTE ════════════════════════ #}
+  {% if view == 'list' %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    {% if tasks %}
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+        <tr>
+          <th class="text-left font-semibold px-4 py-2.5">Tâche</th>
+          <th class="text-left font-semibold px-4 py-2.5">Statut</th>
+          <th class="text-left font-semibold px-4 py-2.5">Priorité</th>
+          <th class="text-left font-semibold px-4 py-2.5">Assigné à</th>
+          <th class="text-left font-semibold px-4 py-2.5">Échéance</th>
+          <th class="text-left font-semibold px-4 py-2.5">Avancement</th>
+          {% if can_manage %}<th></th>{% endif %}
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for t in tasks %}
+        {% set sl = status_labels.get(t.status.value if t.status.value else t.status, ('?', 'bg-gray-100')) %}
+        {% set pl = priority_labels.get(t.priority.value if t.priority.value else t.priority, ('?', 'bg-gray-100')) %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3">
+            <div class="flex items-start gap-2">
+              <form method="post" action="/projects/tasks/{{ t.id }}/toggle" class="mt-0.5">
+                <button type="submit" class="text-lg leading-none {% if t.status.value == 'DONE' %}text-emerald-600{% else %}text-gray-300 hover:text-loge-600{% endif %}"
+                        title="Basculer terminé">
+                  <i class="ti {% if t.status.value == 'DONE' %}ti-circle-check-filled{% else %}ti-circle{% endif %}"></i>
+                </button>
+              </form>
+              <div class="min-w-0">
+                <div class="font-medium text-gray-900 {% if t.status.value == 'DONE' %}line-through text-gray-400{% endif %}">
+                  {% if t.is_milestone %}<i class="ti ti-flag-filled text-amber-500" title="Jalon"></i> {% endif %}{{ t.title }}
+                </div>
+                {% if t.description %}<div class="text-xs text-gray-500 truncate max-w-md">{{ t.description }}</div>{% endif %}
+                <div class="flex items-center gap-2 mt-0.5 text-[11px]">
+                  {% set sub = subtasks_by_parent.get(t.id, []) %}
+                  {% if sub %}
+                  {% set sub_done = sub | selectattr('status.value','equalto','DONE') | list | length %}
+                  <span class="text-gray-500"><i class="ti ti-list-tree"></i> {{ sub_done }}/{{ sub|length }}</span>
+                  {% endif %}
+                  {% set preds = deps_by_successor.get(t.id, []) %}
+                  {% if preds %}
+                  {% set blocking = [] %}
+                  {% for pid in preds %}{% set pt = tasks_cache.get(pid) %}{% if pt and pt.status.value != 'DONE' %}{% set _ = blocking.append(pid) %}{% endif %}{% endfor %}
+                  {% if blocking %}
+                  <span class="text-amber-700 bg-amber-50 px-1.5 rounded"><i class="ti ti-lock"></i> bloquée</span>
+                  {% endif %}
+                  {% endif %}
+                </div>
+              </div>
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ sl[1] }}">{{ sl[0] }}</span>
+          </td>
+          <td class="px-4 py-3">
+            <span class="text-[11px] font-semibold px-2 py-0.5 rounded-full {{ pl[1] }}">{{ pl[0] }}</span>
+          </td>
+          <td class="px-4 py-3 text-gray-600">
+            {% if t.assigned_to_id and members_cache.get(t.assigned_to_id) %}
+              <span class="inline-flex items-center gap-1"><i class="ti ti-user"></i>{{ members_cache[t.assigned_to_id].first_name }} {{ members_cache[t.assigned_to_id].last_name }}</span>
+            {% elif t.assigned_to_group_id and groups_cache.get(t.assigned_to_group_id) %}
+              <span class="inline-flex items-center gap-1 text-loge-700"><i class="ti ti-users-group"></i>{{ groups_cache[t.assigned_to_group_id].name }}</span>
+            {% else %}
+              <span class="text-gray-400">—</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-gray-600">
+            {% if t.due_date %}
+              <span class="{% if t.due_date < today and t.status.value != 'DONE' %}text-red-600 font-semibold{% endif %}">{{ t.due_date.strftime('%d/%m/%Y') }}</span>
+            {% else %}<span class="text-gray-400">—</span>{% endif %}
+          </td>
+          <td class="px-4 py-3">
+            <div class="flex items-center gap-2">
+              <div class="w-20 h-1.5 bg-gray-100 rounded-full overflow-hidden">
+                <div class="h-full rounded-full bg-loge-500" style="width:{{ t.progress }}%"></div>
+              </div>
+              <span class="text-xs text-gray-500">{{ t.progress }}%</span>
+            </div>
+          </td>
+          {% if can_manage %}
+          <td class="px-4 py-3 text-right">
+            <button @click="editTask = {{ t.id }}; taskModal = 'edit'"
+                    class="text-gray-400 hover:text-loge-700"><i class="ti ti-edit"></i></button>
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    {% else %}
+    <div class="px-5 py-8 text-center text-sm text-gray-500">Aucune tâche pour le moment.</div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ════════════════════════ VUE KANBAN ════════════════════════ #}
+  {% if view == 'kanban' %}
+  <div class="grid grid-cols-1 md:grid-cols-4 gap-4" id="kanban-board">
+    {% for st_key in ['TODO','IN_PROGRESS','DONE','CANCELLED'] %}
+    {% set sl = status_labels[st_key] %}
+    <div class="bg-gray-50 rounded-2xl p-3 min-h-[300px]">
+      <div class="flex items-center justify-between mb-3 px-1">
+        <h3 class="text-xs font-bold uppercase tracking-wider text-gray-600">{{ sl[0] }}</h3>
+        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-white text-gray-600">{{ buckets[st_key] | length }}</span>
+      </div>
+      <div class="space-y-2 kanban-col" data-status="{{ st_key }}">
+        {% for t in buckets[st_key] %}
+        {% set pl = priority_labels.get(t.priority.value if t.priority.value else t.priority, ('?','bg-gray-100')) %}
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-3 hover:shadow-md transition cursor-pointer kanban-card"
+             data-task-id="{{ t.id }}"
+             @click="editTask = {{ t.id }}; taskModal = 'edit'">
+          <div class="flex items-start justify-between gap-2">
+            <h4 class="text-sm font-semibold text-gray-900">{{ t.title }}</h4>
+            <span class="text-[9px] font-bold px-1.5 py-0.5 rounded {{ pl[1] }}">{{ pl[0][0] }}</span>
+          </div>
+          {% if t.description %}<p class="text-xs text-gray-500 mt-1 line-clamp-2">{{ t.description }}</p>{% endif %}
+          <div class="flex items-center justify-between mt-3 text-[11px]">
+            <div class="text-gray-500 truncate">
+              {% if t.assigned_to_id and members_cache.get(t.assigned_to_id) %}
+                <i class="ti ti-user"></i> {{ members_cache[t.assigned_to_id].first_name }}
+              {% elif t.assigned_to_group_id and groups_cache.get(t.assigned_to_group_id) %}
+                <i class="ti ti-users-group"></i> {{ groups_cache[t.assigned_to_group_id].name }}
+              {% endif %}
+            </div>
+            {% if t.due_date %}
+            <span class="{% if t.due_date < today and t.status.value != 'DONE' %}text-red-600 font-semibold{% else %}text-gray-400{% endif %}">
+              {{ t.due_date.strftime('%d/%m') }}
+            </span>
+            {% endif %}
+          </div>
+          {% if t.progress > 0 %}
+          <div class="h-1 bg-gray-100 rounded-full overflow-hidden mt-2">
+            <div class="h-full bg-loge-500 rounded-full" style="width:{{ t.progress }}%"></div>
+          </div>
+          {% endif %}
+          {% if can_manage %}
+          <div class="flex gap-1 mt-2 pt-2 border-t border-gray-50" @click.stop>
+            {% for nx in ['TODO','IN_PROGRESS','DONE','CANCELLED'] %}
+            {% if nx != st_key %}
+            <form method="post" action="/projects/tasks/{{ t.id }}/status" class="inline">
+              <input type="hidden" name="status" value="{{ nx }}">
+              <button type="submit" class="text-[10px] px-1.5 py-0.5 rounded text-gray-500 hover:bg-gray-100" title="Déplacer vers {{ status_labels[nx][0] }}">
+                {% if nx == 'TODO' %}<i class="ti ti-arrow-back"></i>
+                {% elif nx == 'IN_PROGRESS' %}<i class="ti ti-player-play"></i>
+                {% elif nx == 'DONE' %}<i class="ti ti-check"></i>
+                {% else %}<i class="ti ti-x"></i>{% endif %}
+              </button>
+            </form>
+            {% endif %}
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        {% else %}
+        <div class="text-xs text-gray-400 text-center py-4">—</div>
+        {% endfor %}
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# ════════════════════════ VUE GANTT ════════════════════════ #}
+  {% if view == 'gantt' %}
+  {# ── Barre d'outils Gantt : zoom + plage personnalisée ── #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 lg:p-4 flex items-center gap-3 flex-wrap">
+    {# Zoom : liens (préservent dates from/to) #}
+    <div class="inline-flex rounded-xl bg-gray-100 p-1">
+      {% for z, lbl in [('week','Semaines'),('month','Mois'),('quarter','Trimestres')] %}
+      <a href="/projects/{{ project.id }}?view=gantt&zoom={{ z }}{% if request.query_params.get('gantt_from') %}&gantt_from={{ request.query_params.get('gantt_from') }}{% endif %}{% if request.query_params.get('gantt_to') %}&gantt_to={{ request.query_params.get('gantt_to') }}{% endif %}"
+         class="px-3 py-1.5 text-xs font-semibold rounded-lg
+                {% if gantt.zoom == z %}bg-white text-loge-800 shadow-sm{% else %}text-gray-600 hover:text-gray-800{% endif %}">
+        {{ lbl }}
+      </a>
+      {% endfor %}
+    </div>
+    <div class="h-6 w-px bg-gray-200"></div>
+    {# Plage personnalisée #}
+    <form method="get" action="/projects/{{ project.id }}" class="flex items-center gap-2 flex-wrap">
+      <input type="hidden" name="view" value="gantt">
+      <input type="hidden" name="zoom" value="{{ gantt.zoom }}">
+      <label class="text-xs font-semibold text-gray-500 uppercase">Du</label>
+      <input type="date" name="gantt_from" value="{{ gantt.first.isoformat() }}"
+             class="border border-gray-200 rounded-lg px-2 py-1 text-xs">
+      <label class="text-xs font-semibold text-gray-500 uppercase">Au</label>
+      <input type="date" name="gantt_to" value="{{ gantt.last.isoformat() }}"
+             class="border border-gray-200 rounded-lg px-2 py-1 text-xs">
+      <button type="submit" class="px-3 py-1 bg-loge-700 hover:bg-loge-800 text-white text-xs font-semibold rounded-lg">
+        Appliquer
+      </button>
+      <a href="/projects/{{ project.id }}?view=gantt&zoom={{ gantt.zoom }}"
+         class="text-xs text-gray-500 hover:text-gray-800">Auto</a>
+    </form>
+    <div class="ml-auto text-xs text-gray-400">
+      {{ gantt.first.strftime('%d/%m/%Y') }} → {{ gantt.last.strftime('%d/%m/%Y') }} · {{ gantt.total_days }} j
+    </div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    {% if gantt.rows %}
+    <div class="overflow-x-auto">
+      <div style="min-width: {{ [[gantt.total_days * 12, 600] | max, 1600] | min }}px">
+        {# Entête marqueurs (semaines / mois / trimestres) #}
+        <div class="grid grid-cols-[200px_1fr] border-b border-gray-100">
+          <div class="px-3 py-2 text-xs font-bold text-gray-500 uppercase tracking-wider">Tâche</div>
+          <div class="relative h-9 bg-gray-50">
+            {% for m in gantt.markers %}
+            <div class="absolute top-0 bottom-0 border-l border-gray-200 pl-1 text-[10px] text-gray-500 pt-1.5 whitespace-nowrap"
+                 style="left:{{ m.offset_pct }}%">
+              {{ m.label }}
+            </div>
+            {% endfor %}
+            {% set today_offset = ((today - gantt.first).days * 100) / gantt.total_days %}
+            {% if today >= gantt.first and today <= gantt.last %}
+            <div class="absolute top-0 bottom-0 w-px bg-red-500" style="left:{{ today_offset }}%"></div>
+            {% endif %}
+          </div>
+        </div>
+        {# Lignes tâches #}
+        {% for row in gantt.rows %}
+        {% set t = row.task %}
+        {% set sl = status_labels.get(t.status.value if t.status.value else t.status, ('?', '')) %}
+        <div class="grid grid-cols-[200px_1fr] border-b border-gray-50 hover:bg-gray-50">
+          <div class="px-3 py-2.5 truncate">
+            <div class="text-sm font-medium text-gray-900 truncate">{{ t.title }}</div>
+            <div class="text-[11px] text-gray-500 truncate">
+              {% if t.assigned_to_id and members_cache.get(t.assigned_to_id) %}
+                {{ members_cache[t.assigned_to_id].first_name }} {{ members_cache[t.assigned_to_id].last_name }}
+              {% elif t.assigned_to_group_id and groups_cache.get(t.assigned_to_group_id) %}
+                {{ groups_cache[t.assigned_to_group_id].name }}
+              {% else %}—{% endif %}
+            </div>
+          </div>
+          <div class="relative h-12">
+            {% set today_offset = ((today - gantt.first).days * 100) / gantt.total_days %}
+            {% if today >= gantt.first and today <= gantt.last %}
+            <div class="absolute top-0 bottom-0 w-px bg-red-500 opacity-40" style="left:{{ today_offset }}%"></div>
+            {% endif %}
+            <button type="button"
+                    @click="editTask = {{ t.id }}; taskModal = 'edit'"
+                    class="absolute top-2 h-8 rounded-lg shadow-sm flex items-center px-2 overflow-hidden hover:ring-2 hover:ring-loge-500"
+                    style="left:{{ row.offset_pct }}%; width:{{ row.length_pct }}%; background:{{ project.color or '#4a9d8f' }};"
+                    title="{{ t.title }} — {{ row.start.strftime('%d/%m/%Y') }} → {{ row.end.strftime('%d/%m/%Y') }}">
+              <div class="absolute inset-0 bg-white opacity-30" style="width:{{ t.progress }}%"></div>
+              <span class="relative text-[11px] font-semibold text-white truncate">{{ t.progress }}% · {{ t.title }}</span>
+            </button>
+          </div>
+        </div>
+        {% endfor %}
+      </div>
+    </div>
+    {% else %}
+    <div class="px-5 py-8 text-center text-sm text-gray-500">
+      Aucune tâche avec date de début ou d'échéance — ajoutez des dates pour les voir sur le Gantt.
+    </div>
+    {% endif %}
+  </div>
+  {% endif %}
+
+  {# ════════════════════════ MODAL TÂCHE ════════════════════════ #}
+  {% if can_manage %}
+  {# — Nouvelle tâche — #}
+  <div x-show="taskModal === 'new'" x-cloak
+       @keydown.escape.window="taskModal = null"
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div @click.outside="taskModal = null"
+         class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-900">Nouvelle tâche</h2>
+        <button @click="taskModal = null" class="text-gray-400 hover:text-gray-700"><i class="ti ti-x"></i></button>
+      </div>
+      <form method="post" action="/projects/{{ project.id }}/tasks/new" class="space-y-3">
+        {% include "pages/projects/_task_form_fields.html" %}
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" @click="taskModal = null" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+          <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">Créer</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
+  {# — Édition tâche — un modal par tâche — #}
+  {% for t in tasks %}
+  <div x-show="taskModal === 'edit' && editTask === {{ t.id }}" x-cloak
+       @keydown.escape.window="taskModal = null"
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div @click.outside="taskModal = null"
+         class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-900">Modifier la tâche</h2>
+        <button @click="taskModal = null" class="text-gray-400 hover:text-gray-700"><i class="ti ti-x"></i></button>
+      </div>
+      <form method="post" action="/projects/tasks/{{ t.id }}/edit" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Titre *</label>
+          <input type="text" name="title" required value="{{ t.title }}"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Description</label>
+          <textarea name="description" rows="3"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">{{ t.description or '' }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Statut</label>
+            <select name="status" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+              {% for s in TaskStatus %}
+              <option value="{{ s.value }}" {% if t.status == s %}selected{% endif %}>{{ status_labels[s.value][0] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Priorité</label>
+            <select name="priority" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+              {% for p in TaskPriority %}
+              <option value="{{ p.value }}" {% if t.priority == p %}selected{% endif %}>{{ priority_labels[p.value][0] }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Assigné à</label>
+          <select name="assignee" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+            <option value="none" {% if not t.assigned_to_id and not t.assigned_to_group_id %}selected{% endif %}>— Non assigné —</option>
+            <optgroup label="Membres">
+              {% for m in all_active %}
+              <option value="m:{{ m.id }}" {% if t.assigned_to_id == m.id %}selected{% endif %}>{{ m.first_name }} {{ m.last_name }}</option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Groupes">
+              {% for g in all_groups %}
+              <option value="g:{{ g.id }}" {% if t.assigned_to_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
+              {% endfor %}
+            </optgroup>
+          </select>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Début</label>
+            <input type="date" name="start_date" value="{{ t.start_date.isoformat() if t.start_date else '' }}"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Échéance</label>
+            <input type="date" name="due_date" value="{{ t.due_date.isoformat() if t.due_date else '' }}"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Avancement : <span x-data="{v:{{ t.progress }}}" x-text="v + '%'"></span></label>
+          <input type="range" name="progress" min="0" max="100" step="5" value="{{ t.progress }}"
+                 oninput="this.previousElementSibling.querySelector('span').textContent = this.value + '%'"
+                 class="w-full">
+        </div>
+        <div>
+          <label class="inline-flex items-center gap-2 text-sm text-gray-700">
+            <input type="checkbox" name="is_milestone" value="1" {% if t.is_milestone %}checked{% endif %}
+                   class="rounded border-gray-300 text-loge-700">
+            <i class="ti ti-flag text-amber-500"></i> Marquer comme jalon
+          </label>
+        </div>
+        <div class="flex justify-between items-center pt-2 border-t border-gray-100">
+          <button type="button"
+                  onclick="if(confirm('Supprimer cette tâche ?')) document.getElementById('del-task-{{ t.id }}').submit()"
+                  class="text-sm text-red-600 hover:text-red-800 inline-flex items-center gap-1">
+            <i class="ti ti-trash"></i> Supprimer
+          </button>
+          <div class="flex gap-2">
+            <button type="button" @click="taskModal = null" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+            <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">Enregistrer</button>
+          </div>
+        </div>
+      </form>
+      <form id="del-task-{{ t.id }}" method="post" action="/projects/tasks/{{ t.id }}/delete" class="hidden"></form>
+
+      {# ── Sous-tâches ── #}
+      <div class="mt-6 pt-4 border-t border-gray-100">
+        <h3 class="text-sm font-bold text-gray-900 mb-2 inline-flex items-center gap-1">
+          <i class="ti ti-list-tree"></i> Sous-tâches
+          <span class="text-xs font-normal text-gray-400">({{ subtasks_by_parent.get(t.id, [])|length }})</span>
+        </h3>
+        <ul class="space-y-1">
+          {% for st in subtasks_by_parent.get(t.id, []) %}
+          <li class="flex items-center gap-2 text-sm bg-gray-50 rounded-lg px-2 py-1.5">
+            <form method="post" action="/projects/tasks/{{ st.id }}/toggle">
+              <button type="submit" class="leading-none {% if st.status.value == 'DONE' %}text-emerald-600{% else %}text-gray-300 hover:text-loge-600{% endif %}">
+                <i class="ti {% if st.status.value == 'DONE' %}ti-circle-check-filled{% else %}ti-circle{% endif %}"></i>
+              </button>
+            </form>
+            <span class="flex-1 {% if st.status.value == 'DONE' %}line-through text-gray-400{% else %}text-gray-800{% endif %}">{{ st.title }}</span>
+            <form method="post" action="/projects/tasks/{{ st.id }}/delete"
+                  onsubmit="return confirm('Supprimer cette sous-tâche ?')">
+              <button class="text-rose-400 hover:text-rose-700"><i class="ti ti-x"></i></button>
+            </form>
+          </li>
+          {% else %}
+          <li class="text-xs text-gray-400 text-center py-1">Aucune sous-tâche.</li>
+          {% endfor %}
+        </ul>
+        <form method="post" action="/projects/tasks/{{ t.id }}/subtask" class="mt-2 flex gap-2">
+          <input type="text" name="title" required placeholder="Ajouter une sous-tâche…"
+                 class="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-sm focus:ring-2 focus:ring-loge-500">
+          <button class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-3 rounded-xl">
+            <i class="ti ti-plus"></i>
+          </button>
+        </form>
+      </div>
+
+      {# ── Dépendances ── #}
+      <div class="mt-6 pt-4 border-t border-gray-100">
+        <h3 class="text-sm font-bold text-gray-900 mb-2 inline-flex items-center gap-1">
+          <i class="ti ti-arrow-narrow-right"></i> Dépendances
+        </h3>
+
+        {# Prédécesseurs : tâches qui doivent finir avant celle-ci #}
+        <div class="mb-2">
+          <div class="text-[11px] font-semibold text-gray-500 uppercase mb-1">À terminer avant</div>
+          <ul class="space-y-1">
+            {% for pid in deps_by_successor.get(t.id, []) %}
+            {% set pt = tasks_cache.get(pid) %}
+            <li class="flex items-center gap-2 text-sm bg-amber-50 rounded-lg px-2 py-1">
+              <i class="ti ti-arrow-right text-amber-600"></i>
+              <span class="flex-1 {% if pt and pt.status.value == 'DONE' %}line-through text-gray-400{% else %}text-gray-800{% endif %}">
+                {% if pt %}{{ pt.title }}{% if pt.status.value != 'DONE' %} <span class="text-[10px] text-amber-700">(bloque)</span>{% endif %}{% else %}#{{ pid }}{% endif %}
+              </span>
+              <form method="post" action="/projects/tasks/{{ t.id }}/dependency/{{ pid }}/delete">
+                <button class="text-rose-400 hover:text-rose-700"><i class="ti ti-x"></i></button>
+              </form>
+            </li>
+            {% else %}
+            <li class="text-xs text-gray-400 text-center py-1">Aucune.</li>
+            {% endfor %}
+          </ul>
+        </div>
+
+        {# Successeurs : tâches qui dépendent de celle-ci #}
+        {% if deps_by_predecessor.get(t.id) %}
+        <div class="mb-2">
+          <div class="text-[11px] font-semibold text-gray-500 uppercase mb-1">Bloque</div>
+          <ul class="space-y-1">
+            {% for sid in deps_by_predecessor.get(t.id, []) %}
+            {% set st2 = tasks_cache.get(sid) %}
+            <li class="text-xs text-gray-600 px-2">→ {% if st2 %}{{ st2.title }}{% else %}#{{ sid }}{% endif %}</li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
+        {# Ajout d'une dépendance #}
+        <form method="post" action="/projects/tasks/{{ t.id }}/dependency" class="mt-2 flex gap-2">
+          <select name="predecessor_id" required class="flex-1 border border-gray-200 rounded-xl px-3 py-1.5 text-sm">
+            <option value="">— Doit finir avant celle-ci —</option>
+            {% for ot in tasks %}{% if ot.id != t.id %}
+            <option value="{{ ot.id }}">{{ ot.title }}</option>
+            {% endif %}{% endfor %}
+          </select>
+          <button class="bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold px-3 rounded-xl">
+            <i class="ti ti-link"></i>
+          </button>
+        </form>
+      </div>
+
+      {# ── Commentaires ── #}
+      <div class="mt-6 pt-4 border-t border-gray-100">
+        <h3 class="text-sm font-bold text-gray-900 mb-3 inline-flex items-center gap-1">
+          <i class="ti ti-message-2"></i> Commentaires
+          <span class="text-xs font-normal text-gray-400">({{ comments_by_task.get(t.id, [])|length }})</span>
+        </h3>
+        <div class="space-y-2 max-h-48 overflow-y-auto pr-1">
+          {% for c in comments_by_task.get(t.id, []) %}
+          {% set au = members_cache.get(c.author_id) %}
+          <div class="bg-gray-50 rounded-xl px-3 py-2 text-sm">
+            <div class="flex items-center justify-between text-[11px] text-gray-500 mb-1">
+              <span class="font-semibold text-gray-700">{% if au %}{{ au.first_name }} {{ au.last_name }}{% else %}—{% endif %}</span>
+              <span class="flex items-center gap-2">
+                <span>{{ c.created_at.strftime('%d/%m %H:%M') }}</span>
+                {% if c.author_id == current_member.id or current_user.is_admin %}
+                <form method="post" action="/projects/tasks/comments/{{ c.id }}/delete">
+                  <button type="submit" class="text-rose-500 hover:text-rose-700"><i class="ti ti-x"></i></button>
+                </form>
+                {% endif %}
+              </span>
+            </div>
+            <div class="text-gray-800 whitespace-pre-wrap">{{ c.content }}</div>
+          </div>
+          {% else %}
+          <div class="text-xs text-gray-400 text-center py-2">Aucun commentaire.</div>
+          {% endfor %}
+        </div>
+        <form method="post" action="/projects/tasks/{{ t.id }}/comment" class="mt-3 flex gap-2">
+          <input type="text" name="content" required placeholder="Ajouter un commentaire…"
+                 class="flex-1 border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+          <button class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-4 rounded-xl">
+            <i class="ti ti-send"></i>
+          </button>
+        </form>
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+  {% endif %}
+
+  {# ════════════════════════ MODAL ÉDITION PROJET ════════════════════════ #}
+  {% if can_manage %}
+  <div x-data="{ open: false }"
+       @open-modal.window="if ($event.detail === 'edit-project') open = true"
+       @keydown.escape.window="open = false"
+       x-show="open" x-cloak
+       class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+    <div @click.outside="open = false"
+         class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-lg font-bold text-gray-900">Modifier le projet</h2>
+        <button @click="open = false" class="text-gray-400 hover:text-gray-700"><i class="ti ti-x"></i></button>
+      </div>
+      <form method="post" action="/projects/{{ project.id }}/edit" class="space-y-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nom *</label>
+          <input type="text" name="name" required value="{{ project.name }}"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Description</label>
+          <textarea name="description" rows="3"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">{{ project.description or '' }}</textarea>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Statut</label>
+            <select name="status" class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+              {% for s in ProjectStatus %}
+              <option value="{{ s.value }}" {% if project.status == s %}selected{% endif %}>
+                {% if s.value == 'ACTIVE' %}En cours{% elif s.value == 'COMPLETED' %}Terminé{% else %}Archivé{% endif %}
+              </option>
+              {% endfor %}
+            </select>
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Couleur</label>
+            <input type="color" name="color" value="{{ project.color or '#4a9d8f' }}"
+                   class="w-full h-10 border border-gray-200 rounded-xl px-1 py-1">
+          </div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Date début</label>
+            <input type="date" name="start_date"
+                   value="{{ project.start_date.isoformat() if project.start_date else '' }}"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+          </div>
+          <div>
+            <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Date fin</label>
+            <input type="date" name="end_date"
+                   value="{{ project.end_date.isoformat() if project.end_date else '' }}"
+                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+          </div>
+        </div>
+        <div class="flex justify-end gap-2 pt-2">
+          <button type="button" @click="open = false"
+                  class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+          <button type="submit"
+                  class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+            Enregistrer
+          </button>
+        </div>
+      </form>
+    </div>
+  </div>
+  {% endif %}
+
+  {# ── Activité récente ── #}
+  {% if activity %}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <h3 class="font-semibold text-gray-900 mb-3 inline-flex items-center gap-2">
+      <i class="ti ti-history text-gray-400"></i> Activité récente
+    </h3>
+    <ol class="space-y-2 text-sm">
+      {% for a in activity %}
+      {% set au = members_cache.get(a.actor_id) %}
+      <li class="flex items-start gap-2">
+        <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-loge-500 flex-shrink-0"></span>
+        <div class="min-w-0 flex-1">
+          <div class="text-gray-800">
+            <span class="font-semibold">{% if au %}{{ au.first_name }} {{ au.last_name }}{% else %}—{% endif %}</span>
+            <span class="text-gray-500">·</span>
+            <span class="text-xs text-gray-500">
+              {% if a.action == 'CREATE_TASK' %}a créé la tâche
+              {% elif a.action == 'EDIT_TASK' %}a modifié
+              {% elif a.action == 'DELETE_TASK' %}a supprimé
+              {% elif a.action == 'STATUS' %}a changé le statut de
+              {% elif a.action == 'COMMENT' %}a commenté
+              {% elif a.action == 'CREATE_FROM_TEMPLATE' %}a créé depuis le modèle
+              {% else %}{{ a.action }}{% endif %}
+            </span>
+            {% if a.target %}<span class="text-gray-700">« {{ a.target }} »</span>{% endif %}
+          </div>
+          {% if a.details %}<div class="text-xs text-gray-500 truncate">{{ a.details }}</div>{% endif %}
+          <div class="text-[10px] text-gray-400">{{ a.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+        </div>
+      </li>
+      {% endfor %}
+    </ol>
+  </section>
+  {% endif %}
+
+</div>
+
+{# ── Sortable.js pour drag-and-drop dans le Kanban ── #}
+{% if view == 'kanban' and can_manage %}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  const cols = document.querySelectorAll('.kanban-col');
+  cols.forEach(col => {
+    new Sortable(col, {
+      group: 'kanban',
+      animation: 150,
+      ghostClass: 'opacity-50',
+      onEnd: async (evt) => {
+        const card = evt.item;
+        const targetCol = evt.to;
+        const taskId = card.dataset.taskId;
+        const newStatus = targetCol.dataset.status;
+        const position = evt.newIndex;
+        const fd = new FormData();
+        fd.append('status', newStatus);
+        fd.append('position', position);
+        try {
+          const r = await fetch(`/projects/tasks/${taskId}/move`, { method: 'POST', body: fd });
+          if (!r.ok) throw new Error('move failed');
+        } catch (e) {
+          console.error(e);
+          window.location.reload();
+        }
+      }
+    });
+  });
+});
+</script>
+{% endif %}
+{% endblock %}

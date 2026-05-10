@@ -1,0 +1,120 @@
+{% extends "base.html" %}
+{% block title %}Tableau de bord — Projets{% endblock %}
+
+{% block content %}
+<div class="max-w-6xl mx-auto px-4 py-6 lg:py-8 space-y-6">
+
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">
+        <i class="ti ti-dashboard text-loge-700"></i> Tableau de bord
+      </h1>
+      <p class="text-sm text-gray-500 mt-1">Vision globale de tous les projets &amp; commissions.</p>
+    </div>
+    <a href="/projects/" class="text-sm text-loge-700 hover:underline">
+      <i class="ti ti-arrow-left"></i> Retour aux projets
+    </a>
+  </div>
+
+  {# ── KPIs ── #}
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-3">
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div class="text-xs text-gray-500 uppercase">Projets actifs</div>
+      <div class="text-2xl font-bold text-gray-900 mt-1">{{ active_projects }}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div class="text-xs text-gray-500 uppercase">Tâches totales</div>
+      <div class="text-2xl font-bold text-gray-900 mt-1">{{ total_tasks }}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div class="text-xs text-gray-500 uppercase">Tâches terminées</div>
+      <div class="text-2xl font-bold text-emerald-700 mt-1">{{ done_tasks }}</div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+      <div class="text-xs text-gray-500 uppercase">En retard</div>
+      <div class="text-2xl font-bold text-rose-700 mt-1">{{ overdue|length }}</div>
+    </div>
+  </div>
+
+  {# ── Tâches en retard ── #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-900"><i class="ti ti-alert-triangle text-rose-600"></i> En retard ({{ overdue|length }})</h2>
+    </div>
+    {% if overdue %}
+    <ul class="divide-y divide-gray-100">
+      {% for t, p in overdue %}
+      <li class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
+        <div class="min-w-0">
+          <a href="/projects/{{ p.id }}" class="font-medium text-gray-900 hover:text-loge-700 truncate block">{{ t.title }}</a>
+          <div class="text-xs text-gray-500">
+            <span class="inline-flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full" style="background:{{ p.color or '#4a9d8f' }}"></span>{{ p.name }}
+            </span>
+            · échéance {{ t.due_date.strftime('%d/%m/%Y') }}
+          </div>
+        </div>
+        <span class="text-xs font-semibold text-rose-700 bg-rose-50 px-2 py-1 rounded-full whitespace-nowrap">
+          J{{ ((t.due_date - today).days) }}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="p-6 text-sm text-gray-500 text-center">Aucune tâche en retard 🎉</div>
+    {% endif %}
+  </section>
+
+  {# ── Cette semaine ── #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-900"><i class="ti ti-calendar-event text-amber-600"></i> Cette semaine ({{ soon|length }})</h2>
+    </div>
+    {% if soon %}
+    <ul class="divide-y divide-gray-100">
+      {% for t, p in soon %}
+      <li class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
+        <div class="min-w-0">
+          <a href="/projects/{{ p.id }}" class="font-medium text-gray-900 hover:text-loge-700 truncate block">{{ t.title }}</a>
+          <div class="text-xs text-gray-500">
+            <span class="inline-flex items-center gap-1">
+              <span class="w-2 h-2 rounded-full" style="background:{{ p.color or '#4a9d8f' }}"></span>{{ p.name }}
+            </span>
+            · {{ t.due_date.strftime('%d/%m') }}
+          </div>
+        </div>
+        <span class="text-xs font-semibold text-amber-700 bg-amber-50 px-2 py-1 rounded-full whitespace-nowrap">
+          {{ (t.due_date - today).days }}j
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="p-6 text-sm text-gray-500 text-center">Rien dans les 7 jours.</div>
+    {% endif %}
+  </section>
+
+  {# ── Charge par membre ── #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-900"><i class="ti ti-users text-loge-700"></i> Charge par membre</h2>
+    </div>
+    {% if load %}
+    <ul class="divide-y divide-gray-100">
+      {% for mid, count in load %}
+      {% set m = members_cache.get(mid) %}
+      <li class="px-5 py-3 flex items-center justify-between">
+        <div class="text-sm text-gray-800">
+          {% if m %}{{ m.first_name }} {{ m.last_name }}{% else %}—{% endif %}
+        </div>
+        <span class="text-xs font-semibold text-loge-700 bg-loge-50 px-2 py-1 rounded-full">{{ count }} active{{ 's' if count > 1 else '' }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="p-6 text-sm text-gray-500 text-center">Aucune tâche assignée.</div>
+    {% endif %}
+  </section>
+
+</div>
+{% endblock %}

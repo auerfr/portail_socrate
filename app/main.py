@@ -1,4 +1,5 @@
 """Point d'entrée FastAPI — Portail Socrate"""
+import asyncio
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 
@@ -22,14 +23,22 @@ from app.routers import sharing as sharing_router
 from app.routers import news as news_router
 from app.routers import polls as polls_router
 from app.routers import reports as reports_router
+from app.routers import planches as planches_router
+from app.routers import anniversaires as anniv_router
+from app.routers import push as push_router
+from app.routers import forum as forum_router
+from app.routers import projects as projects_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
+import app.models.planches       # noqa: F401
 import app.models.lodge_calendar  # noqa: F401
 import app.models.groups          # noqa: F401
 import app.models.documents       # noqa: F401
 import app.models.chat            # noqa: F401
 import app.models.content       # noqa: F401
+import app.models.system        # noqa: F401  # PushSubscription, Notification, etc.
+import app.models.forum         # noqa: F401  # ForumTheme/Subject/Message/Subscription
 from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -243,6 +252,10 @@ async def lifespan(app: FastAPI):
             await conn.exec_driver_sql(
                 "ALTER TABLE lodge_settings ADD COLUMN visio_room_prefix VARCHAR(100)"
             )
+        if "admin_email" not in ls_cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN admin_email VARCHAR(200)"
+            )
 
         # ── Actualités & Sondages — target_group_id ───────────────────────────
         r_na = await conn.exec_driver_sql("PRAGMA table_info(news_articles)")
@@ -293,12 +306,80 @@ async def lifespan(app: FastAPI):
             "CREATE INDEX IF NOT EXISTS ix_meeting_reports_meeting_id ON meeting_reports(meeting_id)"
         )
 
+        # ── Planches & travaux ────────────────────────────────────────────────
+        await conn.exec_driver_sql("""
+            CREATE TABLE IF NOT EXISTS planches (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                title VARCHAR(300) NOT NULL,
+                content TEXT,
+                file_path VARCHAR(500),
+                original_filename VARCHAR(300),
+                mime_type VARCHAR(100),
+                file_size INTEGER,
+                status VARCHAR(20) NOT NULL DEFAULT 'BROUILLON',
+                grade VARCHAR(20) NOT NULL DEFAULT 'TOUS',
+                author_id INTEGER REFERENCES members(id),
+                meeting_id INTEGER REFERENCES meetings(id) ON DELETE SET NULL,
+                created_at DATETIME DEFAULT (datetime('now')),
+                updated_at DATETIME,
+                published_at DATETIME
+            )
+        """)
+        await conn.exec_driver_sql("""
+            CREATE TABLE IF NOT EXISTS planche_comments (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                planche_id INTEGER NOT NULL REFERENCES planches(id) ON DELETE CASCADE,
+                author_id INTEGER REFERENCES members(id),
+                content TEXT NOT NULL,
+                created_at DATETIME DEFAULT (datetime('now'))
+            )
+        """)
+        # archived_doc_id ajouté après coup
+        r_pl = await conn.exec_driver_sql("PRAGMA table_info(planches)")
+        cols_pl = [row[1] for row in r_pl.fetchall()]
+        if "archived_doc_id" not in cols_pl:
+            await conn.exec_driver_sql(
+                "ALTER TABLE planches ADD COLUMN archived_doc_id INTEGER REFERENCES documents(id) ON DELETE SET NULL"
+            )
+
         r_us = await conn.exec_driver_sql("PRAGMA table_info(users)")
         cols_us = [row[1] for row in r_us.fetchall()]
         if "reset_token" not in cols_us:
             await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token VARCHAR(100)")
         if "reset_token_expires" not in cols_us:
             await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME")
+
+        # ── Projets & Tâches — ajout colonnes (couleur projet, groupe, gantt) ──
+        r_pr = await conn.exec_driver_sql("PRAGMA table_info(projects)")
+        cols_pr = [row[1] for row in r_pr.fetchall()]
+        if cols_pr and "color" not in cols_pr:
+            await conn.exec_driver_sql("ALTER TABLE projects ADD COLUMN color VARCHAR(10)")
+
+        r_tk = await conn.exec_driver_sql("PRAGMA table_info(tasks)")
+        cols_tk = [row[1] for row in r_tk.fetchall()]
+        if cols_tk:
+            if "assigned_to_group_id" not in cols_tk:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE tasks ADD COLUMN assigned_to_group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
+                )
+            if "progress" not in cols_tk:
+                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN progress INTEGER NOT NULL DEFAULT 0")
+            if "start_date" not in cols_tk:
+                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN start_date DATE")
+            if "order_position" not in cols_tk:
+                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN order_position INTEGER NOT NULL DEFAULT 0")
+            if "forum_subject_id" not in cols_tk:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE tasks ADD COLUMN forum_subject_id INTEGER REFERENCES forum_subjects(id) ON DELETE SET NULL"
+                )
+            if "is_milestone" not in cols_tk:
+                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN is_milestone INTEGER NOT NULL DEFAULT 0")
+            if "reminded_at" not in cols_tk:
+                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN reminded_at DATETIME")
+            if "parent_task_id" not in cols_tk:
+                await conn.exec_driver_sql(
+                    "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE"
+                )
 
     # ── Canal "Général" par défaut ─────────────────────────────────────────
     async with engine.begin() as conn:
@@ -315,8 +396,47 @@ async def lifespan(app: FastAPI):
                 "VALUES ('Annonces', 'Annonces officielles', 'GENERAL', 1, datetime('now'))"
             ))
 
+    # ── Sauvegarde hebdomadaire ───────────────────────────────────────────────
+    from app.services.backup import weekly_backup_loop
+
+    async def _get_admin_email():
+        async with engine.begin() as _conn:
+            from sqlalchemy import text as _text
+            r = await _conn.execute(_text("SELECT admin_email FROM lodge_settings LIMIT 1"))
+            row = r.fetchone()
+            return row[0] if row and row[0] else None
+
+    _backup_task = asyncio.ensure_future(weekly_backup_loop(_get_admin_email))
+
+    # ── Anniversaires maçonniques (rappel J-1) ────────────────────────────────
+    from app.services.anniversaires import daily_anniversary_loop
+    from app.database import AsyncSessionLocal
+
+    async def _get_active_members():
+        async with AsyncSessionLocal() as s:
+            r = await s.execute(
+                select(Member).where(Member.status == MemberStatus.ACTIVE)
+            )
+            return list(r.scalars().all())
+
+    async def _get_lodge_name():
+        async with engine.begin() as _conn:
+            from sqlalchemy import text as _text
+            r = await _conn.execute(_text("SELECT name FROM lodge_settings LIMIT 1"))
+            row = r.fetchone()
+            return row[0] if row and row[0] else settings.lodge_name
+
+    _anniv_task = asyncio.ensure_future(daily_anniversary_loop(_get_active_members, _get_lodge_name))
+
+    # ── Rappels J-3 sur les tâches projet ────────────────────────────────────
+    from app.services.projects_reminders import daily_task_reminder_loop
+    _task_reminder_task = asyncio.ensure_future(daily_task_reminder_loop())
+
     yield
     # Arrêt
+    _backup_task.cancel()
+    _anniv_task.cancel()
+    _task_reminder_task.cancel()
     await engine.dispose()
 
 
@@ -393,7 +513,11 @@ app.include_router(sharing_router.public_router)   # /share/{token} — accès p
 app.include_router(news_router.router)
 app.include_router(polls_router.router)
 app.include_router(reports_router.router)
-# app.include_router(forum.router)
+app.include_router(planches_router.router)
+app.include_router(anniv_router.router)
+app.include_router(push_router.router)
+app.include_router(forum_router.router)
+app.include_router(projects_router.router)
 # app.include_router(admin.router)
 
 
@@ -683,6 +807,13 @@ async def home(
     active_polls = _active_polls_filtered[:5]
     pending_polls = [p for p in _active_polls_filtered if p.id not in _voted_ids][:3]
 
+    # ── Anniversaires maçonniques (30 prochains jours) ───────────────────────
+    from app.services.anniversaires import upcoming as _upcoming_anniv
+    _all_active = await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
+    )
+    upcoming_anniv = _upcoming_anniv(list(_all_active.scalars().all()), days=30, today=today)[:5]
+
     return templates.TemplateResponse(request, "pages/dashboard.html", {
         "current_member": member,
         "current_user": user,
@@ -723,6 +854,7 @@ async def home(
         "active_polls": active_polls,
         "pending_polls": pending_polls,
         "voted_poll_ids": _voted_ids,
+        "upcoming_anniv": upcoming_anniv,
     })
 
 
