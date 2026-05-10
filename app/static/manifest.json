@@ -4,8 +4,8 @@
   "description": "Plateforme de la Loge Socrate Raison et Progrès",
   "start_url": "/",
   "display": "standalone",
-  "background_color": "#1a2d82",
-  "theme_color": "#1a2d82",
+  "background_color": "#1a5252",
+  "theme_color": "#1a5252",
   "orientation": "portrait-primary",
   "icons": [
     {

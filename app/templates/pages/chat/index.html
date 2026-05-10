@@ -6,7 +6,7 @@
 
 {# Full-height layout : desktop = 100vh, mobile = 100vh - 80px (bottom nav) #}
 <div class="flex overflow-hidden"
-     style="height:calc(100vh - 80px);"
+     style="height:calc(100vh - 80px - env(safe-area-inset-bottom, 0px));"
      x-data>
   <style>@media(min-width:1024px){.chat-root{height:100vh!important}}</style>
   <script>document.currentScript.closest('[x-data]').classList.add('chat-root')</script>

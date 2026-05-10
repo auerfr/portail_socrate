@@ -2,273 +2,116 @@
 {% block title %}Tableau de bord — Portail Socrate{% endblock %}
 
 {% block content %}
-<div class="p-4 lg:p-8 max-w-6xl mx-auto space-y-6">
+<div class="flex flex-col gap-3 p-4 lg:p-5 max-w-7xl mx-auto lg:h-[calc(100vh-2rem)] lg:overflow-hidden">
 
-  <!-- ════════════════════════════════════════════════════════
-       ANNONCES NON LUES
-  ════════════════════════════════════════════════════════ -->
-  {% for ann in unread_announcements %}
-  <div class="rounded-2xl border shadow-sm overflow-hidden
-              {% if ann.is_pinned %}border-loge-300 bg-loge-50{% else %}border-amber-200 bg-amber-50{% endif %}"
-       x-data="{ open: true }" x-show="open" x-transition>
-    <div class="px-5 py-4 flex items-start gap-3">
-      <!-- Icône -->
-      <div class="flex-shrink-0 mt-0.5">
-        {% if ann.is_pinned %}
-        <span class="text-xl">📌</span>
-        {% else %}
-        <span class="text-xl">📢</span>
-        {% endif %}
-      </div>
-      <!-- Contenu -->
-      <div class="flex-1 min-w-0">
-        <div class="flex items-start justify-between gap-2 flex-wrap">
-          <h3 class="font-semibold {% if ann.is_pinned %}text-loge-900{% else %}text-amber-900{% endif %}">
-            {{ ann.title }}
-          </h3>
-          <div class="flex items-center gap-2 flex-shrink-0">
-            <span class="text-xs {% if ann.is_pinned %}text-loge-500{% else %}text-amber-500{% endif %}">
-              {{ ann.created_at.strftime('%d/%m') }} ·
-              {% if ann.author.civility == 'S' %}S∴{% else %}F∴{% endif %}
-              {{ ann.author.first_name }} {{ ann.author.last_name }}
-            </span>
-            <!-- Bouton fermer + marquer lu -->
-            <form method="post" action="/announcements/{{ ann.id }}/read" class="inline">
-              <button type="submit"
-                      title="Marquer comme lu"
-                      @click="open = false"
-                      class="w-6 h-6 rounded-full flex items-center justify-center
-                             {% if ann.is_pinned %}text-loge-400 hover:bg-loge-200{% else %}text-amber-400 hover:bg-amber-200{% endif %}
-                             transition-colors">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-                </svg>
-              </button>
-            </form>
-          </div>
-        </div>
-        <p class="text-sm {% if ann.is_pinned %}text-loge-800{% else %}text-amber-800{% endif %} mt-1.5 whitespace-pre-line leading-relaxed">
-          {{ ann.content }}
-        </p>
-      </div>
-    </div>
-  </div>
-  {% endfor %}
-
-  <!-- Annonces lues (réduites, cliquables pour voir) -->
-  {% if read_announcements %}
-  <div x-data="{ open: false }">
-    <button @click="open = !open"
-            class="text-xs text-gray-400 hover:text-gray-600 flex items-center gap-1.5 transition-colors">
-      <svg class="w-3.5 h-3.5 transition-transform" :class="open ? 'rotate-90' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 4.5l7.5 7.5-7.5 7.5"/>
-      </svg>
-      {{ read_announcements | length }} annonce{{ 's' if read_announcements | length > 1 }} déjà lue{{ 's' if read_announcements | length > 1 }}
-    </button>
-    <div x-show="open" x-transition x-cloak class="mt-2 space-y-2">
-      {% for ann in read_announcements %}
-      <div class="bg-white rounded-xl border border-gray-100 px-4 py-3 opacity-60">
-        <div class="flex items-center gap-2">
-          <span class="text-xs text-gray-400">✓</span>
-          <span class="text-sm font-medium text-gray-600">{{ ann.title }}</span>
-          <span class="text-xs text-gray-400 ml-auto">{{ ann.created_at.strftime('%d/%m') }}</span>
-        </div>
-      </div>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- ════════════════════════════════════════════════════════
-       ACTUALITÉS RÉCENTES
-  ════════════════════════════════════════════════════════ -->
-  {% if recent_news %}
-  <div>
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-        <span>📰</span> Actualités
-      </h2>
-      <a href="/news/" class="text-xs text-loge-600 hover:text-loge-800 font-medium transition-colors">Voir tout →</a>
-    </div>
-    <div class="grid sm:grid-cols-{{ [recent_news | length, 3] | min }} gap-3">
-      {% for article in recent_news %}
-      <a href="/news/{{ article.id }}"
-         class="bg-white rounded-xl border {% if article.is_featured %}border-loge-200 bg-loge-50/30{% else %}border-gray-100{% endif %} px-4 py-3.5 hover:shadow-sm transition-shadow block group">
-        <div class="flex items-start gap-2.5">
-          <span class="text-base shrink-0 mt-0.5">{% if article.is_featured %}📌{% else %}📰{% endif %}</span>
-          <div class="min-w-0 flex-1">
-            <div class="text-sm font-medium text-gray-800 group-hover:text-loge-700 transition-colors leading-snug line-clamp-2">{{ article.title }}</div>
-            <div class="text-xs text-gray-400 mt-1">{{ article.created_at.strftime('%d %b') }}</div>
-          </div>
-        </div>
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- ════════════════════════════════════════════════════════
-       SONDAGES EN ATTENTE DE VOTE
-  ════════════════════════════════════════════════════════ -->
-  {% if pending_polls %}
-  <div>
-    <div class="flex items-center justify-between mb-3">
-      <h2 class="text-sm font-semibold text-gray-700 flex items-center gap-2">
-        <span>🗳️</span> Sondages — votre vote est attendu
-      </h2>
-      <a href="/polls/" class="text-xs text-loge-600 hover:text-loge-800 font-medium transition-colors">Voir tout →</a>
-    </div>
-    <div class="space-y-2">
-      {% for poll in pending_polls %}
-      <a href="/polls/{{ poll.id }}"
-         class="flex items-center gap-3 bg-white rounded-xl border border-loge-100 hover:border-loge-300 hover:shadow-sm px-4 py-3 transition-all group">
-        <span class="text-lg shrink-0">🗳️</span>
-        <div class="flex-1 min-w-0">
-          <div class="text-sm font-medium text-gray-800 group-hover:text-loge-700 transition-colors truncate">{{ poll.title }}</div>
-          <div class="text-xs text-gray-400 mt-0.5">{{ poll.votes | length }} vote{{ 's' if poll.votes | length != 1 }}{% if poll.ends_at %} · clôture {{ poll.ends_at.strftime('%d/%m') }}{% endif %}</div>
-        </div>
-        <span class="text-xs bg-loge-50 text-loge-700 font-medium rounded-full px-2.5 py-1 shrink-0">Voter →</span>
-      </a>
-      {% endfor %}
-    </div>
-  </div>
-  {% endif %}
-
-  <!-- En-tête personnalisé -->
-  <div class="flex items-center justify-between">
+  <!-- ── En-tête ──────────────────────────────────────────────────────── -->
+  <div class="flex items-center justify-between shrink-0">
     <div>
-      <h1 class="text-xl font-bold text-gray-900">
+      <h1 class="text-lg font-bold text-gray-900 leading-tight">
         Bonjour,
         {% if current_member %}
           {% if current_member.civility == 'S' %}S∴{% else %}F∴{% endif %}
           {{ current_member.first_name }}
         {% endif %}
       </h1>
-      <p class="text-sm text-gray-400 mt-0.5 capitalize">{{ now.strftime('%A %d %B %Y') }}</p>
+      <p class="text-xs text-gray-400 capitalize">{{ now.strftime('%A %d %B %Y') }}</p>
     </div>
-    {% if current_year %}
-    <div class="hidden sm:flex items-center gap-2 text-xs text-gray-400 bg-white border border-gray-100 rounded-xl px-3 py-2 shadow-sm">
-      <svg class="w-3.5 h-3.5 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-        <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-      </svg>
-      Année {{ current_year.label }}
+    <div class="flex items-center gap-2">
+      {% if unread_announcements %}
+      <span class="inline-flex items-center gap-1.5 bg-amber-50 border border-amber-200 text-amber-700 text-xs font-medium rounded-full px-3 py-1">
+        📢 {{ unread_announcements | length }} annonce{{ 's' if unread_announcements | length > 1 }}
+      </span>
+      {% endif %}
+      {% if pending_polls %}
+      <a href="/polls/" class="inline-flex items-center gap-1.5 bg-loge-50 border border-loge-200 text-loge-700 text-xs font-medium rounded-full px-3 py-1 hover:bg-loge-100 transition-colors">
+        🗳️ {{ pending_polls | length }} sondage{{ 's' if pending_polls | length > 1 }} en attente
+      </a>
+      {% endif %}
+      {% if current_year %}
+      <div class="hidden sm:flex items-center gap-1.5 text-xs text-gray-400 bg-white border border-gray-100 rounded-full px-3 py-1 shadow-sm">
+        <svg class="w-3 h-3 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+        </svg>
+        Année {{ current_year.label }}
+      </div>
+      {% endif %}
     </div>
-    {% endif %}
   </div>
 
+  <!-- ── Corps principal : 2 colonnes ─────────────────────────────────── -->
+  <div class="flex-1 grid lg:grid-cols-[1fr_320px] gap-4 lg:overflow-hidden lg:min-h-0">
 
-  <!-- ════════════════════════════════════════════════════════
-       LIGNE 1 : Prochaine tenue (grande) + Mon assiduité
-  ════════════════════════════════════════════════════════ -->
-  <div class="grid lg:grid-cols-3 gap-4">
+    <!-- ══ COLONNE GAUCHE : tenue + stats ══ -->
+    <div class="flex flex-col gap-3 overflow-y-auto min-h-0 pr-1">
 
-    <!-- Prochaine tenue — 2/3 -->
-    <div class="lg:col-span-2">
+      <!-- Prochaine tenue -->
       {% if next_meeting %}
       {% set days_left = (next_meeting.meeting_date - today).days %}
-      <div class="bg-gradient-to-br from-loge-800 via-loge-700 to-loge-600 rounded-2xl overflow-hidden shadow-lg shadow-loge-900/20">
-
-        <!-- Header -->
-        <div class="px-6 pt-5 pb-4">
+      <div class="bg-gradient-to-br from-loge-800 via-loge-700 to-loge-600 rounded-2xl overflow-hidden shadow-lg shadow-loge-900/20 shrink-0">
+        <div class="px-5 pt-4 pb-3">
           <div class="flex items-start justify-between gap-3">
-            <div>
-              <div class="flex items-center gap-2 mb-2">
-                <span class="text-xs font-medium bg-white/20 text-white rounded-full px-2.5 py-1">
-                  {{ next_meeting.type.value }}
-                </span>
+            <div class="min-w-0 flex-1">
+              <div class="flex items-center gap-2 mb-1.5 flex-wrap">
+                <span class="text-xs font-medium bg-white/20 text-white rounded-full px-2.5 py-0.5">{{ next_meeting.type.value }}</span>
                 {% if days_left == 0 %}
-                <span class="text-xs font-bold bg-amber-400/30 text-amber-200 rounded-full px-2.5 py-1 animate-pulse">
-                  C'est ce soir !
-                </span>
+                <span class="text-xs font-bold bg-amber-400/30 text-amber-200 rounded-full px-2.5 py-0.5 animate-pulse">C'est ce soir !</span>
                 {% elif days_left <= 7 %}
-                <span class="text-xs font-medium bg-white/10 text-loge-200 rounded-full px-2.5 py-1">
-                  Dans {{ days_left }} jour{{ 's' if days_left > 1 }}
-                </span>
+                <span class="text-xs bg-white/10 text-loge-200 rounded-full px-2.5 py-0.5">Dans {{ days_left }}j</span>
                 {% endif %}
               </div>
-              <h2 class="text-xl font-bold text-white">
-                {{ next_meeting.title or next_meeting.type.value }}
-              </h2>
-              {% if next_meeting.theme %}
-              <p class="text-loge-200 text-sm mt-1">{{ next_meeting.theme }}</p>
-              {% endif %}
+              <h2 class="text-lg font-bold text-white leading-tight truncate">{{ next_meeting.title or next_meeting.type.value }}</h2>
+              {% if next_meeting.theme %}<p class="text-loge-200 text-xs mt-0.5 truncate">{{ next_meeting.theme }}</p>{% endif %}
+              <div class="flex flex-wrap gap-3 mt-1.5 text-xs text-loge-200">
+                {% if next_meeting.meeting_time %}<span>⏰ {{ next_meeting.meeting_time }}</span>{% endif %}
+                {% if next_meeting.location %}<span>📍 {{ next_meeting.location }}</span>{% endif %}
+              </div>
             </div>
-            <!-- Grande date -->
             <div class="text-right flex-shrink-0">
-              <div class="text-4xl font-black text-white leading-none">{{ next_meeting.meeting_date.strftime('%d') }}</div>
-              <div class="text-sm text-loge-300 uppercase tracking-wider">{{ next_meeting.meeting_date.strftime('%b %Y') }}</div>
+              <div class="text-3xl font-black text-white leading-none">{{ next_meeting.meeting_date.strftime('%d') }}</div>
+              <div class="text-xs text-loge-300 uppercase tracking-wider">{{ next_meeting.meeting_date.strftime('%b %Y') }}</div>
             </div>
-          </div>
-
-          <!-- Infos pratiques -->
-          <div class="flex flex-wrap gap-3 mt-3 text-xs text-loge-200">
-            {% if next_meeting.meeting_time %}<span>⏰ {{ next_meeting.meeting_time }}</span>{% endif %}
-            {% if next_meeting.location %}<span>📍 {{ next_meeting.location }}</span>{% endif %}
           </div>
         </div>
 
-        <!-- Stats inscriptions -->
-        <div class="px-6 py-4 bg-black/15 flex items-center gap-6 flex-wrap">
+        <div class="px-5 py-3 bg-black/15 flex items-center gap-5 flex-wrap">
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-green-500/20 flex items-center justify-center">
-              <svg class="w-4 h-4 text-green-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <div class="w-7 h-7 rounded-lg bg-green-500/20 flex items-center justify-center">
+              <svg class="w-3.5 h-3.5 text-green-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 12.75L11.25 15 15 9.75M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
               </svg>
             </div>
-            <div>
-              <div class="text-lg font-bold text-white">{{ next_inscriptions }}</div>
-              <div class="text-xs text-loge-300">inscrits</div>
-            </div>
+            <div><div class="text-sm font-bold text-white">{{ next_inscriptions }}</div><div class="text-[10px] text-loge-300">inscrits</div></div>
           </div>
-
           {% if next_visitors > 0 %}
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-blue-400/20 flex items-center justify-center">
-              <svg class="w-4 h-4 text-blue-300" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
-              </svg>
-            </div>
-            <div>
-              <div class="text-lg font-bold text-white">{{ next_visitors }}</div>
-              <div class="text-xs text-loge-300">passant{{ 's' if next_visitors > 1 }}</div>
-            </div>
+            <div class="w-7 h-7 rounded-lg bg-blue-400/20 flex items-center justify-center text-sm">👤</div>
+            <div><div class="text-sm font-bold text-white">{{ next_visitors }}</div><div class="text-[10px] text-loge-300">passant{{ 's' if next_visitors > 1 }}</div></div>
           </div>
           {% endif %}
-
           {% if next_meeting.agape_enabled and next_agape > 0 %}
           <div class="flex items-center gap-2">
-            <div class="w-8 h-8 rounded-lg bg-amber-400/20 flex items-center justify-center text-base">🍽</div>
+            <div class="w-7 h-7 rounded-lg bg-amber-400/20 flex items-center justify-center text-sm">🍽</div>
             <div>
-              <div class="text-lg font-bold text-white">
-                {{ next_agape }}{% if next_meeting.agape_capacity %}<span class="text-sm text-loge-300 font-normal"> / {{ next_meeting.agape_capacity }}</span>{% endif %}
-              </div>
-              <div class="text-xs text-loge-300">agapes</div>
+              <div class="text-sm font-bold text-white">{{ next_agape }}{% if next_meeting.agape_capacity %}<span class="text-xs text-loge-300 font-normal">/{{ next_meeting.agape_capacity }}</span>{% endif %}</div>
+              <div class="text-[10px] text-loge-300">agapes</div>
             </div>
           </div>
           {% endif %}
 
-          <!-- Mon statut / CTA -->
-          <div class="ml-auto">
+          <div class="ml-auto flex-shrink-0">
             {% if my_next_att %}
               {% if my_next_att.status.value == 'PRESENT' %}
-              <span class="inline-flex items-center gap-1.5 bg-green-500/20 text-green-200 border border-green-400/30 rounded-xl px-4 py-2 text-sm font-medium">
-                <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-                  <path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/>
-                </svg>
+              <span class="inline-flex items-center gap-1 bg-green-500/20 text-green-200 border border-green-400/30 rounded-xl px-3 py-1.5 text-xs font-medium">
+                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" d="M5 13l4 4L19 7"/></svg>
                 Je serai présent∙e
               </span>
               {% else %}
-              <span class="inline-flex items-center gap-1.5 bg-yellow-400/20 text-yellow-200 border border-yellow-400/30 rounded-xl px-4 py-2 text-sm font-medium">
-                ~ Excusé∙e
-              </span>
+              <span class="inline-flex items-center gap-1 bg-yellow-400/20 text-yellow-200 border border-yellow-400/30 rounded-xl px-3 py-1.5 text-xs font-medium">~ Excusé∙e</span>
               {% endif %}
-              <a href="/meetings/{{ next_meeting.id }}"
-                 class="block text-center text-xs text-loge-300 hover:text-white mt-1.5 transition-colors">
-                Modifier →
-              </a>
+              <a href="/meetings/{{ next_meeting.id }}" class="block text-center text-[10px] text-loge-300 hover:text-white mt-1 transition-colors">Modifier →</a>
             {% else %}
             <a href="/meetings/{{ next_meeting.id }}"
-               class="inline-flex items-center gap-2 bg-white text-loge-800 font-semibold rounded-xl px-4 py-2.5 text-sm hover:bg-loge-50 transition-colors shadow-sm">
+               class="inline-flex items-center gap-2 bg-white text-loge-800 font-semibold rounded-xl px-3 py-1.5 text-xs hover:bg-loge-50 transition-colors shadow-sm">
               Confirmer ma présence →
             </a>
             {% endif %}
@@ -276,13 +119,22 @@
         </div>
       </div>
 
-      <!-- Tenues suivantes (compactes) -->
+      {% else %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-8 text-center text-gray-400 shrink-0">
+        <svg class="w-8 h-8 mx-auto mb-2 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
+        </svg>
+        <p class="text-xs">Aucune tenue programmée</p>
+      </div>
+      {% endif %}
+
+      <!-- Tenues suivantes -->
       {% if upcoming_meetings %}
-      <div class="mt-3 grid grid-cols-1 sm:grid-cols-3 gap-2">
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 shrink-0">
         {% for m in upcoming_meetings %}
         {% set my_att = my_upcoming_att.get(m.id) %}
         <a href="/meetings/{{ m.id }}"
-           class="flex items-center gap-3 bg-white rounded-xl border px-3 py-2.5 hover:border-loge-200 hover:shadow-sm transition-all
+           class="flex items-center gap-2.5 bg-white rounded-xl border px-3 py-2 hover:border-loge-200 hover:shadow-sm transition-all
                   {% if not my_att %}border-amber-200 bg-amber-50/40{% else %}border-gray-100{% endif %}">
           <div class="w-9 h-9 rounded-lg bg-loge-50 flex flex-col items-center justify-center flex-shrink-0">
             <span class="text-sm font-bold text-loge-700 leading-none">{{ m.meeting_date.strftime('%d') }}</span>
@@ -291,11 +143,11 @@
           <div class="flex-1 min-w-0">
             <div class="text-xs font-semibold text-gray-800 truncate">{{ m.title or m.type.value }}</div>
             {% if not my_att %}
-            <div class="text-xs text-amber-600 font-medium">⚠ Pas encore répondu</div>
+            <div class="text-[10px] text-amber-600 font-medium">⚠ Non répondu</div>
             {% elif my_att.status.value == 'PRESENT' %}
-            <div class="text-xs text-green-600">✓ Présent∙e</div>
+            <div class="text-[10px] text-green-600">✓ Présent∙e</div>
             {% else %}
-            <div class="text-xs text-yellow-600">~ Excusé∙e</div>
+            <div class="text-[10px] text-yellow-600">~ Excusé∙e</div>
             {% endif %}
           </div>
         </a>
@@ -303,338 +155,272 @@
       </div>
       {% endif %}
 
-      {% else %}
-      <!-- Aucune tenue à venir -->
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-10 text-center text-gray-400">
-        <svg class="w-10 h-10 mx-auto mb-3 opacity-30" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-        </svg>
-        <p class="text-sm">Aucune tenue programmée</p>
-        {% if current_user and current_user.is_admin %}
-        <a href="/meetings/new" class="inline-block mt-3 text-xs text-loge-600 hover:text-loge-800 font-medium">
-          + Créer une tenue →
-        </a>
+      <!-- Ligne basse : Absences + Passants — hauteur naturelle, pas d'étirement -->
+      {% if alert_members or recent_visitors %}
+      <div class="grid {% if alert_members and recent_visitors %}sm:grid-cols-2{% endif %} gap-3 shrink-0">
+
+        {% if alert_members %}
+        <div class="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-red-100 bg-red-50/60 flex items-center justify-between">
+            <h3 class="text-xs font-semibold text-red-700 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
+              </svg>
+              Absences à suivre
+            </h3>
+            <a href="/attendance/" class="text-[10px] text-red-500 hover:text-red-700 font-medium">Voir tout →</a>
+          </div>
+          <div class="divide-y divide-gray-50">
+            {% for item in alert_members[:4] %}
+            <div class="flex items-center gap-2.5 px-4 py-2">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+                   style="background:linear-gradient(135deg,#dc2626,#b91c1c);">
+                {{ item.member.first_name[0] }}{{ item.member.last_name[0] }}
+              </div>
+              <a href="/attendance/member/{{ item.member.id }}"
+                 class="flex-1 text-xs font-medium text-gray-800 hover:text-loge-700 truncate">
+                {% if item.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
+                {{ item.member.first_name }} {{ item.member.last_name }}
+              </a>
+              <span class="text-[10px] font-bold text-red-600 bg-red-50 rounded-full px-2 py-0.5 shrink-0">{{ item.absences }} abs.</span>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
         {% endif %}
-      </div>
-      {% endif %}
-    </div>
 
-    <!-- Mon assiduité — 1/3 -->
-    <div class="space-y-4">
+        {% if recent_visitors %}
+        <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+          <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+              <svg class="w-3.5 h-3.5 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+              </svg>
+              Maçons passants
+            </h3>
+            <a href="/attendance/visitors" class="text-[10px] text-loge-600 hover:text-loge-800 font-medium">Tous →</a>
+          </div>
+          <div class="divide-y divide-gray-50">
+            {% for mv in recent_visitors[:4] %}
+            <div class="flex items-center gap-2.5 px-4 py-2">
+              <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold text-loge-700 flex-shrink-0"
+                   style="background:rgba(59,91,219,0.1);">
+                {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-xs font-medium text-gray-800 truncate">
+                  {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
+                  {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+                  {% if mv.visitor.is_vm %}<span class="text-[10px] text-loge-600 font-semibold ml-0.5">V∴M∴</span>{% endif %}
+                </div>
+                <div class="text-[10px] text-gray-400 truncate">{{ mv.visitor.lodge_name or '—' }}{% if mv.visitor.orient_city %} · {{ mv.visitor.orient_city }}{% endif %}</div>
+              </div>
+              <a href="/attendance/meeting/{{ mv.meeting_id }}/summary" class="text-[10px] text-gray-400 hover:text-loge-600 shrink-0">
+                {{ mv.meeting.meeting_date.strftime('%d/%m') }}
+              </a>
+            </div>
+            {% endfor %}
+          </div>
+        </div>
+        {% endif %}
 
-      <!-- Ma présence cette année -->
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-4">Mon assiduité</h3>
+      </div><!-- /grid bas -->
+      {% endif %}<!-- /if alert_members or recent_visitors -->
 
+    </div><!-- /colonne gauche -->
+
+    <!-- ══ COLONNE DROITE : panneau notifications ══ -->
+    <div class="flex flex-col gap-3 overflow-y-auto min-h-0">
+
+      <!-- Mon assiduité -->
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 shrink-0">
+        <h3 class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">Mon assiduité</h3>
         {% if my_pct is not none %}
-        <!-- Jauge circulaire via SVG -->
-        <div class="flex items-center gap-4">
-          <div class="relative w-16 h-16 flex-shrink-0">
-            {% set stroke_pct = my_pct * 2.83 %}{# 283 = périmètre du cercle r=45 à 100% #}
-            <svg viewBox="0 0 100 100" class="w-16 h-16 -rotate-90">
-              <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" stroke-width="10"/>
+        <div class="flex items-center gap-3">
+          <div class="relative w-14 h-14 flex-shrink-0">
+            <svg viewBox="0 0 100 100" class="w-14 h-14 -rotate-90">
+              <circle cx="50" cy="50" r="40" fill="none" stroke="#e5e7eb" stroke-width="12"/>
               <circle cx="50" cy="50" r="40" fill="none"
                       stroke="{% if my_pct >= 80 %}#16a34a{% elif my_pct >= 50 %}#ca8a04{% else %}#dc2626{% endif %}"
-                      stroke-width="10"
+                      stroke-width="12"
                       stroke-dasharray="{{ my_pct * 2.51 }} 251"
                       stroke-linecap="round"/>
             </svg>
             <div class="absolute inset-0 flex items-center justify-center">
-              <span class="text-xs font-bold text-gray-800">{{ my_pct }}%</span>
+              <span class="text-[10px] font-bold text-gray-800">{{ my_pct }}%</span>
             </div>
           </div>
           <div>
-            <div class="text-2xl font-bold text-gray-900">{{ my_present }}
-              <span class="text-sm font-normal text-gray-400">/ {{ my_total }}</span>
-            </div>
-            <div class="text-xs text-gray-500">tenues présent∙e</div>
+            <div class="text-xl font-bold text-gray-900">{{ my_present }}<span class="text-xs font-normal text-gray-400">/{{ my_total }}</span></div>
+            <div class="text-[10px] text-gray-500">tenues présent∙e</div>
             {% if my_pct >= 80 %}
-            <div class="text-xs text-green-600 font-medium mt-1">✓ Excellente assiduité</div>
+            <div class="text-[10px] text-green-600 font-medium mt-0.5">✓ Excellente</div>
             {% elif my_pct >= 60 %}
-            <div class="text-xs text-yellow-600 font-medium mt-1">Assiduité correcte</div>
+            <div class="text-[10px] text-yellow-600 font-medium mt-0.5">Correcte</div>
             {% elif my_total > 0 %}
-            <div class="text-xs text-red-500 font-medium mt-1">⚠ Assiduité à améliorer</div>
+            <div class="text-[10px] text-red-500 font-medium mt-0.5">⚠ À améliorer</div>
             {% endif %}
           </div>
+          <a href="/attendance/member/{{ current_member.id }}"
+             class="ml-auto text-[10px] text-loge-600 hover:text-loge-800 font-medium shrink-0">
+            Historique →
+          </a>
         </div>
-        <a href="/attendance/member/{{ current_member.id }}"
-           class="block mt-4 text-xs text-center text-loge-600 hover:text-loge-800 font-medium transition-colors">
-          Voir mon historique →
-        </a>
+        {% if year_total > 0 %}
+        <div class="mt-3 pt-3 border-t border-gray-100">
+          <div class="flex items-center justify-between mb-1">
+            <span class="text-[10px] text-gray-400">Loge cette année</span>
+            <span class="text-xs font-bold text-gray-700">{{ year_pct }}%</span>
+          </div>
+          <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full rounded-full {% if year_pct >= 80 %}bg-green-500{% elif year_pct >= 60 %}bg-yellow-400{% else %}bg-red-500{% endif %}"
+                 style="width:{{ year_pct }}%"></div>
+          </div>
+        </div>
+        {% endif %}
         {% else %}
-        <div class="text-center text-gray-400 py-4">
-          <div class="text-3xl mb-2">📊</div>
-          <p class="text-xs">Aucune donnée pour cette année</p>
+        <div class="text-center text-gray-300 py-3">
+          <div class="text-2xl mb-1">📊</div>
+          <p class="text-[10px]">Aucune donnée</p>
         </div>
         {% endif %}
       </div>
 
-      <!-- Assiduité loge (pour managers) -->
-      {% if year_total > 0 %}
-      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
-        <div class="flex items-center justify-between mb-3">
-          <h3 class="text-xs font-semibold text-gray-400 uppercase tracking-wider">Loge cette année</h3>
-          {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
-          <a href="/attendance/" class="text-xs text-loge-600 hover:text-loge-800 font-medium">Détail →</a>
-          {% endif %}
-        </div>
-        <div class="flex items-center gap-3">
-          <div class="flex-1 h-3 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full {% if year_pct >= 80 %}bg-green-500{% elif year_pct >= 60 %}bg-yellow-400{% else %}bg-red-500{% endif %} transition-all"
-                 style="width:{{ year_pct }}%"></div>
+      <!-- Annonces non lues -->
+      {% for ann in unread_announcements[:2] %}
+      <div class="rounded-xl border shadow-sm shrink-0
+                  {% if ann.is_pinned %}border-loge-200 bg-loge-50{% else %}border-amber-200 bg-amber-50{% endif %}"
+           x-data="{ open: true }" x-show="open" x-transition>
+        <div class="px-4 py-3 flex items-start gap-2.5">
+          <span class="text-base shrink-0">{% if ann.is_pinned %}📌{% else %}📢{% endif %}</span>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-start justify-between gap-1">
+              <h4 class="text-xs font-semibold {% if ann.is_pinned %}text-loge-900{% else %}text-amber-900{% endif %} leading-snug">{{ ann.title }}</h4>
+              <form method="post" action="/announcements/{{ ann.id }}/read" class="inline shrink-0">
+                <button @click="open=false" class="text-gray-300 hover:text-gray-500 transition-colors">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </form>
+            </div>
+            <p class="text-[10px] {% if ann.is_pinned %}text-loge-700{% else %}text-amber-800{% endif %} mt-0.5 line-clamp-2">{{ ann.content }}</p>
           </div>
-          <span class="text-sm font-bold text-gray-800 flex-shrink-0">{{ year_pct }}%</span>
         </div>
-        <div class="text-xs text-gray-400 mt-1.5">{{ year_present }} présences sur {{ year_total }} émargements</div>
+      </div>
+      {% endfor %}
+      {% if unread_announcements | length > 2 %}
+      <div class="text-center shrink-0">
+        <span class="text-xs text-amber-600 font-medium">+ {{ unread_announcements | length - 2 }} autre{{ 's' if unread_announcements | length - 2 > 1 }} annonce{{ 's' }}</span>
+      </div>
+      {% endif %}
+
+      <!-- Sondages en attente -->
+      {% if pending_polls %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden shrink-0">
+        <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="text-xs font-semibold text-gray-700">🗳️ Sondages</h3>
+          <a href="/polls/" class="text-[10px] text-loge-600 hover:text-loge-800 font-medium">Tous →</a>
+        </div>
+        <div class="divide-y divide-gray-50">
+          {% for poll in pending_polls[:3] %}
+          <a href="/polls/{{ poll.id }}"
+             class="flex items-center gap-2.5 px-4 py-2.5 hover:bg-loge-50/50 transition-colors group">
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ poll.title }}</div>
+              <div class="text-[10px] text-gray-400">{{ poll.votes | length }} vote{{ 's' if poll.votes | length != 1 }}{% if poll.ends_at %} · clôture {{ poll.ends_at.strftime('%d/%m') }}{% endif %}</div>
+            </div>
+            <span class="text-[10px] bg-loge-50 text-loge-700 font-medium rounded-full px-2 py-0.5 shrink-0">Voter →</span>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Actualités -->
+      {% if recent_news %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden shrink-0">
+        <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="text-xs font-semibold text-gray-700">📰 Actualités</h3>
+          <a href="/news/" class="text-[10px] text-loge-600 hover:text-loge-800 font-medium">Voir tout →</a>
+        </div>
+        <div class="divide-y divide-gray-50">
+          {% for article in recent_news[:3] %}
+          <a href="/news/{{ article.id }}"
+             class="flex items-center gap-2.5 px-4 py-2.5 hover:bg-gray-50 transition-colors group">
+            <span class="text-sm shrink-0">{% if article.is_featured %}📌{% else %}📰{% endif %}</span>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-medium text-gray-800 group-hover:text-loge-700 truncate leading-snug">{{ article.title }}</div>
+              <div class="text-[10px] text-gray-400">{{ article.created_at.strftime('%d %b') }}</div>
+            </div>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Messages non lus -->
+      {% if recent_unread_msgs %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden shrink-0">
+        <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="text-xs font-semibold text-gray-700 flex items-center gap-1.5">
+            <svg class="w-3.5 h-3.5 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
+            </svg>
+            Messages
+            {% if global_unread_messages > 0 %}
+            <span class="w-4 h-4 rounded-full bg-red-500 text-white text-[9px] font-bold flex items-center justify-center">{{ global_unread_messages if global_unread_messages <= 9 else '9+' }}</span>
+            {% endif %}
+          </h3>
+          <a href="/messages/" class="text-[10px] text-loge-600 hover:text-loge-800 font-medium">Boîte →</a>
+        </div>
+        <div class="divide-y divide-gray-50">
+          {% for rec in recent_unread_msgs[:3] %}
+          {% set sender = recent_senders_map.get(rec.message.sender_id) %}
+          <a href="/messages/{{ rec.message_id }}"
+             class="flex items-start gap-2.5 px-4 py-2.5 hover:bg-loge-50/50 transition-colors group">
+            <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
+                 style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
+              {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name[0] }}{% else %}?{% endif %}
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-[10px] text-gray-500">{{ (sender.first_name ~ ' ' ~ sender.last_name) if sender else '?' }}</div>
+              <div class="text-xs font-medium text-gray-900 truncate group-hover:text-loge-700">{{ rec.message.subject }}</div>
+            </div>
+            <div class="w-1.5 h-1.5 rounded-full bg-loge-500 flex-shrink-0 mt-2"></div>
+          </a>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+      <!-- Agenda à venir (compact) -->
+      {% if upcoming_events %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden shrink-0">
+        <div class="px-4 py-2.5 border-b border-gray-100 flex items-center justify-between">
+          <h3 class="text-xs font-semibold text-gray-700">📅 Agenda</h3>
+          <a href="/calendar/list" class="text-[10px] text-loge-600 hover:text-loge-800 font-medium">Voir tout →</a>
+        </div>
+        <div class="divide-y divide-gray-50">
+          {% for ev in upcoming_events[:3] %}
+          <a href="/calendar/events/{{ ev.id }}"
+             class="flex items-center gap-2.5 px-4 py-2 hover:bg-gray-50 transition-colors group">
+            <div class="w-8 h-8 rounded-lg bg-loge-50 flex flex-col items-center justify-center flex-shrink-0">
+              <span class="text-xs font-black text-loge-700 leading-none">{{ ev.start_datetime.strftime('%d') }}</span>
+              <span class="text-loge-400 leading-none" style="font-size:8px;">{{ ev.start_datetime.strftime('%b') | upper }}</span>
+            </div>
+            <div class="flex-1 min-w-0">
+              <div class="text-xs font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ ev.title }}</div>
+              {% if not ev.all_day %}<div class="text-[10px] text-gray-400">{{ ev.start_datetime.strftime('%H:%M') }}</div>{% endif %}
+            </div>
+          </a>
+          {% endfor %}
+        </div>
       </div>
       {% endif %}
 
     </div>
   </div>
-
-
-  <!-- ════════════════════════════════════════════════════════
-       LIGNE 2 : Alertes absences + Maçons passants récents
-  ════════════════════════════════════════════════════════ -->
-  {% if alert_members or recent_visitors %}
-  <div class="grid lg:grid-cols-2 gap-4">
-
-    <!-- Alertes absences (managers seulement) -->
-    {% if alert_members %}
-    <div class="bg-white rounded-2xl border border-red-100 shadow-sm overflow-hidden">
-      <div class="px-5 py-3.5 border-b border-red-100 bg-red-50/60 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-red-700 flex items-center gap-2">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m-9.303 3.376c-.866 1.5.217 3.374 1.948 3.374h14.71c1.73 0 2.813-1.874 1.948-3.374L13.949 3.378c-.866-1.5-3.032-1.5-3.898 0L2.697 16.126zM12 15.75h.007v.008H12v-.008z"/>
-          </svg>
-          Absences à suivre
-        </h3>
-        <a href="/attendance/" class="text-xs text-red-500 hover:text-red-700 font-medium">Voir tout →</a>
-      </div>
-      <div class="divide-y divide-gray-50">
-        {% for item in alert_members[:5] %}
-        <div class="flex items-center gap-3 px-5 py-3">
-          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-               style="background:linear-gradient(135deg,#dc2626,#b91c1c);">
-            {{ item.member.first_name[0] }}{{ item.member.last_name[0] }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <a href="/attendance/member/{{ item.member.id }}"
-               class="text-sm font-medium text-gray-800 hover:text-loge-700 truncate block">
-              {% if item.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-              {{ item.member.first_name }} {{ item.member.last_name }}
-            </a>
-          </div>
-          <span class="flex-shrink-0 text-xs font-bold text-red-600 bg-red-50 rounded-full px-2.5 py-1">
-            {{ item.absences }} abs.
-          </span>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Maçons passants récents -->
-    {% if recent_visitors %}
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <svg class="w-4 h-4 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
-          </svg>
-          Derniers maçons passants
-        </h3>
-        <a href="/attendance/" class="text-xs text-loge-600 hover:text-loge-800 font-medium">Assiduité →</a>
-      </div>
-      <div class="divide-y divide-gray-50">
-        {% for mv in recent_visitors %}
-        <div class="flex items-center gap-3 px-5 py-3">
-          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 text-loge-700"
-               style="background:rgba(59,91,219,0.1);">
-            {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
-          </div>
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-800 truncate">
-              {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-              {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
-              {% if mv.visitor.is_vm %}
-              <span class="text-xs text-loge-600 font-semibold ml-1">V∴M∴</span>
-              {% endif %}
-            </div>
-            <div class="text-xs text-gray-400 truncate">
-              {{ mv.visitor.lodge_name or '—' }}
-              {% if mv.visitor.orient_city %} · {{ mv.visitor.orient_city }}{% endif %}
-            </div>
-          </div>
-          <div class="flex-shrink-0 text-right">
-            <div class="text-xs text-gray-500">
-              <a href="/attendance/meeting/{{ mv.meeting_id }}/summary"
-                 class="hover:text-loge-600 transition-colors">
-                {{ mv.meeting.meeting_date.strftime('%d %b') }}
-              </a>
-            </div>
-          </div>
-        </div>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-  </div>
-  {% endif %}
-
-
-  <!-- ════════════════════════════════════════════════════════
-       LIGNE 3 : Agenda à venir + Messages non lus
-  ════════════════════════════════════════════════════════ -->
-  {% if upcoming_events or recent_unread_msgs %}
-  <div class="grid lg:grid-cols-2 gap-4">
-
-    <!-- Prochains événements agenda -->
-    {% if upcoming_events %}
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <svg class="w-4 h-4 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 3v2.25M17.25 3v2.25M3 18.75V7.5a2.25 2.25 0 012.25-2.25h13.5A2.25 2.25 0 0121 7.5v11.25m-18 0A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75m-18 0v-7.5A2.25 2.25 0 015.25 9h13.5A2.25 2.25 0 0121 11.25v7.5"/>
-          </svg>
-          Agenda à venir
-        </h3>
-        <a href="/calendar/list" class="text-xs text-loge-600 hover:text-loge-800 font-medium">Voir tout →</a>
-      </div>
-
-      {% set type_dot = {
-        'RITUAL':   'bg-loge-700',
-        'AGAPE':    'bg-orange-500',
-        'EXTERNAL': 'bg-teal-600',
-        'ADMIN':    'bg-gray-500',
-        'DEADLINE': 'bg-red-600',
-        'OTHER':    'bg-purple-600',
-      } %}
-      {% set type_label = {
-        'RITUAL':   'Tenue',
-        'AGAPE':    'Agape',
-        'EXTERNAL': 'Externe',
-        'ADMIN':    'Admin',
-        'DEADLINE': 'Échéance',
-        'OTHER':    'Événement',
-      } %}
-      {% set month_names = ['','Jan','Fév','Mar','Avr','Mai','Juin','Juil','Août','Sep','Oct','Nov','Déc'] %}
-
-      <div class="divide-y divide-gray-50">
-        {% for ev in upcoming_events %}
-        <a href="/calendar/events/{{ ev.id }}"
-           class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors group">
-
-          {# Mini-calendrier date #}
-          <div class="w-10 h-10 rounded-xl flex flex-col items-center justify-center flex-shrink-0
-                      {% if ev.event_type.value == 'RITUAL' %}bg-loge-50
-                      {% elif ev.event_type.value == 'AGAPE' %}bg-orange-50
-                      {% elif ev.event_type.value == 'DEADLINE' %}bg-red-50
-                      {% else %}bg-gray-100{% endif %}">
-            <span class="text-sm font-black leading-none
-                         {% if ev.event_type.value == 'RITUAL' %}text-loge-700
-                         {% elif ev.event_type.value == 'AGAPE' %}text-orange-600
-                         {% elif ev.event_type.value == 'DEADLINE' %}text-red-600
-                         {% else %}text-gray-600{% endif %}">
-              {{ ev.start_datetime.strftime('%d') }}
-            </span>
-            <span class="text-gray-400 leading-none" style="font-size:9px;">
-              {{ month_names[ev.start_datetime.month] | upper }}
-            </span>
-          </div>
-
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-semibold text-gray-800 group-hover:text-loge-700 truncate transition-colors">
-              {{ ev.title }}
-            </div>
-            <div class="flex items-center gap-2 mt-0.5 flex-wrap">
-              {% if not ev.all_day %}
-              <span class="text-xs text-gray-400">{{ ev.start_datetime.strftime('%H:%M') }}</span>
-              {% endif %}
-              {% if ev.location %}
-              <span class="text-xs text-gray-400 truncate">📍 {{ ev.location }}</span>
-              {% endif %}
-              {% if ev.meeting_url %}
-              <span class="text-xs text-indigo-500 font-medium">🎥 Visio</span>
-              {% endif %}
-            </div>
-          </div>
-
-          <span class="flex-shrink-0 text-[10px] font-semibold px-2 py-0.5 rounded-full text-white {{ type_dot.get(ev.event_type.value, 'bg-gray-400') }}">
-            {{ type_label.get(ev.event_type.value, 'Evt') }}
-          </span>
-        </a>
-        {% endfor %}
-      </div>
-    </div>
-    {% endif %}
-
-    <!-- Messages non lus -->
-    {% if recent_unread_msgs %}
-    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-      <div class="px-5 py-3.5 border-b border-gray-100 flex items-center justify-between">
-        <h3 class="text-sm font-semibold text-gray-800 flex items-center gap-2">
-          <svg class="w-4 h-4 text-loge-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M21.75 6.75v10.5a2.25 2.25 0 01-2.25 2.25h-15a2.25 2.25 0 01-2.25-2.25V6.75m19.5 0A2.25 2.25 0 0019.5 4.5h-15a2.25 2.25 0 00-2.25 2.25m19.5 0v.243a2.25 2.25 0 01-1.07 1.916l-7.5 4.615a2.25 2.25 0 01-2.36 0L3.32 8.91a2.25 2.25 0 01-1.07-1.916V6.75"/>
-          </svg>
-          Messages non lus
-          {% if global_unread_messages > 0 %}
-          <span class="inline-flex items-center justify-center w-5 h-5 rounded-full bg-red-500 text-white text-[10px] font-bold">
-            {{ global_unread_messages if global_unread_messages <= 99 else '99+' }}
-          </span>
-          {% endif %}
-        </h3>
-        <a href="/messages/" class="text-xs text-loge-600 hover:text-loge-800 font-medium">Messagerie →</a>
-      </div>
-
-      <div class="divide-y divide-gray-50">
-        {% for rec in recent_unread_msgs %}
-        {% set sender = recent_senders_map.get(rec.message.sender_id) %}
-        <a href="/messages/{{ rec.message_id }}"
-           class="flex items-start gap-3 px-5 py-3 hover:bg-loge-50/50 transition-colors group">
-
-          {# Avatar expéditeur #}
-          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
-               style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-            {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name[0] }}{% else %}?{% endif %}
-          </div>
-
-          <div class="flex-1 min-w-0">
-            <div class="flex items-center justify-between gap-2">
-              <span class="text-xs font-semibold text-gray-700 truncate">
-                {{ (sender.first_name ~ ' ' ~ sender.last_name) if sender else 'Expéditeur inconnu' }}
-              </span>
-              <span class="text-[10px] text-gray-400 flex-shrink-0">
-                {{ rec.message.sent_at.strftime('%d/%m %H:%M') if rec.message.sent_at else '' }}
-              </span>
-            </div>
-            <div class="text-sm font-medium text-gray-900 truncate group-hover:text-loge-700 transition-colors">
-              {{ rec.message.subject }}
-            </div>
-            <div class="text-xs text-gray-400 truncate mt-0.5">
-              {{ rec.message.body[:80] }}…
-            </div>
-          </div>
-
-          {# Pastille non lu #}
-          <div class="w-2 h-2 rounded-full bg-loge-500 flex-shrink-0 mt-2"></div>
-        </a>
-        {% endfor %}
-      </div>
-
-      {% if global_unread_messages > 4 %}
-      <div class="px-5 py-2.5 bg-gray-50 border-t border-gray-100 text-center">
-        <a href="/messages/" class="text-xs text-loge-600 hover:text-loge-800 font-medium">
-          Voir {{ global_unread_messages - 4 }} autre{{ 's' if global_unread_messages - 4 > 1 }} message{{ 's' if global_unread_messages - 4 > 1 }} non lu{{ 's' if global_unread_messages - 4 > 1 }} →
-        </a>
-      </div>
-      {% endif %}
-    </div>
-    {% endif %}
-
-  </div>
-  {% endif %}
 
 </div>
 {% endblock %}
