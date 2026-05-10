@@ -17,6 +17,7 @@ from app.database import get_db
 from app.dependencies import (
     require_auth, can_manage_meeting, can_lock_meeting,
 )
+from app.models.reports import MeetingReport
 from app.models.meetings import (
     Meeting, Attendance, AttendanceStatus, DegreeAttended,
     MeetingGrade, MeetingType, MeetingDegree,
@@ -216,6 +217,15 @@ async def meeting_detail(
     present_count = sum(1 for a in meeting.attendances if a.status.value == "PRESENT")
     excused_count = sum(1 for a in meeting.attendances if a.status.value == "EXCUSED")
 
+    # PV de la tenue
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    from app.routers.reports import _can_write as _report_can_write, _can_approve as _report_can_approve
+    can_write_report = _report_can_write(user, member)
+    can_approve_report = _report_can_approve(user, member)
+
     return templates.TemplateResponse(request, "pages/meetings/detail.html", {
         "current_member": member,
         "current_user": user,
@@ -230,6 +240,9 @@ async def meeting_detail(
         "can_manage": can_manage_meeting(member) or user.is_admin,
         "can_lock": can_lock_meeting(member),
         "registration_url": f"{request.base_url}inscription/{meeting.token}",
+        "report": report,
+        "can_write_report": can_write_report,
+        "can_approve_report": can_approve_report,
     })
 
 

@@ -141,6 +141,50 @@
       </div>
       {% endif %}
 
+      <!-- ── Procès-Verbal ─────────────────────────────────────────────── -->
+      {% if can_write_report or (report and report.status.value == 'APPROUVE') %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <div class="flex items-center justify-between gap-3">
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-lg bg-loge-50 flex items-center justify-center shrink-0">
+              <i class="ti ti-file-description text-loge-600 text-lg"></i>
+            </div>
+            <div>
+              <p class="text-sm font-semibold text-gray-800">Procès-Verbal</p>
+              <p class="text-xs text-gray-400">
+                {% if not report %}Aucun PV rédigé
+                {% elif report.status.value == 'BROUILLON' %}✎ Brouillon en cours
+                {% elif report.status.value == 'SOUMIS' %}
+                  <span class="text-amber-600">⏳ En attente d'approbation V∴M∴</span>
+                {% else %}
+                  <span class="text-green-600">✓ Approuvé — {{ report.approved_at.strftime('%d/%m/%Y') if report.approved_at }}</span>
+                {% endif %}
+              </p>
+            </div>
+          </div>
+          <div class="flex gap-2 shrink-0">
+            {% if can_approve_report and report and report.status.value == 'SOUMIS' %}
+            <form method="post" action="/reports/meeting/{{ meeting.id }}/approve"
+                  onsubmit="return confirm('Approuver ce PV et l\'archiver en bibliothèque ?')">
+              <button type="submit"
+                      class="bg-green-600 text-white text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-green-700 transition-colors">
+                ✓ Approuver
+              </button>
+            </form>
+            {% endif %}
+            <a href="{% if can_write_report and (not report or report.status.value == 'BROUILLON') %}/reports/meeting/{{ meeting.id }}/edit{% else %}/reports/meeting/{{ meeting.id }}{% endif %}"
+               class="text-xs font-medium px-3 py-1.5 rounded-lg border transition-colors
+                      {% if not report and can_write_report %}bg-loge-700 text-white border-loge-700 hover:bg-loge-800
+                      {% else %}bg-white text-gray-600 border-gray-200 hover:bg-gray-50{% endif %}">
+              {% if not report and can_write_report %}✎ Rédiger
+              {% elif can_write_report and report.status.value == 'BROUILLON' %}✎ Continuer
+              {% else %}Lire →{% endif %}
+            </a>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
       <!-- Lien d'inscription -->
       {% if can_manage and not meeting.is_locked %}
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">

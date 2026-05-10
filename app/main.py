@@ -21,8 +21,10 @@ from app.routers import chat as chat_router
 from app.routers import sharing as sharing_router
 from app.routers import news as news_router
 from app.routers import polls as polls_router
+from app.routers import reports as reports_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
+import app.models.reports        # noqa: F401
 import app.models.lodge_calendar  # noqa: F401
 import app.models.groups          # noqa: F401
 import app.models.documents       # noqa: F401
@@ -116,6 +118,10 @@ async def lifespan(app: FastAPI):
             await conn.exec_driver_sql(
                 "ALTER TABLE lodge_events ADD COLUMN meeting_url VARCHAR(500)"
             )
+        if "is_personal" not in cols_ev:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_events ADD COLUMN is_personal BOOLEAN DEFAULT 0"
+            )
 
         # ── Tracé de tenue — corps narratif ────────────────────────────────
         r_mtg = await conn.exec_driver_sql("PRAGMA table_info(meetings)")
@@ -138,6 +144,10 @@ async def lifespan(app: FastAPI):
         if "group_id" not in cols_df:
             await conn.exec_driver_sql(
                 "ALTER TABLE doc_folders ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id)"
+            )
+        if "personal_owner_id" not in cols_df:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN personal_owner_id INTEGER REFERENCES members(id) ON DELETE CASCADE"
             )
 
         # ── GED — table doc_shares (partage externe) ──────────────────────────
@@ -234,6 +244,62 @@ async def lifespan(app: FastAPI):
                 "ALTER TABLE lodge_settings ADD COLUMN visio_room_prefix VARCHAR(100)"
             )
 
+        # ── Actualités & Sondages — target_group_id ───────────────────────────
+        r_na = await conn.exec_driver_sql("PRAGMA table_info(news_articles)")
+        cols_na = [row[1] for row in r_na.fetchall()]
+        if "target_group_id" not in cols_na:
+            await conn.exec_driver_sql(
+                "ALTER TABLE news_articles ADD COLUMN target_group_id INTEGER REFERENCES lodge_groups(id)"
+            )
+
+        r_pl = await conn.exec_driver_sql("PRAGMA table_info(polls)")
+        cols_pl = [row[1] for row in r_pl.fetchall()]
+        if "target_group_id" not in cols_pl:
+            await conn.exec_driver_sql(
+                "ALTER TABLE polls ADD COLUMN target_group_id INTEGER REFERENCES lodge_groups(id)"
+            )
+
+        # Table correspondants externes
+        await conn.exec_driver_sql("""
+            CREATE TABLE IF NOT EXISTS external_contacts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                name VARCHAR(200) NOT NULL,
+                email VARCHAR(200) NOT NULL,
+                organization VARCHAR(200),
+                contact_type VARCHAR(20) NOT NULL DEFAULT 'EXTERNAL',
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                notes TEXT,
+                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
+            )
+        """)
+
+        # ── PV de tenues ──────────────────────────────────────────────────────
+        await conn.exec_driver_sql("""
+            CREATE TABLE IF NOT EXISTS meeting_reports (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                meeting_id INTEGER NOT NULL UNIQUE REFERENCES meetings(id) ON DELETE CASCADE,
+                content TEXT,
+                status VARCHAR(20) NOT NULL DEFAULT 'BROUILLON',
+                author_id INTEGER REFERENCES members(id),
+                created_at DATETIME DEFAULT (datetime('now')),
+                updated_at DATETIME,
+                submitted_at DATETIME,
+                approved_by_id INTEGER REFERENCES members(id),
+                approved_at DATETIME,
+                archived_doc_id INTEGER REFERENCES documents(id) ON DELETE SET NULL
+            )
+        """)
+        await conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_meeting_reports_meeting_id ON meeting_reports(meeting_id)"
+        )
+
+        r_us = await conn.exec_driver_sql("PRAGMA table_info(users)")
+        cols_us = [row[1] for row in r_us.fetchall()]
+        if "reset_token" not in cols_us:
+            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token VARCHAR(100)")
+        if "reset_token_expires" not in cols_us:
+            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME")
+
     # ── Canal "Général" par défaut ─────────────────────────────────────────
     async with engine.begin() as conn:
         from sqlalchemy import text
@@ -326,6 +392,7 @@ app.include_router(sharing_router.router)          # /documents/file/{id}/share/
 app.include_router(sharing_router.public_router)   # /share/{token} — accès public sans auth
 app.include_router(news_router.router)
 app.include_router(polls_router.router)
+app.include_router(reports_router.router)
 # app.include_router(forum.router)
 # app.include_router(admin.router)
 
@@ -605,11 +672,15 @@ async def home(
         .limit(20)
     )
     _active_polls = _polls_r.scalars().all()
-    _active_polls_filtered = [p for p in _active_polls if _poll_can_access(p, member, user.is_admin)]
+    _active_polls_filtered = []
+    for _p in _active_polls:
+        if await _poll_can_access(_p, member, user.is_admin, db):
+            _active_polls_filtered.append(_p)
     _voted_ids_r = await db.execute(
         select(_PollVote.poll_id).where(_PollVote.member_id == member.id)
     )
     _voted_ids = {r[0] for r in _voted_ids_r.all()}
+    active_polls = _active_polls_filtered[:5]
     pending_polls = [p for p in _active_polls_filtered if p.id not in _voted_ids][:3]
 
     return templates.TemplateResponse(request, "pages/dashboard.html", {
@@ -649,7 +720,9 @@ async def home(
         "recent_unread_msgs": recent_unread_msgs,
         "recent_senders_map": recent_senders_map,
         "recent_news": recent_news,
+        "active_polls": active_polls,
         "pending_polls": pending_polls,
+        "voted_poll_ids": _voted_ids,
     })
 
 
