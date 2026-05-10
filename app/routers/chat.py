@@ -324,6 +324,25 @@ async def chat_send(
     db.add(msg)
     await db.commit()
 
+    # ── Push notifications aux membres du canal (sauf l'expéditeur) ──────
+    try:
+        from app.services.push import send_push_broadcast
+        members_r = await db.execute(
+            select(ChatChannelMember.member_id).where(ChatChannelMember.channel_id == channel_id)
+        )
+        member_ids = [row[0] for row in members_r.all() if row[0] != member.id]
+        if member_ids:
+            sender_name = f"{member.first_name} {member.last_name}"
+            push_body = " ".join(content.split())[:140]
+            await send_push_broadcast(
+                db, member_ids,
+                f"💬 {channel.name} — {sender_name}",
+                push_body,
+                f"/chat/{channel_id}",
+            )
+    except Exception:
+        pass
+
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
 

@@ -62,6 +62,9 @@ class LodgeSettings(Base):
     attendance_threshold_warn:   Mapped[int] = mapped_column(Integer, default=70)
     attendance_threshold_danger: Mapped[int] = mapped_column(Integer, default=50)
 
+    # Sauvegarde
+    admin_email: Mapped[Optional[str]] = mapped_column(String(200))  # destinataire des backups
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )
@@ -90,3 +93,19 @@ class MasonicYear(Base):
 
     def __repr__(self) -> str:
         return f"<MasonicYear {self.label}>"
+
+
+class ExternalContact(Base):
+    """Correspondants externes — institutionnels ou FF/SS passants opt-in."""
+    __tablename__ = "external_contacts"
+
+    id: Mapped[int]  = mapped_column(primary_key=True)
+    name: Mapped[str] = mapped_column(String(200))
+    email: Mapped[str] = mapped_column(String(200))
+    organization: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    contact_type: Mapped[str] = mapped_column(String(20), default="EXTERNAL")
+    # EXTERNAL = correspondant institutionnel (obédience, loge amie…)
+    # VISITOR  = F∴/S∴ passant·e ayant demandé à recevoir les programmes
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+    notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

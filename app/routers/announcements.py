@@ -80,6 +80,25 @@ async def create_announcement(
     )
     db.add(ann)
     await db.commit()
+    await db.refresh(ann)
+
+    # Push notification à tous les membres actifs
+    try:
+        from app.models.identity import MemberStatus
+        from app.services.push import send_push_broadcast
+        r = await db.execute(
+            select(Member.id).where(Member.status == MemberStatus.ACTIVE, Member.id != member.id)
+        )
+        ids = [row[0] for row in r.all()]
+        await send_push_broadcast(
+            db, ids,
+            f"📰 {ann.title}",
+            (ann.content or "")[:140],
+            "/announcements/",
+        )
+    except Exception:
+        pass
+
     return RedirectResponse(url="/announcements/?created=1", status_code=303)
 
 

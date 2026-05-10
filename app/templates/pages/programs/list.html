@@ -9,7 +9,7 @@
       <h1 class="text-2xl font-bold text-gray-900">Programmes mensuels</h1>
       <p class="text-sm text-gray-500">Documents distribuables avec URLs d'inscription</p>
     </div>
-    {% if is_admin %}
+    {% if can_manage_programs %}
     <a href="/programs/create"
        class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
       + Nouveau programme
@@ -21,7 +21,7 @@
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 px-5 py-16 text-center">
     <div class="text-4xl mb-4">📄</div>
     <div class="text-gray-500 text-sm mb-4">Aucun programme créé</div>
-    {% if is_admin %}
+    {% if can_manage_programs %}
     <a href="/programs/create" class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800">
       Créer le premier programme
     </a>
@@ -60,7 +60,7 @@
            class="inline-flex items-center gap-1.5 border border-loge-200 text-loge-700 px-3 py-1.5 rounded-lg text-sm hover:bg-loge-50">
           🖨 Imprimer
         </a>
-        {% if is_admin %}
+        {% if can_manage_programs %}
         <form method="post" action="/programs/{{ prog.id }}/delete"
               onsubmit="return confirm('Supprimer ce programme ?')">
           <button type="submit" class="text-gray-300 hover:text-red-500 p-1.5 rounded text-sm">✕</button>

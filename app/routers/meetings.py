@@ -830,6 +830,25 @@ async def meeting_create(
             db.add(deg)
 
     await db.commit()
+
+    # ── Push notification aux membres concernés (grade >= meeting.grade) ─────
+    try:
+        from app.models.identity import MemberStatus, MasonicGrade
+        from app.services.push import send_push_broadcast
+        GRADE_LEVEL = {MasonicGrade.APPRENTI: 1, MasonicGrade.COMPAGNON: 2, MasonicGrade.MAITRE: 3}
+        meeting_level = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "BLANCHE": 1}.get(new_meeting.grade.value, 1)
+        r = await db.execute(select(Member).where(Member.status == MemberStatus.ACTIVE))
+        eligible_ids = [
+            m.id for m in r.scalars().all()
+            if m.id != member.id and GRADE_LEVEL.get(m.masonic_grade, 0) >= meeting_level
+        ]
+        date_str = d.strftime("%d/%m/%Y")
+        title_push = f"📅 Nouvelle tenue le {date_str}"
+        body_push = (new_meeting.title or new_meeting.theme or f"Tenue {new_meeting.grade.value.lower()}")[:140]
+        await send_push_broadcast(db, eligible_ids, title_push, body_push, f"/meetings/{new_meeting.id}")
+    except Exception:
+        pass
+
     return RedirectResponse(url=f"/meetings/{new_meeting.id}", status_code=302)
 
 

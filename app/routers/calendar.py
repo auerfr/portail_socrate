@@ -14,10 +14,11 @@ from app.database import get_db
 from app.dependencies import require_auth
 from app.models.lodge import LodgeSettings
 from app.models.lodge_calendar import EventType, EventVisibility, LodgeEvent
-from app.models.identity import LodgeFunction, MasonicGrade, Member
+from app.models.identity import LodgeFunction, MasonicGrade, Member, MemberStatus
 from app.models.meetings import Meeting
 from app.models.groups import LodgeGroup, GroupType
 from app.routers.groups import resolve_group_member_ids, ensure_system_groups
+from app.services.anniversaires import compute_anniversaires
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 templates = Jinja2Templates(directory="app/templates")
@@ -36,6 +37,9 @@ OFFICER_FUNCTIONS = {
 
 async def _event_visible_to(event: LodgeEvent, member: Member, db: AsyncSession, user) -> bool:
     """Renvoie True si l'événement est visible pour ce membre."""
+    if event.is_personal:
+        return user.is_admin or event.created_by_id == member.id
+
     v = event.visibility
 
     if v == EventVisibility.ALL:
@@ -83,6 +87,42 @@ def _meeting_to_event(m: Meeting) -> dict:
     }
 
 
+def _anniv_to_event(a) -> dict:
+    """Convertit un Anniversaire en dict pseudo-event pour le calendrier."""
+    if a.event_label == "Naissance":
+        title = f"🎂 {a.first_name} {a.last_name} — {a.years} ans"
+    else:
+        title = f"🎖 {a.first_name} {a.last_name} — {a.years} ans de {a.event_label.lower()}"
+    return {
+        "id": f"anniv_{a.member_id}_{a.event_label}",
+        "title": title,
+        "date": a.anniv_date,
+        "type": "ANNIV",
+        "location": None,
+        "url": "/anniversaires/",
+        "is_meeting": False,
+        "all_day": True,
+        "start_datetime": None,
+        "_anniv": a,
+    }
+
+
+async def _load_anniversaires_in_range(db: AsyncSession, date_from: date, date_to: date) -> list[dict]:
+    """Charge les anniversaires (civils + maçonniques) tombant dans [date_from, date_to]."""
+    r = await db.execute(select(Member).where(Member.status == MemberStatus.ACTIVE))
+    members = list(r.scalars().all())
+    out = []
+    # On peut couvrir plusieurs années si la plage chevauche un nouvel an
+    years = {date_from.year, date_to.year}
+    for y in years:
+        ref = date(y, 1, 1)
+        all_ann = compute_anniversaires(members, today=ref)
+        for a in all_ann:
+            if date_from <= a.anniv_date <= date_to:
+                out.append(_anniv_to_event(a))
+    return out
+
+
 def _lodge_event_to_dict(e: LodgeEvent) -> dict:
     """Convertit un LodgeEvent en dict unifié."""
     return {
@@ -104,7 +144,12 @@ def _lodge_event_to_dict(e: LodgeEvent) -> dict:
 
 
 def _can_create_event(user, member: Member) -> bool:
-    """VM, Secrétaire ou admin peuvent créer des événements."""
+    """Tous les membres peuvent créer des événements (personnels ou de groupe)."""
+    return True
+
+
+def _can_create_shared_event(user, member: Member) -> bool:
+    """VM, Secrétaire, surveillants ou admin peuvent créer des événements visibles par tous."""
     if user.is_admin:
         return True
     return member.lodge_function in (
@@ -198,6 +243,10 @@ async def calendar_index(
         d = e.start_datetime.date()
         events_by_day.setdefault(d, []).append(ev)
 
+    # Anniversaires (civils + maçonniques) — visibles par tous
+    for ev in await _load_anniversaires_in_range(db, date_from, date_to):
+        events_by_day.setdefault(ev["date"], []).append(ev)
+
     month_names = [
         "", "Janvier", "Février", "Mars", "Avril", "Mai", "Juin",
         "Juillet", "Août", "Septembre", "Octobre", "Novembre", "Décembre"
@@ -257,6 +306,9 @@ async def calendar_list(
             continue
         all_events.append(_lodge_event_to_dict(e))
 
+    # Anniversaires
+    all_events.extend(await _load_anniversaires_in_range(db, today, end_date))
+
     all_events.sort(key=lambda x: x["date"] or date.min)
 
     # Grouper par mois
@@ -296,8 +348,6 @@ async def calendar_compose(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not _can_create_event(user, member):
-        raise HTTPException(status_code=403, detail="Accès refusé")
 
     await ensure_system_groups(db)
     await db.commit()
@@ -307,10 +357,20 @@ async def calendar_compose(
     )
     all_groups = groups_r.scalars().all()
 
+    # Groupes auxquels le membre appartient (pour la sélection si non-privilégié)
+    from app.routers.groups import resolve_group_member_ids
+    member_groups = []
+    for g in all_groups:
+        ids = await resolve_group_member_ids(db, g)
+        if member.id in ids:
+            member_groups.append(g)
+
     ls_r = await db.execute(select(LodgeSettings).limit(1))
     lodge_cfg = ls_r.scalar_one_or_none()
     visio_server = lodge_cfg.visio_server_url.rstrip("/") if lodge_cfg and lodge_cfg.visio_server_url else ""
     visio_prefix = (lodge_cfg.visio_room_prefix or "loge") if lodge_cfg else "loge"
+
+    can_manage = _can_create_shared_event(user, member)
 
     return templates.TemplateResponse(request, "pages/calendar/compose.html", {
         "current_member": member,
@@ -318,6 +378,8 @@ async def calendar_compose(
         "event_types": EventType,
         "event_visibilities": EventVisibility,
         "all_groups": all_groups,
+        "member_groups": member_groups,
+        "can_manage_calendar": can_manage,
         "today_str": date.today().isoformat(),
         "visio_server": visio_server,
         "visio_prefix": visio_prefix,
@@ -343,10 +405,24 @@ async def calendar_create_event(
     visibility: str = Form(...),
     visibility_group_id: Optional[int] = Form(None),
     meeting_url: Optional[str] = Form(None),
+    is_personal: Optional[str] = Form(None),
 ):
     user, member = ctx
-    if not _can_create_event(user, member):
-        raise HTTPException(status_code=403, detail="Accès refusé")
+    personal = is_personal in ("on", "1", "true")
+
+    # Validation : les non-privilégiés ne peuvent créer que des événements
+    # personnels ou des événements de groupe dont ils font partie
+    if not personal and not _can_create_shared_event(user, member):
+        if visibility != "GROUP":
+            raise HTTPException(status_code=403, detail="Vous ne pouvez créer que des événements personnels ou de groupe.")
+        # Pour GROUP : vérifier que le membre appartient au groupe
+        if visibility_group_id:
+            from app.routers.groups import resolve_group_member_ids
+            grp_obj = await db.get(LodgeGroup, visibility_group_id)
+            if grp_obj:
+                ids = await resolve_group_member_ids(db, grp_obj)
+                if member.id not in ids:
+                    raise HTTPException(status_code=403, detail="Vous n'appartenez pas à ce groupe.")
 
     is_all_day = all_day == "on" or all_day == "1" or all_day is True
 
@@ -391,6 +467,7 @@ async def calendar_create_event(
         event_type=EventType(event_type),
         visibility=vis,
         visibility_group_id=grp_id,
+        is_personal=personal,
         created_by_id=member.id,
     )
     db.add(event)
@@ -626,6 +703,16 @@ async def calendar_export_ics(
             lines.append(f"DESCRIPTION:{_ics_escape(e.description)}")
         lines.append(f"CATEGORIES:{e.event_type.value}")
         lines.append("END:VEVENT")
+
+    # Anniversaires (12 mois à venir)
+    anniv_to = today + timedelta(days=365)
+    for ev in await _load_anniversaires_in_range(db, today, anniv_to):
+        a = ev["_anniv"]
+        uid = f"anniv-{a.member_id}-{a.event_label}-{a.anniv_date.year}@portail-socrate"
+        summary = _ics_escape(ev["title"])
+        dtstart = f"DTSTART;VALUE=DATE:{_format_ics_date(a.anniv_date)}"
+        dtend = f"DTEND;VALUE=DATE:{_format_ics_date(a.anniv_date + timedelta(days=1))}"
+        lines += ["BEGIN:VEVENT", f"UID:{uid}", f"SUMMARY:{summary}", dtstart, dtend, "CATEGORIES:ANNIV", "END:VEVENT"]
 
     lines.append("END:VCALENDAR")
     ics_content = "\r\n".join(lines) + "\r\n"

@@ -60,6 +60,8 @@ class LodgeEvent(Base):
         ForeignKey("masonic_years.id", ondelete="SET NULL"), nullable=True
     )
 
+    is_personal: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_by_id: Mapped[int] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

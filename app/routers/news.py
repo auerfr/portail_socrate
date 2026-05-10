@@ -11,22 +11,78 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_auth
 from app.models.content import NewsArticle
-from app.models.identity import Member, MasonicGrade
+from app.models.groups import LodgeGroup, GroupMembership, GroupType
+from app.models.identity import Member, MasonicGrade, LodgeFunction
 
 router = APIRouter(prefix="/news", tags=["news"])
 templates = Jinja2Templates(directory="app/templates")
 
 _GRADE_ORDER = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3}
 
+_OFFICER_FUNCTIONS = {
+    LodgeFunction.VM, LodgeFunction.PREMIER_S, LodgeFunction.SECOND_S,
+    LodgeFunction.ORATEUR, LodgeFunction.SECRETAIRE, LodgeFunction.TRESORIER,
+    LodgeFunction.EXPERT, LodgeFunction.MAITRE_CEREMONIES, LodgeFunction.HARMONISTE,
+    LodgeFunction.HOSPITALIER, LodgeFunction.TUILEUR, LodgeFunction.ARCHITECTE,
+    LodgeFunction.MAITRE_BANQUETS,
+}
 
-def _can_read(article: NewsArticle, member: Member, is_admin: bool) -> bool:
+
+def _parse_target(target: str) -> tuple[Optional[str], Optional[int]]:
+    """Retourne (min_grade, target_group_id) depuis la valeur du select."""
+    if not target:
+        return None, None
+    if target.startswith("group:"):
+        try:
+            return None, int(target[6:])
+        except ValueError:
+            return None, None
+    return target, None
+
+
+def _target_value(article: NewsArticle) -> str:
+    if article.target_group_id:
+        return f"group:{article.target_group_id}"
+    return article.min_grade or ""
+
+
+async def _check_group_access(member: Member, group_id: int, db: AsyncSession) -> bool:
+    group = await db.get(LodgeGroup, group_id)
+    if not group:
+        return False
+    if group.group_type == GroupType.GRADE:
+        if group.grade_filter is None:
+            return True
+        return bool(member.masonic_grade and member.masonic_grade.value == group.grade_filter)
+    elif group.group_type == GroupType.COUNCIL:
+        return member.lodge_function in _OFFICER_FUNCTIONS
+    elif group.group_type == GroupType.PAIR:
+        import json
+        functions = set(json.loads(group.function_filter or "[]"))
+        return bool(member.lodge_function and member.lodge_function.value in functions)
+    else:
+        r = await db.execute(
+            select(GroupMembership).where(
+                GroupMembership.group_id == group_id,
+                GroupMembership.member_id == member.id,
+            )
+        )
+        return r.scalar_one_or_none() is not None
+
+
+async def _can_read(article: NewsArticle, member: Member, is_admin: bool, db: AsyncSession) -> bool:
     if is_admin:
         return True
-    if not article.min_grade:
-        return True
-    member_level = _GRADE_ORDER.get(member.masonic_grade.value, 0)
-    required = _GRADE_ORDER.get(article.min_grade, 0)
-    return member_level >= required
+    if article.target_group_id:
+        return await _check_group_access(member, article.target_group_id, db)
+    if article.min_grade:
+        return _GRADE_ORDER.get(member.masonic_grade.value, 0) >= _GRADE_ORDER.get(article.min_grade, 0)
+    return True
+
+
+async def _load_groups(db: AsyncSession) -> list[LodgeGroup]:
+    r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
+    return r.scalars().all()
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -47,16 +103,17 @@ async def news_list(
         .order_by(NewsArticle.is_featured.desc(), NewsArticle.created_at.desc())
     )
     all_articles = r.scalars().all()
-    articles = [a for a in all_articles if _can_read(a, member, user.is_admin)]
+    articles = []
+    for a in all_articles:
+        if await _can_read(a, member, user.is_admin, db):
+            articles.append(a)
 
-    # Charger les auteurs
     author_ids = {a.created_by_id for a in articles if a.created_by_id}
     authors_map: dict[int, Member] = {}
     if author_ids:
         ar = await db.execute(select(Member).where(Member.id.in_(author_ids)))
         authors_map = {m.id: m for m in ar.scalars().all()}
 
-    # Admin : tous les articles (y compris hors ligne) pour gestion
     admin_all = []
     if user.is_admin:
         ra = await db.execute(
@@ -77,6 +134,7 @@ async def news_list(
 async def news_new_form(
     request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
     if not user.is_admin:
@@ -85,6 +143,8 @@ async def news_new_form(
         "current_member": member,
         "current_user": user,
         "article": None,
+        "groups": await _load_groups(db),
+        "target_value": "",
     })
 
 
@@ -97,13 +157,14 @@ async def news_create(
     content: str = Form(""),
     is_featured: str = Form(""),
     is_online: str = Form(""),
-    min_grade: str = Form(""),
+    target: str = Form(""),
     publish_until: str = Form(""),
+    notify_members: str = Form(""),
 ):
     user, member = ctx
     if not user.is_admin:
         raise HTTPException(status_code=403)
-    # Convertir les sauts de ligne en <br> si pas déjà de balises HTML
+
     content_html = content.replace("\r\n", "\n").replace("\r", "\n")
     if "<" not in content_html:
         content_html = "<br>".join(content_html.split("\n"))
@@ -115,17 +176,34 @@ async def news_create(
         except ValueError:
             pass
 
+    min_grade, target_group_id = _parse_target(target)
+
     article = NewsArticle(
         title=title.strip(),
         content_html=content_html,
         is_featured=bool(is_featured),
         is_online=bool(is_online),
-        min_grade=min_grade or None,
+        min_grade=min_grade,
+        target_group_id=target_group_id,
         publish_until=pu,
         created_by_id=member.id,
     )
     db.add(article)
     await db.commit()
+    await db.refresh(article)
+
+    if notify_members:
+        from app.utils.notifications import send_notification
+        view_url = str(request.base_url).rstrip("/") + f"/news/{article.id}"
+        await send_notification(
+            db, member.id,
+            f"📰 Nouvelle actualité : {article.title}",
+            f"Une nouvelle actualité a été publiée :\n\n{article.title}\n\n{view_url}",
+            min_grade=article.min_grade,
+            target_group_id=article.target_group_id,
+        )
+        await db.commit()
+
     return RedirectResponse(url="/news/", status_code=303)
 
 
@@ -140,7 +218,7 @@ async def news_detail(
     article = await db.get(NewsArticle, article_id)
     if not article:
         raise HTTPException(status_code=404)
-    if not _can_read(article, member, user.is_admin):
+    if not await _can_read(article, member, user.is_admin, db):
         raise HTTPException(status_code=403)
     author = await db.get(Member, article.created_by_id) if article.created_by_id else None
     return templates.TemplateResponse(request, "pages/news/detail.html", {
@@ -168,6 +246,8 @@ async def news_edit_form(
         "current_member": member,
         "current_user": user,
         "article": article,
+        "groups": await _load_groups(db),
+        "target_value": _target_value(article),
     })
 
 
@@ -180,7 +260,7 @@ async def news_update(
     content: str = Form(""),
     is_featured: str = Form(""),
     is_online: str = Form(""),
-    min_grade: str = Form(""),
+    target: str = Form(""),
     publish_until: str = Form(""),
 ):
     user, member = ctx
@@ -201,11 +281,13 @@ async def news_update(
         except ValueError:
             pass
 
+    min_grade, target_group_id = _parse_target(target)
     article.title = title.strip()
     article.content_html = content_html
     article.is_featured = bool(is_featured)
     article.is_online = bool(is_online)
-    article.min_grade = min_grade or None
+    article.min_grade = min_grade
+    article.target_group_id = target_group_id
     article.publish_until = pu
     await db.commit()
     return RedirectResponse(url="/news/", status_code=303)

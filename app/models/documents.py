@@ -73,6 +73,9 @@ class DocFolder(Base):
         ForeignKey("lodge_groups.id", ondelete="SET NULL"), nullable=True
     )
     order_position: Mapped[int]     = mapped_column(Integer, default=0)
+    personal_owner_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("members.id", ondelete="CASCADE"), nullable=True
+    )
 
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -136,3 +139,28 @@ class DocumentVersion(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     document: Mapped["Document"] = relationship(back_populates="versions")
+
+
+class DocShare(Base):
+    """Lien de partage externe pour un document de la GED."""
+    __tablename__ = "doc_shares"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
+    token: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    label: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
+    # Contrôle d'accès externe
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    max_uses: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)   # None = illimité
+    use_count: Mapped[int] = mapped_column(Integer, default=0)
+    password_hash: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    is_active: Mapped[bool] = mapped_column(Boolean, default=True)
+
+    created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    document: Mapped["Document"] = relationship()
+
+    def __repr__(self) -> str:
+        return f"<DocShare {self.token[:8]}… doc={self.document_id}>"

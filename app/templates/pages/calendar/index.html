@@ -69,6 +69,7 @@
       'ADMIN':    ('Administratif',     'bg-gray-500 text-white'),
       'DEADLINE': ('Échéance',          'bg-red-600 text-white'),
       'OTHER':    ('Autre',             'bg-purple-600 text-white'),
+      'ANNIV':    ('Anniversaire',      'bg-pink-500 text-white'),
     } %}
     {% for key, (label, cls) in type_labels.items() %}
     <span class="inline-flex items-center gap-1.5 px-2 py-0.5 rounded text-xs font-medium {{ cls }}">
@@ -114,6 +115,7 @@
           'ADMIN':    'bg-gray-500 text-white',
           'DEADLINE': 'bg-red-600 text-white',
           'OTHER':    'bg-purple-600 text-white',
+          'ANNIV':    'bg-pink-500 text-white',
         }.get(ev.type, 'bg-gray-400 text-white') %}
         <a href="{{ ev.url }}"
            class="block truncate text-[11px] px-1 py-0.5 rounded mb-0.5 {{ type_cls }} hover:opacity-80 transition-opacity cursor-pointer"
@@ -136,6 +138,7 @@
       'ADMIN':    ('Admin',       'bg-gray-500'),
       'DEADLINE': ('Échéance',    'bg-red-600'),
       'OTHER':    ('Autre',       'bg-purple-600'),
+      'ANNIV':    ('Anniv.',      'bg-pink-500'),
     } %}
     {% for week in weeks %}
       {% for day in week %}

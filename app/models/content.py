@@ -22,6 +22,7 @@ class NewsArticle(Base):
     publish_from: Mapped[Optional[datetime]] = mapped_column(DateTime)
     publish_until: Mapped[Optional[datetime]] = mapped_column(DateTime)
     min_grade: Mapped[Optional[str]] = mapped_column(String(50))
+    target_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lodge_groups.id"), nullable=True)
 
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -47,6 +48,7 @@ class Poll(Base):
     is_public_vote: Mapped[bool] = mapped_column(Boolean, default=False)  # vote public
     ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     min_grade: Mapped[Optional[str]]    = mapped_column(String(50))
+    target_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lodge_groups.id"), nullable=True)
 
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

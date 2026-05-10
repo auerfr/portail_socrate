@@ -232,8 +232,10 @@ class User(Base):
     password_hash: Mapped[str] = mapped_column(String(200))
     is_active: Mapped[bool]    = mapped_column(Boolean, default=True)
     is_admin: Mapped[bool]     = mapped_column(Boolean, default=False)
-    last_login_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
-    created_at: Mapped[datetime]              = mapped_column(DateTime, server_default=func.now())
+    last_login_at: Mapped[Optional[datetime]]    = mapped_column(DateTime)
+    created_at: Mapped[datetime]                 = mapped_column(DateTime, server_default=func.now())
+    reset_token: Mapped[Optional[str]]           = mapped_column(String(100), nullable=True)
+    reset_token_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
     member: Mapped["Member"] = relationship(back_populates="user")
 

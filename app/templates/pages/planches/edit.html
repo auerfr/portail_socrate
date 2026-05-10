@@ -1,0 +1,201 @@
+{% extends "base.html" %}
+{% block title %}{% if planche %}Modifier{% else %}Nouvelle planche{% endif %} — Portail Socrate{% endblock %}
+
+{% block head %}
+<style>
+  #planche-editor {
+    min-height: 400px;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13.5px;
+    line-height: 1.85;
+    color: #111;
+  }
+  #planche-editor:focus { outline: none; }
+  #planche-editor h2 { font-size: 1rem; color: #1a5252; margin: 1.2rem 0 0.4rem; font-weight: bold; }
+  #planche-editor p { margin: 0.3rem 0; }
+  .toolbar-btn {
+    padding: 4px 10px; border-radius: 6px; font-size: 12px;
+    border: 1px solid #e5e7eb; background: white; cursor: pointer;
+    transition: background 120ms;
+  }
+  .toolbar-btn:hover { background: #f3f4f6; }
+</style>
+{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto" x-data="plancheEditor()">
+
+  <nav class="text-sm text-gray-400 mb-4 flex items-center gap-2">
+    <a href="/planches/" class="hover:text-loge-700">Planches</a>
+    <span>›</span>
+    <span class="text-gray-700">{% if planche %}Modifier{% else %}Nouvelle planche{% endif %}</span>
+  </nav>
+
+  <h1 class="text-xl font-bold text-gray-900 mb-6">
+    {% if planche %}Modifier la planche{% else %}Déposer une planche{% endif %}
+  </h1>
+
+  <form method="post"
+        action="{% if planche %}/planches/{{ planche.id }}/edit{% else %}/planches/new{% endif %}"
+        enctype="multipart/form-data"
+        class="space-y-5">
+
+    <!-- Titre -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Titre <span class="text-red-400">*</span></label>
+      <input type="text" name="title" required
+             value="{{ planche.title if planche else '' }}"
+             placeholder="Titre de la planche…"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-loge-300 focus:outline-none">
+    </div>
+
+    <!-- Tenue liée -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Tenue associée <span class="text-gray-400 font-normal">(optionnel)</span></label>
+      <select name="meeting_id"
+              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:ring-2 focus:ring-loge-300 focus:outline-none bg-white">
+        <option value="">— Aucune tenue spécifique —</option>
+        {% for m in meetings %}
+        <option value="{{ m.id }}"
+          {% if planche and planche.meeting_id == m.id %}selected{% endif %}>
+          {{ m.meeting_date.strftime('%d/%m/%Y') }} — {{ m.type.value | replace('_',' ') | title }}
+        </option>
+        {% endfor %}
+      </select>
+    </div>
+
+    <!-- Grade minimum -->
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1">Accès minimum</label>
+      <div class="flex gap-3 flex-wrap">
+        {% for val, label in [('TOUS','Tous les membres'), ('APPRENTI','Apprentis et +'), ('COMPAGNON','Compagnons et +'), ('MAITRE','Maîtres seulement')] %}
+        <label class="flex items-center gap-2 text-sm cursor-pointer">
+          <input type="radio" name="grade" value="{{ val }}"
+                 {% if (planche and planche.grade.value == val) or (not planche and val == 'TOUS') %}checked{% endif %}
+                 class="accent-loge-700">
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
+    </div>
+
+    <!-- Mode : fichier ou texte -->
+    <div x-data="{ mode: '{{ 'file' if planche and planche.file_path else 'text' }}' }">
+      <label class="block text-sm font-medium text-gray-700 mb-2">Contenu</label>
+
+      <div class="flex gap-3 mb-4">
+        <button type="button" @click="mode='file'"
+                :class="mode==='file' ? 'bg-loge-700 text-white border-loge-700' : 'bg-white text-gray-600 border-gray-200'"
+                class="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border transition-colors">
+          📎 Déposer un fichier
+        </button>
+        <button type="button" @click="mode='text'"
+                :class="mode==='text' ? 'bg-loge-700 text-white border-loge-700' : 'bg-white text-gray-600 border-gray-200'"
+                class="flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg border transition-colors">
+          ✎ Rédiger en ligne
+        </button>
+      </div>
+
+      <!-- Upload fichier -->
+      <div x-show="mode==='file'" x-cloak>
+        {% if planche and planche.file_path %}
+        <div class="mb-3 flex items-center gap-3 bg-loge-50 border border-loge-100 rounded-xl px-4 py-3">
+          <span class="text-loge-700">📎</span>
+          <div class="min-w-0">
+            <p class="text-sm font-medium text-loge-800 truncate">{{ planche.original_filename }}</p>
+            {% if planche.file_size %}<p class="text-xs text-loge-600">{{ "%.1f"|format(planche.file_size/1048576) }} Mo</p>{% endif %}
+          </div>
+          <a href="/planches/{{ planche.id }}/download" target="_blank"
+             class="ml-auto text-xs text-loge-700 underline shrink-0">Télécharger</a>
+        </div>
+        <p class="text-xs text-gray-400 mb-2">Choisir un nouveau fichier pour remplacer :</p>
+        {% endif %}
+        <div class="border-2 border-dashed border-gray-200 rounded-xl p-6 text-center hover:border-loge-300 transition-colors">
+          <input type="file" name="upload" id="upload-input"
+                 accept=".pdf,.doc,.docx,.odt,.txt,.png,.jpg,.jpeg"
+                 class="hidden"
+                 @change="document.getElementById('upload-label').textContent = $event.target.files[0]?.name || 'Choisir un fichier'">
+          <label for="upload-input" class="cursor-pointer">
+            <p class="text-3xl mb-2">📂</p>
+            <p id="upload-label" class="text-sm text-gray-600 font-medium">Choisir un fichier</p>
+            <p class="text-xs text-gray-400 mt-1">PDF, Word, ODT, image — max 20 Mo</p>
+          </label>
+        </div>
+      </div>
+
+      <!-- Éditeur texte -->
+      <div x-show="mode==='text'" x-cloak>
+        <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
+          <div class="border-b border-gray-100 px-4 py-2.5 flex flex-wrap gap-1.5 bg-gray-50">
+            <button type="button" class="toolbar-btn font-bold" @click="exec('bold')"><b>G</b></button>
+            <button type="button" class="toolbar-btn italic" @click="exec('italic')"><i>I</i></button>
+            <button type="button" class="toolbar-btn underline" @click="exec('underline')"><u>S</u></button>
+            <div class="w-px bg-gray-200 mx-0.5"></div>
+            <button type="button" class="toolbar-btn" @click="execBlock('h2')">Titre</button>
+            <button type="button" class="toolbar-btn" @click="execBlock('p')">¶ Texte</button>
+            <button type="button" class="toolbar-btn" @click="exec('insertUnorderedList')">• Liste</button>
+          </div>
+          <div id="planche-editor"
+               contenteditable="true"
+               class="p-6"
+               x-ref="editor"
+               @input="syncContent()"
+               x-html="editorContent">
+          </div>
+        </div>
+      </div>
+
+      <!-- Champ caché pour le contenu texte -->
+      <input type="hidden" name="content" x-bind:value="editorContent">
+    </div>
+
+    <!-- Actions -->
+    <div class="flex flex-wrap gap-3 pt-2">
+      <button type="submit" name="action" value="draft"
+              class="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
+        💾 Enregistrer en brouillon
+      </button>
+      <button type="submit" name="action" value="publish"
+              class="inline-flex items-center gap-2 bg-loge-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-loge-800 transition-colors shadow-sm">
+        ✓ Publier
+      </button>
+      {% if planche and planche.status.value == 'PUBLIE' %}
+      <button type="submit" name="action" value="unpublish"
+              class="inline-flex items-center gap-2 bg-white border border-amber-200 text-amber-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-amber-50 transition-colors shadow-sm">
+        ↩ Repasser en brouillon
+      </button>
+      {% endif %}
+      <a href="{% if planche %}/planches/{{ planche.id }}{% else %}/planches/{% endif %}"
+         class="text-sm text-gray-400 hover:text-gray-600 ml-auto self-center">
+        ← Annuler
+      </a>
+    </div>
+
+    {% if planche %}
+    <div class="pt-2 border-t border-gray-100">
+      <form method="post" action="/planches/{{ planche.id }}/delete"
+            onsubmit="return confirm('Supprimer définitivement cette planche ?')">
+        <button type="submit"
+                class="text-xs text-red-400 hover:text-red-600 hover:underline">
+          Supprimer la planche
+        </button>
+      </form>
+    </div>
+    {% endif %}
+
+  </form>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+function plancheEditor() {
+  return {
+    editorContent: {{ (planche.content if planche and planche.content else '') | tojson }},
+    exec(cmd) { document.execCommand(cmd, false, null); this.syncContent(); },
+    execBlock(tag) { document.execCommand('formatBlock', false, tag); this.syncContent(); },
+    syncContent() { this.editorContent = this.$refs.editor.innerHTML; },
+  }
+}
+</script>
+{% endblock %}

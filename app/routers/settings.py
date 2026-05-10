@@ -124,6 +124,16 @@ async def settings_page(
     from app.dependencies import can_manage_members
     can_manage_contacts = user.is_admin or can_manage_members(member)
 
+    # Backups existants
+    from pathlib import Path as _Path
+    _backup_dir = _Path("backups")
+    backups = []
+    if _backup_dir.exists():
+        backups = sorted(
+            [{"name": p.name, "size": p.stat().st_size} for p in _backup_dir.glob("backup_*.zip")],
+            key=lambda x: x["name"], reverse=True
+        )[:5]
+
     return templates.TemplateResponse(request, "pages/settings/index.html", {
         "current_member": member,
         "current_user": user,
@@ -135,6 +145,7 @@ async def settings_page(
         "all_users": all_users,
         "all_member_map": all_member_map,
         "external_contacts": external_contacts,
+        "backups": backups,
         "saved": request.query_params.get("saved"),
         "smtp_saved": request.query_params.get("smtp_saved"),
         "smtp_ok":    request.query_params.get("smtp_ok"),
@@ -146,6 +157,28 @@ async def settings_page(
         "smtp_from": cfg.smtp_from,
         "smtp_secure": cfg.smtp_secure,
     })
+
+
+@router.post("/save")
+async def settings_save_generic(
+    request: Request,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Route générique pour les sections secondaires (backup, etc.)."""
+    form = await request.form()
+    section = form.get("_section", "")
+
+    if section == "backup":
+        lodge = await _get_lodge(db)
+        if not lodge:
+            lodge = LodgeSettings()
+            db.add(lodge)
+        lodge.admin_email = form.get("admin_email", "").strip() or None
+        await db.commit()
+        return RedirectResponse(url="/settings/?saved=1&backup_email=1", status_code=303)
+
+    return RedirectResponse(url="/settings/", status_code=303)
 
 
 @router.post("/lodge", response_class=HTMLResponse)
@@ -546,4 +579,28 @@ async def toggle_admin(
     target.is_admin = not target.is_admin
     await db.commit()
     return RedirectResponse(url="/settings/?saved=admin", status_code=303)
+
+
+# ── Sauvegarde manuelle ────────────────────────────────────────────────────
+
+@router.post("/backup/now")
+async def backup_now(
+    request: Request,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Déclenche une sauvegarde immédiate et envoie l'email à l'admin."""
+    from app.services.backup import run_backup
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+    admin_email = lodge.admin_email if lodge and hasattr(lodge, "admin_email") and lodge.admin_email else None
+    # fallback : email du user connecté
+    user, member = ctx
+    if not admin_email:
+        user_r = await db.execute(select(User).where(User.id == user.id))
+        u = user_r.scalar_one_or_none()
+        admin_email = u.email if u else None
+    result = await run_backup(to_email=admin_email)
+    sent_qs = "sent=1" if result["sent"] else "sent=0"
+    return RedirectResponse(url=f"/settings/?backup=1&{sent_qs}", status_code=303)
 

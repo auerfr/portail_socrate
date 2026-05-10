@@ -1,0 +1,161 @@
+{% extends "base.html" %}
+{% block title %}{{ planche.title }} — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto">
+
+  <nav class="text-sm text-gray-400 mb-4 flex items-center gap-2 flex-wrap">
+    <a href="/planches/" class="hover:text-loge-700">Planches</a>
+    <span>›</span>
+    <span class="text-gray-700 truncate">{{ planche.title }}</span>
+  </nav>
+
+  {% if request.query_params.get('saved') %}
+  <div class="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
+    ✓ Planche enregistrée.
+  </div>
+  {% endif %}
+
+  <!-- En-tête -->
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4">
+    <div class="flex items-start justify-between gap-3 flex-wrap mb-3">
+      <h1 class="text-xl font-bold text-gray-900">{{ planche.title }}</h1>
+      <div class="flex items-center gap-2 shrink-0">
+        {% if planche.status.value == 'PUBLIE' %}
+        <span class="text-xs bg-green-100 text-green-700 font-semibold px-3 py-1 rounded-full">✓ Publiée</span>
+        {% else %}
+        <span class="text-xs bg-gray-100 text-gray-500 font-semibold px-3 py-1 rounded-full">✎ Brouillon</span>
+        {% endif %}
+        {% set GRADE_LABELS = {'TOUS':'', 'APPRENTI':'App∴', 'COMPAGNON':'Comp∴', 'MAITRE':'M∴'} %}
+        {% if planche.grade.value != 'TOUS' %}
+        <span class="text-xs bg-loge-50 text-loge-700 border border-loge-100 font-semibold px-3 py-1 rounded-full">
+          {{ GRADE_LABELS[planche.grade.value] }}
+        </span>
+        {% endif %}
+      </div>
+    </div>
+
+    <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
+      {% if planche.author %}
+      <span>Par {{ planche.author.first_name }} {{ planche.author.last_name[0] }}∴</span>
+      {% endif %}
+      {% if planche.meeting %}
+      <span>· Ten∴ du {{ planche.meeting.meeting_date.strftime('%d/%m/%Y') }}</span>
+      {% endif %}
+      <span>· {{ (planche.published_at or planche.created_at).strftime('%d/%m/%Y') }}</span>
+      {% if planche.updated_at %}
+      <span>· modifiée le {{ planche.updated_at.strftime('%d/%m/%Y') }}</span>
+      {% endif %}
+    </div>
+
+    {% if can_edit %}
+    <div class="mt-4 pt-4 border-t border-gray-100">
+      <a href="/planches/{{ planche.id }}/edit"
+         class="inline-flex items-center gap-1.5 text-xs text-loge-700 hover:underline font-medium">
+        ✎ Modifier
+      </a>
+    </div>
+    {% endif %}
+  </div>
+
+  <!-- Contenu : fichier ou texte -->
+  {% if planche.file_path %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 flex items-center gap-4">
+    <div class="text-4xl">📎</div>
+    <div class="min-w-0">
+      <p class="font-medium text-gray-800 truncate">{{ planche.original_filename }}</p>
+      {% if planche.file_size %}
+      <p class="text-xs text-gray-400 mt-0.5">{{ "%.1f"|format(planche.file_size/1048576) }} Mo</p>
+      {% endif %}
+    </div>
+    <a href="/planches/{{ planche.id }}/download"
+       class="ml-auto shrink-0 inline-flex items-center gap-2 bg-loge-700 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-loge-800 transition-colors">
+      ↓ Télécharger
+    </a>
+  </div>
+
+  <!-- Aperçu PDF si applicable -->
+  {% if planche.mime_type == 'application/pdf' %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+    <div class="relative" style="height:70vh; min-height:380px;">
+      <iframe src="/planches/{{ planche.id }}/download"
+              class="w-full h-full border-0" title="{{ planche.title }}"></iframe>
+    </div>
+  </div>
+  {% elif planche.mime_type and planche.mime_type.startswith('image/') %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4 text-center">
+    <img src="/planches/{{ planche.id }}/download" alt="{{ planche.title }}"
+         class="max-w-full mx-auto rounded-lg shadow">
+  </div>
+  {% endif %}
+
+  {% elif planche.content %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 lg:p-8 mb-4
+              prose prose-sm max-w-none
+              [&_h2]:text-loge-700 [&_h2]:font-bold [&_h2]:text-base [&_h2]:mt-5 [&_h2]:mb-2
+              [&_p]:my-1.5 [&_table]:w-full [&_td]:border [&_td]:border-gray-200 [&_td]:px-2 [&_td]:py-1">
+    {{ planche.content | safe }}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 text-center text-gray-400 text-sm">
+    Aucun contenu pour l'instant.
+    {% if can_edit %}<a href="/planches/{{ planche.id }}/edit" class="text-loge-700 underline ml-1">Ajouter du contenu</a>{% endif %}
+  </div>
+  {% endif %}
+
+  <!-- Commentaires -->
+  {% if can_comment %}
+  <div id="comments" class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6">
+    <h2 class="text-base font-semibold text-gray-800 mb-4">
+      💬 Commentaires
+      {% if planche.comments %}<span class="text-gray-400 font-normal text-sm">({{ planche.comments|length }})</span>{% endif %}
+    </h2>
+
+    {% if planche.comments %}
+    <div class="space-y-4 mb-6">
+      {% for c in planche.comments %}
+      <div class="flex gap-3">
+        <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-700 font-bold text-xs flex items-center justify-center shrink-0">
+          {{ c.author.first_name[0] if c.author else '?' }}{{ c.author.last_name[0] if c.author else '' }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-baseline gap-2 mb-1">
+            <span class="text-sm font-medium text-gray-800">
+              {% if c.author %}{{ c.author.first_name }} {{ c.author.last_name[0] }}∴{% else %}Frère{% endif %}
+            </span>
+            <span class="text-xs text-gray-400">{{ c.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+          </div>
+          <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ c.content }}</p>
+        </div>
+        {% if current_member.id == c.author_id or current_user.is_admin %}
+        <form method="post" action="/planches/{{ planche.id }}/comments/{{ c.id }}/delete"
+              onsubmit="return confirm('Supprimer ce commentaire ?')" class="shrink-0">
+          <button type="submit" class="text-gray-300 hover:text-red-400 text-xs mt-1">✕</button>
+        </form>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/planches/{{ planche.id }}/comments" class="flex gap-3">
+      <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-700 font-bold text-xs flex items-center justify-center shrink-0 mt-1">
+        {{ current_member.first_name[0] }}{{ current_member.last_name[0] }}
+      </div>
+      <div class="flex-1">
+        <textarea name="content" rows="3" required
+                  placeholder="Votre commentaire…"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-300 focus:outline-none resize-none"></textarea>
+        <div class="flex justify-end mt-2">
+          <button type="submit"
+                  class="bg-loge-700 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-loge-800 transition-colors">
+            Envoyer
+          </button>
+        </div>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

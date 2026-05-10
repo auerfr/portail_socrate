@@ -1,14 +1,19 @@
 // Service Worker — Portail Socrate PWA
-const CACHE_NAME = 'socrate-v1';
+const CACHE_NAME = 'socrate-v3';
 const STATIC_ASSETS = [
-  '/',
   '/static/manifest.json',
+  '/static/img/icon-192.png',
+  '/static/img/icon-512.png',
+  '/static/img/sceau-socrate-transparent.png',
+  '/static/offline.html',
 ];
 
-// Installation
+// Installation : précache des assets statiques + page offline
 self.addEventListener('install', (event) => {
   event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => cache.addAll(STATIC_ASSETS))
+    caches.open(CACHE_NAME).then((cache) =>
+      cache.addAll(STATIC_ASSETS).catch(() => {})
+    )
   );
   self.skipWaiting();
 });
@@ -23,28 +28,61 @@ self.addEventListener('activate', (event) => {
   self.clients.claim();
 });
 
-// Fetch — network first, cache fallback
+// Fetch — stratégies différenciées
 self.addEventListener('fetch', (event) => {
-  // Ne pas intercepter les requêtes API et WebSocket
+  const req = event.request;
+  const url = new URL(req.url);
+
+  // Ne pas intercepter les requêtes non-GET, API, WebSocket, uploads
   if (
-    event.request.url.includes('/api/') ||
-    event.request.url.includes('/ws/') ||
-    event.request.method !== 'GET'
+    req.method !== 'GET' ||
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/ws/') ||
+    url.pathname.startsWith('/uploads/') ||
+    url.pathname.includes('/download') ||
+    url.pathname.includes('/preview')
   ) {
     return;
   }
 
+  // Static assets : cache-first
+  if (url.pathname.startsWith('/static/')) {
+    event.respondWith(
+      caches.match(req).then((cached) =>
+        cached ||
+        fetch(req).then((resp) => {
+          if (resp.ok) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return resp;
+        }).catch(() => cached)
+      )
+    );
+    return;
+  }
+
+  // Pages HTML : network-first, fallback cache, fallback offline.html
+  if (req.mode === 'navigate' || (req.headers.get('accept') || '').includes('text/html')) {
+    event.respondWith(
+      fetch(req)
+        .then((resp) => {
+          if (resp.ok) {
+            const clone = resp.clone();
+            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+          }
+          return resp;
+        })
+        .catch(() =>
+          caches.match(req).then((cached) => cached || caches.match('/static/offline.html'))
+        )
+    );
+    return;
+  }
+
+  // Reste : network puis cache
   event.respondWith(
-    fetch(event.request)
-      .then((response) => {
-        // Mettre en cache les ressources statiques
-        if (event.request.url.includes('/static/')) {
-          const clone = response.clone();
-          caches.open(CACHE_NAME).then((cache) => cache.put(event.request, clone));
-        }
-        return response;
-      })
-      .catch(() => caches.match(event.request))
+    fetch(req).catch(() => caches.match(req))
   );
 });
 
@@ -52,7 +90,9 @@ self.addEventListener('fetch', (event) => {
 self.addEventListener('push', (event) => {
   if (!event.data) return;
 
-  const data = event.data.json();
+  let data = {};
+  try { data = event.data.json(); } catch (e) { data = { title: 'Portail Socrate', body: event.data.text() }; }
+
   event.waitUntil(
     self.registration.showNotification(data.title || 'Portail Socrate', {
       body: data.body || '',
@@ -68,12 +108,17 @@ self.addEventListener('push', (event) => {
 self.addEventListener('notificationclick', (event) => {
   event.notification.close();
   event.waitUntil(
-    clients.matchAll({ type: 'window' }).then((clientList) => {
+    self.clients.matchAll({ type: 'window' }).then((clientList) => {
       const url = event.notification.data?.url || '/';
       for (const client of clientList) {
-        if (client.url === url && 'focus' in client) return client.focus();
+        if (client.url.endsWith(url) && 'focus' in client) return client.focus();
       }
-      if (clients.openWindow) return clients.openWindow(url);
+      if (self.clients.openWindow) return self.clients.openWindow(url);
     })
   );
+});
+
+// Permettre au client de forcer la mise à jour
+self.addEventListener('message', (event) => {
+  if (event.data === 'SKIP_WAITING') self.skipWaiting();
 });

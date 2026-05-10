@@ -24,6 +24,34 @@ from app.models.finance import MemberContribution, ContributionTier, Contributio
 router = APIRouter(prefix="/members", tags=["members"])
 templates = Jinja2Templates(directory="app/templates")
 
+_LABEL_FUNCTION_MAP = [
+    ("vénérable", LodgeFunction.VM),
+    ("v.m.", LodgeFunction.VM),
+    ("premier surv", LodgeFunction.PREMIER_S),
+    ("1er s.", LodgeFunction.PREMIER_S),
+    ("second surv", LodgeFunction.SECOND_S),
+    ("2e s.", LodgeFunction.SECOND_S),
+    ("orateur", LodgeFunction.ORATEUR),
+    ("secrétaire", LodgeFunction.SECRETAIRE),
+    ("trésorier", LodgeFunction.TRESORIER),
+    ("expert", LodgeFunction.EXPERT),
+    ("cérémonies", LodgeFunction.MAITRE_CEREMONIES),
+    ("harmoniste", LodgeFunction.HARMONISTE),
+    ("hospitalier", LodgeFunction.HOSPITALIER),
+    ("tuileur", LodgeFunction.TUILEUR),
+    ("couvreur", LodgeFunction.TUILEUR),
+    ("architecte", LodgeFunction.ARCHITECTE),
+    ("banquets", LodgeFunction.MAITRE_BANQUETS),
+]
+
+
+def _fn_from_label(label: str) -> LodgeFunction:
+    normalized = label.lower().replace("∴", ".").replace(":", "")
+    for keyword, fn in _LABEL_FUNCTION_MAP:
+        if keyword in normalized:
+            return fn
+    return LodgeFunction.FRERE
+
 
 def _grade_label(g: MasonicGrade) -> str:
     return {"APPRENTI": "Apprenti", "COMPAGNON": "Compagnon", "MAITRE": "Maître"}.get(g, g)
@@ -89,16 +117,20 @@ async def _current_office_id(db: AsyncSession, member_id: int) -> int | None:
 
 
 async def _assign_office(db: AsyncSession, member_id: int, office_id: int | None):
-    """Retire le membre de son office actuel, puis l'affecte au nouveau."""
-    # Désaffecter partout où ce membre est assigné
+    """Retire le membre de son office actuel, puis l'affecte au nouveau et sync lodge_function."""
     old = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id == member_id))
     for o in old.scalars().all():
         o.member_id = None
-    # Affecter au nouvel office si précisé
+    mem = await db.get(Member, member_id)
     if office_id:
         new_office = await db.get(LodgeOffice, office_id)
         if new_office:
             new_office.member_id = member_id
+            if mem:
+                mem.lodge_function = _fn_from_label(new_office.label)
+    else:
+        if mem:
+            mem.lodge_function = LodgeFunction.FRERE
 
 
 def _status_label(s: MemberStatus) -> str:
@@ -214,6 +246,11 @@ async def member_detail(
             )
             contrib_tier = tier_r.scalar_one_or_none()
 
+    # Libellé de l'office rituel (LodgeOffice) — plus précis que lodge_function
+    office_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id == target.id).limit(1))
+    office = office_r.scalar_one_or_none()
+    office_label = office.label if office else None
+
     return templates.TemplateResponse(request, "pages/members/detail.html", {
         "current_member": current_member,
         "current_user": user,
@@ -228,6 +265,7 @@ async def member_detail(
         "member_contrib": member_contrib,
         "contrib_tier": contrib_tier,
         "ContributionStatus": ContributionStatus,
+        "office_label": office_label,
     })
 
 

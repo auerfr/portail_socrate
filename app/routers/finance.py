@@ -169,7 +169,7 @@ async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
 @router.get("/", response_class=HTMLResponse)
 async def finance_dashboard(
     request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
+    ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     search: Optional[str] = None,
     status_filter: Optional[str] = None,  # retard | ajour | all
@@ -333,7 +333,7 @@ async def finance_dashboard(
 @router.get("/budget", response_class=HTMLResponse)
 async def budget_view(
     request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
+    ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Optional[int] = None,
 ):
@@ -587,7 +587,7 @@ async def export_retardataires_csv(
 @router.get("/cotisations", response_class=HTMLResponse)
 async def cotisations_view(
     request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
+    ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Optional[int] = None,
     status_filter: Optional[str] = None,
@@ -1234,7 +1234,7 @@ async def choisir_tranche_save(
 @router.get("/transactions", response_class=HTMLResponse)
 async def transactions_view(
     request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
+    ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Optional[int] = None,
     txn_type: Optional[str] = None,
@@ -1560,7 +1560,7 @@ async def _compute_bilan(
 @router.get("/bilan", response_class=HTMLResponse)
 async def bilan_view(
     request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
+    ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Optional[int] = None,
     date_from: Optional[str] = None,
@@ -1602,7 +1602,7 @@ async def bilan_view(
 
 @router.get("/bilan/export-csv")
 async def bilan_export_csv(
-    ctx: Annotated[object, Depends(require_auth)],
+    ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Optional[int] = None,
     date_from: Optional[str] = None,

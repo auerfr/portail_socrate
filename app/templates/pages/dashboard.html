@@ -227,6 +227,39 @@
       </div><!-- /grid bas -->
       {% endif %}<!-- /if alert_members or recent_visitors -->
 
+      <!-- ── Anniversaires maçonniques (30j) ── -->
+      {% if upcoming_anniv %}
+      <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mt-3 shrink-0">
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-1.5">
+            🎖 Anniversaires maçonniques
+          </h3>
+          <a href="/anniversaires/" class="text-xs text-loge-700 hover:underline">Tout voir →</a>
+        </div>
+        <ul class="space-y-1.5">
+          {% set MOIS_AB = ['','jan','fév','mar','avr','mai','juin','juil','aoû','sep','oct','nov','déc'] %}
+          {% for a in upcoming_anniv %}
+          {% set days_until = (a.anniv_date - today).days %}
+          <li class="flex items-center gap-3 text-sm">
+            <div class="w-10 text-center shrink-0 bg-loge-50 rounded-lg py-1">
+              <p class="text-sm font-bold text-loge-700 leading-none">{{ a.anniv_date.day }}</p>
+              <p class="text-[9px] uppercase text-gray-400 mt-0.5">{{ MOIS_AB[a.anniv_date.month] }}</p>
+            </div>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-800 truncate">{{ a.first_name }} {{ a.last_name }}</p>
+              <p class="text-xs text-gray-500">{{ a.years }} ans · {{ a.event_label }}</p>
+            </div>
+            {% if days_until == 0 %}
+            <span class="text-[10px] bg-amber-100 text-amber-700 font-bold px-2 py-0.5 rounded-full shrink-0">Aujourd'hui</span>
+            {% elif days_until == 1 %}
+            <span class="text-[10px] bg-loge-100 text-loge-700 font-bold px-2 py-0.5 rounded-full shrink-0">Demain</span>
+            {% endif %}
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+
     </div><!-- /colonne gauche -->
 
     <!-- ══ COLONNE DROITE : panneau notifications ══ -->

@@ -60,3 +60,9 @@ alembic/__pycache__/
 
 # ── Node (si on compile Tailwind en prod) ─────────────────────────────────────
 node_modules/
+
+# ── Données runtime (à exclure) ───────────────────────────────────────────────
+backups/
+uploads/
+membres_a_completer.xlsx
+~$*.xlsx

@@ -84,7 +84,7 @@ FUNCTION_LABELS = {
 
 
 def _can_send(user, member: Member) -> bool:
-    return user.is_admin or member.lodge_function in SENDER_FUNCTIONS
+    return True  # Tous les membres actifs peuvent envoyer
 
 
 async def _get_active_members(db: AsyncSession) -> list[Member]:
@@ -489,6 +489,19 @@ async def send_message(
                     message_id=msg.id,
                     portal_base_url=portal_url,
                 ))
+
+    # ── Push notifications aux destinataires ─────────────────────────────
+    try:
+        from app.services.push import send_push_broadcast
+        push_body = " ".join((msg.body or "").split())[:140]
+        await send_push_broadcast(
+            db, recipient_ids,
+            f"✉ {sender_name}",
+            f"{msg.subject} — {push_body}"[:160],
+            f"/messages/{msg.id}",
+        )
+    except Exception:
+        pass
 
     return RedirectResponse(url="/messages/sent", status_code=303)
 

@@ -117,6 +117,19 @@
     /* ── Safe area pour iOS ────────────────────────────────── */
     .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
     .safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
+
+    /* ── Garde anti-débordement (mobile) ─────────────────────
+       Empêche tout contenu d'élargir la page horizontalement. */
+    html, body { overflow-x: hidden; max-width: 100vw; }
+    /* Médias et iframes : jamais plus larges que leur conteneur */
+    img, video, iframe, embed, object, svg { max-width: 100%; }
+    iframe { max-width: 100%; }
+    /* Tables : ne jamais dépasser le conteneur (les wrappers .overflow-x-auto gèrent le scroll) */
+    table { max-width: 100%; }
+    /* Pre/code : retour à la ligne au lieu de déborder */
+    pre, code { white-space: pre-wrap; word-break: break-word; }
+    /* Long mots / URLs : couper plutôt que déborder */
+    .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
   </style>
 
   <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
@@ -196,6 +209,18 @@
         Sondages
       </a>
 
+      <a href="/forum/"
+         class="nav-item {% if '/forum' in request.url.path %}active{% endif %}">
+        <i class="ti ti-messages"></i>
+        Forum
+      </a>
+
+      <a href="/projects/"
+         class="nav-item {% if '/projects' in request.url.path %}active{% endif %}">
+        <i class="ti ti-clipboard-list"></i>
+        Projets
+      </a>
+
       <a href="/calendar/"
          class="nav-item {% if '/calendar' in request.url.path %}active{% endif %}">
         <i class="ti ti-calendar"></i>
@@ -220,6 +245,18 @@
          class="nav-item {% if '/programs' in request.url.path %}active{% endif %}">
         <i class="ti ti-file-description"></i>
         Programmes
+      </a>
+
+      <a href="/planches/"
+         class="nav-item {% if '/planches' in request.url.path %}active{% endif %}">
+        <i class="ti ti-feather"></i>
+        Planches
+      </a>
+
+      <a href="/anniversaires/"
+         class="nav-item {% if '/anniversaires' in request.url.path %}active{% endif %}">
+        <i class="ti ti-cake"></i>
+        Anniversaires
       </a>
 
       <a href="/members"
@@ -430,8 +467,21 @@
       </a>
 
       <!-- ── Loge ── -->
-      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
       <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-4 pb-1">Loge</p>
+
+      <a href="/planches/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/planches' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-feather text-lg opacity-70"></i>
+        Planches
+      </a>
+
+      <a href="/anniversaires/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/anniversaires' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-cake text-lg opacity-70"></i>
+        Anniversaires
+      </a>
+
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
 
       {% if current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE']) %}
       <a href="/announcements/" @click="moreOpen=false"
@@ -563,10 +613,68 @@
   </div>
   {% endif %}
 
+  {# ── Bouton "Installer l'app" (Chrome/Edge/Android) ─────────────────── #}
+  <div id="pwa-install-banner"
+       class="hidden fixed bottom-20 lg:bottom-4 left-1/2 -translate-x-1/2 z-50
+              bg-loge-700 text-white px-4 py-3 rounded-2xl shadow-2xl
+              flex items-center gap-3 max-w-[92vw]">
+    <i class="ti ti-device-mobile text-xl"></i>
+    <span class="text-sm font-medium">Installer Socrate sur votre appareil</span>
+    <button id="pwa-install-btn"
+            class="ml-1 px-3 py-1.5 rounded-lg bg-white text-loge-700 text-xs font-semibold hover:bg-loge-50">
+      Installer
+    </button>
+    <button id="pwa-install-dismiss"
+            class="text-white/70 hover:text-white text-lg leading-none px-1" aria-label="Fermer">×</button>
+  </div>
+
   <script>
+    // ── Service Worker ──
     if ('serviceWorker' in navigator) {
-      navigator.serviceWorker.register('/static/sw.js').catch(()=>{});
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/static/sw.js').then((reg) => {
+          // Vérifier les mises à jour toutes les heures
+          setInterval(() => reg.update().catch(()=>{}), 3600000);
+        }).catch(()=>{});
+      });
     }
+
+    // ── Prompt d'installation PWA ──
+    (function() {
+      let deferredPrompt = null;
+      const banner  = document.getElementById('pwa-install-banner');
+      const btn     = document.getElementById('pwa-install-btn');
+      const dismiss = document.getElementById('pwa-install-dismiss');
+
+      if (localStorage.getItem('pwa-install-dismissed') === '1') return;
+      // Déjà installée ?
+      if (window.matchMedia('(display-mode: standalone)').matches) return;
+
+      window.addEventListener('beforeinstallprompt', (e) => {
+        e.preventDefault();
+        deferredPrompt = e;
+        if (banner) banner.classList.remove('hidden');
+      });
+
+      btn?.addEventListener('click', async () => {
+        if (!deferredPrompt) return;
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        deferredPrompt = null;
+        banner.classList.add('hidden');
+        if (outcome === 'accepted') localStorage.setItem('pwa-install-dismissed', '1');
+      });
+
+      dismiss?.addEventListener('click', () => {
+        banner.classList.add('hidden');
+        localStorage.setItem('pwa-install-dismissed', '1');
+      });
+
+      window.addEventListener('appinstalled', () => {
+        banner?.classList.add('hidden');
+        localStorage.setItem('pwa-install-dismissed', '1');
+      });
+    })();
   </script>
 
   {% block scripts %}{% endblock %}

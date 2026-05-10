@@ -40,12 +40,21 @@
 
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Accès minimum</label>
-          <select name="min_grade"
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Public cible</label>
+          <select name="target"
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            <option value="">Tous les membres</option>
-            <option value="COMPAGNON">Compagnon et au-dessus</option>
-            <option value="MAITRE">Maîtres uniquement</option>
+            <option value="" {% if not target_value %}selected{% endif %}>Tous les membres</option>
+            <optgroup label="Par grade">
+              <option value="COMPAGNON" {% if target_value == 'COMPAGNON' %}selected{% endif %}>Compagnon et au-dessus</option>
+              <option value="MAITRE" {% if target_value == 'MAITRE' %}selected{% endif %}>Maîtres uniquement</option>
+            </optgroup>
+            {% if groups %}
+            <optgroup label="Par groupe">
+              {% for g in groups %}
+              <option value="group:{{ g.id }}" {% if target_value == 'group:' ~ g.id %}selected{% endif %}>{{ g.name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
           </select>
         </div>
         <div>
@@ -78,6 +87,17 @@
           <div>
             <div class="text-sm font-medium text-gray-700">Vote nominatif visible</div>
             <div class="text-xs text-gray-400">Les noms des votants sont affichés sous chaque option</div>
+          </div>
+        </label>
+      </div>
+
+      <div class="flex items-center gap-3 bg-blue-50 border border-blue-100 rounded-xl px-4 py-3">
+        <label class="flex items-center gap-2.5 cursor-pointer flex-1">
+          <input type="checkbox" name="notify_members" value="1" checked
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+          <div>
+            <div class="text-sm font-medium text-gray-700">📬 Notifier les membres par message</div>
+            <div class="text-xs text-gray-400">Un message interne sera envoyé aux membres concernés pour les inviter à voter</div>
           </div>
         </label>
       </div>

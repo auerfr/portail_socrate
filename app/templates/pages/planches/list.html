@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Planches — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-4xl mx-auto">
+
+  <div class="flex items-center justify-between mb-6 flex-wrap gap-3">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Planches & travaux</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Travaux présentés en loge</p>
+    </div>
+    {% if can_write %}
+    <a href="/planches/new"
+       class="inline-flex items-center gap-2 bg-loge-700 text-white text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-loge-800 transition-colors shadow-sm">
+      ✎ Nouvelle planche
+    </a>
+    {% else %}
+    <a href="/planches/new"
+       class="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-gray-50 transition-colors shadow-sm">
+      ✎ Déposer une planche
+    </a>
+    {% endif %}
+  </div>
+
+  {% if drafts %}
+  <section class="mb-8">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Mes brouillons</h2>
+    <div class="space-y-2">
+      {% for p in drafts %}
+      <a href="/planches/{{ p.id }}"
+         class="flex items-center justify-between bg-white border border-dashed border-gray-200 rounded-xl px-4 py-3 hover:border-loge-300 hover:bg-loge-50 transition-colors group">
+        <div class="min-w-0">
+          <p class="font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ p.title }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            {{ p.created_at.strftime('%d/%m/%Y') }}
+            {% if p.file_path %} · 📎 Fichier{% endif %}
+            {% if p.meeting %} · {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}{% endif %}
+          </p>
+        </div>
+        <span class="text-xs bg-gray-100 text-gray-500 px-2 py-0.5 rounded-full ml-3 shrink-0">Brouillon</span>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if published %}
+  <section>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Planches publiées</h2>
+    <div class="space-y-2">
+      {% for p in published %}
+      {% set GRADE_LABELS = {'TOUS':'', 'APPRENTI':'App∴', 'COMPAGNON':'Comp∴', 'MAITRE':'M∴'} %}
+      <a href="/planches/{{ p.id }}"
+         class="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 hover:border-loge-200 hover:bg-loge-50 transition-colors group shadow-sm">
+        <div class="min-w-0">
+          <p class="font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ p.title }}</p>
+          <p class="text-xs text-gray-400 mt-0.5">
+            {% if p.author %}{{ p.author.first_name }} {{ p.author.last_name[0] }}∴{% endif %}
+            · {{ (p.published_at or p.created_at).strftime('%d/%m/%Y') }}
+            {% if p.meeting %} · Ten∴ du {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}{% endif %}
+            {% if p.file_path %} · 📎{% endif %}
+            {% if p.comments %} · 💬 {{ p.comments|length }}{% endif %}
+          </p>
+        </div>
+        <div class="flex items-center gap-2 ml-3 shrink-0">
+          {% if p.grade != 'TOUS' %}
+          <span class="text-xs bg-loge-50 text-loge-700 border border-loge-100 px-2 py-0.5 rounded-full">{{ GRADE_LABELS[p.grade] }}</span>
+          {% endif %}
+          <span class="text-gray-300">›</span>
+        </div>
+      </a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  {% if not published and not drafts %}
+  <div class="text-center py-20 text-gray-400">
+    <p class="text-4xl mb-4">📜</p>
+    <p class="font-medium">Aucune planche pour l'instant.</p>
+    <p class="text-sm mt-1">Soyez le premier à déposer un travail.</p>
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

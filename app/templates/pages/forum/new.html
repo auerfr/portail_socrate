@@ -1,0 +1,135 @@
+{% extends "base.html" %}
+{% block title %}Nouveau sujet — Forum{% endblock %}
+
+{% block head %}
+<script>
+function gedPicker() {
+  return {
+    query: "",
+    results: [],
+    selected: [],
+    open: false,
+    async search() {
+      this.open = true;
+      const r = await fetch("/forum/api/documents?q=" + encodeURIComponent(this.query));
+      const j = await r.json();
+      const ids = new Set(this.selected.map(d => d.id));
+      this.results = (j.documents || []).filter(d => !ids.has(d.id));
+    },
+    add(d) {
+      if (!this.selected.some(s => s.id === d.id)) this.selected.push(d);
+      this.query = "";
+      this.results = [];
+    },
+    remove(d) {
+      this.selected = this.selected.filter(s => s.id !== d.id);
+    },
+  };
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-6 lg:py-8 space-y-6">
+
+  <div class="flex items-center gap-2 text-xs text-gray-400">
+    <a href="/forum/" class="hover:text-loge-700">Forum</a>
+    <i class="ti ti-chevron-right"></i>
+    <span class="text-gray-700">Nouveau sujet</span>
+  </div>
+
+  <h1 class="text-2xl font-bold text-gray-900">Nouveau sujet</h1>
+
+  {% if themes %}
+  <form method="post" action="/forum/new"
+        enctype="multipart/form-data"
+        x-data="{ showAtt: false }"
+        class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 lg:p-6 space-y-5">
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Catégorie *</label>
+      <select name="theme_id" required
+              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        {% for th in themes %}
+        <option value="{{ th.id }}" {% if preselected_theme == th.id %}selected{% endif %}>{{ th.name }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Titre *</label>
+      <input type="text" name="title" required maxlength="300"
+             placeholder="Sujet de la discussion…"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Premier message *</label>
+      <textarea name="content" required rows="8"
+                placeholder="Exposez le contexte, vos questions, vos propositions…"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+      <p class="text-xs text-gray-400 mt-1">Vous pourrez ajouter des décisions à voter ensuite, dans le fil.</p>
+    </div>
+
+    <div>
+      <button type="button" @click="showAtt = !showAtt"
+              class="text-xs font-semibold text-loge-700 hover:text-loge-900 inline-flex items-center gap-1">
+        <i class="ti ti-paperclip"></i>
+        <span x-text="showAtt ? 'Masquer les pièces jointes' : 'Ajouter pièces jointes / liens / GED'"></span>
+      </button>
+    </div>
+    <div x-show="showAtt" x-cloak x-transition class="space-y-3 pt-2 border-t border-gray-100">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Fichiers (max 25 Mo chacun)</label>
+        <input type="file" name="files" multiple
+               class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-loge-50 file:text-loge-700 hover:file:bg-loge-100">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Liens (un par ligne — <code>URL | libellé</code> optionnel)</label>
+        <textarea name="links" rows="2" placeholder="https://exemple.fr | Mon lien"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+      </div>
+      <div x-data="gedPicker()">
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Documents de la bibliothèque (GED)</label>
+        <div class="relative">
+          <input type="text" x-model="query" @input.debounce.300ms="search()" @focus="search()"
+                 placeholder="Rechercher un document…"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <div x-show="results.length > 0 && open" x-cloak @click.away="open = false"
+               class="absolute z-30 mt-1 w-full max-h-60 overflow-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+            <template x-for="d in results" :key="d.id">
+              <button type="button" @click="add(d); open = false"
+                      class="w-full text-left px-3 py-2 hover:bg-loge-50 text-xs flex items-center gap-2 border-b border-gray-50 last:border-0">
+                <i class="ti ti-file"></i>
+                <span class="font-medium text-gray-800 truncate" x-text="d.name"></span>
+                <span class="text-gray-400 truncate" x-text="'· ' + d.folder"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1.5 mt-2" x-show="selected.length > 0" x-cloak>
+          <template x-for="d in selected" :key="d.id">
+            <span class="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-2 py-1 text-[11px]">
+              <i class="ti ti-folder"></i>
+              <span class="max-w-[160px] truncate" x-text="d.name"></span>
+              <button type="button" @click="remove(d)" class="ml-1 text-amber-700 hover:text-red-600">×</button>
+            </span>
+          </template>
+        </div>
+        <input type="hidden" name="document_ids" :value="selected.map(d => d.id).join(',')">
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-2">
+      <a href="/forum/" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</a>
+      <button type="submit"
+              class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-5 py-2 rounded-xl">
+        Créer le sujet
+      </button>
+    </div>
+  </form>
+  {% else %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-5 py-4 text-sm">
+    Aucune catégorie n'a encore été créée. Demandez à un administrateur d'en créer une depuis la page Forum.
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

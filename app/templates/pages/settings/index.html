@@ -4,7 +4,7 @@
 {% block content %}
 <div class="p-4 lg:p-8 max-w-3xl mx-auto"
      x-data="{
-       tab: '{% if saved == 'contacts' %}contacts{% elif is_admin and (saved == 'admin' or saved == 'admins') %}acces{% elif is_admin and (smtp_saved or smtp_ok or smtp_fail) %}email{% elif is_admin and saved == 'officers' %}officiers{% elif is_admin %}loge{% else %}contacts{% endif %}'
+       tab: '{% if saved == 'contacts' %}contacts{% elif is_admin and (saved == 'admin' or saved == 'admins') %}acces{% elif is_admin and (smtp_saved or smtp_ok or smtp_fail) %}email{% elif is_admin and saved == 'officers' %}officiers{% elif is_admin and (request.query_params.get('backup') or request.query_params.get('backup_email')) %}backup{% elif is_admin %}loge{% else %}contacts{% endif %}'
      }">
 
   <div class="flex items-center justify-between mb-6">
@@ -44,8 +44,181 @@
             class="flex-1 px-3 py-2 rounded-lg text-sm transition-all">
       🔐 Accès
     </button>
+    <button type="button" @click="tab='backup'"
+            :class="tab === 'backup' ? 'bg-white shadow text-loge-700 font-semibold' : 'text-gray-500 hover:text-gray-700'"
+            class="flex-1 px-3 py-2 rounded-lg text-sm transition-all">
+      💾 Backup
+    </button>
     {% endif %}
+    <button type="button" @click="tab='notifs'"
+            :class="tab === 'notifs' ? 'bg-white shadow text-loge-700 font-semibold' : 'text-gray-500 hover:text-gray-700'"
+            class="flex-1 px-3 py-2 rounded-lg text-sm transition-all">
+      🔔 Notifications
+    </button>
   </nav>
+
+  <!-- ═══════════════════════════════════
+       ONGLET NOTIFICATIONS PUSH
+  ════════════════════════════════════ -->
+  <div x-show="tab === 'notifs'" x-cloak
+       x-data="pushPrefs()" x-init="init()">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide flex items-center gap-2">
+        <i class="ti ti-bell text-base"></i> Notifications push (PWA)
+      </h2>
+      <p class="text-sm text-gray-600">
+        Recevez les rappels de tenue, anniversaires et messages importants directement
+        sur votre téléphone ou ordinateur, même quand le navigateur est fermé.
+      </p>
+
+      <template x-if="!supported">
+        <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+          ⚠ Votre navigateur ne supporte pas les notifications push.
+          Sur iPhone, installez d'abord l'app via Safari → Partager → "Sur l'écran d'accueil".
+        </div>
+      </template>
+
+      <template x-if="supported && !configured">
+        <div class="text-sm text-gray-600 bg-gray-50 border border-gray-200 rounded-lg p-3">
+          Le serveur n'a pas encore de clés VAPID configurées. Contactez l'administrateur.
+        </div>
+      </template>
+
+      <template x-if="supported && configured">
+        <div class="space-y-3">
+          <div class="flex items-center justify-between gap-4 p-3 rounded-lg border border-gray-200">
+            <div class="min-w-0">
+              <div class="text-sm font-medium text-gray-800">État sur cet appareil</div>
+              <div class="text-xs mt-0.5"
+                   :class="enabled ? 'text-green-700' : 'text-gray-500'">
+                <span x-text="enabled ? '✓ Notifications activées' : 'Notifications désactivées'"></span>
+              </div>
+            </div>
+            <button type="button" @click="toggle()"
+                    :disabled="busy"
+                    :class="enabled ? 'bg-red-600 hover:bg-red-700' : 'bg-loge-700 hover:bg-loge-800'"
+                    class="px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50">
+              <span x-text="enabled ? 'Désactiver' : 'Activer'"></span>
+            </button>
+          </div>
+
+          <div x-show="enabled" class="flex items-center justify-between gap-4 p-3 rounded-lg border border-gray-200">
+            <div class="text-sm text-gray-700">Tester l'envoi</div>
+            <button type="button" @click="sendTest()"
+                    :disabled="busy"
+                    class="px-3 py-1.5 rounded-lg border border-loge-300 text-loge-700 text-sm font-medium hover:bg-loge-50 disabled:opacity-50">
+              Envoyer un test
+            </button>
+          </div>
+
+          <div x-show="message" x-text="message"
+               :class="messageType === 'error' ? 'text-red-700 bg-red-50 border-red-200' : 'text-green-700 bg-green-50 border-green-200'"
+               class="text-sm border rounded-lg p-3"></div>
+        </div>
+      </template>
+    </div>
+  </div>
+
+  <script>
+    function pushPrefs() {
+      return {
+        supported: false, configured: false, enabled: false, busy: false,
+        message: '', messageType: 'info',
+        async init() {
+          this.supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
+          if (!this.supported) return;
+          try {
+            const r = await fetch('/push/status');
+            if (r.ok) {
+              const data = await r.json();
+              this.configured = data.configured;
+            }
+          } catch(e) {}
+          // État local
+          if ('serviceWorker' in navigator) {
+            const reg = await navigator.serviceWorker.ready;
+            const sub = await reg.pushManager.getSubscription();
+            this.enabled = !!sub && Notification.permission === 'granted';
+          }
+        },
+        async toggle() {
+          this.busy = true; this.message = '';
+          try {
+            if (this.enabled) await this.disable();
+            else await this.enable();
+          } catch(e) {
+            this.message = 'Erreur : ' + e.message;
+            this.messageType = 'error';
+          } finally {
+            this.busy = false;
+          }
+        },
+        async enable() {
+          if (Notification.permission === 'denied') {
+            throw new Error('Permission refusée. Réactivez-la dans les paramètres du navigateur.');
+          }
+          const perm = await Notification.requestPermission();
+          if (perm !== 'granted') throw new Error('Permission non accordée.');
+          const keyResp = await fetch('/push/vapid-key');
+          if (!keyResp.ok) throw new Error('Clé VAPID indisponible.');
+          const { public_key } = await keyResp.json();
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.subscribe({
+            userVisibleOnly: true,
+            applicationServerKey: this.urlB64ToUint8Array(public_key),
+          });
+          const r = await fetch('/push/subscribe', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(sub.toJSON()),
+          });
+          if (!r.ok) throw new Error('Échec de l\'enregistrement.');
+          this.enabled = true;
+          this.message = '✓ Notifications activées sur cet appareil.';
+          this.messageType = 'info';
+        },
+        async disable() {
+          const reg = await navigator.serviceWorker.ready;
+          const sub = await reg.pushManager.getSubscription();
+          if (sub) {
+            await fetch('/push/unsubscribe', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ endpoint: sub.endpoint }),
+            });
+            await sub.unsubscribe();
+          }
+          this.enabled = false;
+          this.message = 'Notifications désactivées.';
+          this.messageType = 'info';
+        },
+        async sendTest() {
+          this.busy = true; this.message = '';
+          try {
+            const r = await fetch('/push/test', { method: 'POST' });
+            const data = await r.json();
+            this.message = data.sent > 0
+              ? `✓ Notification envoyée (${data.sent} appareil${data.sent > 1 ? 's' : ''}).`
+              : '⚠ Aucun envoi (abonnement non trouvé).';
+            this.messageType = data.sent > 0 ? 'info' : 'error';
+          } catch(e) {
+            this.message = 'Erreur : ' + e.message;
+            this.messageType = 'error';
+          } finally {
+            this.busy = false;
+          }
+        },
+        urlB64ToUint8Array(b64) {
+          const padding = '='.repeat((4 - b64.length % 4) % 4);
+          const base64 = (b64 + padding).replace(/-/g, '+').replace(/_/g, '/');
+          const raw = atob(base64);
+          const arr = new Uint8Array(raw.length);
+          for (let i = 0; i < raw.length; i++) arr[i] = raw.charCodeAt(i);
+          return arr;
+        }
+      };
+    }
+  </script>
 
   <!-- ═══════════════════════════════════
        ONGLET LOGE
@@ -765,6 +938,84 @@
       </table>
     </div>
   </div>
+
+  <!-- ═══════════════════════════════════ BACKUP ══════════════════════════ -->
+  {% if is_admin %}
+  <div x-show="tab === 'backup'" x-cloak class="space-y-6">
+
+    {% if request.query_params.get('backup') %}
+    <div class="bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
+      ✓ Sauvegarde lancée.
+      {% if request.query_params.get('sent') == '1' %}
+        Email envoyé.
+      {% else %}
+        (Email non envoyé — vérifier la config SMTP et l'adresse admin ci-dessous.)
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-5">
+      <h2 class="text-base font-semibold text-gray-800">💾 Sauvegarde automatique</h2>
+      <p class="text-sm text-gray-500">
+        Le portail crée automatiquement un ZIP (base de données + pièces jointes) <strong>toutes les semaines</strong>
+        et le conserve sur le serveur (5 derniers backups). Si une adresse email est configurée,
+        le fichier est également envoyé par email.
+      </p>
+
+      <!-- Adresse email destinataire des backups -->
+      <form method="post" action="/settings/save" class="space-y-4">
+        <input type="hidden" name="_section" value="backup">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Email destinataire des sauvegardes
+          </label>
+          <input type="email" name="admin_email"
+                 value="{{ lodge.admin_email or '' }}"
+                 placeholder="admin@example.com"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-300 focus:outline-none">
+          <p class="text-xs text-gray-400 mt-1">Laissez vide pour désactiver l'envoi par email.</p>
+        </div>
+        <button type="submit"
+                class="bg-loge-700 text-white text-sm font-medium px-5 py-2 rounded-xl hover:bg-loge-800 transition-colors">
+          Enregistrer l'adresse
+        </button>
+      </form>
+
+      <hr class="border-gray-100">
+
+      <!-- Déclenchement manuel -->
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">Sauvegarde manuelle</h3>
+        <p class="text-sm text-gray-500 mb-3">
+          Déclenche immédiatement une sauvegarde et envoie le ZIP à l'adresse ci-dessus.
+        </p>
+        <form method="post" action="/settings/backup/now"
+              onsubmit="return confirm('Lancer une sauvegarde maintenant ?')">
+          <button type="submit"
+                  class="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm font-medium px-5 py-2.5 rounded-xl hover:bg-gray-50 shadow-sm transition-colors">
+            💾 Lancer la sauvegarde maintenant
+          </button>
+        </form>
+      </div>
+
+      <!-- Backups existants -->
+      {% if backups %}
+      <hr class="border-gray-100">
+      <div>
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">Sauvegardes disponibles</h3>
+        <ul class="space-y-1.5">
+          {% for b in backups %}
+          <li class="flex items-center justify-between text-sm bg-gray-50 rounded-lg px-3 py-2">
+            <span class="font-mono text-gray-700">{{ b.name }}</span>
+            <span class="text-gray-400 text-xs">{{ "%.1f"|format(b.size / 1048576) }} Mo</span>
+          </li>
+          {% endfor %}
+        </ul>
+      </div>
+      {% endif %}
+    </div>
+  </div>
+  {% endif %}
 
 </div>
 {% endblock %}

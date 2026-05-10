@@ -1,0 +1,430 @@
+{% extends "base.html" %}
+{% block title %}{{ subject.title }} — Forum{% endblock %}
+
+{% block head %}
+<script>
+function gedPicker() {
+  return {
+    query: "",
+    results: [],
+    selected: [],
+    open: false,
+    async search() {
+      this.open = true;
+      const r = await fetch("/forum/api/documents?q=" + encodeURIComponent(this.query));
+      const j = await r.json();
+      const ids = new Set(this.selected.map(d => d.id));
+      this.results = (j.documents || []).filter(d => !ids.has(d.id));
+    },
+    add(d) {
+      if (!this.selected.some(s => s.id === d.id)) this.selected.push(d);
+      this.query = "";
+      this.results = [];
+    },
+    remove(d) {
+      this.selected = this.selected.filter(s => s.id !== d.id);
+    },
+  };
+}
+</script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 space-y-5"
+     x-data="{ showDecision: false, showReply: false }">
+
+  <!-- Fil d'Ariane -->
+  <div class="flex items-center gap-2 text-xs text-gray-400">
+    <a href="/forum/" class="hover:text-loge-700">Forum</a>
+    <i class="ti ti-chevron-right"></i>
+    <a href="/forum/c/{{ subject.theme.id }}" class="hover:text-loge-700">{{ subject.theme.name }}</a>
+    <i class="ti ti-chevron-right"></i>
+    <span class="text-gray-700 truncate">{{ subject.title }}</span>
+  </div>
+
+  <!-- En-tête sujet -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 lg:p-6">
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 mb-1.5">
+          {% if subject.is_pinned %}
+          <span class="inline-flex items-center gap-1 text-xs bg-loge-50 text-loge-700 px-2 py-0.5 rounded-full">
+            <i class="ti ti-pin-filled"></i>Épinglé
+          </span>
+          {% endif %}
+          {% if subject.is_locked %}
+          <span class="inline-flex items-center gap-1 text-xs bg-gray-100 text-gray-600 px-2 py-0.5 rounded-full">
+            <i class="ti ti-lock"></i>Verrouillé
+          </span>
+          {% endif %}
+        </div>
+        <h1 class="text-xl lg:text-2xl font-bold text-gray-900">{{ subject.title }}</h1>
+        <p class="text-xs text-gray-400 mt-1">
+          Créé le {{ subject.created_at.strftime('%d/%m/%Y à %H:%M') }}
+        </p>
+      </div>
+      <div class="flex items-center gap-2 shrink-0">
+        <a href="/forum/t/{{ subject.id }}/export.pdf" target="_blank"
+           class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border bg-white border-gray-200 text-gray-700 hover:bg-gray-50 transition-colors"
+           title="Exporter le fil au format PDF">
+          <i class="ti ti-file-type-pdf"></i>
+          PDF
+        </a>
+        <form method="post" action="/forum/t/{{ subject.id }}/{% if is_subscribed %}unsubscribe{% else %}subscribe{% endif %}">
+          <button type="submit"
+                  class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-medium border transition-colors
+                         {% if is_subscribed %}bg-loge-50 border-loge-200 text-loge-700 hover:bg-loge-100
+                         {% else %}bg-white border-gray-200 text-gray-700 hover:bg-gray-50{% endif %}">
+            <i class="ti {% if is_subscribed %}ti-bell-filled{% else %}ti-bell{% endif %}"></i>
+            {{ "Abonné" if is_subscribed else "S'abonner" }}
+          </button>
+        </form>
+        {% if can_manage %}
+        <form method="post" action="/forum/t/{{ subject.id }}/pin" class="inline">
+          <button class="px-2 py-1.5 text-xs text-gray-500 hover:text-loge-700"
+                  title="{{ 'Désépingler' if subject.is_pinned else 'Épingler' }}">
+            <i class="ti ti-pin"></i>
+          </button>
+        </form>
+        <form method="post" action="/forum/t/{{ subject.id }}/lock" class="inline">
+          <button class="px-2 py-1.5 text-xs text-gray-500 hover:text-loge-700"
+                  title="{{ 'Déverrouiller' if subject.is_locked else 'Verrouiller' }}">
+            <i class="ti {{ 'ti-lock-open' if subject.is_locked else 'ti-lock' }}"></i>
+          </button>
+        </form>
+        {% endif %}
+        {% if can_manage or subject.created_by_id == current_member.id %}
+        <form method="post" action="/forum/t/{{ subject.id }}/delete" class="inline"
+              onsubmit="return confirm('Supprimer ce sujet et tous ses messages ?')">
+          <button class="px-2 py-1.5 text-xs text-gray-400 hover:text-red-500"
+                  title="Supprimer">
+            <i class="ti ti-trash"></i>
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+
+  <!-- Messages -->
+  {% for msg in messages %}
+  {% set author = authors.get(msg.created_by_id) %}
+  <div id="m-{{ msg.id }}" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div class="flex items-start gap-3">
+      <div class="w-9 h-9 rounded-full bg-loge-100 text-loge-700 flex items-center justify-center text-sm font-semibold shrink-0">
+        {% if author %}{{ (author.first_name or '?')[0] }}{{ (author.last_name or '')[0] }}{% else %}?{% endif %}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between gap-2 flex-wrap">
+          <div class="text-sm font-semibold text-gray-900">
+            {% if author %}{{ author.first_name }} {{ author.last_name }}{% else %}—{% endif %}
+          </div>
+          <div class="text-xs text-gray-400">{{ msg.created_at.strftime('%d/%m/%Y à %H:%M') }}</div>
+        </div>
+        <div class="prose prose-sm max-w-none mt-2 text-gray-700 whitespace-pre-wrap break-words">{{ msg.content_html }}</div>
+
+        {% if msg.attachments %}
+        <div class="mt-3 flex flex-wrap gap-2">
+          {% for att in msg.attachments %}
+            {% set k = att.kind.value if att.kind is not string else att.kind %}
+            {% if k == 'FILE' %}
+            <a href="/forum/attachments/{{ att.id }}/download" target="_blank"
+               class="inline-flex items-center gap-2 max-w-full px-3 py-1.5 bg-loge-50 hover:bg-loge-100 border border-loge-200 rounded-xl text-xs text-loge-800 transition-colors">
+              <i class="ti ti-paperclip shrink-0"></i>
+              <span class="truncate">{{ att.label or att.original_filename }}</span>
+              {% if att.file_size %}<span class="text-loge-500 shrink-0">({{ (att.file_size / 1024)|round|int }} Ko)</span>{% endif %}
+            </a>
+            {% elif k == 'LINK' %}
+            <a href="{{ att.url }}" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-2 max-w-full px-3 py-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-xl text-xs text-blue-800 transition-colors">
+              <i class="ti ti-link shrink-0"></i>
+              <span class="truncate">{{ att.label or att.url }}</span>
+            </a>
+            {% elif k == 'DOCUMENT' and att.document_id %}
+            <a href="/documents/file/{{ att.document_id }}" target="_blank"
+               class="inline-flex items-center gap-2 max-w-full px-3 py-1.5 bg-amber-50 hover:bg-amber-100 border border-amber-200 rounded-xl text-xs text-amber-800 transition-colors">
+              <i class="ti ti-folder shrink-0"></i>
+              <span class="truncate">📚 {{ att.label }}</span>
+            </a>
+            {% endif %}
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Décisions inline -->
+  {% for dd in decision_data %}
+  {% set d = dd.decision %}
+  {% set author = authors.get(d.created_by_id) %}
+  <div id="d-{{ d.id }}"
+       class="bg-gradient-to-br from-loge-50 to-white rounded-2xl border-2 {% if dd.is_open %}border-loge-300{% else %}border-gray-200{% endif %} shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-loge-200/60 flex items-center justify-between gap-2 flex-wrap">
+      <div class="flex items-center gap-2">
+        <span class="inline-flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wider px-2.5 py-1 rounded-full
+                     {% if dd.is_open %}bg-loge-700 text-white{% else %}bg-gray-700 text-white{% endif %}">
+          <i class="ti {% if dd.is_open %}ti-vote{% else %}ti-check{% endif %}"></i>
+          {% if dd.is_open %}Décision en cours{% else %}Décision clôturée{% endif %}
+        </span>
+        {% if d.closes_at and dd.is_open %}
+        <span class="text-xs text-gray-500">jusqu'au {{ d.closes_at.strftime('%d/%m/%Y %H:%M') }}</span>
+        {% endif %}
+      </div>
+      <div class="text-xs text-gray-400">
+        proposé par {% if author %}{{ author.first_name }} {{ author.last_name }}{% else %}—{% endif %}
+      </div>
+    </div>
+
+    <div class="px-5 py-4 space-y-3">
+      <h3 class="text-lg font-bold text-gray-900">{{ d.title }}</h3>
+      {% if d.description_html %}
+      <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ d.description_html }}</div>
+      {% endif %}
+
+      <!-- Comptage / barre de stances -->
+      {% set total = dd.total %}
+      <div class="space-y-2">
+        {% for code, label, emoji, color in [
+          ('AGREE',    'Accord',     '✓', 'bg-emerald-500'),
+          ('DISAGREE', 'Désaccord',  '✗', 'bg-amber-500'),
+          ('ABSTAIN',  'Abstention', '⊘', 'bg-gray-400'),
+          ('BLOCK',    'Bloque',     '⛔', 'bg-red-500'),
+        ] %}
+        {% set n = dd.counts.get(code, 0) %}
+        {% set pct = (n * 100 // total) if total > 0 else 0 %}
+        <div class="flex items-center gap-3">
+          <div class="w-28 text-xs font-medium text-gray-700 shrink-0">
+            <span class="text-base mr-1">{{ emoji }}</span>{{ label }}
+          </div>
+          <div class="flex-1 h-2.5 bg-gray-100 rounded-full overflow-hidden">
+            <div class="h-full {{ color }} transition-all" style="width: {{ pct }}%"></div>
+          </div>
+          <div class="w-10 text-right text-xs text-gray-600 shrink-0 tabular-nums">{{ n }}</div>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="text-xs text-gray-400">{{ total }} vote{{ 's' if total > 1 else '' }} au total</div>
+
+      <!-- Vote -->
+      {% if dd.is_open %}
+      <form method="post" action="/forum/decisions/{{ d.id }}/stance"
+            class="border-t border-loge-200/60 pt-4 mt-4 space-y-3">
+        <div class="grid grid-cols-2 sm:grid-cols-4 gap-2">
+          {% for code, label, emoji, ring in [
+            ('AGREE',    'Accord',     '✓', 'ring-emerald-500 bg-emerald-50 text-emerald-700'),
+            ('DISAGREE', 'Désaccord',  '✗', 'ring-amber-500 bg-amber-50 text-amber-700'),
+            ('ABSTAIN',  'Abstention', '⊘', 'ring-gray-400 bg-gray-50 text-gray-700'),
+            ('BLOCK',    'Bloque',     '⛔', 'ring-red-500 bg-red-50 text-red-700'),
+          ] %}
+          {% set is_mine = dd.my_stance and (dd.my_stance.position.value if dd.my_stance.position is not string else dd.my_stance.position) == code %}
+          <label class="cursor-pointer">
+            <input type="radio" name="position" value="{{ code }}" class="sr-only peer"
+                   {% if is_mine %}checked{% endif %}>
+            <div class="text-center px-3 py-3 rounded-xl border-2 border-transparent ring-1 ring-gray-200 hover:bg-gray-50
+                        peer-checked:ring-2 peer-checked:{{ ring }} transition-all">
+              <div class="text-2xl">{{ emoji }}</div>
+              <div class="text-xs font-medium text-gray-700 mt-1">{{ label }}</div>
+            </div>
+          </label>
+          {% endfor %}
+        </div>
+        <textarea name="reason" rows="2" maxlength="500"
+                  placeholder="Raison (optionnelle) — explicitez votre position…"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"
+        >{{ dd.my_stance.reason if dd.my_stance else '' }}</textarea>
+        <div class="flex items-center justify-between gap-2">
+          <div class="text-xs text-gray-500">
+            {% if dd.my_stance %}Votre position est enregistrée — vous pouvez la modifier à tout moment.{% else %}Choisissez une position.{% endif %}
+          </div>
+          <button type="submit"
+                  class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl">
+            Enregistrer
+          </button>
+        </div>
+      </form>
+
+      <!-- Détails des stances -->
+      {% if d.stances %}
+      <details class="border-t border-loge-200/60 pt-4 mt-4">
+        <summary class="text-xs font-semibold text-gray-600 cursor-pointer hover:text-loge-700">
+          Voir les positions individuelles ({{ d.stances|length }})
+        </summary>
+        <ul class="mt-3 space-y-2">
+          {% for st in d.stances %}
+          {% set sa = authors.get(st.member_id) %}
+          {% set p = st.position.value if st.position is not string else st.position %}
+          <li class="flex items-start gap-2 text-xs">
+            <span class="shrink-0 w-5 text-base">
+              {% if p == 'AGREE' %}✓{% elif p == 'DISAGREE' %}✗{% elif p == 'ABSTAIN' %}⊘{% else %}⛔{% endif %}
+            </span>
+            <div class="flex-1">
+              <span class="font-medium text-gray-700">{% if sa %}{{ sa.first_name }} {{ sa.last_name }}{% else %}—{% endif %}</span>
+              {% if st.reason %}<span class="text-gray-500"> — {{ st.reason }}</span>{% endif %}
+            </div>
+          </li>
+          {% endfor %}
+        </ul>
+      </details>
+      {% endif %}
+
+      <!-- Clôture -->
+      {% if d.created_by_id == current_member.id or can_manage %}
+      <form method="post" action="/forum/decisions/{{ d.id }}/close"
+            x-data="{ open: false }"
+            class="border-t border-loge-200/60 pt-4 mt-4">
+        <button type="button" @click="open = !open"
+                class="text-xs font-semibold text-gray-600 hover:text-loge-700">
+          <i class="ti ti-flag-check"></i> Clôturer la décision…
+        </button>
+        <div x-show="open" x-cloak x-transition class="mt-3 space-y-2">
+          <textarea name="outcome" rows="3"
+                    placeholder="Résultat / synthèse de la décision (optionnel)…"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+          <div class="flex justify-end">
+            <button type="submit"
+                    onclick="return confirm('Clôturer définitivement cette décision ?')"
+                    class="bg-gray-700 hover:bg-gray-800 text-white text-xs font-medium px-3 py-1.5 rounded-lg">
+              Clôturer
+            </button>
+          </div>
+        </div>
+      </form>
+      {% endif %}
+
+      {% else %}
+      <!-- Décision clôturée -->
+      {% if d.outcome_html %}
+      <div class="border-t border-gray-200 pt-4 mt-4">
+        <div class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Résultat</div>
+        <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ d.outcome_html }}</div>
+      </div>
+      {% endif %}
+      <div class="text-xs text-gray-400 mt-2">Clôturée le {{ d.closed_at.strftime('%d/%m/%Y à %H:%M') }}</div>
+      {% endif %}
+    </div>
+  </div>
+  {% endfor %}
+
+  <!-- Actions -->
+  {% if not subject.is_locked or can_manage %}
+  <div class="flex items-center justify-end gap-2">
+    <button @click="showDecision = !showDecision; showReply = false"
+            class="inline-flex items-center gap-2 bg-white border border-loge-200 text-loge-700 hover:bg-loge-50 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+      <i class="ti ti-vote"></i>Proposer une décision
+    </button>
+    <button @click="showReply = !showReply; showDecision = false"
+            class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+      <i class="ti ti-message-plus"></i>Répondre
+    </button>
+  </div>
+
+  <!-- Formulaire réponse -->
+  <form x-show="showReply" x-transition x-cloak
+        x-data="{ showAtt: false }"
+        method="post" action="/forum/t/{{ subject.id }}/post"
+        enctype="multipart/form-data"
+        class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+    <h3 class="text-sm font-semibold text-gray-700">Votre réponse</h3>
+    <textarea name="content" required rows="6"
+              placeholder="Écrivez votre message…"
+              class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+
+    <button type="button" @click="showAtt = !showAtt"
+            class="text-xs font-semibold text-loge-700 hover:text-loge-900 inline-flex items-center gap-1">
+      <i class="ti ti-paperclip"></i>
+      <span x-text="showAtt ? 'Masquer les pièces jointes' : 'Ajouter pièces jointes / liens / GED'"></span>
+    </button>
+
+    <div x-show="showAtt" x-cloak x-transition class="space-y-3 pt-2 border-t border-gray-100">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Fichiers (max 25 Mo chacun)</label>
+        <input type="file" name="files" multiple
+               class="w-full text-sm text-gray-600 file:mr-3 file:py-1.5 file:px-3 file:rounded-lg file:border-0 file:text-xs file:font-semibold file:bg-loge-50 file:text-loge-700 hover:file:bg-loge-100">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Liens (un par ligne — <code>URL | libellé</code> optionnel)</label>
+        <textarea name="links" rows="2" placeholder="https://exemple.fr | Mon lien"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+      </div>
+      <div x-data="gedPicker()">
+        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1">Documents de la bibliothèque (GED)</label>
+        <div class="relative">
+          <input type="text" x-model="query" @input.debounce.300ms="search()" @focus="search()"
+                 placeholder="Rechercher un document…"
+                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <div x-show="results.length > 0 && open" x-cloak @click.away="open = false"
+               class="absolute z-30 mt-1 w-full max-h-60 overflow-auto bg-white border border-gray-200 rounded-xl shadow-lg">
+            <template x-for="d in results" :key="d.id">
+              <button type="button" @click="add(d); open = false"
+                      class="w-full text-left px-3 py-2 hover:bg-loge-50 text-xs flex items-center gap-2 border-b border-gray-50 last:border-0">
+                <i class="ti ti-file"></i>
+                <span class="font-medium text-gray-800 truncate" x-text="d.name"></span>
+                <span class="text-gray-400 truncate" x-text="'· ' + d.folder"></span>
+              </button>
+            </template>
+          </div>
+        </div>
+        <div class="flex flex-wrap gap-1.5 mt-2" x-show="selected.length > 0" x-cloak>
+          <template x-for="d in selected" :key="d.id">
+            <span class="inline-flex items-center gap-1 bg-amber-50 border border-amber-200 text-amber-800 rounded-lg px-2 py-1 text-[11px]">
+              <i class="ti ti-folder"></i>
+              <span class="max-w-[160px] truncate" x-text="d.name"></span>
+              <button type="button" @click="remove(d)" class="ml-1 text-amber-700 hover:text-red-600">×</button>
+            </span>
+          </template>
+        </div>
+        <input type="hidden" name="document_ids" :value="selected.map(d => d.id).join(',')">
+      </div>
+    </div>
+
+    <div class="flex items-center justify-end gap-2">
+      <button type="button" @click="showReply = false"
+              class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+      <button type="submit"
+              class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl">Publier</button>
+    </div>
+  </form>
+
+  <!-- Formulaire décision -->
+  <form x-show="showDecision" x-transition x-cloak
+        method="post" action="/forum/t/{{ subject.id }}/decision"
+        class="bg-gradient-to-br from-loge-50 to-white rounded-2xl border-2 border-loge-300 shadow-sm p-5 space-y-3">
+    <h3 class="text-sm font-semibold text-loge-900 flex items-center gap-2">
+      <i class="ti ti-vote"></i>Nouvelle décision à voter
+    </h3>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Titre *</label>
+      <input type="text" name="title" required maxlength="300"
+             placeholder="Ex : Adopter le nouveau règlement intérieur"
+             class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Description</label>
+      <textarea name="description" rows="4"
+                placeholder="Précisez les enjeux, le contexte, les conséquences attendues…"
+                class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+    </div>
+    <div>
+      <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Date de clôture (optionnel)</label>
+      <input type="datetime-local" name="closes_at"
+             class="w-full sm:w-auto border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <div class="flex items-center justify-end gap-2">
+      <button type="button" @click="showDecision = false"
+              class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</button>
+      <button type="submit"
+              class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl">
+        Proposer la décision
+      </button>
+    </div>
+  </form>
+  {% else %}
+  <div class="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-sm text-gray-600 text-center">
+    <i class="ti ti-lock"></i> Ce sujet est verrouillé — aucune nouvelle réponse possible.
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
