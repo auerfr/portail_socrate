@@ -364,7 +364,7 @@
     </button>
   </nav>
 
-  <!-- Sheet "Plus" sur mobile -->
+  <!-- Sheet "Plus" sur mobile — menu complet -->
   <div x-show="moreOpen"
        x-transition:enter="transition ease-out duration-200"
        x-transition:enter-start="opacity-0 translate-y-4"
@@ -373,46 +373,152 @@
        x-transition:leave-start="opacity-100 translate-y-0"
        x-transition:leave-end="opacity-0 translate-y-4"
        @click.away="moreOpen = false"
-       class="lg:hidden fixed z-50 inset-x-3 rounded-2xl shadow-2xl overflow-hidden safe-bottom"
-       style="bottom: calc(64px + env(safe-area-inset-bottom, 0px)); background:#1a202c; border:1px solid rgba(255,255,255,0.1);"
+       class="lg:hidden fixed z-50 inset-x-0 rounded-t-2xl shadow-2xl overflow-y-auto"
+       style="bottom: calc(56px + env(safe-area-inset-bottom, 0px)); max-height: 72vh; background:#1a202c; border-top:1px solid rgba(255,255,255,0.1);"
        x-cloak>
 
-    <div class="p-2">
-      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'TRESORIER'])) %}
-      <a href="/finance" @click="moreOpen=false"
-         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors
-                {% if '/finance' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
-        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 18.75a60.07 60.07 0 0115.797 2.101c.727.198 1.453-.342 1.453-1.096V18.75M3.75 4.5v.75A.75.75 0 013 6h-.75m0 0v-.375c0-.621.504-1.125 1.125-1.125H20.25M2.25 6v9m18-10.5v.75c0 .414.336.75.75.75h.75m-1.5-1.5h.375c.621 0 1.125.504 1.125 1.125v9.75c0 .621-.504 1.125-1.125 1.125h-.375m1.5-1.5H21a.75.75 0 00-.75.75v.75m0 0H3.75m0 0h-.375a1.125 1.125 0 01-1.125-1.125V15m1.5 1.5v-.75A.75.75 0 003 15h-.75"/>
-        </svg>
-        Trésorerie
+    <!-- Poignée visuelle -->
+    <div class="sticky top-0 flex justify-center pt-2.5 pb-1" style="background:#1a202c;">
+      <div class="w-8 h-1 rounded-full bg-white/20"></div>
+    </div>
+
+    <div class="px-3 pb-4">
+
+      <!-- ── Communication ── -->
+      <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-3 pb-1">Communication</p>
+
+      <a href="/messages/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/messages' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-mail text-lg opacity-70"></i>
+        <span class="flex-1">Messages</span>
+        {% if global_unread_messages and global_unread_messages > 0 %}
+        <span class="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">{{ global_unread_messages }}</span>
+        {% endif %}
+      </a>
+
+      <a href="/chat/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/chat' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-message-2 text-lg opacity-70"></i>
+        <span class="flex-1">Chat</span>
+        {% if global_unread_chat and global_unread_chat > 0 %}
+        <span class="bg-loge-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">{{ global_unread_chat }}</span>
+        {% endif %}
+      </a>
+
+      <a href="/news/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/news' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-news text-lg opacity-70"></i>
+        Actualités
+      </a>
+
+      <a href="/polls/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/polls' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-chart-bar text-lg opacity-70"></i>
+        Sondages
+      </a>
+
+      <a href="/calendar/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/calendar' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-calendar text-lg opacity-70"></i>
+        Agenda
+      </a>
+
+      <a href="/groups/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/groups' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-users-group text-lg opacity-70"></i>
+        Groupes
+      </a>
+
+      <!-- ── Loge ── -->
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
+      <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-4 pb-1">Loge</p>
+
+      {% if current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE']) %}
+      <a href="/announcements/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/announcements' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-speakerphone text-lg opacity-70"></i>
+        Annonces
       </a>
       {% endif %}
+
+      <a href="/attendance/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/attendance' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-clipboard-check text-lg opacity-70"></i>
+        Présences
+      </a>
+      {% endif %}
+
+      <!-- ── Gestion ── -->
+      <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-4 pb-1">Gestion</p>
+
+      <a href="/finance/cotisations/choisir" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/finance/cotisations/choisir' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-receipt text-lg opacity-70"></i>
+        Ma cotisation
+      </a>
+
+      <a href="/documents" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/documents' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-books text-lg opacity-70"></i>
+        Bibliothèque
+      </a>
+
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'TRESORIER'])) %}
+      <a href="/finance" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if request.url.path in ['/finance/', '/finance'] %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-coins text-lg opacity-70"></i>
+        Trésorerie
+      </a>
+      <a href="/finance/budget" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/finance/budget' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-chart-pie text-lg opacity-70"></i>
+        Budget
+      </a>
+      <a href="/finance/transactions" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/finance/transactions' in request.url.path or '/finance/bilan' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-arrows-exchange-2 text-lg opacity-70"></i>
+        Mouvements
+      </a>
+      {% endif %}
+
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
       <a href="/settings/" @click="moreOpen=false"
-         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm transition-colors
-                {% if '/settings' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
-        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M9.594 3.94c.09-.542.56-.94 1.11-.94h2.593c.55 0 1.02.398 1.11.94l.213 1.281c.063.374.313.686.645.87.074.04.147.083.22.127.324.196.72.257 1.075.124l1.217-.456a1.125 1.125 0 011.37.49l1.296 2.247a1.125 1.125 0 01-.26 1.431l-1.003.827c-.293.24-.438.613-.431.992a6.759 6.759 0 010 .255c-.007.378.138.75.43.99l1.005.828c.424.35.534.954.26 1.43l-1.298 2.247a1.125 1.125 0 01-1.369.491l-1.217-.456c-.355-.133-.75-.072-1.076.124a6.57 6.57 0 01-.22.128c-.331.183-.581.495-.644.869l-.213 1.28c-.09.543-.56.941-1.11.941h-2.594c-.55 0-1.02-.398-1.11-.94l-.213-1.281c-.062-.374-.312-.686-.644-.87a6.52 6.52 0 01-.22-.127c-.325-.196-.72-.257-1.076-.124l-1.217.456a1.125 1.125 0 01-1.369-.49l-1.297-2.247a1.125 1.125 0 01.26-1.431l1.004-.827c.292-.24.437-.613.43-.992a6.932 6.932 0 010-.255c.007-.378-.138-.75-.43-.99l-1.004-.828a1.125 1.125 0 01-.26-1.43l1.297-2.247a1.125 1.125 0 011.37-.491l1.216.456c.356.133.751.072 1.076-.124.072-.044.146-.087.22-.128.332-.183.582-.495.644-.869l.214-1.281z"/>
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
-        </svg>
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/settings' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-settings text-lg opacity-70"></i>
         {% if current_user.is_admin %}Paramètres{% else %}Contacts externes{% endif %}
       </a>
       {% endif %}
-      <div class="h-px mx-2 my-1" style="background:rgba(255,255,255,0.1);"></div>
+
+      <!-- ── Profil ── -->
+      <div class="h-px mx-1 my-3" style="background:rgba(255,255,255,0.08);"></div>
+
+      <a href="/members/{{ current_member.id if current_member else '' }}" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-white/5 transition-colors">
+        <div class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
+             style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
+          {{ current_member.first_name[0] if current_member else '?' }}{{ current_member.last_name[0] if current_member else '' }}
+        </div>
+        Mon profil
+      </a>
+
+      <a href="/auth/password" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
+        <i class="ti ti-key text-lg opacity-70"></i>
+        Mot de passe
+      </a>
+
       <a href="/auth/logout"
-         class="flex items-center gap-3 px-4 py-3 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
-        <svg class="w-5 h-5 opacity-70" fill="none" stroke="currentColor" stroke-width="1.8" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 9V5.25A2.25 2.25 0 0013.5 3h-6a2.25 2.25 0 00-2.25 2.25v13.5A2.25 2.25 0 007.5 21h6a2.25 2.25 0 002.25-2.25V15M12 9l-3 3m0 0l3 3m-3-3h12.75"/>
-        </svg>
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
+        <i class="ti ti-logout text-lg opacity-70"></i>
         Déconnexion
       </a>
+
     </div>
   </div>
 
   <!-- Overlay sheet mobile -->
   <div x-show="moreOpen" @click="moreOpen=false"
-       class="lg:hidden fixed inset-0 z-40 bg-black/40"
+       class="lg:hidden fixed inset-0 z-40 bg-black/50"
        x-cloak style="display:none;"></div>
 
 {% endif %}
