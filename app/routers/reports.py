@@ -13,10 +13,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import require_auth
-from app.models.meetings import Meeting, MeetingGrade
+from app.models.meetings import Meeting, MeetingGrade, Attendance, AttendanceStatus, MeetingVisitor, VisitorStatus
 from app.models.reports import MeetingReport, ReportStatus
 from app.models.identity import Member, MasonicGrade, LodgeFunction
 from app.models.documents import DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
+from app.models.lodge import LodgeSettings
+from sqlalchemy.orm import selectinload
+
+# ── Utilitaire : date maçonnique ────────────────────────────────────────────
+
+_MOIS_MAC = {3:1,4:2,5:3,6:4,7:5,8:6,9:7,10:8,11:9,12:10,1:11,2:12}
+_MOIS_FR  = {1:"janvier",2:"février",3:"mars",4:"avril",5:"mai",6:"juin",
+             7:"juillet",8:"août",9:"septembre",10:"octobre",11:"novembre",12:"décembre"}
+_ORD = {1:"1er",2:"2ème",3:"3ème",4:"4ème",5:"5ème",6:"6ème",
+        7:"7ème",8:"8ème",9:"9ème",10:"10ème",11:"11ème",12:"12ème"}
+
+def _date_mac(d) -> str:
+    mois_n = _MOIS_MAC.get(d.month, d.month)
+    return f"Le {d.day}ème jour du {_ORD[mois_n]} mois de l'an {d.year + 4000} de la V∴L∴"
 
 router = APIRouter(prefix="/reports", tags=["reports"])
 templates = Jinja2Templates(directory="app/templates")
@@ -136,7 +150,14 @@ async def report_edit_form(
     if not _can_write(user, member):
         raise HTTPException(403)
 
-    meeting_r = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
+    meeting_r = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+        )
+        .where(Meeting.id == meeting_id)
+    )
     meeting = meeting_r.scalar_one_or_none()
     if not meeting:
         raise HTTPException(404)
@@ -146,11 +167,40 @@ async def report_edit_form(
     )
     report = report_r.scalar_one_or_none()
 
+    # Tri des présences pour le template
+    presents = sorted(
+        [a for a in meeting.attendances if a.status == AttendanceStatus.PRESENT],
+        key=lambda a: (a.member.last_name if a.member else "")
+    )
+    excuses = sorted(
+        [a for a in meeting.attendances if a.status == AttendanceStatus.EXCUSED],
+        key=lambda a: (a.member.last_name if a.member else "")
+    )
+    passants = [mv for mv in meeting.meeting_visitors if mv.status == VisitorStatus.CONFIRMED]
+
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+
+    TYPES = {
+        'BLANCHE': 'Ten∴ Bl∴', 'SOLENNELLE': 'Ten∴ Sol∴',
+        'INSTRUCTION': "Ten∴ d'Instr∴", 'INITIATION': "Ten∴ d'Init∴",
+        'INSTALLATION': 'Installation', 'ELECTION': 'Élection du V∴M∴',
+        'PASSAGE': 'Passage au 2e degré', 'ELEVATION': 'Élévation au 3e degré',
+        'FETE': 'Fête mac∴', 'EXTRA': 'Ten∴ extraordinaire',
+    }
+
     return templates.TemplateResponse(request, "pages/reports/edit.html", {
         "current_user": user,
         "current_member": member,
         "meeting": meeting,
         "report": report,
+        "presents": presents,
+        "excuses": excuses,
+        "passants": passants,
+        "date_mac": _date_mac(meeting.meeting_date),
+        "lodge": lodge,
+        "TYPES": TYPES,
+        "meeting_type_label": TYPES.get(meeting.type.value, meeting.type.value),
     })
 
 

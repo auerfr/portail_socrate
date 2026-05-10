@@ -1,31 +1,46 @@
 {% extends "base.html" %}
-{% block title %}PV — {{ meeting.title or meeting.type.value }} — Portail Socrate{% endblock %}
+{% block title %}Tracé — {{ meeting.meeting_date.strftime('%d/%m/%Y') }} — Portail Socrate{% endblock %}
 
 {% block head %}
 <style>
-  #pv-editor { min-height: 420px; font-family: Georgia, 'Times New Roman', serif; font-size: 14px; line-height: 1.8; }
-  .toolbar-btn { padding: 4px 10px; border-radius: 6px; font-size: 12px; border: 1px solid #e5e7eb; background: white; cursor: pointer; transition: background 120ms; }
+  #pv-editor {
+    min-height: 500px;
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 13.5px;
+    line-height: 1.85;
+    color: #111;
+  }
+  #pv-editor:focus { outline: none; }
+  #pv-editor h2 { font-size: 1rem; color: #1a5252; margin: 1.2rem 0 0.4rem; font-weight: bold; }
+  #pv-editor h3 { font-size: 0.9rem; color: #1a5252; margin: 1rem 0 0.3rem; font-weight: bold; }
+  #pv-editor table { border-collapse: collapse; width: 100%; margin: 0.5rem 0; }
+  #pv-editor td { border: 1px solid #d1d5db; padding: 4px 8px; font-size: 12.5px; }
+  #pv-editor p { margin: 0.3rem 0; }
+  .toolbar-btn {
+    padding: 4px 10px; border-radius: 6px; font-size: 12px;
+    border: 1px solid #e5e7eb; background: white; cursor: pointer;
+    transition: background 120ms; white-space: nowrap;
+  }
   .toolbar-btn:hover { background: #f3f4f6; }
-  .toolbar-btn.active { background: #1a5252; color: white; border-color: #1a5252; }
 </style>
 {% endblock %}
 
 {% block content %}
-<div class="p-4 lg:p-8 max-w-4xl mx-auto">
+<div class="p-4 lg:p-8 max-w-4xl mx-auto" x-data="pvEditor()">
 
   <!-- Breadcrumb -->
-  <nav class="text-sm text-gray-400 mb-4 flex items-center gap-2">
+  <nav class="text-sm text-gray-400 mb-4 flex items-center gap-2 flex-wrap">
     <a href="/meetings/" class="hover:text-loge-700">Tenues</a>
     <span>›</span>
     <a href="/meetings/{{ meeting.id }}" class="hover:text-loge-700">{{ meeting.meeting_date.strftime('%d/%m/%Y') }}</a>
     <span>›</span>
-    <span class="text-gray-700">Procès-verbal</span>
+    <span class="text-gray-700">Tracé de tenue</span>
   </nav>
 
   <!-- En-tête -->
-  <div class="flex items-start justify-between gap-4 mb-6">
+  <div class="flex items-start justify-between gap-4 mb-5 flex-wrap">
     <div>
-      <h1 class="text-xl font-bold text-gray-900">Rédaction du Procès-Verbal</h1>
+      <h1 class="text-xl font-bold text-gray-900">Tracé de tenue</h1>
       <p class="text-sm text-gray-500 mt-0.5">
         {{ meeting.meeting_date.strftime('%d/%m/%Y') }} —
         {% set TYPES = {'BLANCHE':'Ten∴ Bl∴','SOLENNELLE':'Ten∴ Sol∴','INSTRUCTION':"Ten∴ d'Instr∴",'INITIATION':"Ten∴ d'Init∴",'INSTALLATION':'Installation','ELECTION':'Élection du V∴M∴','PASSAGE':'Passage au 2e degré','ELEVATION':'Élévation au 3e degré','FETE':'Fête mac∴','EXTRA':'Ten∴ extraordinaire'} %}
@@ -45,94 +60,86 @@
   </div>
 
   {% if request.query_params.get('saved') %}
-  <div class="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3 flex items-center gap-2">
+  <div class="mb-4 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
     ✓ Brouillon enregistré.
   </div>
   {% endif %}
 
   {% if report and report.status.value == 'APPROUVE' %}
   <div class="mb-4 bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-xl px-4 py-3">
-    ⚠ Ce PV est approuvé et archivé. La modification est déconseillée.
-    <a href="/reports/meeting/{{ meeting.id }}" class="underline ml-2">Voir le PV →</a>
+    ⚠ Ce tracé est approuvé et archivé.
+    <a href="/reports/meeting/{{ meeting.id }}" class="underline ml-2">Voir le tracé →</a>
+  </div>
+  {% endif %}
+
+  <!-- Pré-remplissage depuis les données de la tenue -->
+  {% if not report and (presents or excuses or passants) %}
+  <div class="mb-4 bg-loge-50 border border-loge-200 rounded-xl px-4 py-3 flex items-center justify-between gap-3 flex-wrap">
+    <p class="text-sm text-loge-700">
+      <span class="font-semibold">{{ presents|length }} présent(s)</span>,
+      {{ excuses|length }} excusé(s),
+      {{ passants|length }} passant(s) — données disponibles pour pré-remplir.
+    </p>
+    <button type="button" @click="insertFromMeeting()"
+            class="bg-loge-700 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-loge-800 transition-colors shrink-0">
+      📋 Pré-remplir depuis la tenue
+    </button>
   </div>
   {% endif %}
 
   <!-- Éditeur -->
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden" x-data="pvEditor()">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
 
     <!-- Barre d'outils -->
     <div class="border-b border-gray-100 px-4 py-2.5 flex flex-wrap gap-1.5 bg-gray-50">
-      <button type="button" class="toolbar-btn font-bold" @click="exec('bold')" title="Gras (Ctrl+B)"><b>G</b></button>
-      <button type="button" class="toolbar-btn italic" @click="exec('italic')" title="Italique (Ctrl+I)"><i>I</i></button>
-      <button type="button" class="toolbar-btn underline" @click="exec('underline')" title="Souligné (Ctrl+U)"><u>S</u></button>
-      <div class="w-px bg-gray-200 mx-1"></div>
-      <button type="button" class="toolbar-btn" @click="insertHeading()" title="Titre de section">H</button>
-      <button type="button" class="toolbar-btn" @click="exec('insertUnorderedList')" title="Liste à puces">• —</button>
-      <button type="button" class="toolbar-btn" @click="exec('insertHorizontalRule')" title="Séparateur">— — —</button>
-      <div class="w-px bg-gray-200 mx-1"></div>
-      <button type="button" class="toolbar-btn text-xs" @click="insertTemplate()" title="Insérer structure type">📋 Structure</button>
+      <button type="button" class="toolbar-btn font-bold" @click="exec('bold')"><b>G</b></button>
+      <button type="button" class="toolbar-btn italic" @click="exec('italic')"><i>I</i></button>
+      <button type="button" class="toolbar-btn underline" @click="exec('underline')"><u>S</u></button>
+      <div class="w-px bg-gray-200 mx-0.5"></div>
+      <button type="button" class="toolbar-btn" @click="execBlock('h2')">Titre</button>
+      <button type="button" class="toolbar-btn" @click="execBlock('h3')">Sous-titre</button>
+      <button type="button" class="toolbar-btn" @click="execBlock('p')">¶ Texte</button>
+      <div class="w-px bg-gray-200 mx-0.5"></div>
+      <button type="button" class="toolbar-btn" @click="exec('insertUnorderedList')">• Liste</button>
+      <button type="button" class="toolbar-btn" @click="insertTable(2,4)">Tableau passants</button>
+      <button type="button" class="toolbar-btn" @click="insertTable(2,2)">Tableau présents</button>
+      <div class="w-px bg-gray-200 mx-0.5"></div>
+      <button type="button" class="toolbar-btn text-loge-700 font-medium" @click="insertStructure()" title="Insérer la structure type">📄 Structure vide</button>
     </div>
 
     <!-- Zone éditable -->
     <div id="pv-editor"
          contenteditable="true"
-         class="p-6 focus:outline-none text-gray-800"
+         class="p-6 lg:p-8"
          x-ref="editor"
          @input="sync()"
          x-html="content">
     </div>
-
-    <!-- Champ caché synchronisé -->
-    <textarea name="content" id="pv-content" class="hidden" x-ref="hidden"></textarea>
   </div>
 
   <!-- Actions -->
   <div class="mt-4 flex flex-wrap gap-3 items-center">
-
-    <!-- Enregistrer brouillon -->
-    <form method="post" action="/reports/meeting/{{ meeting.id }}/save" id="form-save" @submit.prevent="submitSave()">
+    <form method="post" action="/reports/meeting/{{ meeting.id }}/save" id="form-save">
       <input type="hidden" name="content" id="content-save">
-      <button type="submit"
+      <button type="button" @click="submitSave()"
               class="inline-flex items-center gap-2 bg-white border border-gray-200 text-gray-700 px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50 transition-colors shadow-sm">
         💾 Enregistrer le brouillon
       </button>
     </form>
 
-    <!-- Soumettre au VM -->
     {% if not report or report.status.value == 'BROUILLON' %}
-    <form method="post" action="/reports/meeting/{{ meeting.id }}/submit"
-          onsubmit="document.getElementById('pv-content').value = document.getElementById('pv-editor').innerHTML; return confirm('Soumettre ce PV au V∴M∴ pour approbation ?')">
-      <button type="submit"
+    <form method="post" action="/reports/meeting/{{ meeting.id }}/submit" id="form-submit">
+      <input type="hidden" name="content" id="content-submit">
+      <button type="button" @click="submitToVM()"
               class="inline-flex items-center gap-2 bg-loge-700 text-white px-5 py-2.5 rounded-xl text-sm font-medium hover:bg-loge-800 transition-colors shadow-sm">
         ✉ Soumettre au V∴M∴
       </button>
     </form>
     {% endif %}
 
-    <a href="/meetings/{{ meeting.id }}"
-       class="text-sm text-gray-400 hover:text-gray-600 transition-colors ml-auto">
+    <a href="/meetings/{{ meeting.id }}" class="text-sm text-gray-400 hover:text-gray-600 ml-auto">
       ← Retour à la tenue
     </a>
-  </div>
-
-  <!-- Aide syntaxe -->
-  <div class="mt-6 bg-loge-50 border border-loge-100 rounded-xl p-4">
-    <p class="text-xs font-semibold text-loge-700 mb-2">Conseils de rédaction</p>
-    <div class="grid sm:grid-cols-2 gap-x-8 gap-y-1">
-      {% for tip in [
-        ("Structure type", "Ouverture · Présences · Ordre du jour · Clôture"),
-        ("Présences", "Lister les membres présents par grade"),
-        ("Décisions", "Mettre en évidence avec un titre de section"),
-        ("Votes", "Préciser Pour / Contre / Abstentions"),
-        ("Planche", "Nom de l'orateur, sujet, résumé"),
-        ("Agape", "Mentionner lieu et nombre de convives"),
-      ] %}
-      <div class="flex gap-2 text-xs text-loge-600">
-        <span class="font-medium text-loge-800 shrink-0">{{ tip[0] }} :</span>
-        <span>{{ tip[1] }}</span>
-      </div>
-      {% endfor %}
-    </div>
   </div>
 
 </div>
@@ -140,38 +147,153 @@
 
 {% block scripts %}
 <script>
+// Données de la tenue passées depuis Python
+const MEETING_DATA = {
+  dateMac: {{ date_mac | tojson }},
+  lodgeName: {{ (lodge.name if lodge else 'Socrate Raison et Progrès') | tojson }},
+  obedience: {{ (lodge.obedience if lodge else 'Grand Orient de France') | tojson }},
+  orient: {{ (lodge.orient_city if lodge else '') | tojson }},
+  logeNum: {{ (lodge.loge_number if lodge and lodge.loge_number else '') | tojson }},
+  vmName: {{ (lodge.vm_name_display if lodge and lodge.vm_name_display else '') | tojson }},
+  meetingDate: {{ meeting.meeting_date.strftime('%d %B %Y') | tojson }},
+  meetingType: {{ meeting_type_label | tojson }},
+  meetingLocation: {{ (meeting.location or '') | tojson }},
+  meetingGrade: {% if meeting.grade.value == 'APPRENTI' %}"d'App∴"{% elif meeting.grade.value == 'COMPAGNON' %}"de Comp∴"{% elif meeting.grade.value == 'MAITRE' %}"de M∴"{% else %}"TLR∴"{% endif %},
+
+  presents: [
+    {% for a in presents %}{% if a.member %}
+    {
+      name: {{ (a.member.first_name + ' ' + a.member.last_name) | tojson }},
+      fn: {{ (a.member.lodge_function.value | replace('_',' ') | title if a.member.lodge_function and a.member.lodge_function.value != 'FRERE' else '') | tojson }}
+    },
+    {% endif %}{% endfor %}
+  ],
+
+  excuses: [
+    {% for a in excuses %}{% if a.member %}
+    {{ (a.member.first_name + ' ' + a.member.last_name) | tojson }},
+    {% endif %}{% endfor %}
+  ],
+
+  passants: [
+    {% for mv in passants %}{% if mv.visitor %}
+    {
+      name: {{ (mv.visitor.first_name + ' ' + mv.visitor.last_name) | tojson }},
+      loge: {{ (mv.visitor.lodge_name or '') | tojson }},
+      obedience: {{ (mv.visitor.obedience or 'G∴O∴D∴F∴') | tojson }},
+      orient: {{ (mv.visitor.orient_city or '') | tojson }}
+    },
+    {% endif %}{% endfor %}
+  ],
+};
+
 function pvEditor() {
   return {
     content: {{ (report.content or '') | tojson }},
+
     exec(cmd) { document.execCommand(cmd, false, null); this.sync(); },
-    insertHeading() {
-      document.execCommand('formatBlock', false, 'h3');
+    execBlock(tag) { document.execCommand('formatBlock', false, tag); this.sync(); },
+
+    insertTable(cols, rows) {
+      let html = '<table>';
+      for (let r = 0; r < rows; r++) {
+        html += '<tr>' + '<td>&nbsp;</td>'.repeat(cols) + '</tr>';
+      }
+      html += '</table><p>&nbsp;</p>';
+      document.execCommand('insertHTML', false, html);
       this.sync();
     },
-    insertTemplate() {
-      if (this.content && !confirm('Remplacer le contenu par la structure type ?')) return;
-      this.content = `<h3 style="color:#1a5252;font-size:1rem;margin:1rem 0 0.5rem;">Ouverture des travaux</h3>
-<p>Le V∴M∴ ouvre les travaux à [heure] en Loge d'[grade].</p>
-<h3 style="color:#1a5252;font-size:1rem;margin:1rem 0 0.5rem;">Présences</h3>
-<p><strong>Membres présents :</strong> [liste]</p>
-<p><strong>Membres excusés :</strong> [liste]</p>
-<p><strong>Visiteurs :</strong> [liste]</p>
-<h3 style="color:#1a5252;font-size:1rem;margin:1rem 0 0.5rem;">Lecture et approbation du PV précédent</h3>
-<p>Le PV de la précédente tenue est lu par le Sec∴ et approuvé à l'unanimité.</p>
-<h3 style="color:#1a5252;font-size:1rem;margin:1rem 0 0.5rem;">Ordre du jour</h3>
-<p>[Déroulé des travaux]</p>
-<h3 style="color:#1a5252;font-size:1rem;margin:1rem 0 0.5rem;">Clôture des travaux</h3>
-<p>Le V∴M∴ clôt les travaux à [heure].</p>`;
+
+    _buildStructure(data) {
+      const d = data;
+
+      // Tableau présents (2 colonnes × ceil(n/2) lignes)
+      let presentsRows = '';
+      const half = Math.ceil(d.presents.length / 2);
+      for (let i = 0; i < half; i++) {
+        const left  = d.presents[i]      || {name:'', fn:''};
+        const right = d.presents[i+half] || {name:'', fn:''};
+        const fnL = left.fn  ? ` <em style="color:#6b7280;font-size:11px;">${left.fn}</em>`  : '';
+        const fnR = right.fn ? ` <em style="color:#6b7280;font-size:11px;">${right.fn}</em>` : '';
+        presentsRows += `<tr><td>${left.name}${fnL}</td><td>${right.name}${fnR}</td></tr>`;
+      }
+      if (!presentsRows) presentsRows = '<tr><td colspan="2">&nbsp;</td></tr>';
+
+      // Tableau passants (4 colonnes)
+      let passantsRows = '';
+      for (const p of d.passants) {
+        passantsRows += `<tr><td>${p.name}</td><td>${p.loge}</td><td>${p.obedience}</td><td>Or∴ de ${p.orient}</td></tr>`;
+      }
+      if (!passantsRows) passantsRows = '<tr><td colspan="4">&nbsp;</td></tr>';
+
+      const excusesText = d.excuses.length
+        ? d.excuses.join(', ') + '.'
+        : '[liste des excusés]';
+
+      return `<p style="text-align:center;font-weight:bold;">${d.lodgeName}</p>
+<p style="text-align:center;">AU NOM ET SOUS LES AUSPICES DU ${d.obedience}</p>
+<p style="text-align:center;">Or∴ de ${d.orient}${d.logeNum ? ' – R∴L∴ ' + d.logeNum : ''}</p>
+<p style="text-align:center;">${d.meetingType} du ${d.meetingDate}</p>
+<br>
+<p>${d.dateMac}, les SS∴ et les FF∴ de la R∴L∴ « ${d.lodgeName} » se sont réunis${d.meetingLocation ? ' à ' + d.meetingLocation : ''} sous la présidence du V∴M∴ ${d.vmName}.</p>
+
+<h2>Étaient présent(e)s, les FF∴ et les SS∴ :</h2>
+<table>${presentsRows}</table>
+
+<h2>Étaient excusé(e)s, les FF∴ et les SS∴ :</h2>
+<p>${excusesText}</p>
+
+<h2>Se sont joints à nos travaux les maçons passants :</h2>
+<table>
+<tr><td><strong>Nom</strong></td><td><strong>Loge</strong></td><td><strong>Obédience</strong></td><td><strong>Orient</strong></td></tr>
+${passantsRows}
+</table>
+
+<h2>Ouverture des travaux</h2>
+<p>Le V∴M∴ ${d.vmName} procède à l'ouverture des travaux en Loge ${d.meetingGrade} selon le rituel.</p>
+
+<h2>Ordre du jour</h2>
+<p>[Déroulé des travaux, lecture du PV précédent, planches, votes…]</p>
+
+<h2>Clôture des travaux</h2>
+<p>L'ensemble des travaux étant accomplis, le V∴M∴ procède à la clôture selon le rituel et tous se retirent en paix sous la Loi du silence.</p>
+<br>
+<p><em>Le Secrétaire,</em></p>
+<p>&nbsp;</p>`;
+    },
+
+    insertStructure() {
+      if (this.content && !confirm('Remplacer le contenu par la structure vide ?')) return;
+      const empty = {
+        ...MEETING_DATA,
+        presents: [],
+        excuses: [],
+        passants: [],
+      };
+      this.content = this._buildStructure(empty);
       this.$nextTick(() => { this.$refs.editor.innerHTML = this.content; });
     },
+
+    insertFromMeeting() {
+      if (this.content && !confirm('Pré-remplir avec les données de la tenue (présences, excusés, passants) ?')) return;
+      this.content = this._buildStructure(MEETING_DATA);
+      this.$nextTick(() => { this.$refs.editor.innerHTML = this.content; });
+    },
+
     sync() {
       this.content = this.$refs.editor.innerHTML;
-      this.$refs.hidden.value = this.content;
     },
+
     submitSave() {
       document.getElementById('content-save').value = this.$refs.editor.innerHTML;
       document.getElementById('form-save').submit();
-    }
+    },
+
+    submitToVM() {
+      if (!confirm('Soumettre ce tracé au V∴M∴ pour approbation ?')) return;
+      document.getElementById('content-submit').value = this.$refs.editor.innerHTML;
+      document.getElementById('form-submit').submit();
+    },
   }
 }
 </script>
