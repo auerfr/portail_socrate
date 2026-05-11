@@ -52,10 +52,13 @@ def get_label(value: Any, default: Optional[str] = None) -> str:
       2. `default` fourni par l'appelant → renvoyé.
       3. Valeur de l'enum (ou valeur littérale).
     """
+    import enum as _enum
     if value is None:
         return default or ""
-    # Enum instance
-    if hasattr(value, "__class__") and hasattr(value, "name") and not isinstance(value, (str, int, float)):
+    # Enum instance — détection robuste : isinstance(_enum.Enum). NOTE : les enums
+    # qui héritent aussi de str (class X(str, Enum)) doivent être détectés ICI
+    # avant le test str ci-dessous, sinon str(value) renvoie "Class.KEY".
+    if isinstance(value, _enum.Enum):
         cls_name = value.__class__.__name__
         key_name = value.name
         custom = _CACHE.get(_key(cls_name, key_name))
@@ -63,7 +66,7 @@ def get_label(value: Any, default: Optional[str] = None) -> str:
             return custom
         if default:
             return default
-        return getattr(value, "value", str(value))
+        return value.value
     # Tuple-like (class, key)
     if isinstance(value, tuple) and len(value) == 2:
         cls_name, key_name = value
