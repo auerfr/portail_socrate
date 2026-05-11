@@ -56,9 +56,6 @@ def _fn_from_label(label: str) -> LodgeFunction:
 _GRADE_DEFAULT_LABELS = {
     "APPRENTI": "Apprenti", "COMPAGNON": "Compagnon", "MAITRE": "Maître",
 }
-_GRADE_FEMININE_LABELS = {
-    "APPRENTI": "Apprentie", "COMPAGNON": "Compagnonne", "MAITRE": "Maîtresse",
-}
 _FUNCTION_DEFAULT_LABELS = {
     "VM":                "Vénérable Maître",
     "PREMIER_S":         "1er Surveillant",
@@ -78,13 +75,14 @@ _FUNCTION_DEFAULT_LABELS = {
 
 
 def _grade_label(g, civility: str | None = None) -> str:
-    """Libellé du grade. Si `civility` = 'S', utilise la forme féminine."""
+    """Libellé du grade. Tradition maçonnique : invariant masculin.
+
+    L'argument `civility` est accepté pour compatibilité d'appel mais n'influence
+    pas le résultat — on garde le libellé par défaut (ou l'override admin).
+    """
     from app.services.labels import get_label
     v = g.value if hasattr(g, "value") else str(g)
-    if civility == "S":
-        default = _GRADE_FEMININE_LABELS.get(v, _GRADE_DEFAULT_LABELS.get(v, v))
-    else:
-        default = _GRADE_DEFAULT_LABELS.get(v, v)
+    default = _GRADE_DEFAULT_LABELS.get(v, v)
     return get_label(g, default=default) if hasattr(g, "value") else default
 
 
