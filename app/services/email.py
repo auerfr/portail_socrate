@@ -26,8 +26,26 @@ async def _send_raw(
     """
     settings = get_settings()
 
+    async def _journal(ok: bool, err: Optional[str]):
+        """Insert un EmailLog (best-effort, ne lève jamais)."""
+        try:
+            from app.database import AsyncSessionLocal
+            from app.models.system import EmailLog, EmailStatus
+            async with AsyncSessionLocal() as s:
+                s.add(EmailLog(
+                    recipient=to[:300],
+                    subject=subject[:500],
+                    status=EmailStatus.SENT if ok else EmailStatus.FAILED,
+                    error=(err[:2000] if err else None),
+                    has_attachment=bool(attachments),
+                ))
+                await s.commit()
+        except Exception:
+            pass
+
     if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
         logger.warning("SMTP non configuré — email ignoré (to=%s subject=%s)", to, subject)
+        await _journal(False, "SMTP non configuré")
         return False, "SMTP non configuré"
 
     # Corps alternatif html/text
@@ -68,10 +86,12 @@ async def _send_raw(
             timeout=15,            # 15 secondes max
         )
         logger.info("Email envoyé → %s [%s]", to, subject)
+        await _journal(True, None)
         return True, None
 
     except Exception as exc:
         logger.error("Échec envoi email → %s : %s", to, exc)
+        await _journal(False, str(exc))
         return False, str(exc)
 
 

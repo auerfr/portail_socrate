@@ -8,6 +8,24 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+class EmailStatus(str, enum.Enum):
+    SENT   = "SENT"
+    FAILED = "FAILED"
+
+
+class EmailLog(Base):
+    """Journal des emails sortants (envoyés via le service email)."""
+    __tablename__ = "email_logs"
+
+    id: Mapped[int]    = mapped_column(primary_key=True)
+    recipient: Mapped[str]  = mapped_column(String(300), index=True)
+    subject: Mapped[str]    = mapped_column(String(500))
+    status: Mapped[EmailStatus] = mapped_column(Enum(EmailStatus), index=True)
+    error: Mapped[Optional[str]] = mapped_column(Text)
+    has_attachment: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
+
+
 class NotificationType(str, enum.Enum):
     INFO             = "INFO"
     WARNING          = "WARNING"

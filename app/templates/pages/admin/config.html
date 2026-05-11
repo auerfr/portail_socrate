@@ -1,0 +1,55 @@
+{% extends "pages/admin/_layout.html" %}
+{% block title %}Administration — Configuration{% endblock %}
+
+{% block admin_content %}
+
+<div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-5 text-sm text-amber-800">
+  <i class="ti ti-info-circle"></i>
+  Ces nomenclatures sont définies dans le code Python (enums). Pour les modifier
+  il faut intervenir dans <code class="text-xs font-mono">app/models/*.py</code> — une
+  refonte dynamique vers une table DB sera proposée dans une phase ultérieure.
+</div>
+
+<div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+  {% for label, icon, enum_cls, note in referentials %}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-900"><i class="ti {{ icon }} text-loge-700"></i> {{ label }}</h2>
+      {% if note %}<div class="text-[11px] text-gray-400 mt-0.5">{{ note }}</div>{% endif %}
+    </div>
+    <ul class="divide-y divide-gray-50 text-sm">
+      {% for item in enum_cls %}
+      <li class="px-5 py-1.5 flex items-center justify-between">
+        <span class="font-mono text-xs text-gray-500">{{ item.name }}</span>
+        <span class="text-gray-800">{{ item.value }}</span>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endfor %}
+</div>
+
+{# Groupes (donnée éditable existante) #}
+<section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-5">
+  <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+    <h2 class="font-semibold text-gray-900"><i class="ti ti-users-group text-loge-700"></i> Groupes &amp; commissions ({{ groups|length }})</h2>
+    <a href="/groups/" class="text-xs text-loge-700 hover:underline">Gérer →</a>
+  </div>
+  {% if groups %}
+  <ul class="divide-y divide-gray-100 text-sm">
+    {% for g in groups %}
+    <li class="px-5 py-2 flex items-center justify-between">
+      <div>
+        <span class="font-semibold text-gray-900">{{ g.name }}</span>
+        <span class="text-[11px] text-gray-400 ml-2">{{ g.type.value if g.type else '' }}</span>
+      </div>
+      {% if g.description %}<div class="text-xs text-gray-500 truncate max-w-md">{{ g.description }}</div>{% endif %}
+    </li>
+    {% endfor %}
+  </ul>
+  {% else %}
+  <div class="p-5 text-sm text-gray-500">Aucun groupe défini.</div>
+  {% endif %}
+</section>
+
+{% endblock %}

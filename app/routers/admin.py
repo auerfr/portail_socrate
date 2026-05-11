@@ -122,7 +122,7 @@ async def admin_overview(
     # Tenues à venir
     today = date.today()
     upcoming_meetings = (await db.execute(
-        select(func.count(Meeting.id)).where(Meeting.date >= today)
+        select(func.count(Meeting.id)).where(Meeting.meeting_date >= today)
     )).scalar() or 0
 
     # Tâches en retard (global)
@@ -397,62 +397,360 @@ async def admin_audit(
 
 
 @router.get("/data", response_class=HTMLResponse)
-async def admin_data_stub(
+async def admin_data(
     request: Request,
     ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    return templates.TemplateResponse(request, "pages/admin/_stub.html", {
-        "current_user": user, "current_member": member,
+
+    # Liste des backups
+    backups = []
+    d = os.path.join(os.getcwd(), "backups")
+    if os.path.isdir(d):
+        for f in sorted(os.listdir(d), reverse=True):
+            if not f.endswith(".zip"):
+                continue
+            p = os.path.join(d, f)
+            backups.append({
+                "filename": f,
+                "mtime": datetime.fromtimestamp(os.path.getmtime(p)),
+                "size_mb": round(os.path.getsize(p) / (1024 * 1024), 2),
+            })
+
+    # Taille des principales tables (estimation par count)
+    table_sizes = []
+    tables_of_interest = [
+        ("Membres",        "members"),
+        ("Utilisateurs",   "users"),
+        ("Documents",      "documents"),
+        ("Tâches projet",  "tasks"),
+        ("Messages chat",  "chat_messages"),
+        ("Messagerie",     "messages"),
+        ("Actualités",     "news_articles"),
+        ("Tenues",         "meetings"),
+        ("Audit",          "audit_logs"),
+        ("Notifications",  "notifications"),
+    ]
+    from sqlalchemy import text as sa_text
+    for lbl, tbl in tables_of_interest:
+        try:
+            r = await db.execute(sa_text(f"SELECT COUNT(*) FROM {tbl}"))
+            table_sizes.append({"label": lbl, "table": tbl, "count": r.scalar() or 0})
+        except Exception:
+            pass
+    table_sizes.sort(key=lambda x: x["count"], reverse=True)
+
+    # Membres pour le dropdown RGPD
+    all_members = (await db.execute(
+        select(Member).order_by(Member.last_name, Member.first_name)
+    )).scalars().all()
+
+    disk = _disk_usage_db()
+
+    return templates.TemplateResponse(request, "pages/admin/data.html", {
+        "current_user": user,
+        "current_member": member,
+        "backups": backups,
+        "table_sizes": table_sizes,
+        "all_members": all_members,
+        "disk": disk,
         "active_tab": "data",
-        "title": "Données & sauvegardes",
-        "icon": "ti-database",
-        "items": [
-            "Restore guidé depuis backup ZIP (sandbox avant écrasement)",
-            "Maintenance DB : VACUUM, taille tables, purge anciens logs/notifs",
-            "Export RGPD complet d'un membre (JSON + ZIP des fichiers)",
-            "Droit à l'oubli : anonymisation cohérente",
-        ],
     })
+
+
+@router.get("/data/backup/{filename}/download")
+async def admin_backup_download(
+    filename: str,
+    ctx: Annotated[tuple, Depends(require_admin)],
+):
+    """Télécharge un fichier de backup."""
+    from fastapi.responses import FileResponse
+    # Anti-traversal : on n'accepte que les noms simples
+    if "/" in filename or "\\" in filename or ".." in filename or not filename.endswith(".zip"):
+        raise HTTPException(400, "Nom de fichier invalide")
+    path = os.path.join(os.getcwd(), "backups", filename)
+    if not os.path.isfile(path):
+        raise HTTPException(404)
+    return FileResponse(path, media_type="application/zip", filename=filename)
+
+
+@router.post("/data/backup/now")
+async def admin_backup_now(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Déclenche une sauvegarde immédiate (sans envoi email)."""
+    actor_user, actor_member = ctx
+    from app.services.backup import run_backup
+    try:
+        result = await run_backup(to_email=None)
+        await log_audit(
+            db, actor_id=actor_member.id, action="BACKUP_MANUAL",
+            target_label=result.get("filename", "?") if isinstance(result, dict) else None,
+            details=str(result), request=request, commit=True,
+        )
+    except Exception as e:
+        await log_audit(
+            db, actor_id=actor_member.id, action="BACKUP_FAIL",
+            details=str(e)[:500], request=request, commit=True,
+        )
+    return RedirectResponse(url="/admin/data", status_code=303)
+
+
+@router.post("/data/vacuum")
+async def admin_db_vacuum(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """VACUUM SQLite — défragmente et compacte le fichier."""
+    from sqlalchemy import text as sa_text
+    actor_user, actor_member = ctx
+    try:
+        await db.execute(sa_text("VACUUM"))
+        await db.commit()
+        await log_audit(
+            db, actor_id=actor_member.id, action="DB_VACUUM",
+            details="VACUUM exécuté avec succès", request=request, commit=True,
+        )
+    except Exception as e:
+        await log_audit(
+            db, actor_id=actor_member.id, action="DB_VACUUM_FAIL",
+            details=str(e)[:500], request=request, commit=True,
+        )
+    return RedirectResponse(url="/admin/data", status_code=303)
+
+
+@router.post("/data/purge-notifications")
+async def admin_purge_notifications(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    older_than_days: int = Form(60),
+):
+    """Purge des notifications lues plus anciennes que N jours."""
+    from app.models.system import Notification
+    actor_user, actor_member = ctx
+    cutoff = datetime.utcnow() - timedelta(days=max(7, older_than_days))
+    r = await db.execute(sa_delete(Notification).where(
+        Notification.created_at < cutoff,
+        Notification.read_at.isnot(None),
+    ))
+    await log_audit(
+        db, actor_id=actor_member.id, action="PURGE_NOTIFICATIONS",
+        target_label=f"avant {cutoff.date()}",
+        details=f"{r.rowcount} notification(s) supprimée(s)",
+        request=request,
+    )
+    await db.commit()
+    return RedirectResponse(url="/admin/data", status_code=303)
+
+
+@router.get("/data/rgpd-export/{member_id}")
+async def admin_rgpd_export(
+    member_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Export RGPD : zip avec un JSON contenant toutes les données du membre."""
+    import io
+    import json
+    import zipfile
+    from fastapi.responses import StreamingResponse
+
+    actor_user, actor_member = ctx
+    m = (await db.execute(select(Member).where(Member.id == member_id))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(404)
+
+    def _serialize(obj):
+        out = {}
+        for col in obj.__table__.columns:
+            val = getattr(obj, col.name)
+            if hasattr(val, "isoformat"):
+                val = val.isoformat()
+            elif hasattr(val, "value"):
+                val = val.value
+            out[col.name] = val
+        return out
+
+    data = {"member": _serialize(m)}
+
+    # User associé
+    u = (await db.execute(select(User).where(User.member_id == m.id))).scalar_one_or_none()
+    if u:
+        d = _serialize(u)
+        d.pop("password_hash", None)  # ne pas exporter le hash
+        d.pop("reset_token", None)
+        data["user_account"] = d
+
+    # Tenter de joindre quelques relations courantes
+    from sqlalchemy import text as sa_text
+    for label, sql in [
+        ("attendances",   "SELECT * FROM attendances WHERE member_id = :id"),
+        ("messages_sent", "SELECT id, subject, body, created_at FROM messages WHERE sender_id = :id"),
+        ("news_authored", "SELECT id, title, created_at FROM news_articles WHERE author_id = :id"),
+        ("poll_votes",    "SELECT * FROM poll_votes WHERE voter_id = :id"),
+        ("tasks_assigned","SELECT id, title, status, due_date FROM tasks WHERE assigned_to_id = :id"),
+        ("task_comments", "SELECT id, task_id, content, created_at FROM task_comments WHERE author_id = :id"),
+        ("audit_actions", "SELECT id, action, resource_type, target_label, created_at FROM audit_logs WHERE actor_id = :id"),
+    ]:
+        try:
+            r = await db.execute(sa_text(sql), {"id": m.id})
+            rows = [dict(row._mapping) for row in r.fetchall()]
+            for row in rows:
+                for k, v in list(row.items()):
+                    if hasattr(v, "isoformat"):
+                        row[k] = v.isoformat()
+            data[label] = rows
+        except Exception as e:
+            data[label] = {"_error": str(e)}
+
+    # Construction du ZIP en mémoire
+    buf = io.BytesIO()
+    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
+        zf.writestr(
+            "donnees.json",
+            json.dumps(data, indent=2, ensure_ascii=False, default=str),
+        )
+        zf.writestr(
+            "README.txt",
+            "Export RGPD - Portail Socrate\n"
+            f"Membre : {m.last_name} {m.first_name} (id={m.id})\n"
+            f"Date d'export : {datetime.utcnow().isoformat()}\n"
+            f"Demandé par : {actor_member.first_name} {actor_member.last_name}\n\n"
+            "Ce ZIP contient l'ensemble des données personnelles associées à ce membre\n"
+            "dans la base de la loge, hors fichiers uploadés.\n",
+        )
+    buf.seek(0)
+
+    await log_audit(
+        db, actor_id=actor_member.id, action="RGPD_EXPORT",
+        target_type="member", target_id=m.id,
+        target_label=f"{m.last_name} {m.first_name}",
+        request=request, commit=True,
+    )
+
+    fname = f"rgpd-{m.last_name.lower()}-{m.first_name.lower()}-{datetime.utcnow().strftime('%Y%m%d')}.zip"
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 @router.get("/comm", response_class=HTMLResponse)
-async def admin_comm_stub(
+async def admin_comm(
     request: Request,
     ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    f_status: str = "",
+    days: int = 30,
+    page: int = 1,
 ):
     user, member = ctx
-    return templates.TemplateResponse(request, "pages/admin/_stub.html", {
-        "current_user": user, "current_member": member,
+    from app.models.system import EmailLog, EmailStatus
+    page_size = 50
+    since = datetime.utcnow() - timedelta(days=max(1, min(days, 365)))
+
+    stmt = select(EmailLog).where(EmailLog.created_at >= since)
+    if f_status in EmailStatus.__members__:
+        stmt = stmt.where(EmailLog.status == EmailStatus(f_status))
+
+    total = (await db.execute(
+        select(func.count()).select_from(stmt.subquery())
+    )).scalar() or 0
+    sent_count = (await db.execute(
+        select(func.count(EmailLog.id)).where(
+            EmailLog.created_at >= since, EmailLog.status == EmailStatus.SENT
+        )
+    )).scalar() or 0
+    failed_count = (await db.execute(
+        select(func.count(EmailLog.id)).where(
+            EmailLog.created_at >= since, EmailLog.status == EmailStatus.FAILED
+        )
+    )).scalar() or 0
+
+    stmt = stmt.order_by(desc(EmailLog.created_at)).offset((page - 1) * page_size).limit(page_size)
+    rows = (await db.execute(stmt)).scalars().all()
+
+    return templates.TemplateResponse(request, "pages/admin/comm.html", {
+        "current_user": user,
+        "current_member": member,
+        "rows": rows,
+        "total": total,
+        "sent_count": sent_count,
+        "failed_count": failed_count,
+        "days": days,
+        "f_status": f_status,
+        "page": page,
+        "page_size": page_size,
         "active_tab": "comm",
-        "title": "Communication & emails",
-        "icon": "ti-mail",
-        "items": [
-            "File d'envoi SMTP : voir échecs, retry manuel, logs détaillés",
-            "Templates emails personnalisables (sujet/corps de chaque notification)",
-            "Test email depuis chaque template",
-            "Tracking : ouvertures (pixel), clics liens",
-        ],
     })
 
 
-@router.get("/config", response_class=HTMLResponse)
-async def admin_config_stub(
+@router.post("/comm/test-email")
+async def admin_comm_test_email(
     request: Request,
     ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    to: str = Form(...),
 ):
+    """Envoie un email de test au destinataire indiqué."""
+    actor_user, actor_member = ctx
+    from app.services.email import _send_raw
+    ok, err = await _send_raw(
+        to=to.strip(),
+        subject="[Portail Socrate] Test email",
+        html="<p>Cet email est un <strong>test</strong> émis depuis la console d'administration.</p>",
+        text="Cet email est un test émis depuis la console d'administration.",
+    )
+    await log_audit(
+        db, actor_id=actor_member.id,
+        action="EMAIL_TEST",
+        target_label=to.strip(),
+        details=("OK" if ok else f"FAIL: {err}"),
+        request=request, commit=True,
+    )
+    return RedirectResponse(url=f"/admin/comm?_msg={'ok' if ok else 'fail'}", status_code=303)
+
+
+@router.get("/config", response_class=HTMLResponse)
+async def admin_config(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Référentiel des nomenclatures (enums) + paramètres système."""
     user, member = ctx
-    return templates.TemplateResponse(request, "pages/admin/_stub.html", {
-        "current_user": user, "current_member": member,
+    from app.models.identity import Grade, LodgeFunction, MemberStatus, MembershipType
+    from app.models.groups import GroupType
+    from app.models.meetings import AttendanceStatus, VisitorStatus
+
+    referentials = [
+        ("Grades maçonniques", "ti-hierarchy", Grade, "Modification : code Python — refactor à venir vers table DB"),
+        ("Fonctions de loge",  "ti-crown",     LodgeFunction, ""),
+        ("Statuts de membre",  "ti-user-circle", MemberStatus, ""),
+        ("Types d'affiliation","ti-id-badge",  MembershipType, ""),
+        ("Types de groupe",    "ti-users-group", GroupType, ""),
+        ("Statuts de présence","ti-check",     AttendanceStatus, ""),
+        ("Statuts visiteurs",  "ti-friends",   VisitorStatus, ""),
+    ]
+
+    # Liste des groupes (donnée éditable)
+    from app.models.groups import LodgeGroup
+    groups = (await db.execute(
+        select(LodgeGroup).order_by(LodgeGroup.name)
+    )).scalars().all()
+
+    return templates.TemplateResponse(request, "pages/admin/config.html", {
+        "current_user": user,
+        "current_member": member,
+        "referentials": referentials,
+        "groups": groups,
         "active_tab": "config",
-        "title": "Configuration métier",
-        "icon": "ti-settings",
-        "items": [
-            "Grades / fonctions : ajouter / renommer dynamiquement",
-            "Catégories news / tags éditables",
-            "Modèles de PV de tenue (templates multiples)",
-            "Calendrier maçonnique : années, jours fériés rituels",
-        ],
     })
 
 
