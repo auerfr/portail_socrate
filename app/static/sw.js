@@ -1,12 +1,28 @@
 // Service Worker — Portail Socrate PWA
-const CACHE_NAME = 'socrate-v3';
+const CACHE_NAME = 'socrate-v4';
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/img/icon-192.png',
   '/static/img/icon-512.png',
-  '/static/img/sceau-socrate-transparent.png',
+  '/static/img/logo-socrate-transparent.png',
+  '/static/img/sceau-header.png',
   '/static/offline.html',
 ];
+// Limite la taille du cache "runtime" (pages HTML visitées) pour éviter
+// que le SW gonfle indéfiniment.
+const RUNTIME_MAX_ENTRIES = 50;
+
+async function trimCache(cacheName, maxEntries) {
+  try {
+    const cache = await caches.open(cacheName);
+    const keys = await cache.keys();
+    if (keys.length <= maxEntries) return;
+    const toDelete = keys.length - maxEntries;
+    for (let i = 0; i < toDelete; i++) {
+      await cache.delete(keys[i]);
+    }
+  } catch (e) { /* silent */ }
+}
 
 // Installation : précache des assets statiques + page offline
 self.addEventListener('install', (event) => {
@@ -69,7 +85,9 @@ self.addEventListener('fetch', (event) => {
         .then((resp) => {
           if (resp.ok) {
             const clone = resp.clone();
-            caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
+            caches.open(CACHE_NAME).then((cache) => {
+              cache.put(req, clone).then(() => trimCache(CACHE_NAME, RUNTIME_MAX_ENTRIES));
+            });
           }
           return resp;
         })
