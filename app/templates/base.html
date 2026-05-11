@@ -281,6 +281,13 @@
       </a>
       {% endif %}
 
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'MAITRE_BANQUETS', 'SECRETAIRE'])) %}
+      <a href="/meetings/me/agapes"
+         class="nav-item {% if '/me/agapes' in request.url.path %}active{% endif %}">
+        🍽 <span class="ml-1">Agapes</span>
+      </a>
+      {% endif %}
+
       <div class="nav-section">Gestion</div>
 
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'TRESORIER'])) %}

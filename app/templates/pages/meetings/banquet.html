@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}Banquet — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}{% endblock %}
+{% block title %}Agapes — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}{% endblock %}
 
 {% block content %}
 <div class="p-4 lg:p-8 max-w-4xl mx-auto space-y-6">
@@ -11,7 +11,7 @@
       <span class="mx-2">›</span>
       <a href="/meetings/{{ meeting.id }}" class="hover:text-loge-700">{{ meeting.meeting_date.strftime('%d/%m/%Y') }}</a>
       <span class="mx-2">›</span>
-      <span class="text-gray-800">Banquet</span>
+      <span class="text-gray-800">Agapes</span>
     </nav>
     <a href="/meetings/{{ meeting.id }}/agapes/export"
        class="flex items-center gap-2 bg-white border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors shadow-sm">
@@ -52,7 +52,7 @@
   </div>
 
   <!-- Répartition des couverts -->
-  <div class="grid grid-cols-3 gap-4">
+  <div class="grid grid-cols-2 gap-4">
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
       <div class="text-3xl font-bold text-loge-700">{{ agape_members | sum(attribute='agape_guests') + agape_members | length }}</div>
       <div class="text-xs text-gray-500 mt-1">Frères &amp; Sœurs</div>
@@ -68,11 +68,6 @@
         {% set extra_v = agape_visitors | sum(attribute='agape_guests') %}
         {% if extra_v > 0 %}+ {{ extra_v }} invité{{ 's' if extra_v > 1 else '' }}{% endif %}
       </div>
-    </div>
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-4 text-center">
-      <div class="text-3xl font-bold text-amber-600">{{ agape_guests | length }}</div>
-      <div class="text-xs text-gray-500 mt-1">Invités profanes</div>
-      <div class="text-xs text-gray-400">{% if diet_counts %}{{ diet_counts.values() | sum }} avec régime{% else %}Aucun régime spécial{% endif %}</div>
     </div>
   </div>
 
@@ -155,31 +150,7 @@
       {% endfor %}
       {% endif %}
 
-      {% if agape_guests %}
-      <div class="px-5 py-3 bg-gray-50">
-        <span class="text-xs font-semibold text-amber-600 uppercase tracking-wider">Invités profanes</span>
-      </div>
-      {% set diet_icons = {'VEGETARIAN': '🥦', 'VEGAN': '🌱', 'NO_PORK': '🚫', 'OTHER': '⚠', 'NONE': ''} %}
-      {% for g in agape_guests %}
-      <div class="flex items-center gap-3 px-5 py-3">
-        <div class="w-8 h-8 rounded-full bg-amber-50 text-amber-600 flex items-center justify-center text-xs font-bold shrink-0">
-          {{ g.first_name[0] }}{{ g.last_name[0] }}
-        </div>
-        <div class="flex-1">
-          <span class="text-sm text-gray-800">{{ g.first_name }} {{ g.last_name }}</span>
-          {% if g.dietary_restrictions and g.dietary_restrictions.value != 'NONE' %}
-          <span class="text-xs text-amber-600 ml-2 font-medium">
-            {{ diet_icons.get(g.dietary_restrictions.value, '') }}
-            {{ diet_labels.get(g.dietary_restrictions.value, '') }}
-          </span>
-          {% endif %}
-        </div>
-        <span class="text-xs font-semibold text-amber-600 bg-amber-50 rounded-full px-2 py-0.5">1 couvert</span>
-      </div>
-      {% endfor %}
-      {% endif %}
-
-      {% if not agape_members and not agape_visitors and not agape_guests %}
+      {% if not agape_members and not agape_visitors %}
       <div class="px-5 py-12 text-center text-gray-400 text-sm">
         Aucune inscription aux agapes pour cette tenue
       </div>

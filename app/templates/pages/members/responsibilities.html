@@ -14,7 +14,7 @@
   </nav>
 
   <h1 class="text-2xl font-bold text-gray-900 mb-1">Responsabilités</h1>
-  <p class="text-sm text-gray-500 mb-6">F∴ {{ target.first_name }} {{ target.last_name }} — {{ function_label(target.lodge_function) }}</p>
+  <p class="text-sm text-gray-500 mb-6">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.first_name }} {{ target.last_name }} — {{ function_label(target.lodge_function, target.civility) }}</p>
 
   <div class="grid lg:grid-cols-2 gap-6">
 

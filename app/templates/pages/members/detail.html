@@ -33,7 +33,7 @@
         </div>
         <div>
           <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.first_name }} {{ target.last_name }}</h1>
-          <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade) }} · {{ office_label or function_label(target.lodge_function) }}</p>
+          <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade, target.civility) }} · {{ office_label or function_label(target.lodge_function, target.civility) }}</p>
           <div class="mt-2">
             {% if target.status.value == 'ACTIVE' %}
             <span class="inline-flex items-center gap-1 text-xs font-medium text-green-200 bg-green-800/40 rounded-full px-2.5 py-1">

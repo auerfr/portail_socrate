@@ -710,6 +710,44 @@ async def meeting_banquet(
     })
 
 
+# ── Tableau "Mes agapes" pour le Maître des Banquets ──────────────────────────
+
+@router.get("/me/agapes", response_class=HTMLResponse)
+async def my_agapes(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Vue dédiée Maître des Banquets : prochaines tenues avec agapes."""
+    user, member = ctx
+    is_mdb = (
+        user.is_admin
+        or can_manage_meeting(member)
+        or (member and member.lodge_function == LodgeFunction.MAITRE_BANQUETS)
+    )
+    if not is_mdb:
+        raise HTTPException(403, "Accès réservé au Maître des Banquets")
+
+    today = date.today()
+    # Prochaines tenues avec agapes activées + counts
+    upcoming = (await db.execute(
+        select(Meeting).where(
+            Meeting.meeting_date >= today,
+            Meeting.agape_enabled == True,  # noqa: E712
+        ).order_by(Meeting.meeting_date.asc())
+    )).scalars().all()
+
+    rows = []
+    for m in upcoming:
+        covers = await _count_agapes(db, m.id)
+        rows.append({"meeting": m, "covers": covers})
+
+    return templates.TemplateResponse(request, "pages/meetings/my_agapes.html", {
+        "current_user": user, "current_member": member,
+        "rows": rows, "today": today,
+    })
+
+
 # ── Conseil d'officiers (VM) ──────────────────────────────────────────────────
 
 def _can_manage_officiers(user, member) -> bool:
