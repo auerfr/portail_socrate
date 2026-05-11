@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Conseil d'officiers — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}</title>
+  <style>
+    @page { size: A4 portrait; margin: 1.5cm; }
+    * { box-sizing: border-box; }
+    body { font-family: Georgia, 'Times New Roman', serif; font-size: 12pt; color: #111; margin: 0; }
+    .header { text-align: center; border-bottom: 2px solid #2c7a7b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0 0 .25rem; font-size: 18pt; color: #2c7a7b; }
+    .header h2 { margin: 0; font-size: 14pt; font-weight: normal; color: #555; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+    th { background: #e6f4f1; text-align: left; padding: .4rem .6rem; font-size: 10pt; text-transform: uppercase; letter-spacing: .04em; color: #2c7a7b; border-bottom: 1px solid #b3d4cf; }
+    td { padding: .5rem .6rem; border-bottom: 1px solid #e5e7eb; font-size: 11pt; vertical-align: top; }
+    tr.absent { background: #fff7ed; }
+    .pres { color: #047857; font-weight: 600; font-size: 10pt; }
+    .exc  { color: #b45309; font-weight: 600; font-size: 10pt; }
+    .abs  { color: #be123c; font-weight: 600; font-size: 10pt; }
+    .none { color: #9ca3af; font-size: 10pt; }
+    .sub  { color: #2c7a7b; font-weight: 600; }
+    .notes { color: #555; font-size: 10pt; font-style: italic; }
+    .footer { margin-top: 2rem; font-size: 10pt; color: #6b7280; text-align: center; }
+    @media print { .no-print { display: none !important; } }
+    .no-print { text-align: center; margin: 1rem 0; }
+    .no-print button { background: #2c7a7b; color: white; border: none; padding: .5rem 1rem; border-radius: .5rem; cursor: pointer; font-size: 11pt; }
+  </style>
+</head>
+<body>
+
+  <div class="no-print">
+    <button onclick="window.print()">🖨️ Imprimer</button>
+  </div>
+
+  <div class="header">
+    <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
+    <h2>
+      Conseil d'officiers — {{ meeting.title or (meeting.type | label) }}<br>
+      <small>{{ meeting.meeting_date.strftime('%A %d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}</small>
+    </h2>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 28%;">Office</th>
+        <th style="width: 30%;">Titulaire</th>
+        <th style="width: 26%;">Remplaçant</th>
+        <th>Notes</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for r in rows %}
+      <tr {% if r.holder_status in ('ABSENT','EXCUSED') %}class="absent"{% endif %}>
+        <td><strong>{{ r.office.label }}</strong></td>
+        <td>
+          {% if r.holder %}
+            {{ r.holder.first_name }} {{ r.holder.last_name }}<br>
+            {% if r.holder_status == 'PRESENT' %}<span class="pres">✓ Présent</span>
+            {% elif r.holder_status == 'EXCUSED' %}<span class="exc">⚠ Excusé</span>
+            {% elif r.holder_status == 'ABSENT' %}<span class="abs">✗ Absent</span>
+            {% else %}<span class="none">— Pas de réponse</span>{% endif %}
+          {% else %}
+            <span class="none">— Vacant —</span>
+          {% endif %}
+        </td>
+        <td>
+          {% if r.substitute %}
+            <span class="sub">{{ r.substitute.first_name }} {{ r.substitute.last_name }}</span>
+          {% else %}
+            <span class="none">—</span>
+          {% endif %}
+        </td>
+        <td class="notes">{{ r.notes or '' }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Document généré le {{ meeting.meeting_date.strftime('%d/%m/%Y') }} — Portail Socrate
+  </div>
+
+</body>
+</html>

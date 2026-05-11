@@ -80,6 +80,38 @@ class LodgeOffice(Base):
     member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"), nullable=True)
 
 
+class MeetingOffice(Base):
+    """Affectation des offices pour une tenue donnée.
+
+    Permet au VM de pré-désigner un remplaçant quand le titulaire (LodgeOffice)
+    est absent/excusé, ou de désigner quelqu'un pour un office vacant.
+
+    Une ligne par (meeting_id, office_label) — le label correspond à
+    LodgeOffice.label pour pouvoir lier au titulaire permanent.
+    """
+    __tablename__ = "meeting_offices"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    meeting_id: Mapped[int] = mapped_column(
+        ForeignKey("meetings.id", ondelete="CASCADE"), index=True
+    )
+    office_label: Mapped[str] = mapped_column(String(100))
+    substitute_member_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("members.id", ondelete="SET NULL")
+    )
+    notes: Mapped[Optional[str]] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    __table_args__ = (
+        # Unicité par (meeting_id, office_label)
+        # — SQLite gère bien l'unique composite, pas besoin d'index séparé
+        {},
+    )
+
+
 class MasonicYear(Base):
     """Année maçonnique — de septembre à juin."""
     __tablename__ = "masonic_years"

@@ -1,0 +1,175 @@
+{% extends "base.html" %}
+{% block title %}Conseil d'officiers — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 lg:py-8 space-y-5">
+
+  {# Breadcrumb #}
+  <div class="flex items-center gap-2 text-xs text-gray-400">
+    <a href="/meetings/" class="hover:text-loge-700">Tenues</a>
+    <i class="ti ti-chevron-right"></i>
+    <a href="/meetings/{{ meeting.id }}" class="hover:text-loge-700">{{ meeting.meeting_date.strftime('%d/%m/%Y') }}</a>
+    <i class="ti ti-chevron-right"></i>
+    <span class="text-gray-700">Conseil d'officiers</span>
+  </div>
+
+  {# Entête #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div class="flex items-start justify-between gap-3 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+          <i class="ti ti-crown text-loge-700"></i> Conseil d'officiers
+        </h1>
+        <p class="text-sm text-gray-500 mt-1">
+          {{ meeting.title or (meeting.type | label) }} ·
+          {{ meeting.meeting_date.strftime('%A %d %B %Y') }}
+          {% if meeting.meeting_time %}· {{ meeting.meeting_time }}{% endif %}
+        </p>
+      </div>
+      <div class="flex gap-2">
+        <a href="/meetings/{{ meeting.id }}/officiers/print" target="_blank"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl">
+          <i class="ti ti-printer"></i> Imprimer
+        </a>
+      </div>
+    </div>
+  </div>
+
+  {% if request.query_params.get('_saved') %}
+  <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-2 text-sm">
+    <i class="ti ti-check"></i> Remplaçants enregistrés.
+  </div>
+  {% endif %}
+
+  {# Légende statuts #}
+  <div class="flex items-center gap-3 flex-wrap text-xs text-gray-500">
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-emerald-500"></span> Présent</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-amber-500"></span> Excusé</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-rose-500"></span> Absent</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-300"></span> Pas répondu</span>
+    <span class="inline-flex items-center gap-1"><span class="w-2 h-2 rounded-full bg-gray-200"></span> Vacant</span>
+  </div>
+
+  {# Tableau des offices #}
+  <form method="post" action="/meetings/{{ meeting.id }}/officiers/save" class="space-y-3">
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+            <tr>
+              <th class="text-left font-semibold px-4 py-3 w-1/4">Office</th>
+              <th class="text-left font-semibold px-4 py-3 w-1/4">Titulaire</th>
+              <th class="text-left font-semibold px-4 py-3 w-1/3">Remplaçant (si nécessaire)</th>
+              <th class="text-left font-semibold px-4 py-3">Notes</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-100">
+            {% for r in rows %}
+            {% set st = r.holder_status %}
+            <tr class="hover:bg-gray-50 align-top
+                       {% if r.needs_substitute %}bg-amber-50/30{% endif %}">
+              {# Office #}
+              <td class="px-4 py-3">
+                <div class="font-semibold text-gray-900">{{ r.office.label }}</div>
+              </td>
+
+              {# Titulaire + statut présence #}
+              <td class="px-4 py-3">
+                {% if r.holder %}
+                  <div class="text-gray-900">{{ r.holder.first_name }} {{ r.holder.last_name }}</div>
+                  <div class="inline-flex items-center gap-1.5 text-[11px] font-medium mt-1
+                              {% if st == 'PRESENT' %}text-emerald-700
+                              {% elif st == 'EXCUSED' %}text-amber-700
+                              {% elif st == 'ABSENT' %}text-rose-700
+                              {% else %}text-gray-400{% endif %}">
+                    <span class="w-2 h-2 rounded-full
+                                {% if st == 'PRESENT' %}bg-emerald-500
+                                {% elif st == 'EXCUSED' %}bg-amber-500
+                                {% elif st == 'ABSENT' %}bg-rose-500
+                                {% else %}bg-gray-300{% endif %}"></span>
+                    {% if st == 'PRESENT' %}Présent
+                    {% elif st == 'EXCUSED' %}Excusé
+                    {% elif st == 'ABSENT' %}Absent
+                    {% else %}Pas répondu{% endif %}
+                  </div>
+                {% else %}
+                  <span class="inline-flex items-center gap-1 text-xs text-gray-400 italic">
+                    <span class="w-2 h-2 rounded-full bg-gray-200"></span> Vacant
+                  </span>
+                {% endif %}
+              </td>
+
+              {# Sélecteur de remplaçant #}
+              <td class="px-4 py-3">
+                {% if r.needs_substitute or r.substitute %}
+                <select name="sub[{{ r.office.label }}]"
+                        class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-loge-500
+                               {% if r.substitute %}bg-loge-50 border-loge-200{% endif %}">
+                  <option value="">— Aucun (titulaire / vacant) —</option>
+                  <optgroup label="Présents à cette tenue">
+                    {% for m in present_members %}
+                    <option value="{{ m.id }}" {% if r.substitute_id == m.id %}selected{% endif %}>
+                      {{ m.last_name }} {{ m.first_name }}
+                    </option>
+                    {% endfor %}
+                  </optgroup>
+                  <optgroup label="Autres membres actifs">
+                    {% for m in all_active %}
+                    {% if not (m in present_members) %}
+                    <option value="{{ m.id }}" {% if r.substitute_id == m.id %}selected{% endif %}>
+                      {{ m.last_name }} {{ m.first_name }}
+                    </option>
+                    {% endif %}
+                    {% endfor %}
+                  </optgroup>
+                </select>
+                {% else %}
+                <span class="text-xs text-gray-400 italic">— Titulaire présent —</span>
+                <input type="hidden" name="sub[{{ r.office.label }}]" value="">
+                {% endif %}
+              </td>
+
+              {# Notes #}
+              <td class="px-4 py-3">
+                <input type="text" name="notes[{{ r.office.label }}]"
+                       value="{{ r.notes or '' }}"
+                       placeholder="Précisions optionnelles…"
+                       class="w-full border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:ring-2 focus:ring-loge-500">
+              </td>
+            </tr>
+            {% else %}
+            <tr><td colspan="4" class="px-4 py-8 text-center text-sm text-gray-500">
+              Aucun office configuré. Configure-les dans <a href="/settings/" class="text-loge-700 hover:underline">Paramètres → Officiers</a>.
+            </td></tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+
+    {# Stats récap #}
+    {% set need_count = rows | selectattr('needs_substitute') | list | length %}
+    {% set sub_count = rows | selectattr('substitute') | list | length %}
+    {% if rows %}
+    <div class="flex items-center gap-3 text-xs text-gray-500 flex-wrap">
+      <span>{{ rows|length }} office{{ 's' if rows|length > 1 else '' }} au total</span>
+      {% if need_count > 0 %}
+      <span class="text-amber-700"><i class="ti ti-alert-circle"></i> {{ need_count }} office{{ 's' if need_count > 1 else '' }} à remplir</span>
+      {% endif %}
+      {% if sub_count > 0 %}
+      <span class="text-loge-700"><i class="ti ti-check"></i> {{ sub_count }} remplaçant{{ 's' if sub_count > 1 else '' }} désigné{{ 's' if sub_count > 1 else '' }}</span>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    {# Boutons #}
+    <div class="flex justify-end gap-2 pt-2 sticky bottom-0 bg-gray-50 -mx-4 px-4 py-3 border-t border-gray-100">
+      <a href="/meetings/{{ meeting.id }}" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</a>
+      <button class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+        <i class="ti ti-device-floppy"></i> Enregistrer
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

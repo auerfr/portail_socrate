@@ -25,7 +25,7 @@ from app.models.meetings import (
     DietaryRestriction, GuestStatus,
 )
 from app.models.identity import Member, LodgeFunction
-from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice
+from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
 
 router = APIRouter(prefix="/meetings", tags=["meetings"])
 templates = Jinja2Templates(directory="app/templates")
@@ -544,6 +544,19 @@ async def meeting_trace(
     offices = offices_r.scalars().all()
     member_office: dict[int, str] = {o.member_id: o.label for o in offices}
 
+    # Substituts désignés pour cette tenue : remplacent ou complètent member_office
+    meeting_subs = (await db.execute(
+        select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
+    )).scalars().all()
+    for ms in meeting_subs:
+        if not ms.substitute_member_id:
+            continue
+        # Le substitut hérite du label de cet office pour cette tenue
+        # (note: si le titulaire est aussi présent, le label reste sur le titulaire ;
+        # ici on l'écrase pour le substitut s'il n'a pas déjà un autre office)
+        if ms.substitute_member_id not in member_office:
+            member_office[ms.substitute_member_id] = ms.office_label + " *"
+
     # Lodge infos
     lodge_r = await db.execute(select(LodgeSettings).limit(1))
     lodge = lodge_r.scalar_one_or_none()
@@ -695,6 +708,246 @@ async def meeting_banquet(
         "diet_labels": diet_labels,
         "type_label": _type_label,
     })
+
+
+# ── Conseil d'officiers (VM) ──────────────────────────────────────────────────
+
+def _can_manage_officiers(user, member) -> bool:
+    """VM, Secrétaire, 1er/2e Surveillants ou admin peuvent gérer le conseil."""
+    if user.is_admin:
+        return True
+    if not member or not member.lodge_function:
+        return False
+    return member.lodge_function in (
+        LodgeFunction.VM, LodgeFunction.SECRETAIRE,
+        LodgeFunction.PREMIER_S, LodgeFunction.SECOND_S,
+    )
+
+
+@router.get("/{meeting_id}/officiers", response_class=HTMLResponse)
+async def meeting_officiers(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Vue VM : statut de chaque office pour cette tenue + sélecteur de remplaçants."""
+    user, member = ctx
+    if not _can_manage_officiers(user, member):
+        raise HTTPException(403, "Accès réservé au VM, aux Surveillants et au Secrétaire")
+
+    meeting = (await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.attendances).selectinload(Attendance.member))
+        .where(Meeting.id == meeting_id)
+    )).scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(404)
+
+    # Tous les offices configurés
+    offices = (await db.execute(
+        select(LodgeOffice).order_by(LodgeOffice.sort_order, LodgeOffice.label)
+    )).scalars().all()
+
+    # Cache titulaires
+    holder_ids = {o.member_id for o in offices if o.member_id}
+    holders: dict[int, Member] = {}
+    if holder_ids:
+        mr = await db.execute(select(Member).where(Member.id.in_(holder_ids)))
+        for m in mr.scalars().all():
+            holders[m.id] = m
+
+    # Statut de présence par membre pour cette tenue
+    presence_by_member: dict[int, str] = {}
+    for att in meeting.attendances:
+        presence_by_member[att.member_id] = att.status.value
+
+    # Remplaçants déjà désignés (table meeting_offices)
+    subs = (await db.execute(
+        select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
+    )).scalars().all()
+    sub_by_label: dict[str, MeetingOffice] = {s.office_label: s for s in subs}
+
+    # Cache substituts
+    sub_member_ids = {s.substitute_member_id for s in subs if s.substitute_member_id}
+    if sub_member_ids:
+        sr = await db.execute(select(Member).where(Member.id.in_(sub_member_ids)))
+        for m in sr.scalars().all():
+            holders[m.id] = m
+
+    # Membres présents/excusés/confirmés (pour le sélecteur de remplaçants)
+    present_members = sorted(
+        [att.member for att in meeting.attendances
+         if att.status == AttendanceStatus.PRESENT and att.member],
+        key=lambda x: (x.last_name or "", x.first_name or ""),
+    )
+
+    # Tous les membres actifs (pour permettre de désigner même un non-inscrit)
+    from app.models.identity import MemberStatus
+    all_active = (await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
+        .order_by(Member.last_name, Member.first_name)
+    )).scalars().all()
+
+    # Construction des rangées pour le template
+    rows = []
+    for o in offices:
+        holder = holders.get(o.member_id) if o.member_id else None
+        holder_status = presence_by_member.get(o.member_id) if o.member_id else None
+        sub_record = sub_by_label.get(o.label)
+        sub_member = holders.get(sub_record.substitute_member_id) if sub_record and sub_record.substitute_member_id else None
+        # Est-ce que ça pose problème ? Titulaire absent/excusé/sans réponse
+        needs_substitute = (
+            not o.member_id  # vacant
+            or holder_status in (AttendanceStatus.ABSENT.value, AttendanceStatus.EXCUSED.value)
+            or holder_status is None  # pas de réponse
+        )
+        rows.append({
+            "office": o,
+            "holder": holder,
+            "holder_status": holder_status,
+            "needs_substitute": needs_substitute,
+            "substitute": sub_member,
+            "substitute_id": (sub_record.substitute_member_id if sub_record else None),
+            "notes": (sub_record.notes if sub_record else ""),
+        })
+
+    return templates.TemplateResponse(request, "pages/meetings/officiers.html", {
+        "current_user": user,
+        "current_member": member,
+        "meeting": meeting,
+        "rows": rows,
+        "present_members": present_members,
+        "all_active": all_active,
+        "AttendanceStatus": AttendanceStatus,
+    })
+
+
+@router.get("/{meeting_id}/officiers/print", response_class=HTMLResponse)
+async def meeting_officiers_print(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Vue imprimable du conseil d'officiers — A4 portrait."""
+    user, member = ctx
+    if not _can_manage_officiers(user, member):
+        raise HTTPException(403)
+
+    meeting = (await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.attendances).selectinload(Attendance.member))
+        .where(Meeting.id == meeting_id)
+    )).scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(404)
+
+    offices = (await db.execute(
+        select(LodgeOffice).order_by(LodgeOffice.sort_order, LodgeOffice.label)
+    )).scalars().all()
+
+    holder_ids = {o.member_id for o in offices if o.member_id}
+    holders: dict[int, Member] = {}
+    if holder_ids:
+        mr = await db.execute(select(Member).where(Member.id.in_(holder_ids)))
+        for m in mr.scalars().all():
+            holders[m.id] = m
+
+    presence_by_member = {att.member_id: att.status.value for att in meeting.attendances}
+
+    subs = (await db.execute(
+        select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
+    )).scalars().all()
+    sub_by_label = {s.office_label: s for s in subs}
+
+    sub_member_ids = {s.substitute_member_id for s in subs if s.substitute_member_id}
+    if sub_member_ids:
+        sr = await db.execute(select(Member).where(Member.id.in_(sub_member_ids)))
+        for m in sr.scalars().all():
+            holders[m.id] = m
+
+    rows = []
+    for o in offices:
+        sub_record = sub_by_label.get(o.label)
+        sub_member = holders.get(sub_record.substitute_member_id) if sub_record and sub_record.substitute_member_id else None
+        rows.append({
+            "office": o,
+            "holder": holders.get(o.member_id) if o.member_id else None,
+            "holder_status": presence_by_member.get(o.member_id) if o.member_id else None,
+            "substitute": sub_member,
+            "notes": sub_record.notes if sub_record else "",
+        })
+
+    lodge = (await db.execute(select(LodgeSettings).limit(1))).scalar_one_or_none()
+
+    return templates.TemplateResponse(request, "pages/meetings/officiers_print.html", {
+        "current_user": user,
+        "current_member": member,
+        "meeting": meeting,
+        "rows": rows,
+        "lodge": lodge,
+    })
+
+
+@router.post("/{meeting_id}/officiers/save")
+async def meeting_officiers_save(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Sauvegarde des remplaçants. Inputs : `sub[label]` et `notes[label]`."""
+    user, member = ctx
+    if not _can_manage_officiers(user, member):
+        raise HTTPException(403)
+
+    meeting = (await db.execute(select(Meeting).where(Meeting.id == meeting_id))).scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(404)
+
+    form = await request.form()
+
+    # Récupère les enregistrements existants
+    existing_rows = (await db.execute(
+        select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
+    )).scalars().all()
+    existing_by_label: dict[str, MeetingOffice] = {r.office_label: r for r in existing_rows}
+
+    # Parse les champs
+    subs_input: dict[str, dict] = {}
+    for k, v in form.multi_items():
+        if k.startswith("sub[") and k.endswith("]"):
+            label = k[4:-1]
+            sub_id = None
+            if v and v.strip().isdigit():
+                sub_id = int(v.strip())
+            subs_input.setdefault(label, {})["sub_id"] = sub_id
+        elif k.startswith("notes[") and k.endswith("]"):
+            label = k[6:-1]
+            subs_input.setdefault(label, {})["notes"] = (v or "").strip()[:300]
+
+    for label, data in subs_input.items():
+        sub_id = data.get("sub_id")
+        notes = data.get("notes", "")
+        row = existing_by_label.get(label)
+        # Si rien renseigné, supprimer la ligne existante
+        if not sub_id and not notes:
+            if row:
+                await db.delete(row)
+            continue
+        if row:
+            row.substitute_member_id = sub_id
+            row.notes = notes or None
+        else:
+            db.add(MeetingOffice(
+                meeting_id=meeting_id,
+                office_label=label,
+                substitute_member_id=sub_id,
+                notes=notes or None,
+            ))
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/officiers?_saved=1", status_code=303)
 
 
 # ── Formulaire nouvelle tenue ─────────────────────────────────────────────────
