@@ -19,7 +19,7 @@
       <h1 class="text-xl font-bold text-gray-900">Procès-Verbal</h1>
       <p class="text-sm text-gray-500 mt-0.5">
         {% set TYPES = {'BLANCHE':'Ten∴ Bl∴','SOLENNELLE':'Ten∴ Sol∴','INSTRUCTION':"Ten∴ d'Instr∴",'INITIATION':"Ten∴ d'Init∴",'INSTALLATION':'Installation','ELECTION':'Élection du V∴M∴','PASSAGE':'Passage au 2e degré','ELEVATION':'Élévation au 3e degré','FETE':'Fête mac∴','EXTRA':'Ten∴ extraordinaire'} %}
-        {{ meeting.meeting_date.strftime('%d/%m/%Y') }} — {{ TYPES.get(meeting.type.value, meeting.type.value) }}
+        {{ meeting.meeting_date.strftime('%d/%m/%Y') }} — {{ meeting.type | label(default=TYPES.get(meeting.type.value, meeting.type.value)) }}
         {% if meeting.grade.value != 'ALL' %} — Loge d'
           {% if meeting.grade.value == 'APPRENTI' %}App∴
           {% elif meeting.grade.value == 'COMPAGNON' %}Comp∴
@@ -117,7 +117,7 @@
       <div class="text-center mb-8 pb-6 border-b border-gray-100">
         <p class="text-xs text-gray-400 uppercase tracking-widest mb-1">Procès-Verbal</p>
         <h2 class="text-lg font-bold text-gray-900">
-          {{ TYPES.get(meeting.type.value, meeting.type.value) }}
+          {{ meeting.type | label(default=TYPES.get(meeting.type.value, meeting.type.value)) }}
         </h2>
         <p class="text-sm text-gray-500 mt-1">{{ meeting.meeting_date.strftime('%A %d %B %Y') | capitalize }}</p>
         {% if meeting.location %}

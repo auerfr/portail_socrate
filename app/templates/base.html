@@ -346,7 +346,7 @@
             {{ current_member.first_name ~ ' ' ~ current_member.last_name if current_member else '—' }}
           </div>
           <div class="text-gray-500 truncate" style="font-size:10px;">
-            {{ current_member.masonic_grade.value if current_member else '' }}{% if current_member and current_member.lodge_function and current_member.lodge_function.value != 'FRERE' %} · {{ current_member.lodge_function.value | replace('_', ' ') | title }}{% endif %}
+            {{ current_member.masonic_grade | label if current_member else '' }}{% if current_member and current_member.lodge_function and current_member.lodge_function.value != 'FRERE' %} · {{ current_member.lodge_function | label(default=current_member.lodge_function.value | replace('_', ' ') | title) }}{% endif %}
           </div>
         </div>
       </a>

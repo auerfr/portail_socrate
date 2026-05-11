@@ -468,7 +468,7 @@
         {% if m.degrees and m.degrees | length > 1 %}
         <div class="meeting-items">
           {% for deg in m.degrees %}
-          <div class="meeting-item">{{ deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value) }}</div>
+          <div class="meeting-item">{{ deg.description or (deg.grade | label(default=GRADE_LABELS.get(deg.grade.value, deg.grade.value))) }}</div>
           {% endfor %}
         </div>
         {% endif %}

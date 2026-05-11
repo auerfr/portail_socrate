@@ -53,29 +53,40 @@ def _fn_from_label(label: str) -> LodgeFunction:
     return LodgeFunction.FRERE
 
 
-def _grade_label(g: MasonicGrade) -> str:
-    return {"APPRENTI": "Apprenti", "COMPAGNON": "Compagnon", "MAITRE": "Maître"}.get(g, g)
+_GRADE_DEFAULT_LABELS = {
+    "APPRENTI": "Apprenti", "COMPAGNON": "Compagnon", "MAITRE": "Maître",
+}
+_FUNCTION_DEFAULT_LABELS = {
+    "VM":                "Vénérable Maître",
+    "PREMIER_S":         "1er Surveillant",
+    "SECOND_S":          "2e Surveillant",
+    "ORATEUR":           "Orateur",
+    "SECRETAIRE":        "Secrétaire",
+    "TRESORIER":         "Trésorier",
+    "EXPERT":            "Expert",
+    "MAITRE_CEREMONIES": "Maître des Cérémonies",
+    "HARMONISTE":        "Maître Harmoniste",
+    "HOSPITALIER":       "Hospitalier",
+    "TUILEUR":           "Tuileur",
+    "ARCHITECTE":        "Architecte",
+    "MAITRE_BANQUETS":   "Maître des Banquets",
+    "FRERE":             "Frère",
+}
+
+
+def _grade_label(g) -> str:
+    """Libellé du grade — consulte d'abord les overrides admin, sinon fallback."""
+    from app.services.labels import get_label
+    v = g.value if hasattr(g, "value") else str(g)
+    default = _GRADE_DEFAULT_LABELS.get(v, v)
+    return get_label(g, default=default) if hasattr(g, "value") else default
 
 
 def _function_label(f) -> str:
-    labels = {
-        "VM":                "Vénérable Maître",
-        "PREMIER_S":         "1er Surveillant",
-        "SECOND_S":          "2e Surveillant",
-        "ORATEUR":           "Orateur",
-        "SECRETAIRE":        "Secrétaire",
-        "TRESORIER":         "Trésorier",
-        "EXPERT":            "Expert",
-        "MAITRE_CEREMONIES": "Maître des Cérémonies",
-        "HARMONISTE":        "Maître Harmoniste",
-        "HOSPITALIER":       "Hospitalier",
-        "TUILEUR":           "Tuileur",
-        "ARCHITECTE":        "Architecte",
-        "MAITRE_BANQUETS":   "Maître des Banquets",
-        "FRERE":             "Frère",
-    }
+    from app.services.labels import get_label
     v = f.value if hasattr(f, "value") else str(f)
-    return labels.get(v, v)
+    default = _FUNCTION_DEFAULT_LABELS.get(v, v)
+    return get_label(f, default=default) if hasattr(f, "value") else default
 
 
 def _responsibility_label(t) -> str:

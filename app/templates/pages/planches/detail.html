@@ -29,7 +29,7 @@
         {% set GRADE_LABELS = {'TOUS':'', 'APPRENTI':'App∴', 'COMPAGNON':'Comp∴', 'MAITRE':'M∴'} %}
         {% if planche.grade.value != 'TOUS' %}
         <span class="text-xs bg-loge-50 text-loge-700 border border-loge-100 font-semibold px-3 py-1 rounded-full">
-          {{ GRADE_LABELS[planche.grade.value] }}
+          {{ planche.grade | label(default=GRADE_LABELS[planche.grade.value]) }}
         </span>
         {% endif %}
       </div>

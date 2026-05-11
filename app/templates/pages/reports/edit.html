@@ -44,7 +44,7 @@
       <p class="text-sm text-gray-500 mt-0.5">
         {{ meeting.meeting_date.strftime('%d/%m/%Y') }} —
         {% set TYPES = {'BLANCHE':'Ten∴ Bl∴','SOLENNELLE':'Ten∴ Sol∴','INSTRUCTION':"Ten∴ d'Instr∴",'INITIATION':"Ten∴ d'Init∴",'INSTALLATION':'Installation','ELECTION':'Élection du V∴M∴','PASSAGE':'Passage au 2e degré','ELEVATION':'Élévation au 3e degré','FETE':'Fête mac∴','EXTRA':'Ten∴ extraordinaire'} %}
-        {{ TYPES.get(meeting.type.value, meeting.type.value) }}
+        {{ meeting.type | label(default=TYPES.get(meeting.type.value, meeting.type.value)) }}
       </p>
     </div>
     {% if report %}
@@ -164,7 +164,7 @@ const MEETING_DATA = {
     {% for a in presents %}{% if a.member %}
     {
       name: {{ (a.member.first_name + ' ' + a.member.last_name) | tojson }},
-      fn: {{ (a.member.lodge_function.value | replace('_',' ') | title if a.member.lodge_function and a.member.lodge_function.value != 'FRERE' else '') | tojson }}
+      fn: {{ ((a.member.lodge_function | label(default=(a.member.lodge_function.value | replace('_',' ') | title))) if a.member.lodge_function and a.member.lodge_function.value != 'FRERE' else '') | tojson }}
     },
     {% endif %}{% endfor %}
   ],

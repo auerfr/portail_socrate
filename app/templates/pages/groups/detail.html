@@ -101,9 +101,9 @@
                   {{ m.last_name }} {{ m.first_name }}
                 </a>
                 <div class="text-xs text-gray-500">
-                  {{ m.masonic_grade.value }}
+                  {{ m.masonic_grade | label }}
                   {% if m.lodge_function and m.lodge_function.value != 'FRERE' %}
-                  · {{ m.lodge_function.value }}
+                  · {{ m.lodge_function | label }}
                   {% endif %}
                 </div>
               </div>

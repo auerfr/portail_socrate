@@ -82,9 +82,9 @@
                     {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
                     {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-100 text-amber-700
                     {% else %}bg-blue-100 text-blue-700{% endif %}">
-                    {{ MEETING_TYPE_LABELS.get(m.type.value, m.type.value) }}
+                    {{ m.type | label(default=MEETING_TYPE_LABELS.get(m.type.value, m.type.value)) }}
                   </span>
-                  <span class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{{ GRADE_LABELS.get(m.grade.value, m.grade.value) }}</span>
+                  <span class="text-xs bg-gray-100 text-gray-600 px-1.5 py-0.5 rounded">{{ m.grade | label(default=GRADE_LABELS.get(m.grade.value, m.grade.value)) }}</span>
                 </div>
                 {% if m.title %}<div class="text-xs text-gray-500 mt-0.5">{{ m.title }}</div>{% endif %}
                 {% if m.location %}<div class="text-xs text-gray-400">📍 {{ m.location }}</div>{% endif %}
@@ -129,9 +129,9 @@
                     {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
                     {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-100 text-amber-700
                     {% else %}bg-blue-100 text-blue-700{% endif %}">
-                    {{ MEETING_TYPE_LABELS.get(m.type.value, m.type.value) }}
+                    {{ m.type | label(default=MEETING_TYPE_LABELS.get(m.type.value, m.type.value)) }}
                   </span>
-                  <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ GRADE_LABELS.get(m.grade.value, m.grade.value) }}</span>
+                  <span class="text-xs bg-gray-100 text-gray-500 px-1.5 py-0.5 rounded">{{ m.grade | label(default=GRADE_LABELS.get(m.grade.value, m.grade.value)) }}</span>
                 </div>
                 {% if m.title %}<div class="text-xs text-gray-500 mt-0.5">{{ m.title }}</div>{% endif %}
               </div>

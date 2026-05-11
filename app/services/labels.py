@@ -45,28 +45,38 @@ async def _ensure_loaded() -> None:
 
 
 def get_label(value: Any, default: Optional[str] = None) -> str:
-    """Retourne le libellé personnalisé d'une valeur d'enum, sinon sa valeur.
+    """Retourne le libellé personnalisé d'une valeur d'enum.
 
-    Acceptable inputs : une instance d'enum, ou une str "Class.KEY".
-    Synchrone — utilise uniquement le cache.
+    Priorité :
+      1. Override admin présent en cache → renvoyé.
+      2. `default` fourni par l'appelant → renvoyé.
+      3. Valeur de l'enum (ou valeur littérale).
     """
     if value is None:
         return default or ""
     # Enum instance
-    if hasattr(value, "__class__") and hasattr(value, "name"):
+    if hasattr(value, "__class__") and hasattr(value, "name") and not isinstance(value, (str, int, float)):
         cls_name = value.__class__.__name__
         key_name = value.name
-        cache_key = _key(cls_name, key_name)
-        if cache_key in _CACHE:
-            return _CACHE[cache_key]
+        custom = _CACHE.get(_key(cls_name, key_name))
+        if custom:
+            return custom
+        if default:
+            return default
         return getattr(value, "value", str(value))
     # Tuple-like (class, key)
     if isinstance(value, tuple) and len(value) == 2:
         cls_name, key_name = value
-        return _CACHE.get(_key(cls_name, key_name), default or str(key_name))
+        custom = _CACHE.get(_key(cls_name, key_name))
+        if custom:
+            return custom
+        return default or str(key_name)
     # str "Class.KEY"
     if isinstance(value, str) and "." in value:
-        return _CACHE.get(value, default or value.split(".", 1)[1])
+        custom = _CACHE.get(value)
+        if custom:
+            return custom
+        return default or value.split(".", 1)[1]
     return default or str(value)
 
 
@@ -106,3 +116,30 @@ async def set_label(
 def register_jinja(env) -> None:
     """Enregistre le filtre `label` sur un Environment Jinja."""
     env.filters["label"] = get_label
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Monkey-patch : auto-enregistre le filtre sur TOUTE nouvelle instance
+#  de Jinja2Templates créée après l'import de ce module.
+# ─────────────────────────────────────────────────────────────────────────────
+def _install_global_patch() -> None:
+    try:
+        from fastapi.templating import Jinja2Templates as _JT
+    except Exception:
+        return
+    if getattr(_JT, "_label_filter_patched", False):
+        return
+    _original_init = _JT.__init__
+
+    def _patched_init(self, *args, **kwargs):
+        _original_init(self, *args, **kwargs)
+        try:
+            self.env.filters["label"] = get_label
+        except Exception:
+            pass
+
+    _JT.__init__ = _patched_init
+    _JT._label_filter_patched = True
+
+
+_install_global_patch()

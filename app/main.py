@@ -8,6 +8,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
+# IMPORTANT : importer labels AVANT les routers pour que le monkey-patch
+# de Jinja2Templates s'applique à toutes les instances créées ensuite.
+import app.services.labels  # noqa: F401
+
 from typing import Annotated
 from app.config import get_settings
 from app.database import engine, Base, get_db

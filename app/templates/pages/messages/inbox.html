@@ -77,7 +77,7 @@
         <div class="text-xs text-gray-500 mt-0.5">
           De : {{ (sender.first_name ~ ' ' ~ sender.last_name) if sender else 'Inconnu' }}
           {% if sender and sender.lodge_function and sender.lodge_function.value != 'FRERE' %}
-          · <span class="text-gray-400">{{ sender.lodge_function.value }}</span>
+          · <span class="text-gray-400">{{ sender.lodge_function | label }}</span>
           {% endif %}
         </div>
         <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ msg.body[:120] }}</p>

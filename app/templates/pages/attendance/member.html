@@ -102,7 +102,7 @@
         <div class="flex-1 min-w-0">
           <a href="/meetings/{{ att.meeting.id }}"
              class="text-sm font-medium text-gray-800 hover:text-loge-700 truncate block">
-            {{ att.meeting.title or att.meeting.type.value }}
+            {{ att.meeting.title or (att.meeting.type | label) }}
           </a>
           {% if att.excuse_reason %}
           <div class="text-xs text-gray-400 truncate mt-0.5">{{ att.excuse_reason }}</div>

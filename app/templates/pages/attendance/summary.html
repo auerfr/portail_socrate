@@ -19,7 +19,7 @@
   <div class="bg-gradient-to-r from-loge-800 to-loge-700 text-white rounded-2xl px-6 py-5">
     <div class="flex items-start justify-between flex-wrap gap-3">
       <div>
-        <div class="text-xs text-loge-200 uppercase tracking-wider mb-1">{{ meeting.type.value }}</div>
+        <div class="text-xs text-loge-200 uppercase tracking-wider mb-1">{{ meeting.type | label }}</div>
         <h1 class="text-xl font-bold">{{ meeting.title or meeting.meeting_date.strftime('%d %B %Y') }}</h1>
         <div class="flex flex-wrap gap-4 mt-2 text-sm text-loge-200">
           <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>

@@ -149,7 +149,7 @@
               </td>
               <td class="px-4 py-2.5">
                 <span class="text-xs bg-loge-50 text-loge-700 rounded-full px-2 py-0.5 font-medium whitespace-nowrap">
-                  {{ type_labels.get(m.type.value, m.type.value) }}
+                  {{ m.type | label(default=type_labels.get(m.type.value, m.type.value)) }}
                 </span>
               </td>
               <td class="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">
@@ -210,7 +210,7 @@
               {{ m.meeting_date.strftime('%d/%m/%Y') }}
             </span>
             <span class="text-xs text-gray-500 bg-loge-50 text-loge-700 rounded-full px-2 py-0.5">
-              {{ type_labels.get(m.type.value, m.type.value) }}
+              {{ m.type | label(default=type_labels.get(m.type.value, m.type.value)) }}
             </span>
             {% if m.theme %}
             <span class="text-sm font-semibold text-gray-800">{{ m.theme }}</span>
@@ -340,7 +340,7 @@
         <div class="flex items-center gap-4 px-5 py-3">
           <span class="text-sm text-gray-700 font-medium whitespace-nowrap w-28">{{ m.meeting_date.strftime('%d/%m/%Y') }}</span>
           <span class="text-xs text-gray-500 flex-1">
-            {{ type_labels.get(m.type.value, m.type.value) }}
+            {{ m.type | label(default=type_labels.get(m.type.value, m.type.value)) }}
             {% if m.title %} · {{ m.title }}{% endif %}
           </span>
           <span class="text-sm font-semibold text-amber-700 whitespace-nowrap">

@@ -33,7 +33,7 @@
             {% if project.status.value == 'ACTIVE' %}bg-emerald-50 text-emerald-700
             {% elif project.status.value == 'COMPLETED' %}bg-blue-50 text-blue-700
             {% else %}bg-gray-100 text-gray-600{% endif %}">
-            {{ project.status.value }}
+            {{ project.status | label }}
           </span>
         </div>
         {% if project.description %}

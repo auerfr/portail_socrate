@@ -29,7 +29,7 @@
             </span>
             {% if sender and sender.lodge_function and sender.lodge_function.value != 'FRERE' %}
             <span class="ml-2 text-xs bg-loge-100 text-loge-700 px-2 py-0.5 rounded-full font-medium">
-              {{ sender.lodge_function.value }}
+              {{ sender.lodge_function | label }}
             </span>
             {% endif %}
           </div>

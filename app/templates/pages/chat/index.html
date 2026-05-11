@@ -383,8 +383,8 @@
           <div class="flex-1 min-w-0 text-left">
             <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name }}</div>
             <div class="text-xs text-gray-400">
-              {% if m.lodge_function and m.lodge_function.value != 'FRERE' %}{{ m.lodge_function.value }} · {% endif %}
-              {{ m.masonic_grade.value }}
+              {% if m.lodge_function and m.lodge_function.value != 'FRERE' %}{{ m.lodge_function | label }} · {% endif %}
+              {{ m.masonic_grade | label }}
             </div>
           </div>
           <svg class="w-4 h-4 text-gray-300 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

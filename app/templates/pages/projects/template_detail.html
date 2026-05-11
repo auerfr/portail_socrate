@@ -40,7 +40,7 @@
           <div class="font-medium text-gray-900">{{ tt.title }}</div>
           {% if tt.description %}<div class="text-xs text-gray-500 line-clamp-2">{{ tt.description }}</div>{% endif %}
           <div class="text-[11px] text-gray-400 mt-1 flex gap-2 flex-wrap">
-            <span>Priorité : {{ tt.priority.value }}</span>
+            <span>Priorité : {{ tt.priority | label }}</span>
             {% if tt.offset_days_start is not none %}<span>· début : J{% if tt.offset_days_start >= 0 %}+{% endif %}{{ tt.offset_days_start }}</span>{% endif %}
             {% if tt.offset_days_due is not none %}<span>· échéance : J{% if tt.offset_days_due >= 0 %}+{% endif %}{{ tt.offset_days_due }}</span>{% endif %}
           </div>
