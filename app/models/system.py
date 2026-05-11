@@ -8,6 +8,26 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+class LabelOverride(Base):
+    """Libellé d'affichage personnalisé pour une valeur d'enum.
+
+    `enum_class` : nom du type (ex 'MasonicGrade', 'LodgeFunction')
+    `enum_key`   : nom de l'item (ex 'APPRENTI', 'VM')
+    `label`      : libellé affiché à la place de la valeur par défaut
+    """
+    __tablename__ = "label_overrides"
+
+    enum_class: Mapped[str] = mapped_column(String(80), primary_key=True)
+    enum_key: Mapped[str]   = mapped_column(String(80), primary_key=True)
+    label: Mapped[str]      = mapped_column(String(200))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+    updated_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("members.id", ondelete="SET NULL")
+    )
+
+
 class SystemSetting(Base):
     """Paramètres système clé/valeur (JSON) — pour bannière maintenance,
     politique mot de passe, configuration métier dynamique, etc."""

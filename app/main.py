@@ -443,6 +443,13 @@ async def lifespan(app: FastAPI):
     from app.services.projects_reminders import daily_task_reminder_loop
     _task_reminder_task = asyncio.ensure_future(daily_task_reminder_loop())
 
+    # ── Pré-chargement du cache des libellés personnalisés ───────────────────
+    try:
+        from app.services.labels import _load_all as _load_labels
+        await _load_labels()
+    except Exception:
+        pass
+
     yield
     # Arrêt
     _backup_task.cancel()
@@ -482,6 +489,10 @@ async def maintenance_banner_middleware(request: Request, call_next):
 templates = Jinja2Templates(directory="app/templates")
 # Valeur de fallback : les pages qui ne calculent pas le compteur affichent 0
 templates.env.globals["global_unread_messages"] = 0
+
+# Filtre `| label` pour personnaliser l'affichage des enums depuis l'admin
+from app.services.labels import register_jinja as _register_label_filter
+_register_label_filter(templates.env)
 
 # ── Filtre Jinja2 : rendu des messages chat (bold, liens cliquables) ──────────
 import re

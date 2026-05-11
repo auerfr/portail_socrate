@@ -30,6 +30,9 @@ from app.services.audit import log_audit
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 templates = Jinja2Templates(directory="app/templates")
+# Filtre `| label` pour afficher les libellés personnalisés depuis l'admin
+from app.services.labels import register_jinja as _register_label_filter
+_register_label_filter(templates.env)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -878,8 +881,14 @@ async def admin_config(
     ctx: Annotated[tuple, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Référentiel des nomenclatures (enums) + paramètres système."""
+    """Référentiel des nomenclatures (enums) + libellés personnalisables."""
     user, member = ctx
+    # Charger les overrides existants
+    from app.models.system import LabelOverride
+    rows = (await db.execute(select(LabelOverride))).scalars().all()
+    overrides: dict[str, dict[str, str]] = {}
+    for r in rows:
+        overrides.setdefault(r.enum_class, {})[r.enum_key] = r.label
     from app.models.identity import (
         MasonicGrade, LodgeFunction, MemberStatus, MembershipType,
         ResponsibilityType,
@@ -913,8 +922,43 @@ async def admin_config(
         "current_member": member,
         "referentials": referentials,
         "groups": groups,
+        "overrides": overrides,
         "active_tab": "config",
     })
+
+
+@router.post("/config/labels")
+async def admin_config_labels_save(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Sauvegarde des libellés personnalisés. Les inputs ont des `name`
+    de la forme `label[ClassName][KEY]`."""
+    actor_user, actor_member = ctx
+    form = await request.form()
+    from app.services.labels import set_label
+
+    changes = 0
+    for k, v in form.multi_items():
+        if not k.startswith("label[") or not k.endswith("]"):
+            continue
+        # k = "label[MasonicGrade][APPRENTI]"
+        inner = k[len("label["):-1]  # "MasonicGrade][APPRENTI"
+        parts = inner.split("][")
+        if len(parts) != 2:
+            continue
+        cls_name, key_name = parts
+        await set_label(db, cls_name, key_name, (v or "").strip() or None,
+                        actor_id=actor_member.id)
+        changes += 1
+
+    await log_audit(
+        db, actor_id=actor_member.id, action="LABELS_UPDATE",
+        details=f"{changes} libellé(s) sauvegardés",
+        request=request, commit=True,
+    )
+    return RedirectResponse(url="/admin/config?_msg=saved", status_code=303)
 
 
 @router.post("/audit/purge")

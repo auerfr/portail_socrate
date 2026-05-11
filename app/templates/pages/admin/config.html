@@ -3,33 +3,68 @@
 
 {% block admin_content %}
 
-<div class="bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 mb-5 text-sm text-amber-800">
-  <i class="ti ti-info-circle"></i>
-  Ces nomenclatures sont définies dans le code Python (enums). Pour les modifier
-  il faut intervenir dans <code class="text-xs font-mono">app/models/*.py</code> — une
-  refonte dynamique vers une table DB sera proposée dans une phase ultérieure.
+{% if request.query_params.get('_msg') == 'saved' %}
+<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-2 mb-4 text-sm">
+  <i class="ti ti-check"></i> Libellés enregistrés. Les nouveaux libellés s'appliqueront progressivement aux pages utilisant le filtre <code>| label</code>.
 </div>
+{% endif %}
+
+<div class="bg-blue-50 border border-blue-200 rounded-2xl px-4 py-3 mb-5 text-sm text-blue-800">
+  <i class="ti ti-info-circle"></i>
+  Les <strong>valeurs internes</strong> (colonne de gauche en monospace) restent
+  inchangées — c'est l'identifiant utilisé en base et en code. Tu peux personnaliser
+  le <strong>libellé d'affichage</strong> (colonne de droite). Laisser vide pour
+  revenir au libellé par défaut.
+</div>
+
+<form method="post" action="/admin/config/labels">
 
 <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
   {% for label, icon, enum_cls, note in referentials %}
+  {% set cls_name = enum_cls.__name__ %}
+  {% set cls_overrides = overrides.get(cls_name, {}) %}
   <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
     <div class="px-5 py-3 border-b border-gray-100">
       <h2 class="font-semibold text-gray-900"><i class="ti {{ icon }} text-loge-700"></i> {{ label }}</h2>
-      {% if note %}<div class="text-[11px] text-gray-400 mt-0.5">{{ note }}</div>{% endif %}
+      <div class="text-[11px] text-gray-400 mt-0.5 font-mono">{{ cls_name }}</div>
     </div>
-    <ul class="divide-y divide-gray-50 text-sm">
-      {% for item in enum_cls %}
-      <li class="px-5 py-1.5 flex items-center justify-between">
-        <span class="font-mono text-xs text-gray-500">{{ item.name }}</span>
-        <span class="text-gray-800">{{ item.value }}</span>
-      </li>
-      {% endfor %}
-    </ul>
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-[10px] text-gray-500 uppercase">
+        <tr>
+          <th class="text-left font-semibold px-4 py-1.5">Clé</th>
+          <th class="text-left font-semibold px-4 py-1.5">Valeur par défaut</th>
+          <th class="text-left font-semibold px-4 py-1.5">Libellé personnalisé</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for item in enum_cls %}
+        <tr>
+          <td class="px-4 py-1.5 font-mono text-[10px] text-gray-400">{{ item.name }}</td>
+          <td class="px-4 py-1.5 text-gray-600">{{ item.value }}</td>
+          <td class="px-4 py-1.5">
+            <input type="text" name="label[{{ cls_name }}][{{ item.name }}]"
+                   value="{{ cls_overrides.get(item.name, '') }}"
+                   placeholder="{{ item.value }}"
+                   class="w-full border border-gray-200 rounded px-2 py-1 text-sm focus:ring-2 focus:ring-loge-500">
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
   </section>
   {% endfor %}
 </div>
 
-{# Groupes (donnée éditable existante) #}
+<div class="sticky bottom-0 mt-5 bg-white border-t border-gray-100 -mx-4 px-4 py-3 flex justify-end gap-2 shadow-sm">
+  <a href="/admin/config" class="px-4 py-2 text-sm text-gray-600 hover:text-gray-800">Annuler</a>
+  <button class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+    <i class="ti ti-device-floppy"></i> Enregistrer les libellés
+  </button>
+</div>
+
+</form>
+
+{# Groupes & commissions #}
 <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden mt-5">
   <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
     <h2 class="font-semibold text-gray-900"><i class="ti ti-users-group text-loge-700"></i> Groupes &amp; commissions ({{ groups|length }})</h2>
@@ -51,5 +86,13 @@
   <div class="p-5 text-sm text-gray-500">Aucun groupe défini.</div>
   {% endif %}
 </section>
+
+<div class="mt-5 bg-amber-50 border border-amber-200 rounded-2xl px-4 py-3 text-sm text-amber-800">
+  <strong><i class="ti ti-bulb"></i> Note technique :</strong>
+  Les libellés personnalisés sont stockés dans la table <code>label_overrides</code>
+  et utilisés via le filtre Jinja <code>{{ '{{ valeur | label }}' }}</code>.
+  Les pages déjà existantes continuent d'afficher les valeurs par défaut tant qu'on
+  n'a pas remplacé leurs occurrences par le filtre — ce sera fait au fil des refactorings.
+</div>
 
 {% endblock %}
