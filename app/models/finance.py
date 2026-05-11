@@ -90,6 +90,18 @@ class ContributionConfig(Base):
     # Appel à tranche : fenêtre d'ouverture pour que les membres choisissent leur tranche
     tier_selection_open: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # ── Temporalité (cycle annuel) ────────────────────────────────────────────
+    # Étiquette de l'exercice budgétaire (année civile) — ex "2027" pour les
+    # cotisations encaissées en 2027 (saison maçonnique commençant en sept 2026).
+    fiscal_year_label: Mapped[Optional[str]] = mapped_column(String(20))
+    # Date à laquelle on a reçu/saisi les taux officiels de capitation
+    capitations_published_at: Mapped[Optional[date]] = mapped_column(Date)
+    # Fenêtre d'appel à tranche (typiquement 15/11 → 31/12 année N pour cotis N+1)
+    tier_selection_opens_at: Mapped[Optional[date]]  = mapped_column(Date)
+    tier_selection_closes_at: Mapped[Optional[date]] = mapped_column(Date)
+    # Date à laquelle l'appel a été clos (auto à closes_at + 1 j ou manuel)
+    tier_selection_closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
     tiers: Mapped[list["ContributionTier"]] = relationship(back_populates="config")
 
     def __repr__(self) -> str:

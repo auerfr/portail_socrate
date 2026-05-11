@@ -106,6 +106,26 @@ async def lifespan(app: FastAPI):
             await conn.exec_driver_sql(
                 "ALTER TABLE contribution_configs ADD COLUMN tier_selection_open BOOLEAN DEFAULT 0"
             )
+        if "fiscal_year_label" not in cols2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs ADD COLUMN fiscal_year_label VARCHAR(20)"
+            )
+        if "capitations_published_at" not in cols2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs ADD COLUMN capitations_published_at DATE"
+            )
+        if "tier_selection_opens_at" not in cols2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs ADD COLUMN tier_selection_opens_at DATE"
+            )
+        if "tier_selection_closes_at" not in cols2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs ADD COLUMN tier_selection_closes_at DATE"
+            )
+        if "tier_selection_closed_at" not in cols2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs ADD COLUMN tier_selection_closed_at DATETIME"
+            )
 
         # ── Messagerie interne ──────────────────────────────────────────────
         r_msg = await conn.exec_driver_sql("PRAGMA table_info(messages)")
@@ -447,6 +467,10 @@ async def lifespan(app: FastAPI):
     from app.services.projects_reminders import daily_task_reminder_loop
     _task_reminder_task = asyncio.ensure_future(daily_task_reminder_loop())
 
+    # ── Rappels J-3 avant clôture de l'appel à tranche ───────────────────────
+    from app.services.contribution_reminders import daily_contribution_reminder_loop
+    _contrib_reminder_task = asyncio.ensure_future(daily_contribution_reminder_loop())
+
     # ── Pré-chargement du cache des libellés personnalisés ───────────────────
     try:
         from app.services.labels import _load_all as _load_labels
@@ -459,6 +483,7 @@ async def lifespan(app: FastAPI):
     _backup_task.cancel()
     _anniv_task.cancel()
     _task_reminder_task.cancel()
+    _contrib_reminder_task.cancel()
     await engine.dispose()
 
 

@@ -364,6 +364,23 @@ async def budget_view(
         await db.refresh(cfg, ["tiers"])
 
     can_edit = user.is_admin or can_manage_finance(member)
+
+    # État de l'appel à tranche (fenêtre, dates, badge, etc.)
+    from app.services.contribution_state import get_appel_state
+    appel_state = get_appel_state(cfg)
+
+    # Année courante au sens "is_current" (rituelle)
+    current_year = next((y for y in years if y.is_current), None)
+    is_current_selected = selected_year and selected_year.is_current
+    is_future_selected = (
+        selected_year and current_year
+        and selected_year.start_date > current_year.start_date
+    )
+    is_past_selected = (
+        selected_year and current_year
+        and selected_year.end_date < current_year.start_date
+    )
+
     return templates.TemplateResponse(request, "pages/finance/budget.html", {
         "current_member": member,
         "current_user": user,
@@ -378,6 +395,11 @@ async def budget_view(
         "tier_coefficients": TIER_COEFFICIENTS,
         "is_admin": user.is_admin,
         "can_edit": can_edit,
+        "appel_state": appel_state,
+        "is_current_selected": is_current_selected,
+        "is_future_selected": is_future_selected,
+        "is_past_selected": is_past_selected,
+        "today": date.today(),
     })
 
 
@@ -487,6 +509,10 @@ async def config_update(
     initial_treasury: Annotated[float, Form()] = 0.0,
     auto_t3: Annotated[str, Form()] = "off",
     manual_t3: Annotated[float, Form()] = 0.0,
+    fiscal_year_label: Annotated[str, Form()] = "",
+    capitations_published_at: Annotated[str, Form()] = "",
+    tier_selection_opens_at: Annotated[str, Form()] = "",
+    tier_selection_closes_at: Annotated[str, Form()] = "",
 ):
     cfg = await _get_or_create_config(db, year_id)
     await db.refresh(cfg, ["tiers"])
@@ -494,6 +520,20 @@ async def config_update(
     cfg.national_capitation_rate = national_capitation
     cfg.regional_capitation_rate = regional_capitation
     cfg.initial_treasury = initial_treasury
+
+    # Champs temporels (string vide = NULL)
+    def _parse_date(s: str):
+        s = (s or "").strip()
+        if not s:
+            return None
+        try:
+            return date.fromisoformat(s)
+        except ValueError:
+            return None
+    cfg.fiscal_year_label = (fiscal_year_label or "").strip() or None
+    cfg.capitations_published_at = _parse_date(capitations_published_at)
+    cfg.tier_selection_opens_at = _parse_date(tier_selection_opens_at)
+    cfg.tier_selection_closes_at = _parse_date(tier_selection_closes_at)
 
     if auto_t3 == "on":
         cfg.reference_amount = float(await _compute_t3_from_budget(db, year_id, cfg))
@@ -791,19 +831,37 @@ async def toggle_appel(
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Annotated[int, Form()],
+    confirm: Annotated[str, Form()] = "",
 ):
     """Ouvre ou ferme la fenêtre d'appel à tranche pour l'année donnée.
 
-    À la fermeture : affecte automatiquement les membres sans réponse
-    (tranche de l'année précédente ou T3), recalcule T3 sur la distribution
-    complète, et resynchronise toutes les cotisations ouvertes.
+    À la fermeture : pose la timestamp + affecte automatiquement les membres
+    sans réponse (tranche de l'année précédente ou T3), recalcule T3 sur la
+    distribution complète, et resynchronise toutes les cotisations ouvertes.
+
+    Si l'appel a déjà été clos (closed_at non NULL) et qu'on tente de le
+    rouvrir/modifier : double confirmation requise (`confirm=YES`) et seul
+    un admin peut le faire.
     """
+    user, member = ctx
     cfg = await _get_or_create_config(db, year_id)
     was_open = bool(cfg.tier_selection_open)
+    already_closed = cfg.tier_selection_closed_at is not None
+
+    # Modification post-clôture : admin only + double confirm
+    if already_closed and not was_open:
+        if not user.is_admin:
+            raise HTTPException(403, "Modification d'un appel clos réservée à l'administrateur")
+        if confirm != "YES":
+            raise HTTPException(400, "Confirmation requise (paramètre confirm=YES)")
+        # Réouverture : on efface la timestamp de clôture
+        cfg.tier_selection_closed_at = None
+
     cfg.tier_selection_open = not was_open
 
     if was_open:
-        # Clôture → affecter les non-répondants et finaliser T3
+        # Clôture → poser timestamp + affecter non-répondants + finaliser T3
+        cfg.tier_selection_closed_at = datetime.utcnow()
         await _close_appel_and_assign_defaults(db, year_id, cfg)
 
     await db.commit()
