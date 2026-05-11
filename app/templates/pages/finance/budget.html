@@ -199,69 +199,56 @@
       </div>
       {% endif %}
 
-    </div>
+      {# ── Actions saisie budget (sous la liste qu'elles modifient) ────── #}
+      {% if can_edit %}
+      <div class="grid sm:grid-cols-2 gap-4">
 
-    <!-- ── Colonne droite : formulaires finance ────────────────────────────── -->
-    {% if can_edit %}
-    <div class="space-y-4">
-
-      <!-- Appel à tranche -->
-      {% set is_open = cfg and cfg.tier_selection_open %}
-      {% set is_closed_perm = cfg and cfg.tier_selection_closed_at %}
-      <div class="rounded-xl border p-5 shadow-sm
-                  {% if appel_state.color == 'green' %}bg-loge-50 border-loge-300
-                  {% elif appel_state.color == 'amber' %}bg-amber-50 border-amber-200
-                  {% else %}bg-white border-gray-100{% endif %}">
-        <div class="flex items-center justify-between mb-3">
-          <div>
-            <h2 class="font-semibold text-gray-800">Appel à tranche</h2>
-            <p class="text-xs mt-0.5
-                      {% if appel_state.color == 'green' %}text-emerald-700
-                      {% elif appel_state.color == 'amber' %}text-amber-700
-                      {% else %}text-gray-500{% endif %}">
-              <span class="font-semibold">{{ appel_state.label }}</span> — {{ appel_state.detail }}
-            </p>
-          </div>
-          <div class="w-3 h-3 rounded-full
-                      {% if appel_state.color == 'green' %}bg-green-500 animate-pulse
-                      {% elif appel_state.color == 'amber' %}bg-amber-400
-                      {% else %}bg-gray-300{% endif %}"></div>
+        <!-- Ajouter une charge -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+          <h2 class="font-semibold text-gray-800 mb-3 text-sm">➕ Ajouter une charge</h2>
+          <form method="post" action="/finance/budget/add" class="space-y-2.5">
+            <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+            <input type="hidden" name="btype" value="CHARGE_FIXE">
+            <input type="text" name="category_label" placeholder="Catégorie (ex: Immobilier)"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <input type="text" name="label" required placeholder="Libellé"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <div class="grid grid-cols-2 gap-2">
+              <input type="number" name="amount" step="0.01" min="0" required placeholder="Montant €"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+              <input type="text" name="notes" placeholder="Notes (opt.)"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            </div>
+            <button type="submit"
+                    class="w-full bg-gray-800 text-white py-2 rounded-lg text-sm font-semibold hover:bg-gray-900 transition-colors">
+              Ajouter
+            </button>
+          </form>
         </div>
 
-        {# Bouton principal : lance / clos / rouvre (avec double confirm) #}
-        <form method="post" action="/finance/cotisations/toggle-appel"
-              {% if is_closed_perm and not is_open %}
-              onsubmit="return confirm('⚠ L\'appel à tranche a déjà été clos le {{ cfg.tier_selection_closed_at.strftime('%d/%m/%Y') }}. La réouverture est exceptionnelle et tracée dans l\'audit.\n\nÊtes-vous CERTAIN(E) de vouloir le rouvrir ?') && confirm('Confirmer une seconde fois : voulez-vous VRAIMENT rouvrir cet appel clos ?')"
-              {% elif is_open %}
-              onsubmit="return confirm('Clore l\'appel à tranche ? Les membres qui n\'ont pas répondu se verront affecter automatiquement leur tranche de l\'année précédente, ou T3 par défaut.')"
-              {% endif %}>
-          <input type="hidden" name="year_id" value="{{ selected_year.id }}">
-          {% if is_closed_perm and not is_open %}
-          <input type="hidden" name="confirm" value="YES">
-          {% endif %}
-          <button type="submit"
-                  {% if is_closed_perm and not is_open and not is_admin %}disabled{% endif %}
-                  class="w-full py-2 rounded-lg text-sm font-semibold transition-colors
-                         {% if is_open %}bg-red-600 text-white hover:bg-red-700
-                         {% elif is_closed_perm %}bg-amber-600 text-white hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed
-                         {% else %}bg-loge-700 text-white hover:bg-loge-800{% endif %}">
-            {% if is_open %}🔒 Clore l'appel à tranche
-            {% elif is_closed_perm %}{% if is_admin %}🔓 Rouvrir l'appel (admin){% else %}Clos — admin uniquement{% endif %}
-            {% else %}📢 Lancer l'appel à tranche{% endif %}
-          </button>
-        </form>
+        <!-- Import CSV -->
+        <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col">
+          <h2 class="font-semibold text-gray-800 mb-1 text-sm">📥 Importer un budget (CSV)</h2>
+          <p class="text-xs text-gray-500 mb-3">Colonnes : <code>Catégorie;Libellé;Montant</code></p>
+          <form method="post" action="/finance/budget/import-csv" enctype="multipart/form-data" class="space-y-3 flex-1 flex flex-col">
+            <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+            <input type="file" name="csvfile" accept=".csv,.txt" required
+                   class="w-full text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-gray-100 file:text-gray-700">
+            <button type="submit"
+                    class="mt-auto w-full border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
+              Importer
+            </button>
+          </form>
+        </div>
 
-        {% if is_open %}
-        <a href="/finance/cotisations?year_id={{ selected_year.id }}"
-           class="mt-2 flex items-center justify-center gap-1.5 text-xs text-loge-700 hover:underline font-medium">
-          → Gérer les tranches manuellement
-        </a>
-        {% elif not is_closed_perm %}
-        <p class="text-xs text-gray-400 mt-2 text-center">
-          Lancez l'appel après avoir finalisé le budget, le barème T3 et défini la fenêtre.
-        </p>
-        {% endif %}
       </div>
+      {% endif %}
+
+    </div>
+
+    <!-- ── Colonne droite : config + appel (sticky sur desktop) ─────────────── -->
+    {% if can_edit %}
+    <div class="space-y-4 lg:sticky lg:top-4 lg:self-start">
 
       <!-- Config T3 -->
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5"
@@ -356,57 +343,61 @@
         </form>
       </div>
 
-      <!-- Ajouter une ligne -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h2 class="font-semibold text-gray-800 mb-4">Ajouter une charge</h2>
-        <form method="post" action="/finance/budget/add" class="space-y-3">
+      <!-- Appel à tranche (étape finale du workflow) -->
+      {% set is_open = cfg and cfg.tier_selection_open %}
+      {% set is_closed_perm = cfg and cfg.tier_selection_closed_at %}
+      <div class="rounded-xl border p-5 shadow-sm
+                  {% if appel_state.color == 'green' %}bg-loge-50 border-loge-300
+                  {% elif appel_state.color == 'amber' %}bg-amber-50 border-amber-200
+                  {% else %}bg-white border-gray-100{% endif %}">
+        <div class="flex items-center justify-between mb-3">
+          <div>
+            <h2 class="font-semibold text-gray-800">📢 Appel à tranche</h2>
+            <p class="text-xs mt-0.5
+                      {% if appel_state.color == 'green' %}text-emerald-700
+                      {% elif appel_state.color == 'amber' %}text-amber-700
+                      {% else %}text-gray-500{% endif %}">
+              <span class="font-semibold">{{ appel_state.label }}</span> — {{ appel_state.detail }}
+            </p>
+          </div>
+          <div class="w-3 h-3 rounded-full
+                      {% if appel_state.color == 'green' %}bg-green-500 animate-pulse
+                      {% elif appel_state.color == 'amber' %}bg-amber-400
+                      {% else %}bg-gray-300{% endif %}"></div>
+        </div>
+
+        <form method="post" action="/finance/cotisations/toggle-appel"
+              {% if is_closed_perm and not is_open %}
+              onsubmit="return confirm('⚠ L\'appel à tranche a déjà été clos le {{ cfg.tier_selection_closed_at.strftime('%d/%m/%Y') }}. La réouverture est exceptionnelle et tracée dans l\'audit.\n\nÊtes-vous CERTAIN(E) de vouloir le rouvrir ?') && confirm('Confirmer une seconde fois : voulez-vous VRAIMENT rouvrir cet appel clos ?')"
+              {% elif is_open %}
+              onsubmit="return confirm('Clore l\'appel à tranche ? Les membres qui n\'ont pas répondu se verront affecter automatiquement leur tranche de l\'année précédente, ou T3 par défaut.')"
+              {% endif %}>
           <input type="hidden" name="year_id" value="{{ selected_year.id }}">
-          <input type="hidden" name="btype" value="CHARGE_FIXE">
-
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Catégorie (libre)</label>
-            <input type="text" name="category_label" placeholder="Ex: Immobilier, GODF, Fonctionnement…"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Libellé</label>
-            <input type="text" name="label" required placeholder="Ex: Locations salle du temple"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
-            <input type="number" name="amount" step="0.01" min="0" required
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Notes (optionnel)</label>
-            <input type="text" name="notes" placeholder="Précisions…"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-
+          {% if is_closed_perm and not is_open %}
+          <input type="hidden" name="confirm" value="YES">
+          {% endif %}
           <button type="submit"
-                  class="w-full bg-gray-800 text-white py-2 rounded-lg text-sm font-semibold hover:bg-gray-900 transition-colors">
-            Ajouter
+                  {% if is_closed_perm and not is_open and not is_admin %}disabled{% endif %}
+                  class="w-full py-2 rounded-lg text-sm font-semibold transition-colors
+                         {% if is_open %}bg-red-600 text-white hover:bg-red-700
+                         {% elif is_closed_perm %}bg-amber-600 text-white hover:bg-amber-700 disabled:bg-gray-300 disabled:cursor-not-allowed
+                         {% else %}bg-loge-700 text-white hover:bg-loge-800{% endif %}">
+            {% if is_open %}🔒 Clore l'appel à tranche
+            {% elif is_closed_perm %}{% if is_admin %}🔓 Rouvrir l'appel (admin){% else %}Clos — admin uniquement{% endif %}
+            {% else %}📢 Lancer l'appel à tranche{% endif %}
           </button>
         </form>
-      </div>
 
-      <!-- Import CSV -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h2 class="font-semibold text-gray-800 mb-1">Importer un budget (CSV)</h2>
-        <p class="text-xs text-gray-500 mb-3">Colonnes : <code>Catégorie;Libellé;Montant</code></p>
-        <form method="post" action="/finance/budget/import-csv" enctype="multipart/form-data" class="space-y-3">
-          <input type="hidden" name="year_id" value="{{ selected_year.id }}">
-          <input type="file" name="csvfile" accept=".csv,.txt" required
-                 class="w-full text-sm text-gray-700 border border-gray-200 rounded-lg px-3 py-2 file:mr-3 file:py-1 file:px-3 file:rounded file:border-0 file:text-xs file:bg-gray-100 file:text-gray-700">
-          <button type="submit"
-                  class="w-full border border-gray-300 text-gray-700 py-2 rounded-lg text-sm font-medium hover:bg-gray-50">
-            Importer
-          </button>
-        </form>
+        {% if is_open %}
+        <a href="/finance/cotisations?year_id={{ selected_year.id }}"
+           class="mt-2 flex items-center justify-center gap-1.5 text-xs text-loge-700 hover:underline font-medium">
+          → Gérer les tranches manuellement
+        </a>
+        {% elif not is_closed_perm %}
+        <p class="text-xs text-gray-400 mt-2 text-center">
+          Lancez l'appel après avoir finalisé le budget, le barème T3 et défini la fenêtre.
+        </p>
+        {% endif %}
       </div>
 
       <!-- Aide -->
