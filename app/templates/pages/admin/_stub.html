@@ -1,0 +1,19 @@
+{% extends "pages/admin/_layout.html" %}
+{% block title %}Administration — {{ title }}{% endblock %}
+
+{% block admin_content %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-8 text-center max-w-2xl mx-auto">
+  <div class="text-5xl text-loge-200 mb-3"><i class="ti {{ icon }}"></i></div>
+  <h2 class="text-xl font-bold text-gray-900 mb-2">{{ title }}</h2>
+  <p class="text-sm text-gray-500 mb-5">Cet onglet est planifié — voici ce qu'il contiendra.</p>
+  <ul class="text-left space-y-2 max-w-md mx-auto">
+    {% for it in items %}
+    <li class="flex items-start gap-2 text-sm text-gray-700">
+      <span class="mt-1 w-1.5 h-1.5 rounded-full bg-loge-400 flex-shrink-0"></span>
+      <span>{{ it }}</span>
+    </li>
+    {% endfor %}
+  </ul>
+  <div class="mt-6 text-xs text-gray-400 italic">À venir dans les prochaines phases.</div>
+</div>
+{% endblock %}

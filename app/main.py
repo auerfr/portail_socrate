@@ -28,6 +28,7 @@ from app.routers import anniversaires as anniv_router
 from app.routers import push as push_router
 from app.routers import forum as forum_router
 from app.routers import projects as projects_router
+from app.routers import admin as admin_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -381,6 +382,16 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE"
                 )
 
+    # ── audit_logs : nouvelles colonnes (target_label, user_agent) ─────────
+    async with engine.begin() as conn:
+        r_al = await conn.exec_driver_sql("PRAGMA table_info(audit_logs)")
+        cols_al = [row[1] for row in r_al.fetchall()]
+        if cols_al:
+            if "target_label" not in cols_al:
+                await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN target_label VARCHAR(300)")
+            if "user_agent" not in cols_al:
+                await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN user_agent VARCHAR(300)")
+
     # ── Canal "Général" par défaut ─────────────────────────────────────────
     async with engine.begin() as conn:
         from sqlalchemy import text
@@ -518,6 +529,7 @@ app.include_router(anniv_router.router)
 app.include_router(push_router.router)
 app.include_router(forum_router.router)
 app.include_router(projects_router.router)
+app.include_router(admin_router.router)
 # app.include_router(admin.router)
 
 

@@ -1,0 +1,128 @@
+{% extends "pages/admin/_layout.html" %}
+{% block title %}Administration — Utilisateurs{% endblock %}
+
+{% block admin_content %}
+
+{# Flash : lien de réinitialisation à transmettre #}
+{% set rid = request.query_params.get('reset_for') %}
+{% set rtok = request.query_params.get('reset_token') %}
+{% if rid and rtok %}
+<div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-4 mb-4 text-sm">
+  <div class="font-semibold text-emerald-800 mb-1"><i class="ti ti-check"></i> Lien de réinitialisation généré (valide 24h)</div>
+  <div class="text-emerald-900">Transmets cette URL au membre :</div>
+  <input type="text" readonly value="{{ request.url.scheme }}://{{ request.url.netloc }}/auth/reset-password/{{ rtok }}"
+         onclick="this.select()"
+         class="w-full mt-2 bg-white border border-emerald-200 rounded-lg px-3 py-2 text-xs font-mono">
+</div>
+{% endif %}
+
+{# Barre filtre / recherche #}
+<form method="get" action="/admin/users" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-3 flex items-center gap-2 flex-wrap mb-4">
+  <div class="relative flex-1 min-w-[200px]">
+    <i class="ti ti-search absolute left-3 top-1/2 -translate-y-1/2 text-gray-400"></i>
+    <input type="text" name="q" value="{{ q }}" placeholder="Nom, prénom, login…"
+           class="w-full border border-gray-200 rounded-xl pl-9 pr-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+  </div>
+  <select name="f_status" class="border border-gray-200 rounded-xl px-2 py-2 text-xs">
+    <option value="">Tous</option>
+    <option value="active"   {% if f_status == 'active' %}selected{% endif %}>Actifs</option>
+    <option value="disabled" {% if f_status == 'disabled' %}selected{% endif %}>Désactivés</option>
+    <option value="admin"    {% if f_status == 'admin' %}selected{% endif %}>Admins</option>
+    <option value="never"    {% if f_status == 'never' %}selected{% endif %}>Jamais connectés</option>
+    <option value="stale"    {% if f_status == 'stale' %}selected{% endif %}>Inactifs &gt; 90 j</option>
+  </select>
+  <button class="px-3 py-2 bg-loge-700 hover:bg-loge-800 text-white text-xs font-semibold rounded-xl">Filtrer</button>
+  {% if q or f_status %}
+  <a href="/admin/users" class="text-xs text-gray-500 hover:text-gray-800">Reset</a>
+  {% endif %}
+</form>
+
+{# Tableau utilisateurs #}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
+        <tr>
+          <th class="text-left font-semibold px-4 py-2.5">Nom</th>
+          <th class="text-left font-semibold px-4 py-2.5">Login</th>
+          <th class="text-left font-semibold px-4 py-2.5">Statut</th>
+          <th class="text-left font-semibold px-4 py-2.5">Dernière connexion</th>
+          <th class="text-right font-semibold px-4 py-2.5">Actions</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for u, m in rows %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-3">
+            <div class="font-medium text-gray-900">{{ m.last_name }} {{ m.first_name }}</div>
+            <div class="text-xs text-gray-500">{{ m.email or '—' }}</div>
+          </td>
+          <td class="px-4 py-3 font-mono text-xs text-gray-700">{{ u.login }}</td>
+          <td class="px-4 py-3">
+            <div class="flex gap-1 flex-wrap">
+              {% if u.is_active %}
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-emerald-50 text-emerald-700">Actif</span>
+              {% else %}
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">Désactivé</span>
+              {% endif %}
+              {% if u.is_admin %}
+              <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-loge-50 text-loge-800"><i class="ti ti-shield-lock"></i> Admin</span>
+              {% endif %}
+            </div>
+          </td>
+          <td class="px-4 py-3 text-xs text-gray-600">
+            {% if u.last_login_at %}
+              {{ u.last_login_at.strftime('%d/%m/%Y %H:%M') }}
+              {% set delta = (today - u.last_login_at).days %}
+              <div class="text-[10px] text-gray-400">il y a {{ delta }} jour{{ 's' if delta > 1 else '' }}</div>
+            {% else %}
+              <span class="text-amber-700 font-semibold">Jamais</span>
+            {% endif %}
+          </td>
+          <td class="px-4 py-3 text-right">
+            <div x-data="{ open: false }" class="relative inline-block">
+              <button @click="open = !open" @click.outside="open = false"
+                      class="p-2 text-gray-400 hover:text-gray-700 hover:bg-gray-100 rounded-lg">
+                <i class="ti ti-dots-vertical"></i>
+              </button>
+              <div x-show="open" x-cloak
+                   class="absolute right-0 mt-1 w-56 bg-white border border-gray-100 rounded-xl shadow-lg z-20 py-1 text-left">
+                <form method="post" action="/admin/users/{{ u.id }}/toggle-active">
+                  <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2">
+                    {% if u.is_active %}<i class="ti ti-user-off text-amber-500"></i> Désactiver
+                    {% else %}<i class="ti ti-user-check text-emerald-600"></i> Réactiver{% endif %}
+                  </button>
+                </form>
+                <form method="post" action="/admin/users/{{ u.id }}/toggle-admin">
+                  <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2">
+                    {% if u.is_admin %}<i class="ti ti-shield-off text-gray-500"></i> Retirer admin
+                    {% else %}<i class="ti ti-shield-lock text-loge-700"></i> Donner admin{% endif %}
+                  </button>
+                </form>
+                <div class="border-t border-gray-100 my-1"></div>
+                <form method="post" action="/admin/users/{{ u.id }}/force-reset"
+                      onsubmit="return confirm('Générer un lien de réinitialisation pour ce membre ?')">
+                  <button class="w-full text-left px-3 py-2 text-sm text-gray-700 hover:bg-gray-50 inline-flex items-center gap-2">
+                    <i class="ti ti-key text-amber-500"></i> Générer reset password
+                  </button>
+                </form>
+                <a href="/members/{{ m.id }}" class="block px-3 py-2 text-sm text-gray-700 hover:bg-gray-50">
+                  <i class="ti ti-user text-gray-400"></i> Fiche membre
+                </a>
+              </div>
+            </div>
+          </td>
+        </tr>
+        {% else %}
+        <tr><td colspan="5" class="px-4 py-8 text-center text-sm text-gray-500">Aucun utilisateur trouvé.</td></tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="mt-4 text-xs text-gray-500">
+  Total : <span class="font-semibold">{{ rows|length }}</span> compte{{ 's' if rows|length > 1 else '' }}
+</div>
+
+{% endblock %}

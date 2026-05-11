@@ -1,0 +1,41 @@
+{# Layout partagé pour toutes les pages /admin — sidebar 6 onglets #}
+{% extends "base.html" %}
+
+{% block content %}
+<div class="max-w-7xl mx-auto px-4 py-6 lg:py-8">
+
+  {# Entête #}
+  <div class="flex items-center justify-between gap-3 flex-wrap mb-5">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900 flex items-center gap-2">
+        <i class="ti ti-shield-lock text-loge-700"></i> Administration
+      </h1>
+      <p class="text-sm text-gray-500 mt-1">Console réservée aux administrateurs techniques.</p>
+    </div>
+  </div>
+
+  {# Onglets #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm mb-5 overflow-x-auto">
+    <div class="flex items-center min-w-max">
+      {% set tabs = [
+        ('overview', '/admin/',       'Vue d\'ensemble', 'ti-gauge'),
+        ('users',    '/admin/users',  'Utilisateurs',    'ti-users'),
+        ('audit',    '/admin/audit',  'Audit',           'ti-history'),
+        ('data',     '/admin/data',   'Données',         'ti-database'),
+        ('comm',     '/admin/comm',   'Communication',   'ti-mail'),
+        ('config',   '/admin/config', 'Configuration',   'ti-settings'),
+      ] %}
+      {% for key, href, lbl, ic in tabs %}
+      <a href="{{ href }}"
+         class="inline-flex items-center gap-1.5 px-4 py-3 text-sm font-medium border-b-2 whitespace-nowrap
+                {% if active_tab == key %}border-loge-700 text-loge-800{% else %}border-transparent text-gray-500 hover:text-gray-700 hover:bg-gray-50{% endif %}">
+        <i class="ti {{ ic }}"></i> {{ lbl }}
+      </a>
+      {% endfor %}
+    </div>
+  </div>
+
+  {% block admin_content %}{% endblock %}
+
+</div>
+{% endblock %}

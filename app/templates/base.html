@@ -322,6 +322,13 @@
         <i class="ti ti-settings"></i>
         {% if current_user.is_admin %}Paramètres{% else %}Contacts externes{% endif %}
       </a>
+      {% if current_user.is_admin %}
+      <a href="/admin/"
+         class="nav-item {% if '/admin' in request.url.path %}active{% endif %}">
+        <i class="ti ti-shield-lock"></i>
+        Administration
+      </a>
+      {% endif %}
       {% endif %}
 
     </nav>

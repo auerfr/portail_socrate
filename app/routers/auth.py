@@ -58,6 +58,17 @@ async def login_submit(
     lodge = await _get_lodge(db)
 
     if not user or not verify_password(form_data.password, user.password_hash):
+        try:
+            from app.services.audit import log_audit
+            await log_audit(
+                db, actor_id=(user.member_id if user else None),
+                action="LOGIN_FAILED",
+                target_label=identifier,
+                details="mauvais identifiant/mot de passe",
+                request=request, commit=True,
+            )
+        except Exception:
+            pass
         return templates.TemplateResponse(
             request, "pages/auth/login.html",
             {"error": "Identifiant ou mot de passe incorrect", "lodge": lodge},
@@ -65,14 +76,33 @@ async def login_submit(
         )
 
     if not user.is_active:
+        try:
+            from app.services.audit import log_audit
+            await log_audit(
+                db, actor_id=user.member_id,
+                action="LOGIN_BLOCKED",
+                target_label=identifier, details="compte désactivé",
+                request=request, commit=True,
+            )
+        except Exception:
+            pass
         return templates.TemplateResponse(
             request, "pages/auth/login.html",
             {"error": "Compte désactivé", "lodge": lodge},
             status_code=status.HTTP_403_FORBIDDEN,
         )
 
-    # Mettre à jour last_login
+    # Mettre à jour last_login + audit
     user.last_login_at = datetime.utcnow()
+    try:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=user.member_id,
+            action="LOGIN", target_label=user.login,
+            request=request,
+        )
+    except Exception:
+        pass
     await db.commit()
 
     access_token = create_access_token({"sub": str(user.id)})

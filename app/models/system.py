@@ -58,10 +58,12 @@ class AuditLog(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     actor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     action: Mapped[str]             = mapped_column(String(100), index=True)
-    resource_type: Mapped[str]      = mapped_column(String(100), index=True)
+    resource_type: Mapped[Optional[str]] = mapped_column(String(100), index=True)
     resource_id: Mapped[Optional[int]] = mapped_column(Integer)
+    target_label: Mapped[Optional[str]] = mapped_column(String(300))
     details: Mapped[Optional[dict]] = mapped_column(JSON)  # avant/après
-    ip_address: Mapped[Optional[str]] = mapped_column(String(50))
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+    user_agent: Mapped[Optional[str]] = mapped_column(String(300))
     created_at: Mapped[datetime]      = mapped_column(DateTime, server_default=func.now(), index=True)
 
     def __repr__(self) -> str:
