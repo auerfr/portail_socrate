@@ -40,7 +40,8 @@ async def log_audit(
     entry = AuditLog(
         actor_id=actor_id,
         action=action,
-        resource_type=target_type,
+        # `resource_type` était NOT NULL dans le schéma initial — fallback à "system"
+        resource_type=target_type or "system",
         resource_id=target_id,
         target_label=(target_label[:300] if target_label else None),
         details=details_json,
