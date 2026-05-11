@@ -37,7 +37,8 @@
     <p class="text-xs text-gray-500 mt-0.5">Création d'un compte utilisateur + génération d'un lien de réinitialisation (valide 7 jours).</p>
   </div>
   {% if members_no_account %}
-  <table class="w-full text-sm">
+  <div class="overflow-x-auto">
+  <table class="w-full text-sm min-w-[480px]">
     <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
       <tr>
         <th class="text-left font-semibold px-4 py-2">Membre</th>
@@ -63,6 +64,7 @@
       {% endfor %}
     </tbody>
   </table>
+  </div>
   {% else %}
   <div class="p-8 text-center text-sm text-gray-500">Tous les membres actifs ont un compte utilisateur.</div>
   {% endif %}

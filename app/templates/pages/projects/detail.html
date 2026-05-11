@@ -182,7 +182,8 @@
   {% if view == 'list' %}
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
     {% if tasks %}
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[700px]">
       <thead class="bg-gray-50 text-xs text-gray-500 uppercase tracking-wider">
         <tr>
           <th class="text-left font-semibold px-4 py-2.5">Tâche</th>
@@ -268,6 +269,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
     {% else %}
     <div class="px-5 py-8 text-center text-sm text-gray-500">Aucune tâche pour le moment.</div>
     {% endif %}

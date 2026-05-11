@@ -28,7 +28,8 @@
       <h2 class="font-semibold text-gray-900"><i class="ti {{ icon }} text-loge-700"></i> {{ label }}</h2>
       <div class="text-[11px] text-gray-400 mt-0.5 font-mono">{{ cls_name }}</div>
     </div>
-    <table class="w-full text-sm">
+    <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[480px]">
       <thead class="bg-gray-50 text-[10px] text-gray-500 uppercase">
         <tr>
           <th class="text-left font-semibold px-4 py-1.5">Clé</th>
@@ -51,6 +52,7 @@
         {% endfor %}
       </tbody>
     </table>
+    </div>
   </section>
   {% endfor %}
 </div>

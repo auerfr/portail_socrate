@@ -164,7 +164,8 @@
         <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
           <h2 class="text-sm font-semibold text-gray-700">Barème résultant</h2>
         </div>
-        <table class="w-full text-sm">
+        <div class="overflow-x-auto">
+        <table class="w-full text-sm min-w-[480px]">
           <thead>
             <tr class="border-b border-gray-100">
               <th class="text-left px-5 py-2 text-xs text-gray-500 font-medium">Tranche</th>
@@ -191,7 +192,8 @@
             {% endfor %}
           </tbody>
         </table>
-        <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex gap-4">
+        </div>
+        <div class="px-5 py-3 bg-gray-50 border-t border-gray-100 text-xs text-gray-500 flex flex-wrap gap-4">
           <span>T3 : <strong>{{ "%.2f"|format(cfg.reference_amount) }} €</strong></span>
           <span>Capitation nationale : <strong>{{ "%.2f"|format(cfg.national_capitation_rate) }} €</strong></span>
           <span>Capitation régionale : <strong>{{ "%.2f"|format(cfg.regional_capitation_rate) }} €</strong></span>
