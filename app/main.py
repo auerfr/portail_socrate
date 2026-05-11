@@ -468,6 +468,17 @@ async def global_exception_handler(request: Request, exc: Exception):
     tb = _tb.format_exc()
     return PlainTextResponse(f"Erreur interne:\n{tb}", status_code=500)
 
+
+@app.middleware("http")
+async def maintenance_banner_middleware(request: Request, call_next):
+    """Charge la bannière maintenance dans request.state pour tous les templates."""
+    try:
+        from app.services.settings_store import get_setting
+        request.state.banner = await get_setting("maintenance_banner")
+    except Exception:
+        request.state.banner = None
+    return await call_next(request)
+
 templates = Jinja2Templates(directory="app/templates")
 # Valeur de fallback : les pages qui ne calculent pas le compteur affichent 0
 templates.env.globals["global_unread_messages"] = 0

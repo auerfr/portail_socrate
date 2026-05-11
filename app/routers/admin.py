@@ -145,6 +145,20 @@ async def admin_overview(
     recent_audit = (await db.execute(
         select(AuditLog).order_by(desc(AuditLog.created_at)).limit(10)
     )).scalars().all()
+
+    # Sparkline activité 30 jours (audit_logs/jour)
+    from sqlalchemy import text as sa_text
+    spark_rows = await db.execute(sa_text(
+        "SELECT DATE(created_at) AS d, COUNT(*) AS c FROM audit_logs "
+        "WHERE created_at >= date('now', '-30 days') "
+        "GROUP BY DATE(created_at) ORDER BY d"
+    ))
+    counts_by_day = {row[0]: row[1] for row in spark_rows.fetchall()}
+    spark_points = []
+    for i in range(29, -1, -1):
+        d = (date.today() - timedelta(days=i)).isoformat()
+        spark_points.append({"day": d, "count": counts_by_day.get(d, 0)})
+    spark_max = max((p["count"] for p in spark_points), default=1) or 1
     actor_ids = {a.actor_id for a in recent_audit if a.actor_id}
     actors: dict[int, Member] = {}
     if actor_ids:
@@ -182,6 +196,8 @@ async def admin_overview(
         "recent_audit": recent_audit,
         "actors": actors,
         "alerts": alerts,
+        "spark_points": spark_points,
+        "spark_max": spark_max,
         "active_tab": "overview",
     })
 
@@ -691,6 +707,145 @@ async def admin_comm(
     })
 
 
+@router.get("/banner", response_class=HTMLResponse)
+async def admin_banner(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Configuration de la bannière de maintenance globale."""
+    user, member = ctx
+    from app.services.settings_store import get_setting
+    banner = await get_setting("maintenance_banner", db=db) or {}
+    return templates.TemplateResponse(request, "pages/admin/banner.html", {
+        "current_user": user,
+        "current_member": member,
+        "banner": banner,
+        "active_tab": "overview",
+    })
+
+
+@router.get("/invitations", response_class=HTMLResponse)
+async def admin_invitations(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Liste des membres SANS compte utilisateur — permet de leur créer un compte
+    + lien de réinitialisation pour qu'ils définissent leur mot de passe."""
+    user, member = ctx
+    # Membres actifs sans compte User
+    r = await db.execute(
+        select(Member).outerjoin(User, User.member_id == Member.id)
+        .where(User.id.is_(None), Member.status == MemberStatus.ACTIVE)
+        .order_by(Member.last_name, Member.first_name)
+    )
+    members_no_account = r.scalars().all()
+    return templates.TemplateResponse(request, "pages/admin/invitations.html", {
+        "current_user": user,
+        "current_member": member,
+        "members_no_account": members_no_account,
+        "active_tab": "users",
+    })
+
+
+@router.post("/invitations/{member_id}/create")
+async def admin_invitation_create(
+    member_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Crée un compte User pour ce membre + génère un lien de reset valide 7j."""
+    import secrets
+    actor_user, actor_member = ctx
+    m = (await db.execute(select(Member).where(Member.id == member_id))).scalar_one_or_none()
+    if not m:
+        raise HTTPException(404)
+    # Compte déjà existant ?
+    existing = (await db.execute(select(User).where(User.member_id == m.id))).scalar_one_or_none()
+    if existing:
+        return RedirectResponse(url="/admin/invitations?_msg=exists", status_code=303)
+    if not m.email:
+        return RedirectResponse(url="/admin/invitations?_msg=no_email", status_code=303)
+
+    # Génère un login depuis prenom.nom (à défaut : email)
+    base_login = f"{m.first_name}.{m.last_name}".lower().replace(" ", "").replace("'", "")
+    import unicodedata
+    base_login = "".join(
+        c for c in unicodedata.normalize("NFKD", base_login)
+        if not unicodedata.combining(c)
+    )
+    # Garantit unicité
+    login = base_login
+    n = 2
+    while (await db.execute(select(User).where(User.login == login))).scalar_one_or_none():
+        login = f"{base_login}{n}"
+        n += 1
+
+    # Hash d'un mot de passe placeholder (jamais utilisé puisqu'on force reset)
+    try:
+        from passlib.context import CryptContext
+        pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
+        placeholder_hash = pwd_ctx.hash(secrets.token_urlsafe(32))
+    except Exception:
+        # Fallback brut si passlib indispo
+        import hashlib
+        placeholder_hash = "x" + hashlib.sha256(secrets.token_bytes(32)).hexdigest()
+
+    token = secrets.token_urlsafe(32)
+    u = User(
+        member_id=m.id,
+        login=login,
+        password_hash=placeholder_hash,
+        is_active=True,
+        is_admin=False,
+        reset_token=token,
+        reset_token_expires=datetime.utcnow() + timedelta(days=7),
+    )
+    db.add(u)
+    await log_audit(
+        db, actor_id=actor_member.id, action="INVITATION_CREATE",
+        target_type="member", target_id=m.id,
+        target_label=f"{m.last_name} {m.first_name}",
+        details=f"login={login} token 7j", request=request,
+    )
+    await db.commit()
+    await db.refresh(u)
+    return RedirectResponse(
+        url=f"/admin/invitations?invited_id={u.id}&invited_token={token}",
+        status_code=303,
+    )
+
+
+@router.post("/banner")
+async def admin_banner_save(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    enabled: str = Form(""),
+    message: str = Form(""),
+    level: str = Form("info"),
+):
+    actor_user, actor_member = ctx
+    from app.services.settings_store import set_setting
+    is_on = enabled in ("1", "true", "on")
+    if level not in ("info", "warning", "danger"):
+        level = "info"
+    payload = {
+        "enabled": is_on,
+        "message": (message or "").strip()[:500],
+        "level": level,
+    }
+    await set_setting(db, "maintenance_banner", payload, actor_id=actor_member.id)
+    await log_audit(
+        db, actor_id=actor_member.id, action="BANNER_UPDATE",
+        details=f"enabled={is_on} level={level} msg={payload['message'][:80]}",
+        request=request, commit=True,
+    )
+    return RedirectResponse(url="/admin/banner", status_code=303)
+
+
 @router.post("/comm/test-email")
 async def admin_comm_test_email(
     request: Request,
@@ -725,16 +880,24 @@ async def admin_config(
 ):
     """Référentiel des nomenclatures (enums) + paramètres système."""
     user, member = ctx
-    from app.models.identity import Grade, LodgeFunction, MemberStatus, MembershipType
+    from app.models.identity import (
+        MasonicGrade, LodgeFunction, MemberStatus, MembershipType,
+        ResponsibilityType,
+    )
     from app.models.groups import GroupType
-    from app.models.meetings import AttendanceStatus, VisitorStatus
+    from app.models.meetings import (
+        AttendanceStatus, VisitorStatus, MeetingType, MeetingGrade,
+    )
 
     referentials = [
-        ("Grades maçonniques", "ti-hierarchy", Grade, "Modification : code Python — refactor à venir vers table DB"),
+        ("Grades maçonniques", "ti-hierarchy", MasonicGrade, "Modification : code Python — refactor à venir vers table DB"),
         ("Fonctions de loge",  "ti-crown",     LodgeFunction, ""),
         ("Statuts de membre",  "ti-user-circle", MemberStatus, ""),
         ("Types d'affiliation","ti-id-badge",  MembershipType, ""),
+        ("Responsabilités",    "ti-briefcase", ResponsibilityType, ""),
         ("Types de groupe",    "ti-users-group", GroupType, ""),
+        ("Types de tenue",     "ti-calendar-event", MeetingType, ""),
+        ("Grade des tenues",   "ti-stars",     MeetingGrade, ""),
         ("Statuts de présence","ti-check",     AttendanceStatus, ""),
         ("Statuts visiteurs",  "ti-friends",   VisitorStatus, ""),
     ]

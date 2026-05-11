@@ -8,6 +8,21 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
 
+class SystemSetting(Base):
+    """Paramètres système clé/valeur (JSON) — pour bannière maintenance,
+    politique mot de passe, configuration métier dynamique, etc."""
+    __tablename__ = "system_settings"
+
+    key: Mapped[str]   = mapped_column(String(100), primary_key=True)
+    value: Mapped[Optional[dict]] = mapped_column(JSON)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+    updated_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("members.id", ondelete="SET NULL")
+    )
+
+
 class EmailStatus(str, enum.Enum):
     SENT   = "SENT"
     FAILED = "FAILED"

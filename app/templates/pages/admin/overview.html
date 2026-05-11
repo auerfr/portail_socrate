@@ -3,6 +3,16 @@
 
 {% block admin_content %}
 
+{# Liens rapides #}
+<div class="flex gap-2 flex-wrap mb-5">
+  <a href="/admin/banner" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-amber-800 bg-amber-50 hover:bg-amber-100 rounded-xl">
+    <i class="ti ti-megaphone"></i> Bannière globale
+  </a>
+  <a href="/admin/invitations" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-loge-800 bg-loge-50 hover:bg-loge-100 rounded-xl">
+    <i class="ti ti-user-plus"></i> Inviter un membre
+  </a>
+</div>
+
 {# Alertes #}
 {% if alerts %}
 <div class="space-y-2 mb-5">
@@ -67,6 +77,30 @@
 </div>
 
 <div class="grid grid-cols-1 lg:grid-cols-2 gap-5">
+  {# Activité 30 derniers jours (sparkline) #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden lg:col-span-2">
+    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="font-semibold text-gray-900"><i class="ti ti-chart-bar text-loge-700"></i> Activité 30 derniers jours</h2>
+      <a href="/admin/audit" class="text-xs text-loge-700 hover:underline">Voir tout →</a>
+    </div>
+    <div class="p-5">
+      {% set bw = 100.0 / (spark_points|length) %}
+      <svg viewBox="0 0 100 32" preserveAspectRatio="none" class="w-full h-20">
+        {% for p in spark_points %}
+        {% set h = (p.count / spark_max) * 30 if spark_max > 0 else 0 %}
+        <rect x="{{ loop.index0 * bw + 0.2 }}" y="{{ 32 - h - 1 }}" width="{{ bw - 0.4 }}" height="{{ h + 1 }}"
+              fill="#2c7a7b" opacity="{% if p.count == 0 %}0.15{% else %}0.85{% endif %}">
+          <title>{{ p.day }} : {{ p.count }} action{{ 's' if p.count > 1 else '' }}</title>
+        </rect>
+        {% endfor %}
+      </svg>
+      <div class="flex justify-between text-[10px] text-gray-400 mt-1">
+        <span>{{ spark_points[0].day }}</span>
+        <span>aujourd'hui</span>
+      </div>
+    </div>
+  </section>
+
   {# Dernière sauvegarde #}
   <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
     <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between">

@@ -601,6 +601,18 @@
   {% endif %}
 
   <main class="{% if not on_auth %}lg:ml-52 pb-20 lg:pb-0{% endif %} min-h-full">
+    {# ── Bannière de maintenance globale ─────────────────────────────────── #}
+    {% set _banner = request.state.banner if request.state and request.state.banner else None %}
+    {% if _banner and _banner.enabled and _banner.message %}
+    {% set _lvl = _banner.level or 'info' %}
+    <div class="px-4 py-2 text-sm text-center font-medium border-b
+                {% if _lvl == 'danger' %}bg-rose-50 border-rose-200 text-rose-800
+                {% elif _lvl == 'warning' %}bg-amber-50 border-amber-200 text-amber-800
+                {% else %}bg-blue-50 border-blue-200 text-blue-800{% endif %}">
+      <i class="ti {% if _lvl == 'danger' %}ti-alert-octagon{% elif _lvl == 'warning' %}ti-alert-triangle{% else %}ti-info-circle{% endif %}"></i>
+      {{ _banner.message }}
+    </div>
+    {% endif %}
     {% block content %}{% endblock %}
   </main>
 
