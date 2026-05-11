@@ -5,7 +5,7 @@ import os
 import shutil
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
-from datetime import date, datetime
+from datetime import date, datetime, timedelta
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
@@ -114,9 +114,15 @@ def _recompute_tiers(cfg: ContributionConfig) -> None:
 async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
                                    cfg: ContributionConfig) -> Decimal:
     """
-    T3 = total charges / Σ(coeff_i × count_i)
+    T3 = total des charges du budget / Σ(coeff_i × count_i)
     où count_i = nombre de membres actifs en tranche i.
-    Si aucun membre affecté → on divise par le nb de membres actifs (tous en T3).
+
+    Important : le budget saisi contient les **charges propres** de la loge
+    (location, fonctionnement, etc.) — PAS les capitations qui sont collectées
+    et reversées 1:1 à l'obédience en sus de la cotisation. Donc on NE déduit
+    PAS les capitations du total ici (sinon on les compterait deux fois en
+    négatif et on aboutirait à 0 dans le cas fréquent où charges ≈ capitations
+    cumulées).
     """
     # Total charges
     r = await db.execute(
@@ -144,7 +150,7 @@ async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
         tier_counts[tier_num] = cnt
         assigned_total += cnt
 
-    # Membres non affectés → T3
+    # Membres non affectés → T3 par défaut pour le calcul
     tier_counts[3] += max(0, active_count - assigned_total)
 
     # Σ coeff × count
@@ -154,12 +160,7 @@ async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
 
     cfg.active_members_count = active_count
 
-    # Déduire capitation du total avant de calculer T3
-    capitation_total = (float(cfg.national_capitation_rate) +
-                        float(cfg.regional_capitation_rate)) * active_count
-    net_charges = max(0, total_charges - capitation_total)
-
-    return _round2(net_charges / denom)
+    return _round2(total_charges / denom)
 
 
 # ══════════════════════════════════════════════════════════════════════════════
@@ -369,6 +370,20 @@ async def budget_view(
     from app.services.contribution_state import get_appel_state
     appel_state = get_appel_state(cfg)
 
+    # Snapshot d'annulation disponible (TTL 1h) ?
+    undo_snapshot = None
+    if cfg:
+        try:
+            from app.services.settings_store import get_setting
+            snap = await get_setting(f"finance_t3_snapshot_{cfg.masonic_year_id}", db=db)
+            if snap and snap.get("ts"):
+                snap_dt = datetime.fromisoformat(snap["ts"])
+                if datetime.utcnow() - snap_dt < timedelta(hours=1):
+                    snap["age_minutes"] = int((datetime.utcnow() - snap_dt).total_seconds() // 60)
+                    undo_snapshot = snap
+        except Exception:
+            pass
+
     # Année courante au sens "is_current" (rituelle)
     current_year = next((y for y in years if y.is_current), None)
     is_current_selected = selected_year and selected_year.is_current
@@ -400,6 +415,7 @@ async def budget_view(
         "is_future_selected": is_future_selected,
         "is_past_selected": is_past_selected,
         "today": date.today(),
+        "undo_snapshot": undo_snapshot,
     })
 
 
@@ -498,6 +514,69 @@ async def budget_delete(
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
 
+@router.post("/config/undo-recalc")
+async def config_undo_recalc(
+    request: Request,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: Annotated[int, Form()],
+):
+    """Restaure les valeurs T3 + capitations + tiers depuis le dernier snapshot
+    (TTL 1h). Utile si tu as cliqué « Recalculer » par erreur."""
+    user, member = ctx
+    from app.services.settings_store import get_setting, set_setting
+    key = f"finance_t3_snapshot_{year_id}"
+    snap = await get_setting(key, db=db)
+    if not snap:
+        raise HTTPException(404, "Aucun snapshot disponible (TTL expiré ou déjà restauré)")
+
+    # Vérifie le TTL (1h)
+    try:
+        snap_ts = datetime.fromisoformat(snap.get("ts"))
+        if datetime.utcnow() - snap_ts > timedelta(hours=1):
+            raise HTTPException(410, "Snapshot expiré (plus d'1 heure)")
+    except (ValueError, TypeError):
+        raise HTTPException(500, "Snapshot corrompu")
+
+    cfg = await _get_or_create_config(db, year_id)
+    await db.refresh(cfg, ["tiers"])
+
+    # Restauration des valeurs principales
+    cfg.reference_amount = snap["reference_amount"]
+    cfg.national_capitation_rate = snap["national_capitation_rate"]
+    cfg.regional_capitation_rate = snap["regional_capitation_rate"]
+    cfg.initial_treasury = snap.get("initial_treasury", 0)
+    # Restauration des tiers
+    tier_by_num = {t.tier_number: t for t in cfg.tiers}
+    for t_snap in snap.get("tiers", []):
+        tier = tier_by_num.get(t_snap["tier_number"])
+        if tier:
+            tier.amount = t_snap["amount"]
+
+    # Audit log de l'undo
+    try:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=member.id if member else None,
+            action="FINANCE_CONFIG_UNDO",
+            target_type="contribution_config", target_id=cfg.id,
+            target_label=f"Année {year_id}",
+            details=f"Restauré T3={snap['reference_amount']:.2f}€ depuis snapshot du {snap.get('ts')}",
+            request=request,
+        )
+    except Exception:
+        pass
+
+    # Suppression du snapshot (on ne peut undo qu'une fois)
+    try:
+        await set_setting(db, key, None, actor_id=member.id if member else None)
+    except Exception:
+        pass
+
+    await db.commit()
+    return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
+
+
 @router.post("/config/update")
 async def config_update(
     request: Request,
@@ -514,8 +593,50 @@ async def config_update(
     tier_selection_opens_at: Annotated[str, Form()] = "",
     tier_selection_closes_at: Annotated[str, Form()] = "",
 ):
+    user, member = ctx
     cfg = await _get_or_create_config(db, year_id)
     await db.refresh(cfg, ["tiers"])
+
+    # ── SNAPSHOT pour permettre un undo ────────────────────────────────────────
+    # On stocke l'état avant modification dans SystemSetting (TTL ~1h).
+    snapshot_before = {
+        "ts": datetime.utcnow().isoformat(),
+        "actor_id": member.id if member else None,
+        "actor_name": (f"{member.first_name} {member.last_name}" if member else "—"),
+        "reference_amount": float(cfg.reference_amount or 0),
+        "national_capitation_rate": float(cfg.national_capitation_rate or 0),
+        "regional_capitation_rate": float(cfg.regional_capitation_rate or 0),
+        "initial_treasury": float(cfg.initial_treasury or 0),
+        "tiers": [
+            {"tier_number": t.tier_number, "amount": float(t.amount)}
+            for t in cfg.tiers
+        ],
+    }
+    try:
+        from app.services.settings_store import set_setting
+        await set_setting(db, f"finance_t3_snapshot_{year_id}",
+                          snapshot_before, actor_id=member.id if member else None)
+    except Exception:
+        pass
+
+    # Audit log avant changement
+    try:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=member.id if member else None,
+            action="FINANCE_CONFIG_UPDATE",
+            target_type="contribution_config", target_id=cfg.id,
+            target_label=f"Année {year_id}",
+            details=(
+                f"Avant : T3={snapshot_before['reference_amount']:.2f}€, "
+                f"nat={snapshot_before['national_capitation_rate']:.2f}€, "
+                f"reg={snapshot_before['regional_capitation_rate']:.2f}€ — "
+                f"mode={'auto' if auto_t3 == 'on' else 'manuel'}"
+            ),
+            request=request,
+        )
+    except Exception:
+        pass
 
     cfg.national_capitation_rate = national_capitation
     cfg.regional_capitation_rate = regional_capitation
