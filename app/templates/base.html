@@ -288,6 +288,14 @@
       </a>
       {% endif %}
 
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S', 'TRESORIER'])) %}
+      <a href="/mailing/"
+         class="nav-item {% if '/mailing' in request.url.path %}active{% endif %}">
+        <i class="ti ti-mailbox"></i>
+        Diffusion
+      </a>
+      {% endif %}
+
       <div class="nav-section">Gestion</div>
 
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'TRESORIER'])) %}

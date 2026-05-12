@@ -1,0 +1,165 @@
+{% extends "base.html" %}
+{% block title %}Listes de diffusion{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 lg:py-8 space-y-6">
+
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900"><i class="ti ti-mailbox text-loge-700"></i> Listes de diffusion</h1>
+      <p class="text-sm text-gray-500 mt-1">Envoyez des emails groupés aux membres avec pièces jointes depuis la GED.</p>
+    </div>
+    <button x-data @click="$dispatch('open-modal', 'new-list')"
+            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl">
+      <i class="ti ti-plus"></i> Nouvelle liste
+    </button>
+  </div>
+
+  {# Listes #}
+  <div class="grid sm:grid-cols-2 gap-3">
+    {% for ml in lists %}
+    <a href="/mailing/lists/{{ ml.id }}"
+       class="bg-white rounded-2xl border border-gray-100 shadow-sm hover:shadow-md hover:border-loge-200 transition p-5 block">
+      <div class="flex items-start justify-between gap-2 mb-2">
+        <div class="flex items-center gap-2 min-w-0">
+          {% if ml.list_type.value == 'DYNAMIC' %}<i class="ti ti-bolt text-amber-500"></i>{% else %}<i class="ti ti-list text-loge-700"></i>{% endif %}
+          <h3 class="font-semibold text-gray-900 truncate">{{ ml.name }}</h3>
+        </div>
+        {% if ml.is_system %}
+        <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-loge-50 text-loge-800">système</span>
+        {% endif %}
+      </div>
+      {% if ml.description %}<p class="text-xs text-gray-500 line-clamp-2 mb-2">{{ ml.description }}</p>{% endif %}
+      <div class="flex items-center justify-between text-xs">
+        <span class="text-gray-500">
+          {% if ml.list_type.value == 'DYNAMIC' %}🧮 Dynamique{% else %}📋 Statique{% endif %}
+        </span>
+        <span class="font-semibold text-loge-700">{{ counts.get(ml.id, 0) }} membre{{ 's' if counts.get(ml.id, 0) > 1 else '' }}</span>
+      </div>
+    </a>
+    {% else %}
+    <div class="col-span-full bg-amber-50 border border-amber-200 rounded-2xl px-5 py-4 text-sm text-amber-800">
+      Aucune liste pour le moment.
+    </div>
+    {% endfor %}
+  </div>
+
+  {# Dernières campagnes #}
+  {% if recent_campaigns %}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100">
+      <h2 class="font-semibold text-gray-900"><i class="ti ti-history text-gray-400"></i> Dernières campagnes</h2>
+    </div>
+    <ul class="divide-y divide-gray-100">
+      {% for c in recent_campaigns %}
+      {% set ml = lists_by_id.get(c.list_id) %}
+      <li class="px-5 py-3 hover:bg-gray-50 flex items-center justify-between gap-3">
+        <div class="min-w-0">
+          <a href="/mailing/campaigns/{{ c.id }}" class="font-medium text-gray-900 hover:text-loge-700 truncate block">
+            {{ c.subject }}
+          </a>
+          <div class="text-xs text-gray-500">
+            {% if ml %}{{ ml.name }} ·{% endif %}
+            {{ c.created_at.strftime('%d/%m/%Y %H:%M') }}
+          </div>
+        </div>
+        <div class="text-right text-xs">
+          {% set st = c.status.value %}
+          {% if st == 'SENT' %}
+          <span class="font-semibold text-emerald-700">✓ {{ c.sent_count }}/{{ c.recipients_count }}</span>
+          {% elif st == 'SENDING' %}
+          <span class="font-semibold text-loge-700">⟳ En cours…</span>
+          {% elif st == 'DRAFT' %}
+          <span class="font-semibold text-gray-500">📝 Brouillon</span>
+          {% elif st == 'FAILED' %}
+          <span class="font-semibold text-rose-700">✗ Échec</span>
+          {% endif %}
+        </div>
+      </li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+</div>
+
+{# Modal nouvelle liste #}
+<div x-data="{ open: false, ltype: 'STATIC' }"
+     @open-modal.window="if ($event.detail === 'new-list') open = true"
+     @keydown.escape.window="open = false"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div @click.outside="open = false"
+       class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-gray-900">Nouvelle liste de diffusion</h2>
+      <button @click="open = false" class="text-gray-400 hover:text-gray-700"><i class="ti ti-x"></i></button>
+    </div>
+    <form method="post" action="/mailing/lists/new" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nom *</label>
+        <input type="text" name="name" required placeholder="Ex : Commission Finances"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Description</label>
+        <textarea name="description" rows="2"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Type</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="border rounded-xl p-3 cursor-pointer text-sm"
+                 :class="ltype === 'STATIC' ? 'border-loge-500 bg-loge-50' : 'border-gray-200'">
+            <input type="radio" name="list_type" value="STATIC" x-model="ltype" class="sr-only">
+            <div class="font-semibold">📋 Statique</div>
+            <div class="text-xs text-gray-500 mt-1">Membres choisis à la main</div>
+          </label>
+          <label class="border rounded-xl p-3 cursor-pointer text-sm"
+                 :class="ltype === 'DYNAMIC' ? 'border-loge-500 bg-loge-50' : 'border-gray-200'">
+            <input type="radio" name="list_type" value="DYNAMIC" x-model="ltype" class="sr-only">
+            <div class="font-semibold">🧮 Dynamique</div>
+            <div class="text-xs text-gray-500 mt-1">Calculée selon critères</div>
+          </label>
+        </div>
+      </div>
+
+      <div x-show="ltype === 'DYNAMIC'" x-cloak class="space-y-3 border-t border-gray-100 pt-3">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Statut membre</label>
+          <div class="flex gap-3 flex-wrap text-sm">
+            <label><input type="checkbox" name="criteria_status" value="ACTIVE" checked> Actifs</label>
+            <label><input type="checkbox" name="criteria_status" value="INACTIVE"> Inactifs</label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Grade (ET)</label>
+          <div class="flex gap-3 flex-wrap text-sm">
+            <label><input type="checkbox" name="criteria_grade" value="APPRENTI"> Apprenti</label>
+            <label><input type="checkbox" name="criteria_grade" value="COMPAGNON"> Compagnon</label>
+            <label><input type="checkbox" name="criteria_grade" value="MAITRE"> Maître</label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Fonction (ET, optionnel)</label>
+          <div class="flex gap-3 flex-wrap text-sm">
+            <label><input type="checkbox" name="criteria_lodge_function" value="VM"> VM</label>
+            <label><input type="checkbox" name="criteria_lodge_function" value="SECRETAIRE"> Secrétaire</label>
+            <label><input type="checkbox" name="criteria_lodge_function" value="TRESORIER"> Trésorier</label>
+            <label><input type="checkbox" name="criteria_lodge_function" value="PREMIER_S"> 1er S∴</label>
+            <label><input type="checkbox" name="criteria_lodge_function" value="SECOND_S"> 2e S∴</label>
+          </div>
+        </div>
+      </div>
+
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" @click="open = false" class="px-4 py-2 text-sm text-gray-600">Annuler</button>
+        <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+          Créer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{% endblock %}

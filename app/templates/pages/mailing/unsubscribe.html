@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Désinscription — Portail Socrate</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0; min-height: 100vh;
+      display: flex; align-items: center; justify-content: center;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: linear-gradient(135deg, #1a5252 0%, #2c7a7b 100%);
+      color: #1f2937; padding: 2rem;
+    }
+    .card {
+      background: #fff; border-radius: 1.5rem; padding: 2.5rem 2rem;
+      max-width: 480px; width: 100%; box-shadow: 0 8px 30px rgba(0,0,0,.15);
+    }
+    h1 { margin: 0 0 .5rem; font-size: 1.4rem; color: #1a5252; }
+    p { margin: .5rem 0; line-height: 1.5; }
+    .list-name { font-weight: 600; color: #2c7a7b; }
+    button, .btn {
+      display: inline-block; padding: .75rem 1.5rem; border-radius: .75rem;
+      font-weight: 600; cursor: pointer; border: none; font-size: .95rem;
+      text-decoration: none; margin-top: 1rem;
+    }
+    .btn-primary { background: #b91c1c; color: #fff; }
+    .btn-primary:hover { background: #991b1b; }
+    .btn-secondary { background: #f3f4f6; color: #4b5563; margin-left: .5rem; }
+    .err { color: #b91c1c; }
+    .ok  { color: #047857; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    {% if error %}
+      <h1>Erreur</h1>
+      <p class="err">{{ error }}</p>
+    {% elif request.query_params.get('_done') %}
+      <h1>✓ Désinscription confirmée</h1>
+      <p>Vous ne recevrez plus d'emails de la liste « <span class="list-name">{{ mlist.name if mlist else '...' }}</span> ».</p>
+      <p style="margin-top:1rem;color:#6b7280;font-size:.85rem;">Si vous souhaitez vous réabonner, contactez le secrétariat.</p>
+    {% elif already_unsubscribed %}
+      <h1>Vous êtes déjà désinscrit(e)</h1>
+      <p>Aucune action supplémentaire requise — vous ne recevrez plus d'emails de la liste « <span class="list-name">{{ mlist.name }}</span> ».</p>
+    {% else %}
+      <h1>Se désinscrire</h1>
+      <p>Bonjour {% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} <strong>{{ target.first_name }} {{ target.last_name }}</strong>,</p>
+      <p>Vous êtes sur le point de vous désinscrire de la liste « <span class="list-name">{{ mlist.name }}</span> ».</p>
+      <p style="color:#6b7280;font-size:.85rem;">Vous ne recevrez plus aucun email envoyé via cette liste. Cette action n'affecte pas vos autres communications avec la loge.</p>
+      <form method="post" action="/mailing/unsubscribe/{{ token }}">
+        <button type="submit" class="btn btn-primary">Confirmer la désinscription</button>
+      </form>
+    {% endif %}
+  </div>
+</body>
+</html>

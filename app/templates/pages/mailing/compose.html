@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% block title %}Composer — {{ mlist.name }}{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 space-y-5">
+
+  <div class="text-xs text-gray-400">
+    <a href="/mailing/" class="hover:text-loge-700">Listes</a> ›
+    <a href="/mailing/lists/{{ mlist.id }}" class="hover:text-loge-700">{{ mlist.name }}</a> ›
+    <span class="text-gray-700">Composer</span>
+  </div>
+
+  {# Flash #}
+  {% set msg = request.query_params.get('_msg') %}
+  {% if msg == 'saved' %}
+  <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-2 text-sm">✓ Brouillon enregistré.</div>
+  {% elif msg == 'test' %}
+  <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-4 py-2 text-sm">📧 Email de test envoyé à {{ current_member.email or 'votre adresse' }}.</div>
+  {% endif %}
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <div class="flex items-center justify-between gap-3 mb-3 flex-wrap">
+      <h1 class="text-xl font-bold text-gray-900"><i class="ti ti-mail-forward text-loge-700"></i> Composer</h1>
+      <div class="text-xs text-gray-500">
+        Destinataires actuels : <strong>{{ recipients|length }}</strong>
+        ({{ mlist.name }})
+      </div>
+    </div>
+
+    <form method="post" action="/mailing/lists/{{ mlist.id }}/compose" class="space-y-4"
+          x-data="{ atts: {{ (draft.attachments | tojson) if draft and draft.attachments else '[]' }} }">
+      {% if draft %}<input type="hidden" name="draft_id" value="{{ draft.id }}">{% endif %}
+
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Sujet *</label>
+        <input type="text" name="subject" required value="{{ draft.subject if draft else '' }}"
+               placeholder="Ex : Convocation tenue du 31 mai"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Reply-to (optionnel)</label>
+        <input type="email" name="reply_to" value="{{ draft.reply_to if draft and draft.reply_to else '' }}"
+               placeholder="secretariat@loge.fr"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Corps (Markdown)</label>
+        <textarea name="body_md" rows="14" required
+                  placeholder="Bonjour {{ '{{prenom}}' }},
+
+Voici la convocation à notre prochaine tenue du **31 mai 2026** à 19h30 au Temple.
+
+À l'ordre du jour :
+- Lecture du procès-verbal
+- Communication du VM
+- Présentation d'une planche
+
+Bien à toi,
+Le Secrétaire"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-loge-500">{{ draft.body_md if draft else '' }}</textarea>
+        <p class="text-[11px] text-gray-400 mt-1">
+          Variables : <code>{{ '{{prenom}}' }}</code>, <code>{{ '{{nom}}' }}</code>, <code>{{ '{{civilite}}' }}</code> (Frère/Sœur), <code>{{ '{{civilite_court}}' }}</code> (F∴/S∴), <code>{{ '{{grade}}' }}</code>
+          · Markdown supporté : <code>**gras**</code>, <code>*italique*</code>, <code>[lien](url)</code>, listes avec <code>-</code>
+        </p>
+      </div>
+
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Pièces jointes depuis la GED</label>
+        <div class="space-y-1">
+          <template x-for="(att, i) in atts" :key="i">
+            <div class="flex items-center gap-2 px-3 py-1.5 bg-loge-50 rounded-lg text-sm">
+              <i class="ti ti-paperclip text-loge-700"></i>
+              <span x-text="att.filename || 'Document #' + att.doc_id" class="flex-1 truncate"></span>
+              <input type="hidden" name="attachment_doc_ids" :value="att.doc_id">
+              <button type="button" @click="atts.splice(i, 1)" class="text-rose-500 hover:text-rose-700"><i class="ti ti-x"></i></button>
+            </div>
+          </template>
+        </div>
+        <div class="mt-2 flex gap-2">
+          <select x-data="" @change="if($event.target.value) { const opt=$event.target.options[$event.target.selectedIndex]; atts.push({doc_id: $event.target.value, filename: opt.dataset.filename}); $event.target.value=''; }"
+                  class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
+            <option value="">+ Ajouter un document de la GED</option>
+            {% for d in docs %}
+            <option value="{{ d.id }}" data-filename="{{ d.original_filename or d.name }}">
+              {{ d.name }} ({{ d.original_filename or 'sans nom' }})
+            </option>
+            {% endfor %}
+          </select>
+        </div>
+      </div>
+
+      <div class="border-t border-gray-100 pt-4 flex flex-wrap gap-2 justify-end">
+        <button type="submit" name="action" value="draft"
+                class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl">
+          💾 Enregistrer brouillon
+        </button>
+        <button type="submit" name="action" value="test"
+                class="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl border border-blue-200">
+          📧 Envoyer un test à moi
+        </button>
+        <button type="submit" name="action" value="send"
+                onclick="return confirm('Envoyer cette campagne à {{ recipients|length }} destinataire(s) ?\n\nIls vont recevoir ce message complet dans leur boîte mail avec le lien de désinscription.')"
+                class="px-5 py-2 text-sm font-semibold bg-loge-700 hover:bg-loge-800 text-white rounded-xl">
+          📤 Envoyer maintenant ({{ recipients|length }})
+        </button>
+      </div>
+    </form>
+  </div>
+
+</div>
+{% endblock %}
