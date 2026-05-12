@@ -408,6 +408,22 @@ async def lifespan(app: FastAPI):
                     "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE"
                 )
 
+    # ── external_contacts : colonnes first_name, last_name, lodge_name, orient
+    async with engine.begin() as conn:
+        r_ec = await conn.exec_driver_sql("PRAGMA table_info(external_contacts)")
+        cols_ec = [row[1] for row in r_ec.fetchall()]
+        if cols_ec:
+            for col, ddl in [
+                ("first_name", "VARCHAR(100)"),
+                ("last_name",  "VARCHAR(100)"),
+                ("lodge_name", "VARCHAR(200)"),
+                ("orient",     "VARCHAR(100)"),
+            ]:
+                if col not in cols_ec:
+                    await conn.exec_driver_sql(
+                        f"ALTER TABLE external_contacts ADD COLUMN {col} {ddl}"
+                    )
+
     # ── mailing_deliveries : colonne external_id ───────────────────────────
     async with engine.begin() as conn:
         r_md = await conn.exec_driver_sql("PRAGMA table_info(mailing_deliveries)")

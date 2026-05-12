@@ -418,11 +418,17 @@ async def list_external_quick_add(
     list_id: int,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    name: Annotated[str, Form()],
+    first_name: Annotated[str, Form()],
+    last_name: Annotated[str, Form()],
     email: Annotated[str, Form()],
-    organization: Annotated[str, Form()] = "",
+    lodge_name: Annotated[str, Form()] = "",
+    orient: Annotated[str, Form()] = "",
 ):
-    """Crée un nouvel ExternalContact + l'ajoute à la liste, en un clic."""
+    """Crée un nouvel ExternalContact + l'ajoute à la liste, en un clic.
+
+    Champs : Prénom + Nom + Email + Loge + Orient.
+    Le champ legacy `name` est rempli automatiquement (Prénom + Nom).
+    """
     user, member = ctx
     if not _can_send(user, member):
         raise HTTPException(403)
@@ -430,23 +436,35 @@ async def list_external_quick_add(
     if not ml:
         raise HTTPException(404)
 
-    name = name.strip()
+    fname = first_name.strip()
+    lname = last_name.strip()
     email = email.strip().lower()
-    if not name or "@" not in email:
-        raise HTTPException(400, "Nom et email valides requis")
+    full_name = f"{fname} {lname}".strip()
+    if not full_name or "@" not in email:
+        raise HTTPException(400, "Au moins nom (ou prénom) + email valides requis")
 
     # Vérifie si l'email existe déjà
     er = await db.execute(select(ExternalContact).where(ExternalContact.email == email))
     ext = er.scalar_one_or_none()
     if not ext:
         ext = ExternalContact(
-            name=name, email=email,
-            organization=organization.strip() or None,
+            name=full_name,
+            first_name=fname or None,
+            last_name=lname or None,
+            email=email,
+            lodge_name=lodge_name.strip() or None,
+            orient=orient.strip() or None,
             contact_type="EXTERNAL",
             is_active=True,
         )
         db.add(ext)
         await db.flush()
+    else:
+        # Met à jour les nouveaux champs si vides
+        if fname and not ext.first_name: ext.first_name = fname
+        if lname and not ext.last_name:  ext.last_name = lname
+        if lodge_name.strip() and not ext.lodge_name: ext.lodge_name = lodge_name.strip()
+        if orient.strip() and not ext.orient:        ext.orient = orient.strip()
 
     # Lien à la liste
     r = await db.execute(
@@ -473,8 +491,11 @@ async def list_external_import_csv(
 ):
     """Import en masse de contacts externes via CSV.
 
-    Format attendu : `Nom;Email;Organisation` (Organisation optionnelle).
-    Séparateur auto-détecté entre `;` et `,`.
+    Format attendu (5 colonnes) :
+        Prénom;Nom;Email;Loge;Orient
+
+    Séparateur ';' ou ',' auto-détecté. Première ligne d'entête détectée.
+    Encodage UTF-8 ou Latin-1.
     """
     import csv as csvmod
     import io
@@ -507,13 +528,42 @@ async def list_external_import_csv(
         if not row or all((not c.strip()) for c in row):
             continue
         # Skip ligne d'entête (heuristique)
-        if i == 0 and any(h in (row[0] + (row[1] if len(row) > 1 else "")).lower()
-                           for h in ("nom", "name", "email")):
-            continue
-        name = (row[0] if len(row) > 0 else "").strip()
-        email = (row[1] if len(row) > 1 else "").strip().lower()
-        org   = (row[2] if len(row) > 2 else "").strip()
-        if not name or "@" not in email:
+        if i == 0:
+            joined = " ".join(row[:3]).lower()
+            if any(h in joined for h in ("prénom", "prenom", "first", "email", "nom", "name")):
+                continue
+        # Format flexible :
+        #   - 5 cols : Prénom; Nom; Email; Loge; Orient
+        #   - 4 cols : Prénom; Nom; Email; Loge (orient vide)
+        #   - 3 cols : Prénom; Nom; Email (loge/orient vides)
+        #   - 2 cols (legacy) : Nom complet; Email
+        fname, lname, email, lodge_n, orient_n = "", "", "", "", ""
+        if len(row) >= 5:
+            fname  = row[0].strip()
+            lname  = row[1].strip()
+            email  = row[2].strip().lower()
+            lodge_n = row[3].strip()
+            orient_n = row[4].strip()
+        elif len(row) == 4:
+            fname  = row[0].strip()
+            lname  = row[1].strip()
+            email  = row[2].strip().lower()
+            lodge_n = row[3].strip()
+        elif len(row) == 3:
+            fname  = row[0].strip()
+            lname  = row[1].strip()
+            email  = row[2].strip().lower()
+        elif len(row) == 2:
+            # legacy : "Nom complet; Email"
+            name_blob = row[0].strip()
+            email = row[1].strip().lower()
+            if " " in name_blob:
+                fname, lname = name_blob.split(" ", 1)
+            else:
+                lname = name_blob
+
+        full_name = f"{fname} {lname}".strip()
+        if not full_name or "@" not in email:
             skipped += 1
             continue
         # Existing ?
@@ -521,12 +571,23 @@ async def list_external_import_csv(
         ext = er.scalar_one_or_none()
         if not ext:
             ext = ExternalContact(
-                name=name, email=email,
-                organization=org or None,
+                name=full_name,
+                first_name=fname or None,
+                last_name=lname or None,
+                email=email,
+                lodge_name=lodge_n or None,
+                orient=orient_n or None,
                 contact_type="EXTERNAL", is_active=True,
             )
             db.add(ext)
             await db.flush()
+        else:
+            # Compléter les champs manquants sans écraser
+            if fname and not ext.first_name: ext.first_name = fname
+            if lname and not ext.last_name:  ext.last_name = lname
+            if lodge_n and not ext.lodge_name: ext.lodge_name = lodge_n
+            if orient_n and not ext.orient:    ext.orient = orient_n
+            if not ext.name or ext.name.strip() == "": ext.name = full_name
         # Lien liste
         lr = await db.execute(
             select(MailingListExternal).where(
@@ -544,6 +605,29 @@ async def list_external_import_csv(
     return RedirectResponse(
         url=f"/mailing/lists/{list_id}?_msg=imported&n={added}&skipped={skipped}",
         status_code=303,
+    )
+
+
+@router.get("/contacts-template.csv")
+async def contacts_template_csv(
+    ctx: Annotated[tuple, Depends(require_auth)],
+):
+    """Modèle CSV vide à télécharger comme point de départ pour l'import."""
+    from fastapi.responses import Response
+    user, member = ctx
+    if not _can_send(user, member):
+        raise HTTPException(403)
+    csv_content = (
+        "Prénom;Nom;Email;Loge;Orient\n"
+        "Jean;Dupont;jean.dupont@example.fr;Les Compagnons du Devoir;Strasbourg\n"
+        "Marie;Curie;marie.curie@example.fr;Athena;Paris\n"
+    )
+    # BOM UTF-8 pour Excel
+    body = "﻿" + csv_content
+    return Response(
+        content=body.encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": 'attachment; filename="modele-contacts-externes.csv"'},
     )
 
 

@@ -61,17 +61,21 @@ def _member_to_recipient(m: Member) -> Recipient:
 
 
 def _external_to_recipient(e: ExternalContact) -> Recipient:
-    # Tente de splitter "Prénom Nom" pour nourrir first_name/last_name
-    fname, lname = "", e.name or ""
-    if e.name and " " in e.name:
-        parts = e.name.strip().split(" ", 1)
-        fname, lname = parts[0], parts[1]
+    # Priorité aux champs structurés, sinon fallback en splittant `name`
+    fname = (e.first_name or "").strip()
+    lname = (e.last_name or "").strip()
+    if not fname and not lname and e.name:
+        if " " in e.name:
+            parts = e.name.strip().split(" ", 1)
+            fname, lname = parts[0], parts[1]
+        else:
+            lname = e.name.strip()
     return Recipient(
         email=e.email or "",
         first_name=fname, last_name=lname,
         civility="", grade_label="",
         kind="e", contact_id=e.id,
-        raw_name=e.name or "",
+        raw_name=e.name or f"{fname} {lname}".strip(),
     )
 
 

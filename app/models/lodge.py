@@ -132,9 +132,14 @@ class ExternalContact(Base):
     __tablename__ = "external_contacts"
 
     id: Mapped[int]  = mapped_column(primary_key=True)
-    name: Mapped[str] = mapped_column(String(200))
+    name: Mapped[str] = mapped_column(String(200))   # legacy / display "Prénom Nom"
+    first_name: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
+    last_name: Mapped[Optional[str]]  = mapped_column(String(100), nullable=True)
     email: Mapped[str] = mapped_column(String(200))
     organization: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    # Spécifique maçonnique : loge d'appartenance + orient (ville)
+    lodge_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+    orient: Mapped[Optional[str]]     = mapped_column(String(100), nullable=True)
     contact_type: Mapped[str] = mapped_column(String(20), default="EXTERNAL")
     # EXTERNAL = correspondant institutionnel (obédience, loge amie…)
     # VISITOR  = F∴/S∴ passant·e ayant demandé à recevoir les programmes
