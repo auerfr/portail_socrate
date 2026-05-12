@@ -452,7 +452,6 @@ async def settings_test_smtp(
 async def external_contact_add(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    name: str = Form(""),
     first_name: str = Form(""),
     last_name: str = Form(""),
     email: str = Form(...),
@@ -468,7 +467,7 @@ async def external_contact_add(
         raise HTTPException(403)
     fname = first_name.strip()
     lname = last_name.strip()
-    full = name.strip() or f"{fname} {lname}".strip()
+    full = f"{fname} {lname}".strip()
     if not full:
         raise HTTPException(400, "Nom requis")
     db.add(ExternalContact(
@@ -509,7 +508,6 @@ async def external_contact_edit(
     contact_id: int,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    name: str = Form(""),
     first_name: str = Form(""),
     last_name: str = Form(""),
     email: str = Form(...),
@@ -530,7 +528,8 @@ async def external_contact_edit(
     lname = last_name.strip()
     contact.first_name = fname or None
     contact.last_name  = lname or None
-    contact.name = (name.strip() or f"{fname} {lname}".strip()) or contact.name
+    full = f"{fname} {lname}".strip()
+    contact.name = full or contact.name
     contact.email = email.strip().lower()
     contact.organization = organization.strip() or None
     contact.lodge_name = lodge_name.strip() or None
