@@ -4,7 +4,7 @@
 {% block content %}
 <div class="p-4 lg:p-8 max-w-3xl mx-auto"
      x-data="{
-       tab: '{% if saved == 'contacts' %}contacts{% elif is_admin and (saved == 'admin' or saved == 'admins') %}acces{% elif is_admin and (smtp_saved or smtp_ok or smtp_fail) %}email{% elif is_admin and saved == 'officers' %}officiers{% elif is_admin and (request.query_params.get('backup') or request.query_params.get('backup_email')) %}backup{% elif is_admin %}loge{% else %}contacts{% endif %}'
+       tab: '{% set _qtab = request.query_params.get('tab') %}{% if _qtab in ['loge','officiers','contacts','email','acces','backup','notifs'] %}{{ _qtab }}{% elif saved == 'contacts' %}contacts{% elif is_admin and (saved == 'admin' or saved == 'admins') %}acces{% elif is_admin and (smtp_saved or smtp_ok or smtp_fail) %}email{% elif is_admin and saved == 'officers' %}officiers{% elif is_admin and (request.query_params.get('backup') or request.query_params.get('backup_email')) %}backup{% elif is_admin %}loge{% else %}contacts{% endif %}'
      }">
 
   <div class="flex items-center justify-between mb-6">
@@ -629,8 +629,15 @@
             {{ '👤 Passant·e' if c.contact_type == 'VISITOR' else '🏛 Institutionnel' }}
           </span>
           <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-900">{{ c.name }}</div>
-            <div class="text-xs text-gray-500">{{ c.email }}{% if c.organization %} · {{ c.organization }}{% endif %}</div>
+            <div class="text-sm font-medium text-gray-900">
+              {{ (c.first_name + ' ' + (c.last_name or '')).strip() if (c.first_name or c.last_name) else c.name }}
+            </div>
+            <div class="text-xs text-gray-500">
+              {{ c.email }}
+              {% if c.lodge_name %} · ⛰ {{ c.lodge_name }}{% endif %}
+              {% if c.orient %} · {{ c.orient }}{% endif %}
+              {% if c.organization and not c.lodge_name %} · {{ c.organization }}{% endif %}
+            </div>
             {% if c.notes %}
             <div class="text-xs text-gray-400 italic mt-0.5">{{ c.notes }}</div>
             {% endif %}
@@ -640,7 +647,7 @@
           </span>
           <!-- Modifier -->
           <button type="button"
-                  @click="open({ id: {{ c.id }}, name: '{{ c.name | replace("'", "\\'") }}', email: '{{ c.email }}', organization: '{{ (c.organization or '') | replace("'", "\\'") }}', contact_type: '{{ c.contact_type }}', notes: '{{ (c.notes or '') | replace("'", "\\'") }}' })"
+                  @click="open({ id: {{ c.id }}, name: '{{ c.name | replace("'", "\\'") }}', first_name: '{{ (c.first_name or '') | replace("'", "\\'") }}', last_name: '{{ (c.last_name or '') | replace("'", "\\'") }}', email: '{{ c.email }}', organization: '{{ (c.organization or '') | replace("'", "\\'") }}', lodge_name: '{{ (c.lodge_name or '') | replace("'", "\\'") }}', orient: '{{ (c.orient or '') | replace("'", "\\'") }}', contact_type: '{{ c.contact_type }}', notes: '{{ (c.notes or '') | replace("'", "\\'") }}' })"
                   class="text-gray-400 hover:text-loge-600 p-1 rounded hover:bg-loge-50 transition-colors flex-shrink-0" title="Modifier">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
@@ -674,27 +681,43 @@
             <form method="post" :action="'/settings/external-contacts/' + ec.id + '/edit'" class="space-y-3">
               <div class="grid sm:grid-cols-2 gap-3">
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Nom complet *</label>
-                  <input type="text" name="name" :value="ec.name" required
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Prénom</label>
+                  <input type="text" name="first_name" :value="ec.first_name"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
                 <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
+                  <input type="text" name="last_name" :value="ec.last_name" required
+                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                </div>
+                <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Email *</label>
                   <input type="email" name="email" :value="ec.email" required
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Loge / Organisation</label>
-                  <input type="text" name="organization" :value="ec.organization"
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Loge</label>
+                  <input type="text" name="lodge_name" :value="ec.lodge_name"
+                         placeholder="Les Compagnons du Devoir"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
                 <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Orient</label>
+                  <input type="text" name="orient" :value="ec.orient" placeholder="Strasbourg"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                </div>
+                <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
-                  <select name="contact_type" :value="ec.contact_type"
+                  <select name="contact_type"
                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                     <option value="VISITOR" :selected="ec.contact_type === 'VISITOR'">👤 F∴/S∴ passant·e</option>
                     <option value="EXTERNAL" :selected="ec.contact_type === 'EXTERNAL'">🏛 Contact institutionnel</option>
                   </select>
+                </div>
+                <div class="sm:col-span-2">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Organisation (legacy, optionnel)</label>
+                  <input type="text" name="organization" :value="ec.organization"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
               </div>
               <div>
@@ -726,21 +749,31 @@
         <h3 class="text-xs font-semibold text-gray-600 uppercase tracking-wide mb-2">Ajouter un correspondant</h3>
         <div class="grid sm:grid-cols-2 gap-3">
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Nom complet <span class="text-red-500">*</span></label>
-            <input type="text" name="name" required placeholder="Prénom Nom"
+            <label class="block text-xs font-medium text-gray-600 mb-1">Prénom</label>
+            <input type="text" name="first_name" placeholder="Jean"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
           </div>
           <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Nom <span class="text-red-500">*</span></label>
+            <input type="text" name="last_name" required placeholder="Dupont"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-600 mb-1">Email <span class="text-red-500">*</span></label>
             <input type="email" name="email" required placeholder="email@..."
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
           </div>
           <div>
-            <label class="block text-xs font-medium text-gray-600 mb-1">Loge / Organisation</label>
-            <input type="text" name="organization" placeholder="Loge Amie, Obédience…"
+            <label class="block text-xs font-medium text-gray-600 mb-1">Loge</label>
+            <input type="text" name="lodge_name" placeholder="Les Compagnons du Devoir"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
           </div>
           <div>
+            <label class="block text-xs font-medium text-gray-600 mb-1">Orient</label>
+            <input type="text" name="orient" placeholder="Strasbourg"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
             <select name="contact_type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
               <option value="VISITOR">👤 F∴/S∴ passant·e (opt-in programme)</option>
@@ -750,7 +783,7 @@
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-600 mb-1">Notes (optionnel)</label>
-          <input type="text" name="notes" placeholder="Loge d'origine, contexte…"
+          <input type="text" name="notes" placeholder="Contexte, historique…"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
         <button type="submit"

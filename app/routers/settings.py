@@ -452,9 +452,13 @@ async def settings_test_smtp(
 async def external_contact_add(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    name: str = Form(...),
+    name: str = Form(""),
+    first_name: str = Form(""),
+    last_name: str = Form(""),
     email: str = Form(...),
     organization: str = Form(""),
+    lodge_name: str = Form(""),
+    orient: str = Form(""),
     contact_type: str = Form("EXTERNAL"),
     notes: str = Form(""),
 ):
@@ -462,10 +466,19 @@ async def external_contact_add(
     from app.dependencies import can_manage_members
     if not (user.is_admin or can_manage_members(member)):
         raise HTTPException(403)
+    fname = first_name.strip()
+    lname = last_name.strip()
+    full = name.strip() or f"{fname} {lname}".strip()
+    if not full:
+        raise HTTPException(400, "Nom requis")
     db.add(ExternalContact(
-        name=name.strip(),
+        name=full,
+        first_name=fname or None,
+        last_name=lname or None,
         email=email.strip().lower(),
         organization=organization.strip() or None,
+        lodge_name=lodge_name.strip() or None,
+        orient=orient.strip() or None,
         contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL",
         notes=notes.strip() or None,
         is_active=True,
@@ -496,9 +509,13 @@ async def external_contact_edit(
     contact_id: int,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    name: str = Form(...),
+    name: str = Form(""),
+    first_name: str = Form(""),
+    last_name: str = Form(""),
     email: str = Form(...),
     organization: str = Form(""),
+    lodge_name: str = Form(""),
+    orient: str = Form(""),
     contact_type: str = Form("EXTERNAL"),
     notes: str = Form(""),
 ):
@@ -509,9 +526,15 @@ async def external_contact_edit(
     contact = await db.get(ExternalContact, contact_id)
     if not contact:
         raise HTTPException(404)
-    contact.name = name.strip()
+    fname = first_name.strip()
+    lname = last_name.strip()
+    contact.first_name = fname or None
+    contact.last_name  = lname or None
+    contact.name = (name.strip() or f"{fname} {lname}".strip()) or contact.name
     contact.email = email.strip().lower()
     contact.organization = organization.strip() or None
+    contact.lodge_name = lodge_name.strip() or None
+    contact.orient = orient.strip() or None
     contact.contact_type = contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL"
     contact.notes = notes.strip() or None
     await db.commit()

@@ -113,7 +113,11 @@
   <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
     <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
       <h2 class="font-semibold text-gray-900">Contacts externes ({{ subscribed_externals|length }})</h2>
-      <div class="flex gap-2">
+      <div class="flex gap-2 flex-wrap">
+        <a href="/settings/?tab=contacts"
+           class="text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg">
+          <i class="ti ti-address-book"></i> Gérer le carnet
+        </a>
         <button x-data @click="$dispatch('open-modal', 'quick-ext')"
                 class="text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 px-3 py-1.5 rounded-lg">
           <i class="ti ti-user-plus"></i> Ajout rapide
