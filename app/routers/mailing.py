@@ -58,21 +58,11 @@ async def mailing_index(
         select(MailingList).order_by(desc(MailingList.is_system), MailingList.name)
     )).scalars().all()
 
-    # Compteurs par liste (pour les listes statiques uniquement, sinon "dynamique")
+    # Compteurs par liste (membres + externes confondus = "destinataires")
     counts: dict[int, int] = {}
     for ml in lists:
-        if ml.list_type == MailingListType.STATIC:
-            r = await db.execute(
-                select(func.count(MailingListMember.member_id)).where(
-                    MailingListMember.list_id == ml.id,
-                    MailingListMember.unsubscribed_at.is_(None),
-                )
-            )
-            counts[ml.id] = r.scalar() or 0
-        else:
-            # Dynamic : on calcule
-            recipients = await resolve_recipients(db, ml)
-            counts[ml.id] = len(recipients)
+        recipients = await resolve_recipients(db, ml)
+        counts[ml.id] = len(recipients)
 
     # Dernières campagnes (5)
     recent = (await db.execute(

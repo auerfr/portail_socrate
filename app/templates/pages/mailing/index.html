@@ -40,7 +40,7 @@
         <span class="text-gray-500">
           {% if ml.list_type.value == 'DYNAMIC' %}🧮 Dynamique{% else %}📋 Statique{% endif %}
         </span>
-        <span class="font-semibold text-loge-700">{{ counts.get(ml.id, 0) }} membre{{ 's' if counts.get(ml.id, 0) > 1 else '' }}</span>
+        <span class="font-semibold text-loge-700">{{ counts.get(ml.id, 0) }} destinataire{{ 's' if counts.get(ml.id, 0) > 1 else '' }}</span>
       </div>
     </a>
     {% else %}
