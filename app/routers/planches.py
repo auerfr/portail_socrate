@@ -339,6 +339,18 @@ async def planche_detail(
     if planche.status == PlancheStatus.BROUILLON and not _can_edit_planche(user, member, planche):
         raise HTTPException(403, "Brouillon non accessible")
 
+    # Audit consultation (si activé via /admin/confidentiality)
+    try:
+        from app.services.confidentiality import maybe_audit_view
+        await maybe_audit_view(
+            db, actor_id=member.id,
+            resource_type="planche", resource_id=planche.id,
+            target_label=planche.title,
+            request=request,
+        )
+    except Exception:
+        pass
+
     return templates.TemplateResponse(request, "pages/planches/detail.html", {
         "current_user": user,
         "current_member": member,

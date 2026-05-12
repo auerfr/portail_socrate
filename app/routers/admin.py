@@ -710,6 +710,77 @@ async def admin_comm(
     })
 
 
+@router.get("/confidentiality", response_class=HTMLResponse)
+async def admin_confidentiality(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Réglages confidentialité — tous opt-in, désactivables en 1 clic."""
+    user, member = ctx
+    from app.services.confidentiality import get_config
+    from app.models.documents import DocFolder, DocSpace
+
+    cfg = await get_config(db=db)
+    # Liste des dossiers GED pour le sélecteur whitelist
+    fr = await db.execute(
+        select(DocFolder, DocSpace.name)
+        .join(DocSpace, DocSpace.id == DocFolder.space_id, isouter=True)
+        .order_by(DocSpace.name, DocFolder.name)
+    )
+    folders = []
+    for folder, space_name in fr.all():
+        folders.append({
+            "id": folder.id,
+            "label": f"{space_name or '?'} / {folder.name}",
+        })
+
+    return templates.TemplateResponse(request, "pages/admin/confidentiality.html", {
+        "current_user": user, "current_member": member,
+        "cfg": cfg, "folders": folders,
+        "active_tab": "data",
+    })
+
+
+@router.post("/confidentiality")
+async def admin_confidentiality_save(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    pj_whitelist_enabled: Annotated[str, Form()] = "",
+    pj_allowed_folder_ids: Annotated[list[str], Form()] = None,
+    audit_sensitive_views: Annotated[str, Form()] = "",
+    show_confidentiality_banner: Annotated[str, Form()] = "",
+):
+    actor_user, actor_member = ctx
+    from app.services.confidentiality import save_config
+
+    pj_on = pj_whitelist_enabled in ("1", "on", "true")
+    folder_ids = [int(f) for f in (pj_allowed_folder_ids or []) if f.isdigit()]
+    audit_on = audit_sensitive_views in ("1", "on", "true")
+    banner_on = show_confidentiality_banner in ("1", "on", "true")
+
+    await save_config(
+        db,
+        pj_whitelist_enabled=pj_on,
+        pj_allowed_folder_ids=folder_ids,
+        audit_sensitive_views=audit_on,
+        show_confidentiality_banner=banner_on,
+        actor_id=actor_member.id,
+    )
+
+    await log_audit(
+        db, actor_id=actor_member.id,
+        action="CONFIDENTIALITY_UPDATE",
+        details=(
+            f"pj_whitelist={pj_on} ({len(folder_ids)} dossiers) · "
+            f"audit_views={audit_on} · banner={banner_on}"
+        ),
+        request=request, commit=True,
+    )
+    return RedirectResponse(url="/admin/confidentiality?_msg=saved", status_code=303)
+
+
 @router.get("/banner", response_class=HTMLResponse)
 async def admin_banner(
     request: Request,

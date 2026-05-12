@@ -270,6 +270,20 @@ async def member_detail(
     office = office_r.scalar_one_or_none()
     office_label = office.label if office else None
 
+    # Audit consultation (si activé via /admin/confidentiality) — uniquement
+    # quand on consulte la fiche d'un autre que soi
+    if current_member and current_member.id != target.id:
+        try:
+            from app.services.confidentiality import maybe_audit_view
+            await maybe_audit_view(
+                db, actor_id=current_member.id,
+                resource_type="member", resource_id=target.id,
+                target_label=f"{target.last_name} {target.first_name}",
+                request=request,
+            )
+        except Exception:
+            pass
+
     return templates.TemplateResponse(request, "pages/members/detail.html", {
         "current_member": current_member,
         "current_user": user,

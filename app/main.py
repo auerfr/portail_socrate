@@ -526,12 +526,19 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.middleware("http")
 async def maintenance_banner_middleware(request: Request, call_next):
-    """Charge la bannière maintenance dans request.state pour tous les templates."""
+    """Charge la bannière maintenance + flag confidentialité dans request.state."""
     try:
         from app.services.settings_store import get_setting
         request.state.banner = await get_setting("maintenance_banner")
     except Exception:
         request.state.banner = None
+    # Flag confidentialité (bannière visible sur pages sensibles)
+    try:
+        from app.services.confidentiality import get_config as _get_conf
+        c = await _get_conf()
+        request.state.show_conf_banner = bool(c.get("show_confidentiality_banner"))
+    except Exception:
+        request.state.show_conf_banner = False
     return await call_next(request)
 
 templates = Jinja2Templates(directory="app/templates")

@@ -574,13 +574,21 @@ async def compose_new(
 
     recipients = await resolve_recipients(db, ml)
 
-    # Documents publiables depuis la GED pour PJ
-    docs = (await db.execute(
-        select(Document).where(
-            Document.status == DocStatus.PUBLISHED,
-            Document.storage_path.isnot(None),
-        ).order_by(desc(Document.updated_at)).limit(100)
-    )).scalars().all()
+    # Documents publiables depuis la GED pour PJ — avec filtre whitelist
+    from app.services.confidentiality import get_config as get_conf
+    conf = await get_conf(db=db)
+    docs_q = select(Document).where(
+        Document.status == DocStatus.PUBLISHED,
+        Document.storage_path.isnot(None),
+    )
+    if conf.get("pj_whitelist_enabled"):
+        allowed = conf.get("pj_allowed_folder_ids") or []
+        if allowed:
+            docs_q = docs_q.where(Document.folder_id.in_(allowed))
+        else:
+            # whitelist activée mais aucun dossier coché => aucun PJ autorisé
+            docs_q = docs_q.where(Document.id == -1)
+    docs = (await db.execute(docs_q.order_by(desc(Document.updated_at)).limit(100))).scalars().all()
 
     return templates.TemplateResponse(request, "pages/mailing/compose.html", {
         "current_user": user, "current_member": member,
@@ -608,17 +616,30 @@ async def compose_save(
     if not ml:
         raise HTTPException(404)
 
-    # Pièces jointes JSON
+    # Pièces jointes JSON (avec validation whitelist)
+    from app.services.confidentiality import get_config as get_conf
+    conf = await get_conf(db=db)
+    whitelist_on = conf.get("pj_whitelist_enabled")
+    allowed_folder_ids = set(conf.get("pj_allowed_folder_ids") or [])
+
     attachments = []
     if attachment_doc_ids:
         for s in attachment_doc_ids:
             if s.isdigit():
                 doc = await db.get(Document, int(s))
-                if doc:
-                    attachments.append({
-                        "doc_id": doc.id,
-                        "filename": doc.original_filename or doc.name,
-                    })
+                if not doc:
+                    continue
+                # Validation whitelist côté serveur (anti-trafiquage formulaire)
+                if whitelist_on and doc.folder_id not in allowed_folder_ids:
+                    raise HTTPException(
+                        403,
+                        f"Document « {doc.name} » non autorisé en pièce jointe "
+                        "(dossier hors whitelist). Voir /admin/confidentiality."
+                    )
+                attachments.append({
+                    "doc_id": doc.id,
+                    "filename": doc.original_filename or doc.name,
+                })
 
     # Charger ou créer la campagne
     campaign = None

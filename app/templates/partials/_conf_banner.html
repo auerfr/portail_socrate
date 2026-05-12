@@ -1,0 +1,10 @@
+{# Bannière "Confidentiel" — affichée si admin l'a activé dans /admin/confidentiality.
+   À inclure en haut des pages sensibles (tracé, planche, fiche membre).
+   {% include "partials/_conf_banner.html" %}
+#}
+{% if request.state and request.state.show_conf_banner %}
+<div class="bg-rose-50 border border-rose-200 rounded-xl px-4 py-2 mb-4 text-xs text-rose-800 flex items-center gap-2">
+  <i class="ti ti-shield-lock text-rose-600"></i>
+  <strong>CONFIDENTIEL</strong> — Document maçonnique réservé. Ne pas diffuser, ne pas imprimer, ne pas faire de capture.
+</div>
+{% endif %}

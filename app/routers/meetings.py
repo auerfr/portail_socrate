@@ -589,6 +589,18 @@ async def meeting_trace(
 
     can_edit = can_manage_meeting(member) or user.is_admin
 
+    # Audit consultation (si activé via /admin/confidentiality)
+    try:
+        from app.services.confidentiality import maybe_audit_view
+        await maybe_audit_view(
+            db, actor_id=member.id,
+            resource_type="meeting_trace", resource_id=meeting.id,
+            target_label=f"Tracé tenue du {meeting.meeting_date.strftime('%d/%m/%Y')}",
+            request=request,
+        )
+    except Exception:
+        pass
+
     return templates.TemplateResponse(request, "pages/meetings/trace.html", {
         "current_member": member,
         "current_user": user,
