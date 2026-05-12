@@ -40,6 +40,18 @@ logger = logging.getLogger(__name__)
 EMAIL_DELAY_MS = 250
 RECIPIENTS_HARD_LIMIT = 500  # garde-fou par campagne
 
+# Stockage des tasks fire-and-forget pour éviter qu'asyncio les garbage-collecte
+# avant la fin de l'envoi.
+_RUNNING_TASKS: set = set()
+
+
+def launch_send_task(campaign_id: int) -> None:
+    """Démarre l'envoi en arrière-plan en gardant la task référencée."""
+    import asyncio as _aio
+    task = _aio.ensure_future(send_campaign_async(campaign_id))
+    _RUNNING_TASKS.add(task)
+    task.add_done_callback(_RUNNING_TASKS.discard)
+
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Résolution des destinataires
@@ -381,12 +393,31 @@ async def send_campaign_async(campaign_id: int, base_url: str = "https://portail
         # Pièces jointes (chargées une fois pour tous)
         attachments = await _resolve_attachments(db, campaign.attachments)
 
+        # Skip les destinataires déjà SENT (idempotence en cas de retry)
+        existing = await db.execute(
+            select(MailingDelivery).where(MailingDelivery.campaign_id == campaign.id)
+        )
+        already_sent_keys = set()
+        for d_existing in existing.scalars().all():
+            if d_existing.status == DeliveryStatus.SENT:
+                key = (d_existing.member_id, d_existing.external_id, d_existing.email.lower())
+                already_sent_keys.add(key)
+
         sent = 0
         failed = 0
         campaign.recipients_count = len(recipients)
         await db.commit()
 
         for r in recipients:
+            key = (
+                r.contact_id if r.kind == "m" else None,
+                r.contact_id if r.kind == "e" else None,
+                (r.email or "").lower(),
+            )
+            if key in already_sent_keys:
+                sent += 1
+                continue
+
             # Crée le record delivery
             d = MailingDelivery(
                 campaign_id=campaign.id,

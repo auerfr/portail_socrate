@@ -14,6 +14,10 @@
   <div class="bg-loge-50 border border-loge-200 text-loge-800 rounded-2xl px-4 py-3 text-sm">
     ⟳ Envoi en cours en arrière-plan. Rafraîchissez la page dans quelques secondes pour voir l'avancement.
   </div>
+  {% elif request.query_params.get('_msg') == 'retrying' %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3 text-sm">
+    ⟳ Reprise de l'envoi en cours. Les destinataires déjà envoyés sont sautés (idempotence).
+  </div>
   {% endif %}
 
   {# Entête #}
@@ -27,12 +31,20 @@
           {% if mlist %} · liste « {{ mlist.name }} »{% endif %}
         </p>
       </div>
-      <div>
+      <div class="flex gap-2 items-center">
         {% set st = campaign.status.value %}
         {% if st == 'SENT' %}<span class="text-xs font-semibold text-emerald-700 bg-emerald-50 px-3 py-1 rounded-full">✓ Envoyé</span>
         {% elif st == 'SENDING' %}<span class="text-xs font-semibold text-loge-700 bg-loge-50 px-3 py-1 rounded-full animate-pulse">⟳ En cours…</span>
         {% elif st == 'DRAFT' %}<span class="text-xs font-semibold text-gray-700 bg-gray-100 px-3 py-1 rounded-full">📝 Brouillon</span>
         {% elif st == 'FAILED' %}<span class="text-xs font-semibold text-rose-700 bg-rose-50 px-3 py-1 rounded-full">✗ Échec</span>
+        {% endif %}
+        {% if st in ('SENDING', 'FAILED', 'SENT') %}
+        <form method="post" action="/mailing/campaigns/{{ campaign.id }}/retry"
+              onsubmit="return confirm('Relancer l\'envoi ? Les destinataires déjà reçus seront sautés automatiquement.')">
+          <button class="text-xs font-semibold text-loge-700 bg-loge-50 hover:bg-loge-100 px-3 py-1 rounded-full">
+            ↻ Réessayer
+          </button>
+        </form>
         {% endif %}
       </div>
     </div>

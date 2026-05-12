@@ -20,7 +20,7 @@ from app.models.mailing import (
 from app.models.lodge import ExternalContact
 from app.models.documents import Document, DocStatus
 from app.services.mailing import (
-    resolve_recipients, send_campaign_async,
+    resolve_recipients, send_campaign_async, launch_send_task,
     verify_unsubscribe_token, make_unsubscribe_token,
 )
 
@@ -608,6 +608,32 @@ async def list_external_import_csv(
     )
 
 
+@router.post("/campaigns/{campaign_id}/retry")
+async def campaign_retry(
+    campaign_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Relance l'envoi d'une campagne bloquée ou en échec.
+
+    - Skippe les destinataires déjà SENT (idempotence)
+    - Recrée des deliveries PENDING pour ceux qui n'ont pas reçu
+    """
+    user, member = ctx
+    if not _can_send(user, member):
+        raise HTTPException(403)
+    campaign = await db.get(MailingCampaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404)
+    if campaign.status == CampaignStatus.DRAFT:
+        raise HTTPException(400, "Cette campagne n'a jamais été envoyée — utilisez Envoyer")
+    # Remet en SENDING + worker
+    campaign.status = CampaignStatus.SENDING
+    await db.commit()
+    launch_send_task(campaign.id)
+    return RedirectResponse(url=f"/mailing/campaigns/{campaign_id}?_msg=retrying", status_code=303)
+
+
 @router.get("/contacts-template.csv")
 async def contacts_template_csv(
     ctx: Annotated[tuple, Depends(require_auth)],
@@ -782,9 +808,8 @@ async def compose_save(
         )
 
     if action == "send":
-        # Lancer le worker async — la requête revient tout de suite
-        base = f"{request_scheme()}://{request_host()}"
-        asyncio.ensure_future(send_campaign_async(campaign.id))
+        # Lancer le worker async avec rétention de la task (anti-GC)
+        launch_send_task(campaign.id)
         return RedirectResponse(
             url=f"/mailing/campaigns/{campaign.id}?_msg=sending",
             status_code=303,
