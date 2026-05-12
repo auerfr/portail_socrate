@@ -27,9 +27,18 @@
            class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl">
           <i class="ti ti-mail-forward"></i> Composer
         </a>
-        {% if not mlist.is_system and current_user.is_admin %}
+        <button x-data @click="$dispatch('open-modal', 'edit-list')"
+                class="px-3 py-2 text-sm text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl">
+          <i class="ti ti-edit"></i> Modifier
+        </button>
+        {% if current_user.is_admin %}
         <form method="post" action="/mailing/lists/{{ mlist.id }}/delete"
-              onsubmit="return confirm('Supprimer cette liste ?')">
+              {% if mlist.is_system %}
+              onsubmit="return confirm('⚠ Liste SYSTÈME — la suppression est irréversible et désorganise les listes par défaut.\n\nÊtes-vous SÛR(E) ?') && confirm('Confirmer une seconde fois : VRAIMENT supprimer cette liste système ?')"
+              {% else %}
+              onsubmit="return confirm('Supprimer cette liste ? Les destinataires et l\'historique de campagnes seront supprimés.')"
+              {% endif %}>
+          {% if mlist.is_system %}<input type="hidden" name="confirm" value="YES">{% endif %}
           <button class="px-3 py-2 text-sm text-rose-700 bg-rose-50 hover:bg-rose-100 rounded-xl">
             <i class="ti ti-trash"></i> Supprimer
           </button>
@@ -52,10 +61,16 @@
   </section>
   {% endif %}
 
-  {# Destinataires #}
+  {# Total destinataires #}
+  <div class="bg-loge-50 border border-loge-200 rounded-2xl px-4 py-2 text-sm text-loge-800 inline-block">
+    📊 <strong>Total destinataires : {{ recipients|length + subscribed_externals|length }}</strong>
+    <span class="text-xs">({{ recipients|length }} membre{{ 's' if recipients|length > 1 else '' }} + {{ subscribed_externals|length }} externe{{ 's' if subscribed_externals|length > 1 else '' }})</span>
+  </div>
+
+  {# Membres #}
   <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
     <div class="px-5 py-3 border-b border-gray-100">
-      <h2 class="font-semibold text-gray-900">Destinataires actuels ({{ recipients|length }})</h2>
+      <h2 class="font-semibold text-gray-900">Membres ({{ recipients|length }})</h2>
     </div>
     {% if recipients %}
     <ul class="divide-y divide-gray-100 max-h-96 overflow-y-auto">
@@ -85,6 +100,57 @@
         <option value="">— Choisir un membre à ajouter —</option>
         {% for m in all_active %}
         <option value="{{ m.id }}">{{ m.last_name }} {{ m.first_name }}{% if not m.email %} (sans email){% endif %}</option>
+        {% endfor %}
+      </select>
+      <button class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-4 rounded-lg">
+        <i class="ti ti-plus"></i>
+      </button>
+    </form>
+    {% endif %}
+  </section>
+
+  {# Contacts externes (toujours possibles : statique OU dynamique) #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between flex-wrap gap-2">
+      <h2 class="font-semibold text-gray-900">Contacts externes ({{ subscribed_externals|length }})</h2>
+      <div class="flex gap-2">
+        <button x-data @click="$dispatch('open-modal', 'quick-ext')"
+                class="text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 px-3 py-1.5 rounded-lg">
+          <i class="ti ti-user-plus"></i> Ajout rapide
+        </button>
+        <button x-data @click="$dispatch('open-modal', 'import-csv')"
+                class="text-xs font-semibold text-gray-700 bg-gray-100 hover:bg-gray-200 px-3 py-1.5 rounded-lg">
+          <i class="ti ti-upload"></i> Importer CSV
+        </button>
+      </div>
+    </div>
+    {% if subscribed_externals %}
+    <ul class="divide-y divide-gray-100 max-h-72 overflow-y-auto">
+      {% for e in subscribed_externals %}
+      <li class="px-5 py-2 flex items-center justify-between gap-2 hover:bg-gray-50">
+        <div class="min-w-0">
+          <span class="font-medium text-gray-900">{{ e.name }}</span>
+          <span class="text-xs text-gray-500 ml-2">{{ e.email }}</span>
+          {% if e.organization %}<span class="text-xs text-gray-400 ml-1">({{ e.organization }})</span>{% endif %}
+        </div>
+        <form method="post" action="/mailing/lists/{{ mlist.id }}/externals/{{ e.id }}/remove">
+          <button class="text-xs text-rose-600 hover:text-rose-800"><i class="ti ti-x"></i></button>
+        </form>
+      </li>
+      {% endfor %}
+    </ul>
+    {% else %}
+    <div class="p-6 text-sm text-gray-500 text-center">Aucun contact externe inscrit dans cette liste.</div>
+    {% endif %}
+
+    {# Ajout depuis le carnet d'externes existants #}
+    {% if available_externals %}
+    <form method="post" action="/mailing/lists/{{ mlist.id }}/externals/add"
+          class="px-5 py-3 border-t border-gray-100 flex gap-2">
+      <select name="external_id" required class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm">
+        <option value="">— Ajouter depuis le carnet de contacts externes —</option>
+        {% for e in available_externals %}
+        <option value="{{ e.id }}">{{ e.name }} — {{ e.email }}{% if e.organization %} ({{ e.organization }}){% endif %}</option>
         {% endfor %}
       </select>
       <button class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-4 rounded-lg">
@@ -142,4 +208,165 @@
   </section>
 
 </div>
+
+{# ── Modal : Modifier la liste ────────────────────────────────────────────── #}
+<div x-data="{ open: false, ltype: '{{ mlist.list_type.value }}' }"
+     @open-modal.window="if ($event.detail === 'edit-list') open = true"
+     @keydown.escape.window="open = false"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div @click.outside="open = false"
+       class="bg-white rounded-2xl shadow-xl max-w-lg w-full p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-gray-900">Modifier la liste</h2>
+      <button @click="open = false" class="text-gray-400 hover:text-gray-700"><i class="ti ti-x"></i></button>
+    </div>
+    {% if mlist.is_system %}
+    <div class="bg-amber-50 border border-amber-200 text-amber-800 text-xs px-3 py-2 rounded-lg mb-3">
+      Liste système : seuls le nom et la description sont modifiables (type et critères sont protégés).
+    </div>
+    {% endif %}
+    <form method="post" action="/mailing/lists/{{ mlist.id }}/edit" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nom *</label>
+        <input type="text" name="name" required value="{{ mlist.name }}"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Description</label>
+        <textarea name="description" rows="2"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">{{ mlist.description or '' }}</textarea>
+      </div>
+
+      {% if not mlist.is_system %}
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-2">Type</label>
+        <div class="grid grid-cols-2 gap-2">
+          <label class="border rounded-xl p-3 cursor-pointer text-sm"
+                 :class="ltype === 'STATIC' ? 'border-loge-500 bg-loge-50' : 'border-gray-200'">
+            <input type="radio" name="list_type" value="STATIC" x-model="ltype" class="sr-only">
+            <div class="font-semibold">📋 Statique</div>
+            <div class="text-xs text-gray-500 mt-1">Membres choisis à la main</div>
+          </label>
+          <label class="border rounded-xl p-3 cursor-pointer text-sm"
+                 :class="ltype === 'DYNAMIC' ? 'border-loge-500 bg-loge-50' : 'border-gray-200'">
+            <input type="radio" name="list_type" value="DYNAMIC" x-model="ltype" class="sr-only">
+            <div class="font-semibold">🧮 Dynamique</div>
+            <div class="text-xs text-gray-500 mt-1">Calculée selon critères</div>
+          </label>
+        </div>
+      </div>
+
+      <div x-show="ltype === 'DYNAMIC'" x-cloak class="space-y-3 border-t border-gray-100 pt-3">
+        {% set c = mlist.criteria or {} %}
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Statut membre</label>
+          <div class="flex gap-3 flex-wrap text-sm">
+            <label><input type="checkbox" name="criteria_status" value="ACTIVE" {% if 'ACTIVE' in (c.get('status') or []) or not c.get('status') %}checked{% endif %}> Actifs</label>
+            <label><input type="checkbox" name="criteria_status" value="INACTIVE" {% if 'INACTIVE' in (c.get('status') or []) %}checked{% endif %}> Inactifs</label>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Grade (ET)</label>
+          <div class="flex gap-3 flex-wrap text-sm">
+            {% for g in ['APPRENTI', 'COMPAGNON', 'MAITRE'] %}
+            <label><input type="checkbox" name="criteria_grade" value="{{ g }}" {% if g in (c.get('grade') or []) %}checked{% endif %}> {{ g.title() }}</label>
+            {% endfor %}
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Fonction (ET, optionnel)</label>
+          <div class="flex gap-3 flex-wrap text-sm">
+            {% for f, lbl in [('VM','VM'),('SECRETAIRE','Secrétaire'),('TRESORIER','Trésorier'),('PREMIER_S','1er S∴'),('SECOND_S','2e S∴')] %}
+            <label><input type="checkbox" name="criteria_lodge_function" value="{{ f }}" {% if f in (c.get('lodge_function') or []) %}checked{% endif %}> {{ lbl }}</label>
+            {% endfor %}
+          </div>
+        </div>
+      </div>
+      {% endif %}
+
+      <div class="flex justify-end gap-2 pt-2 border-t border-gray-100">
+        <button type="button" @click="open = false" class="px-4 py-2 text-sm text-gray-600">Annuler</button>
+        <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Modal : Ajout rapide d'un contact externe ─────────────────────────────── #}
+<div x-data="{ open: false }"
+     @open-modal.window="if ($event.detail === 'quick-ext') open = true"
+     @keydown.escape.window="open = false"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div @click.outside="open = false"
+       class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-gray-900">Ajout rapide d'un contact externe</h2>
+      <button @click="open = false" class="text-gray-400 hover:text-gray-700"><i class="ti ti-x"></i></button>
+    </div>
+    <form method="post" action="/mailing/lists/{{ mlist.id }}/externals/quick-add" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Nom *</label>
+        <input type="text" name="name" required placeholder="Prénom Nom"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Email *</label>
+        <input type="email" name="email" required placeholder="contact@exemple.fr"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Organisation (optionnel)</label>
+        <input type="text" name="organization" placeholder="Loge amie, GLDF, profane…"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm">
+      </div>
+      <p class="text-[11px] text-gray-400">Le contact sera ajouté au carnet général et inscrit à cette liste.</p>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" @click="open = false" class="px-4 py-2 text-sm text-gray-600">Annuler</button>
+        <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+          Ajouter
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+{# ── Modal : Import CSV ────────────────────────────────────────────────────── #}
+<div x-data="{ open: false }"
+     @open-modal.window="if ($event.detail === 'import-csv') open = true"
+     @keydown.escape.window="open = false"
+     x-show="open" x-cloak
+     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4">
+  <div @click.outside="open = false"
+       class="bg-white rounded-2xl shadow-xl max-w-md w-full p-6">
+    <div class="flex items-center justify-between mb-4">
+      <h2 class="text-lg font-bold text-gray-900">Importer un CSV de contacts externes</h2>
+      <button @click="open = false" class="text-gray-400 hover:text-gray-700"><i class="ti ti-x"></i></button>
+    </div>
+    <form method="post" action="/mailing/lists/{{ mlist.id }}/externals/import-csv"
+          enctype="multipart/form-data" class="space-y-3">
+      <div>
+        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Fichier CSV</label>
+        <input type="file" name="csvfile" accept=".csv,.txt" required
+               class="w-full text-sm text-gray-700 border border-gray-200 rounded-xl px-3 py-2">
+      </div>
+      <div class="bg-gray-50 rounded-lg p-3 text-xs text-gray-600">
+        <strong>Format attendu :</strong> <code>Nom;Email;Organisation</code><br>
+        (séparateur <code>;</code> ou <code>,</code>, première ligne d'entête détectée automatiquement)<br>
+        Encodage : UTF-8 ou Latin-1.<br>
+        Si un email existe déjà, le contact existant est lié à la liste.
+      </div>
+      <div class="flex justify-end gap-2 pt-2">
+        <button type="button" @click="open = false" class="px-4 py-2 text-sm text-gray-600">Annuler</button>
+        <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold px-5 py-2 rounded-xl">
+          Importer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
 {% endblock %}

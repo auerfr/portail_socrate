@@ -46,7 +46,7 @@
       <p>Aucune action supplémentaire requise — vous ne recevrez plus d'emails de la liste « <span class="list-name">{{ mlist.name }}</span> ».</p>
     {% else %}
       <h1>Se désinscrire</h1>
-      <p>Bonjour {% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} <strong>{{ target.first_name }} {{ target.last_name }}</strong>,</p>
+      <p>Bonjour {% if target_civility == 'S' %}S∴{% elif target_civility == 'F' %}F∴{% endif %} <strong>{{ target_name }}</strong>,</p>
       <p>Vous êtes sur le point de vous désinscrire de la liste « <span class="list-name">{{ mlist.name }}</span> ».</p>
       <p style="color:#6b7280;font-size:.85rem;">Vous ne recevrez plus aucun email envoyé via cette liste. Cette action n'affecte pas vos autres communications avec la loge.</p>
       <form method="post" action="/mailing/unsubscribe/{{ token }}">

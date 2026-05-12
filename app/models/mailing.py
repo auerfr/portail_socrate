@@ -89,6 +89,26 @@ class MailingListMember(Base):
     mailing_list: Mapped["MailingList"] = relationship(back_populates="members")
 
 
+class MailingListExternal(Base):
+    """Pour les listes statiques : un contact externe inscrit.
+    Pour les listes dynamiques, on utilise cette table uniquement pour
+    permettre des **inscriptions** manuelles d'externes (les critères
+    dynamiques ne s'appliquent qu'aux Members).
+    """
+    __tablename__ = "mailing_list_externals"
+
+    list_id: Mapped[int] = mapped_column(
+        ForeignKey("mailing_lists.id", ondelete="CASCADE"), primary_key=True
+    )
+    external_id: Mapped[int] = mapped_column(
+        ForeignKey("external_contacts.id", ondelete="CASCADE"), primary_key=True
+    )
+    subscribed_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now()
+    )
+    unsubscribed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+
 class MailingCampaign(Base):
     """Une campagne d'envoi groupé."""
     __tablename__ = "mailing_campaigns"
@@ -134,6 +154,9 @@ class MailingDelivery(Base):
     )
     member_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("members.id", ondelete="SET NULL"), index=True
+    )
+    external_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("external_contacts.id", ondelete="SET NULL"), index=True
     )
     email: Mapped[str] = mapped_column(String(300))
 

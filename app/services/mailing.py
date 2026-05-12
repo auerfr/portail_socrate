@@ -4,6 +4,7 @@ import hashlib
 import hmac
 import logging
 import re
+from dataclasses import dataclass, field
 from datetime import datetime
 from html import escape as html_escape
 from typing import Optional
@@ -14,10 +15,24 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models.identity import Member, MemberStatus, MasonicGrade, LodgeFunction
+from app.models.lodge import ExternalContact
 from app.models.mailing import (
-    MailingList, MailingListMember, MailingListType,
+    MailingList, MailingListMember, MailingListExternal, MailingListType,
     MailingCampaign, MailingDelivery, CampaignStatus, DeliveryStatus,
 )
+
+
+@dataclass
+class Recipient:
+    """Destinataire unifié (membre ou contact externe)."""
+    email: str
+    first_name: str = ""
+    last_name: str = ""
+    civility: str = ""    # "F" / "S" / ""
+    grade_label: str = ""
+    kind: str = "m"        # "m" = member, "e" = external
+    contact_id: int = 0    # member_id ou external_id
+    raw_name: str = ""     # pour externes : nom complet brut
 
 logger = logging.getLogger(__name__)
 
@@ -30,11 +45,42 @@ RECIPIENTS_HARD_LIMIT = 500  # garde-fou par campagne
 #  Résolution des destinataires
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def resolve_recipients(db: AsyncSession, mlist: MailingList) -> list[Member]:
-    """Retourne la liste des membres destinataires (en excluant les désinscrits)."""
-    # 1) Charger les membres de base
+_GRADE_LABEL = {"APPRENTI": "Apprenti", "COMPAGNON": "Compagnon", "MAITRE": "Maître"}
+
+
+def _member_to_recipient(m: Member) -> Recipient:
+    g = m.masonic_grade.value if m.masonic_grade else ""
+    return Recipient(
+        email=m.email or "",
+        first_name=m.first_name or "",
+        last_name=m.last_name or "",
+        civility=m.civility or "",
+        grade_label=_GRADE_LABEL.get(g, g),
+        kind="m", contact_id=m.id,
+    )
+
+
+def _external_to_recipient(e: ExternalContact) -> Recipient:
+    # Tente de splitter "Prénom Nom" pour nourrir first_name/last_name
+    fname, lname = "", e.name or ""
+    if e.name and " " in e.name:
+        parts = e.name.strip().split(" ", 1)
+        fname, lname = parts[0], parts[1]
+    return Recipient(
+        email=e.email or "",
+        first_name=fname, last_name=lname,
+        civility="", grade_label="",
+        kind="e", contact_id=e.id,
+        raw_name=e.name or "",
+    )
+
+
+async def resolve_recipients(db: AsyncSession, mlist: MailingList) -> list[Recipient]:
+    """Liste unifiée des destinataires (members + externals, désinscrits exclus)."""
+    recipients: list[Recipient] = []
+
+    # ── 1. Members selon le type de liste ──
     if mlist.list_type == MailingListType.STATIC:
-        # Inscrits manuellement (jointure sur MailingListMember non-désinscrits)
         r = await db.execute(
             select(Member)
             .join(MailingListMember, MailingListMember.member_id == Member.id)
@@ -44,53 +90,71 @@ async def resolve_recipients(db: AsyncSession, mlist: MailingList) -> list[Membe
             )
             .order_by(Member.last_name, Member.first_name)
         )
-        return list(r.scalars().all())
-
-    # DYNAMIC : critères JSON sur Member
-    criteria = mlist.criteria or {}
-    stmt = select(Member)
-
-    # status — défaut ACTIVE
-    statuses = criteria.get("status") or ["ACTIVE"]
-    if statuses and "ALL" not in statuses:
-        stmt = stmt.where(Member.status.in_(
-            [MemberStatus(s) for s in statuses if s in MemberStatus.__members__]
-        ))
-
-    # grade
-    grades = criteria.get("grade") or []
-    if grades and "ALL" not in grades:
-        stmt = stmt.where(Member.masonic_grade.in_(
-            [MasonicGrade(g) for g in grades if g in MasonicGrade.__members__]
-        ))
-
-    # lodge_function
-    funcs = criteria.get("lodge_function") or []
-    if funcs and "ALL" not in funcs:
-        stmt = stmt.where(Member.lodge_function.in_(
-            [LodgeFunction(f) for f in funcs if f in LodgeFunction.__members__]
-        ))
-
-    # group_ids (membre d'au moins un groupe parmi la liste)
-    group_ids = criteria.get("group_ids") or []
-    if group_ids:
-        from app.models.groups import GroupMembership
-        sub = select(GroupMembership.member_id).where(GroupMembership.group_id.in_(group_ids))
-        stmt = stmt.where(Member.id.in_(sub))
-
-    stmt = stmt.order_by(Member.last_name, Member.first_name)
-    r = await db.execute(stmt)
-    members = list(r.scalars().all())
-
-    # Filtre les désinscrits manuellement de cette liste dynamique
-    rs = await db.execute(
-        select(MailingListMember.member_id).where(
-            MailingListMember.list_id == mlist.id,
-            MailingListMember.unsubscribed_at.isnot(None),
+        members = list(r.scalars().all())
+    else:
+        # DYNAMIC : critères JSON sur Member
+        criteria = mlist.criteria or {}
+        stmt = select(Member)
+        statuses = criteria.get("status") or ["ACTIVE"]
+        if statuses and "ALL" not in statuses:
+            stmt = stmt.where(Member.status.in_(
+                [MemberStatus(s) for s in statuses if s in MemberStatus.__members__]
+            ))
+        grades = criteria.get("grade") or []
+        if grades and "ALL" not in grades:
+            stmt = stmt.where(Member.masonic_grade.in_(
+                [MasonicGrade(g) for g in grades if g in MasonicGrade.__members__]
+            ))
+        funcs = criteria.get("lodge_function") or []
+        if funcs and "ALL" not in funcs:
+            stmt = stmt.where(Member.lodge_function.in_(
+                [LodgeFunction(f) for f in funcs if f in LodgeFunction.__members__]
+            ))
+        group_ids = criteria.get("group_ids") or []
+        if group_ids:
+            from app.models.groups import GroupMembership
+            sub = select(GroupMembership.member_id).where(GroupMembership.group_id.in_(group_ids))
+            stmt = stmt.where(Member.id.in_(sub))
+        stmt = stmt.order_by(Member.last_name, Member.first_name)
+        r = await db.execute(stmt)
+        members = list(r.scalars().all())
+        # Filtre les désinscrits manuellement
+        rs = await db.execute(
+            select(MailingListMember.member_id).where(
+                MailingListMember.list_id == mlist.id,
+                MailingListMember.unsubscribed_at.isnot(None),
+            )
         )
+        unsubscribed = {row[0] for row in rs.all()}
+        members = [m for m in members if m.id not in unsubscribed]
+
+    recipients.extend(_member_to_recipient(m) for m in members)
+
+    # ── 2. Externals (toujours via MailingListExternal pour les deux types) ──
+    re_ = await db.execute(
+        select(ExternalContact)
+        .join(MailingListExternal, MailingListExternal.external_id == ExternalContact.id)
+        .where(
+            MailingListExternal.list_id == mlist.id,
+            MailingListExternal.unsubscribed_at.is_(None),
+            ExternalContact.is_active == True,  # noqa: E712
+        )
+        .order_by(ExternalContact.name)
     )
-    unsubscribed = {row[0] for row in rs.all()}
-    return [m for m in members if m.id not in unsubscribed]
+    externals = list(re_.scalars().all())
+    recipients.extend(_external_to_recipient(e) for e in externals)
+
+    # Déduplication par email (au cas où un externe a le même email qu'un membre)
+    seen, deduped = set(), []
+    for r in recipients:
+        if not r.email:
+            continue
+        key = r.email.lower().strip()
+        if key in seen:
+            continue
+        seen.add(key)
+        deduped.append(r)
+    return deduped
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -100,29 +164,34 @@ async def resolve_recipients(db: AsyncSession, mlist: MailingList) -> list[Membe
 _VAR_RE = re.compile(r"\{\{\s*(\w+)\s*\}\}")
 
 
-def _member_vars(member: Member) -> dict:
-    civ = "Sœur" if (member.civility == "S") else "Frère"
-    grade_v = member.masonic_grade.value if member.masonic_grade else ""
-    grade_label = {"APPRENTI": "Apprenti", "COMPAGNON": "Compagnon",
-                   "MAITRE": "Maître"}.get(grade_v, grade_v)
+def _recipient_vars(r: Recipient) -> dict:
+    """Variables disponibles dans le corps personnalisé."""
+    if r.kind == "m":
+        civ = "Sœur" if r.civility == "S" else "Frère"
+        civ_short = "S∴" if r.civility == "S" else "F∴"
+    else:
+        # Pour un externe : pas de Frère/Sœur, on utilise un fallback neutre
+        civ = ""
+        civ_short = ""
     return {
-        "prenom":     member.first_name or "",
-        "nom":        member.last_name or "",
-        "civilite":   civ,
-        "civilite_court": "S∴" if member.civility == "S" else "F∴",
-        "grade":      grade_label,
-        "email":      member.email or "",
+        "prenom":         r.first_name,
+        "nom":            r.last_name,
+        "civilite":       civ,
+        "civilite_court": civ_short,
+        "grade":          r.grade_label,
+        "email":          r.email,
+        "nom_complet":    r.raw_name or f"{r.first_name} {r.last_name}".strip(),
     }
 
 
-def render_subject(template: str, member: Member) -> str:
-    vars_ = _member_vars(member)
+def render_subject(template: str, recipient: Recipient) -> str:
+    vars_ = _recipient_vars(recipient)
     return _VAR_RE.sub(lambda m: vars_.get(m.group(1), m.group(0)), template)
 
 
-def render_body_md(template: str, member: Member) -> str:
+def render_body_md(template: str, recipient: Recipient) -> str:
     """Substitution des variables uniquement (le Markdown sera rendu côté HTML)."""
-    vars_ = _member_vars(member)
+    vars_ = _recipient_vars(recipient)
     return _VAR_RE.sub(lambda m: vars_.get(m.group(1), m.group(0)), template)
 
 
@@ -199,22 +268,41 @@ def _hmac_secret() -> bytes:
     return (s.secret_key or "fallback-secret").encode("utf-8")
 
 
-def make_unsubscribe_token(list_id: int, member_id: int) -> str:
-    payload = f"{list_id}.{member_id}"
+def make_unsubscribe_token(list_id: int, kind: str, contact_id: int) -> str:
+    """Token de désinscription signé HMAC. `kind` = 'm' (member) ou 'e' (external)."""
+    if kind not in ("m", "e"):
+        kind = "m"
+    payload = f"{list_id}.{kind}.{contact_id}"
     sig = hmac.new(_hmac_secret(), payload.encode(), hashlib.sha256).hexdigest()[:16]
     return f"{payload}.{sig}"
 
 
-def verify_unsubscribe_token(token: str) -> Optional[tuple[int, int]]:
+def verify_unsubscribe_token(token: str) -> Optional[tuple[int, str, int]]:
+    """Retourne (list_id, kind, contact_id) ou None si invalide.
+
+    Compatibilité ascendante : si le token contient 3 segments (ancien format
+    list_id.member_id.sig), on considère kind='m'.
+    """
     try:
-        list_id_s, member_id_s, sig = token.split(".")
-        list_id, member_id = int(list_id_s), int(member_id_s)
-        expected = hmac.new(
-            _hmac_secret(), f"{list_id}.{member_id}".encode(), hashlib.sha256
-        ).hexdigest()[:16]
+        parts = token.split(".")
+        if len(parts) == 4:
+            list_id_s, kind, contact_id_s, sig = parts
+            if kind not in ("m", "e"):
+                return None
+            list_id, contact_id = int(list_id_s), int(contact_id_s)
+            payload = f"{list_id}.{kind}.{contact_id}"
+        elif len(parts) == 3:
+            # Ancien format : list_id.member_id.sig (kind = "m" implicite)
+            list_id_s, member_id_s, sig = parts
+            list_id, contact_id = int(list_id_s), int(member_id_s)
+            kind = "m"
+            payload = f"{list_id}.{contact_id}"
+        else:
+            return None
+        expected = hmac.new(_hmac_secret(), payload.encode(), hashlib.sha256).hexdigest()[:16]
         if not hmac.compare_digest(expected, sig):
             return None
-        return (list_id, member_id)
+        return (list_id, kind, contact_id)
     except (ValueError, AttributeError):
         return None
 
@@ -294,18 +382,19 @@ async def send_campaign_async(campaign_id: int, base_url: str = "https://portail
         campaign.recipients_count = len(recipients)
         await db.commit()
 
-        for m in recipients:
+        for r in recipients:
             # Crée le record delivery
             d = MailingDelivery(
                 campaign_id=campaign.id,
-                member_id=m.id,
-                email=m.email or "",
+                member_id=(r.contact_id if r.kind == "m" else None),
+                external_id=(r.contact_id if r.kind == "e" else None),
+                email=r.email or "",
                 status=DeliveryStatus.PENDING,
             )
             db.add(d)
             await db.flush()
 
-            if not m.email:
+            if not r.email:
                 d.status = DeliveryStatus.NO_EMAIL
                 d.error = "Aucune adresse email"
                 failed += 1
@@ -313,12 +402,12 @@ async def send_campaign_async(campaign_id: int, base_url: str = "https://portail
                 continue
 
             # Rendu personnalisé
-            subj = render_subject(campaign.subject, m)
-            body_md = render_body_md(campaign.body_md, m)
+            subj = render_subject(campaign.subject, r)
+            body_md = render_body_md(campaign.body_md, r)
             body_html_inner = md_to_html(body_md)
 
             # URL de désinscription
-            tok = make_unsubscribe_token(mlist.id, m.id)
+            tok = make_unsubscribe_token(mlist.id, r.kind, r.contact_id)
             unsub_url = f"{base_url}/mailing/unsubscribe/{tok}"
 
             html = make_html_email(body_html_inner, unsub_url, mlist.name, lodge_name)
@@ -326,7 +415,7 @@ async def send_campaign_async(campaign_id: int, base_url: str = "https://portail
 
             try:
                 ok, err = await _send_raw(
-                    to=m.email, subject=subj, html=html, text=text,
+                    to=r.email, subject=subj, html=html, text=text,
                     attachments=attachments or None,
                 )
                 if ok:
