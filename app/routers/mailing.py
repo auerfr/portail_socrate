@@ -861,8 +861,10 @@ async def compose_save(
         lodge = lr.scalar_one_or_none()
         lodge_name = lodge.name if lodge and lodge.name else "Portail Socrate"
         if member.email:
-            subj = "[TEST] " + render_subject(campaign.subject, member)
-            body_md_r = render_body_md(campaign.body_md, member)
+            from app.services.mailing import _member_to_recipient
+            test_recipient = _member_to_recipient(member)
+            subj = "[TEST] " + render_subject(campaign.subject, test_recipient)
+            body_md_r = render_body_md(campaign.body_md, test_recipient)
             html_inner = md_to_html(body_md_r)
             html = make_html_email(html_inner, "#test", ml.name, lodge_name)
             try:
