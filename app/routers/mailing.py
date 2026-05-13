@@ -190,7 +190,8 @@ async def list_detail(
             .order_by(Member.last_name, Member.first_name)
         )
         all_active = list(ar.scalars().all())
-        member_recipient_ids = {r.contact_id for r in recipients if r.kind == "m"}
+        # recipients contient des Member objets dans ce branch statique
+        member_recipient_ids = {m.id for m in recipients}
         all_active = [m for m in all_active if m.id not in member_recipient_ids]
 
     # Contacts externes déjà inscrits + ceux disponibles à ajouter
