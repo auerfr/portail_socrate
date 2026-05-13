@@ -450,15 +450,28 @@ async def lifespan(app: FastAPI):
                         f"ALTER TABLE external_contacts ADD COLUMN {col} {ddl}"
                     )
 
-    # ── mailing_deliveries : colonne external_id ───────────────────────────
+    # ── mailing : colonnes tracking ────────────────────────────────────────
     async with engine.begin() as conn:
-        r_md = await conn.exec_driver_sql("PRAGMA table_info(mailing_deliveries)")
-        cols_md = [row[1] for row in r_md.fetchall()]
-        if cols_md and "external_id" not in cols_md:
-            await conn.exec_driver_sql(
-                "ALTER TABLE mailing_deliveries ADD COLUMN external_id INTEGER "
-                "REFERENCES external_contacts(id) ON DELETE SET NULL"
-            )
+        r_mc = await conn.exec_driver_sql("PRAGMA table_info(mailing_campaigns)")
+        cols_mc = [row[1] for row in r_mc.fetchall()]
+        for col, ddl in [
+            ("opened_count",  "INTEGER NOT NULL DEFAULT 0"),
+            ("clicked_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("scheduled_at",  "DATETIME"),
+        ]:
+            if col not in cols_mc:
+                await conn.exec_driver_sql(f"ALTER TABLE mailing_campaigns ADD COLUMN {col} {ddl}")
+
+        r_md2 = await conn.exec_driver_sql("PRAGMA table_info(mailing_deliveries)")
+        cols_md2 = [row[1] for row in r_md2.fetchall()]
+        for col, ddl in [
+            ("opened_at",   "DATETIME"),
+            ("clicked_at",  "DATETIME"),
+            ("click_count", "INTEGER NOT NULL DEFAULT 0"),
+            ("external_id", "INTEGER REFERENCES external_contacts(id) ON DELETE SET NULL"),
+        ]:
+            if col not in cols_md2:
+                await conn.exec_driver_sql(f"ALTER TABLE mailing_deliveries ADD COLUMN {col} {ddl}")
 
     # ── audit_logs : nouvelles colonnes (target_label, user_agent) ─────────
     async with engine.begin() as conn:
@@ -525,6 +538,10 @@ async def lifespan(app: FastAPI):
     from app.services.contribution_reminders import daily_contribution_reminder_loop
     _contrib_reminder_task = asyncio.ensure_future(daily_contribution_reminder_loop())
 
+    # ── Planificateur d'envois mailing différés ───────────────────────────────
+    from app.services.mailing_scheduler import mailing_scheduler_loop
+    _mailing_sched_task = asyncio.ensure_future(mailing_scheduler_loop())
+
     # ── Pré-chargement du cache des libellés personnalisés ───────────────────
     try:
         from app.services.labels import _load_all as _load_labels
@@ -554,6 +571,7 @@ async def lifespan(app: FastAPI):
     _anniv_task.cancel()
     _task_reminder_task.cancel()
     _contrib_reminder_task.cancel()
+    _mailing_sched_task.cancel()
     await engine.dispose()
 
 

@@ -91,23 +91,73 @@ Le Secrétaire"
         </div>
       </div>
 
-      <div class="border-t border-gray-100 pt-4 flex flex-wrap gap-2 justify-end">
-        <button type="submit" name="action" value="draft"
-                class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl">
-          💾 Enregistrer brouillon
-        </button>
-        <button type="submit" name="action" value="test"
-                class="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl border border-blue-200">
-          📧 Envoyer un test à moi
-        </button>
-        <button type="submit" name="action" value="send"
-                onclick="return confirm('Envoyer cette campagne à {{ recipients|length }} destinataire(s) ?\n\nIls vont recevoir ce message complet dans leur boîte mail avec le lien de désinscription.')"
-                class="px-5 py-2 text-sm font-semibold bg-loge-700 hover:bg-loge-800 text-white rounded-xl">
-          📤 Envoyer maintenant ({{ recipients|length }})
-        </button>
+      <div class="border-t border-gray-100 pt-4 space-y-3">
+        {# Planification optionnelle #}
+        <div x-data="{ show: false }" class="bg-gray-50 rounded-xl p-3">
+          <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+            <input type="checkbox" x-model="show" class="rounded border-gray-300">
+            <i class="ti ti-calendar-time text-loge-700"></i> Planifier l'envoi à une date précise
+          </label>
+          <div x-show="show" x-cloak class="mt-2">
+            <input type="datetime-local" id="scheduled-dt"
+                   class="border border-gray-200 rounded-lg px-3 py-2 text-sm w-full">
+            <p class="text-[11px] text-gray-400 mt-1">La campagne sera sauvegardée en brouillon et envoyée automatiquement à l'heure choisie.</p>
+          </div>
+        </div>
+
+        <div class="flex flex-wrap gap-2 justify-end">
+          <button type="submit" name="action" value="draft"
+                  class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl">
+            💾 Brouillon
+          </button>
+          <button type="submit" name="action" value="test"
+                  class="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl border border-blue-200">
+            📧 Test à moi
+          </button>
+          {# Bouton planifier — JS récupère la date et redirige #}
+          <button type="button"
+                  onclick="planifier()"
+                  class="px-4 py-2 text-sm bg-amber-50 hover:bg-amber-100 text-amber-800 rounded-xl border border-amber-200">
+            📅 Planifier
+          </button>
+          <button type="submit" name="action" value="send"
+                  onclick="return confirm('Envoyer cette campagne à {{ recipients|length }} destinataire(s) maintenant ?')"
+                  class="px-5 py-2 text-sm font-semibold bg-loge-700 hover:bg-loge-800 text-white rounded-xl">
+            📤 Envoyer maintenant ({{ recipients|length }})
+          </button>
+        </div>
       </div>
+
+      {# Formulaire de planification caché — soumis par JS #}
+      <div id="schedule-form-holder"></div>
     </form>
   </div>
 
 </div>
+
+<div id="schedule-form-holder"></div>
+
+<script>
+function planifier() {
+  const dt = document.getElementById('scheduled-dt')?.value;
+  if (!dt) { alert('Choisissez une date et une heure.'); return; }
+  const draftForm = document.querySelector('form[action*="compose"]');
+  const fd = new FormData(draftForm);
+  fd.set('action', 'draft');
+  fetch(draftForm.action, { method: 'POST', body: fd, redirect: 'manual' })
+    .then(r => {
+      // Lire l'URL de redirection pour extraire draft_id
+      const loc = r.headers.get('location') || '';
+      const m = loc.match(/draft_id=(\d+)/);
+      if (!m) { draftForm.submit(); return; }
+      const cid = m[1];
+      const h = document.getElementById('schedule-form-holder');
+      h.innerHTML = `<form method="post" action="/mailing/campaigns/${cid}/schedule" id="sf">
+        <input name="scheduled_at" value="${dt}">
+      </form>`;
+      document.getElementById('sf').submit();
+    })
+    .catch(() => alert('Sauvegardez le brouillon d\'abord puis planifiez depuis la page campagne.'));
+}
+</script>
 {% endblock %}

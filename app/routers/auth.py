@@ -108,6 +108,26 @@ async def login_submit(
     access_token = create_access_token({"sub": str(user.id)})
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
+    # Enregistrement session pour la révocation
+    try:
+        from app.models.system import UserSession
+        from app.dependencies import decode_token
+        from datetime import datetime as _dt
+        payload = decode_token(access_token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti:
+            expires = _dt.utcfromtimestamp(exp) if exp else None
+            db.add(UserSession(
+                user_id=user.id, jti=jti,
+                ip_address=request.client.host if request.client else None,
+                user_agent=(request.headers.get("user-agent", "")[:300]),
+                expires_at=expires,
+            ))
+            await db.commit()
+    except Exception:
+        pass
+
     redirect = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     redirect.set_cookie(
         "access_token", access_token,

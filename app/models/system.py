@@ -43,6 +43,26 @@ class SystemSetting(Base):
     )
 
 
+class UserSession(Base):
+    """Session utilisateur enregistrée pour permettre la révocation.
+
+    Un enregistrement est créé à chaque login et supprimé au logout ou
+    révocation. On stocke le JTI (JWT ID) qui permet d'invalider le token.
+    """
+    __tablename__ = "user_sessions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    jti: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    ip_address: Mapped[Optional[str]] = mapped_column(String(64))
+    user_agent: Mapped[Optional[str]] = mapped_column(String(300))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    last_seen_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+
 class EmailStatus(str, enum.Enum):
     SENT   = "SENT"
     FAILED = "FAILED"

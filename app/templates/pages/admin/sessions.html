@@ -1,0 +1,66 @@
+{% extends "pages/admin/_layout.html" %}
+{% block title %}Administration — Sessions actives{% endblock %}
+
+{% block admin_content %}
+
+<div class="flex items-center justify-between flex-wrap gap-3 mb-4">
+  <div>
+    <h2 class="font-semibold text-gray-900">Sessions actives ({{ sessions|length }})</h2>
+    <p class="text-xs text-gray-500 mt-0.5">Utilisateurs actuellement connectés. Révoquer force une déconnexion immédiate.</p>
+  </div>
+  <a href="/admin/users" class="text-xs text-loge-700 hover:underline">← Retour Utilisateurs</a>
+</div>
+
+{% if sessions %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+  <div class="overflow-x-auto">
+    <table class="w-full text-sm min-w-[700px]">
+      <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+        <tr>
+          <th class="text-left font-semibold px-4 py-2.5">Utilisateur</th>
+          <th class="text-left font-semibold px-4 py-2.5">IP</th>
+          <th class="text-left font-semibold px-4 py-2.5">Navigateur</th>
+          <th class="text-left font-semibold px-4 py-2.5">Connexion</th>
+          <th class="text-left font-semibold px-4 py-2.5">Expire</th>
+          <th class="text-right font-semibold px-4 py-2.5">Action</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-100">
+        {% for s in sessions %}
+        {% set u = ucache.get(s.user_id) %}
+        {% set m = mcache.get(u.member_id) if u else None %}
+        <tr class="hover:bg-gray-50">
+          <td class="px-4 py-2.5">
+            <div class="font-medium text-gray-900">{% if m %}{{ m.last_name }} {{ m.first_name }}{% else %}User#{{ s.user_id }}{% endif %}</div>
+            <div class="text-xs text-gray-400 font-mono">{{ u.login if u else '—' }}</div>
+          </td>
+          <td class="px-4 py-2.5 font-mono text-xs text-gray-600">{{ s.ip_address or '—' }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-600 max-w-[200px] truncate" title="{{ s.user_agent or '' }}">
+            {{ (s.user_agent or '—')[:60] }}
+          </td>
+          <td class="px-4 py-2.5 text-xs text-gray-600">{{ s.created_at.strftime('%d/%m %H:%M') }}</td>
+          <td class="px-4 py-2.5 text-xs {% if s.expires_at and s.expires_at < now %}text-rose-600{% else %}text-gray-600{% endif %}">
+            {{ s.expires_at.strftime('%d/%m %H:%M') if s.expires_at else '—' }}
+          </td>
+          <td class="px-4 py-2.5 text-right">
+            <form method="post" action="/admin/sessions/{{ s.id }}/revoke"
+                  onsubmit="return confirm('Déconnecter cet utilisateur ?')">
+              <button class="text-xs font-semibold text-rose-700 bg-rose-50 hover:bg-rose-100 px-3 py-1 rounded-lg">
+                Révoquer
+              </button>
+            </form>
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+{% else %}
+<div class="bg-gray-50 border border-gray-200 rounded-2xl px-5 py-4 text-sm text-gray-500">
+  Aucune session active enregistrée.
+  <span class="text-xs text-gray-400 ml-1">(Les sessions sont créées à partir de la prochaine connexion.)</span>
+</div>
+{% endif %}
+
+{% endblock %}

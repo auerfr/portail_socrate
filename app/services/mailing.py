@@ -276,6 +276,51 @@ def make_html_email(rendered_body_html: str, unsubscribe_url: str,
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+#  Tokens de tracking (pixel ouverture + clics)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def make_tracking_token(delivery_id: int, kind: str) -> str:
+    """kind = 'o' (open) ou 'c' (click)."""
+    payload = f"{delivery_id}.{kind}"
+    sig = hmac.new(_hmac_secret(), payload.encode(), hashlib.sha256).hexdigest()[:12]
+    return f"{payload}.{sig}"
+
+
+def verify_tracking_token(token: str) -> Optional[tuple[int, str]]:
+    """Retourne (delivery_id, kind) ou None."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        d_id, kind, sig = parts
+        if kind not in ("o", "c"):
+            return None
+        payload = f"{d_id}.{kind}"
+        expected = hmac.new(_hmac_secret(), payload.encode(), hashlib.sha256).hexdigest()[:12]
+        if not hmac.compare_digest(expected, sig):
+            return None
+        return (int(d_id), kind)
+    except (ValueError, AttributeError):
+        return None
+
+
+def _rewrite_links(html: str, base_url: str, delivery_id: int) -> str:
+    """Réécrit les liens <a href="..."> vers le tracker de clics."""
+    import re
+    token = make_tracking_token(delivery_id, "c")
+
+    def replace_href(m):
+        original = m.group(1)
+        # Ne pas réécrire les liens de désinscription ou internes
+        if "/mailing/unsubscribe" in original or original.startswith("mailto:"):
+            return m.group(0)
+        from urllib.parse import quote
+        return f'href="{base_url}/mailing/track/click/{token}?url={quote(original, safe="")}"'
+
+    return re.sub(r'href="(https?://[^"]+)"', replace_href, html)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 #  Token désinscription signé HMAC
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -445,7 +490,14 @@ async def send_campaign_async(campaign_id: int, base_url: str = "https://portail
             tok = make_unsubscribe_token(mlist.id, r.kind, r.contact_id)
             unsub_url = f"{base_url}/mailing/unsubscribe/{tok}"
 
-            html = make_html_email(body_html_inner, unsub_url, mlist.name, lodge_name)
+            # Pixel de tracking d'ouverture (image 1×1 transparente)
+            open_token = make_tracking_token(d.id, "o")
+            pixel = f'<img src="{base_url}/mailing/track/open/{open_token}" width="1" height="1" alt="" style="display:none">'
+
+            # Réécriture des liens pour le tracking clics
+            body_html_with_links = _rewrite_links(body_html_inner, base_url, d.id)
+
+            html = make_html_email(body_html_with_links + pixel, unsub_url, mlist.name, lodge_name)
             text = body_md + f"\n\n— Se désinscrire : {unsub_url}"
 
             try:

@@ -710,6 +710,89 @@ async def admin_comm(
     })
 
 
+@router.get("/sessions", response_class=HTMLResponse)
+async def admin_sessions(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Sessions actives — qui est connecté et depuis quand."""
+    user, member = ctx
+    from app.models.system import UserSession
+    from app.models.identity import User as UserModel
+    now = datetime.utcnow()
+    # Nettoie les sessions expirées
+    await db.execute(
+        sa_delete(UserSession).where(
+            UserSession.expires_at.isnot(None),
+            UserSession.expires_at < now,
+        )
+    )
+    await db.commit()
+
+    sessions_r = await db.execute(
+        select(UserSession).order_by(desc(UserSession.last_seen_at))
+    )
+    sessions = sessions_r.scalars().all()
+    # Cache users
+    uids = {s.user_id for s in sessions}
+    ucache: dict[int, UserModel] = {}
+    mcache2: dict[int, Member] = {}
+    if uids:
+        for u in (await db.execute(select(UserModel).where(UserModel.id.in_(uids)))).scalars().all():
+            ucache[u.id] = u
+        mids = {u.member_id for u in ucache.values()}
+        for m in (await db.execute(select(Member).where(Member.id.in_(mids)))).scalars().all():
+            mcache2[m.id] = m
+
+    return templates.TemplateResponse(request, "pages/admin/sessions.html", {
+        "current_user": user, "current_member": member,
+        "sessions": sessions, "ucache": ucache, "mcache": mcache2,
+        "now": now, "active_tab": "users",
+    })
+
+
+@router.post("/sessions/{session_id}/revoke")
+async def admin_session_revoke(
+    session_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Révoque une session (force la déconnexion de l'utilisateur)."""
+    actor_user, actor_member = ctx
+    from app.models.system import UserSession
+    s = await db.get(UserSession, session_id)
+    if s:
+        await db.delete(s)
+        await log_audit(
+            db, actor_id=actor_member.id, action="SESSION_REVOKE",
+            target_type="user", target_id=s.user_id,
+            target_label=f"JTI {s.jti[:8]}...", request=request,
+        )
+        await db.commit()
+    return RedirectResponse(url="/admin/sessions", status_code=303)
+
+
+@router.post("/sessions/revoke-all/{user_id}")
+async def admin_session_revoke_all(
+    user_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Révoque toutes les sessions d'un utilisateur."""
+    from app.models.system import UserSession
+    actor_user, actor_member = ctx
+    await db.execute(sa_delete(UserSession).where(UserSession.user_id == user_id))
+    await log_audit(
+        db, actor_id=actor_member.id, action="SESSION_REVOKE_ALL",
+        target_type="user", target_id=user_id, request=request,
+    )
+    await db.commit()
+    return RedirectResponse(url="/admin/sessions", status_code=303)
+
+
 @router.get("/confidentiality", response_class=HTMLResponse)
 async def admin_confidentiality(
     request: Request,

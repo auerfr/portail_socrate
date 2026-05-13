@@ -624,6 +624,87 @@ async def campaign_retry(
     return RedirectResponse(url=f"/mailing/campaigns/{campaign_id}?_msg=retrying", status_code=303)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+#  Tracking pixel + clics (pas d'auth — accessible depuis les emails)
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.get("/track/open/{token}")
+async def track_open(token: str, db: Annotated[AsyncSession, Depends(get_db)]):
+    """Pixel 1×1 de tracking d'ouverture."""
+    from app.services.mailing import verify_tracking_token
+    from fastapi.responses import Response as _Resp
+    parsed = verify_tracking_token(token)
+    if parsed:
+        delivery_id, _ = parsed
+        d = await db.get(MailingDelivery, delivery_id)
+        if d and not d.opened_at:
+            d.opened_at = datetime.utcnow()
+            # Incrémenter le compteur sur la campagne
+            c = await db.get(MailingCampaign, d.campaign_id)
+            if c:
+                c.opened_count = (c.opened_count or 0) + 1
+            await db.commit()
+    # GIF 1×1 transparent
+    gif = (b"GIF89a\x01\x00\x01\x00\x80\x00\x00\xff\xff\xff\x00\x00\x00!"
+           b"\xf9\x04\x00\x00\x00\x00\x00,\x00\x00\x00\x00\x01\x00\x01\x00\x00\x02\x02D\x01\x00;")
+    return _Resp(content=gif, media_type="image/gif",
+                 headers={"Cache-Control": "no-cache, no-store"})
+
+
+@router.get("/track/click/{token}")
+async def track_click(
+    token: str,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    url: str = "",
+):
+    """Redirect + enregistrement de clic."""
+    from app.services.mailing import verify_tracking_token
+    parsed = verify_tracking_token(token)
+    if parsed:
+        delivery_id, _ = parsed
+        d = await db.get(MailingDelivery, delivery_id)
+        if d:
+            d.clicked_at = d.clicked_at or datetime.utcnow()
+            d.click_count = (d.click_count or 0) + 1
+            c = await db.get(MailingCampaign, d.campaign_id)
+            if c:
+                c.clicked_count = (c.clicked_count or 0) + 1
+            await db.commit()
+    target = url or "/"
+    # Sécurité basique anti open-redirect
+    if not target.startswith("http"):
+        target = "/"
+    return RedirectResponse(url=target, status_code=302)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Planification d'envoi
+# ─────────────────────────────────────────────────────────────────────────────
+
+@router.post("/campaigns/{campaign_id}/schedule")
+async def campaign_schedule(
+    campaign_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    scheduled_at: Annotated[str, Form()],
+):
+    """Planifie l'envoi à une date/heure précise."""
+    user, member = ctx
+    if not _can_send(user, member):
+        raise HTTPException(403)
+    campaign = await db.get(MailingCampaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404)
+    try:
+        dt = datetime.fromisoformat(scheduled_at)
+    except ValueError:
+        raise HTTPException(400, "Format datetime invalide")
+    campaign.scheduled_at = dt
+    campaign.status = CampaignStatus.DRAFT
+    await db.commit()
+    return RedirectResponse(url=f"/mailing/campaigns/{campaign_id}?_msg=scheduled", status_code=303)
+
+
 @router.get("/contacts-template.csv")
 async def contacts_template_csv(
     ctx: Annotated[tuple, Depends(require_auth)],

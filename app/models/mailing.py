@@ -133,6 +133,9 @@ class MailingCampaign(Base):
     recipients_count: Mapped[int] = mapped_column(Integer, default=0)
     sent_count: Mapped[int]       = mapped_column(Integer, default=0)
     failed_count: Mapped[int]     = mapped_column(Integer, default=0)
+    opened_count: Mapped[int]     = mapped_column(Integer, default=0)
+    clicked_count: Mapped[int]    = mapped_column(Integer, default=0)
+    scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
     sender_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime]  = mapped_column(DateTime, server_default=func.now())
@@ -165,5 +168,9 @@ class MailingDelivery(Base):
     )
     error: Mapped[Optional[str]] = mapped_column(Text)
     sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    opened_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    clicked_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    click_count: Mapped[int] = mapped_column(Integer, default=0)
 
     campaign: Mapped["MailingCampaign"] = relationship(back_populates="deliveries")

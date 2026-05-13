@@ -43,11 +43,13 @@ def verify_pin(plain_pin: str, hashed_pin: str) -> bool:
 # ── JWT ────────────────────────────────────────────────────────────────────
 
 def create_access_token(data: dict, expires_delta: Optional[timedelta] = None) -> str:
+    import uuid as _uuid
     to_encode = data.copy()
     expire = datetime.utcnow() + (
         expires_delta or timedelta(minutes=settings.access_token_expire_minutes)
     )
-    to_encode.update({"exp": expire, "type": "access"})
+    # JTI unique pour permettre la révocation par session
+    to_encode.update({"exp": expire, "type": "access", "jti": _uuid.uuid4().hex})
     return jwt.encode(to_encode, settings.secret_key, algorithm=settings.algorithm)
 
 
@@ -86,6 +88,7 @@ async def get_current_user(
     try:
         payload = decode_token(raw_token)
         user_id: int = int(payload.get("sub"))
+        jti: str = payload.get("jti", "")
     except (JWTError, TypeError, ValueError):
         return None
 
@@ -95,6 +98,17 @@ async def get_current_user(
     user = result.scalar_one_or_none()
     if not user:
         return None
+
+    # Vérifier que la session n'a pas été révoquée (si JTI présent)
+    if jti:
+        try:
+            from app.models.system import UserSession as _US
+            from sqlalchemy import select as _sel
+            sess_r = await db.execute(_sel(_US).where(_US.jti == jti))
+            if sess_r.scalar_one_or_none() is None:
+                return None  # session révoquée
+        except Exception:
+            pass  # table pas encore créée → on laisse passer
 
     member_result = await db.execute(
         select(Member).where(Member.id == user.member_id)
