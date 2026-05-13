@@ -530,6 +530,15 @@ async def lifespan(app: FastAPI):
     except Exception:
         pass
 
+    # ── Index FTS5 pour la recherche full-text GED ───────────────────────────
+    try:
+        from app.services.doc_index import ensure_fts_table
+        from app.database import AsyncSessionLocal
+        async with AsyncSessionLocal() as _s:
+            await ensure_fts_table(_s)
+    except Exception:
+        pass
+
     yield
     # Arrêt
     _backup_task.cancel()

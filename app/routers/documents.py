@@ -435,6 +435,7 @@ async def documents_upload(
 
     errors = []
     added_docs = []
+    _to_index: list[tuple[str, str, str]] = []  # (storage_path, mime_type, name)
     for f in files:
         if not f.filename:
             continue
@@ -465,6 +466,26 @@ async def documents_upload(
         )
         db.add(doc)
         added_docs.append(display_name)
+        _to_index.append((str(dest), f.content_type, display_name))
+
+    await db.flush()  # pour avoir les IDs
+
+    # ── Indexation FTS5 (best-effort) ─────────────────────────────────────
+    try:
+        from app.services.doc_index import index_document, extract_text as _xt
+        from sqlalchemy import select as _sel
+        from app.models.documents import Document as _Doc
+        recently_added = (await db.execute(
+            _sel(_Doc).where(
+                _Doc.folder_id == folder_id,
+                _Doc.storage_path.in_([t[0] for t in _to_index]),
+            )
+        )).scalars().all()
+        for _d in recently_added:
+            _body = _xt(_d.storage_path, _d.mime_type)
+            await index_document(db, _d.id, _d.name, _body)
+    except Exception:
+        pass
 
     await db.commit()
 
@@ -732,6 +753,66 @@ async def document_view(
 
 
 # ── Admin — créer espace ──────────────────────────────────────────────────────
+
+@router.get("/search", response_class=HTMLResponse)
+async def documents_search(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = "",
+):
+    """Recherche full-text dans tous les documents accessibles par le membre."""
+    user, member = ctx
+    results = []
+    if q.strip():
+        from app.services.doc_index import search_documents
+        hits = await search_documents(db, q.strip(), limit=50)
+        if hits:
+            doc_ids = [h["doc_id"] for h in hits]
+            hit_map = {h["doc_id"]: h for h in hits}
+            docs_r = await db.execute(
+                select(Document)
+                .options(selectinload(Document.folder))
+                .where(Document.id.in_(doc_ids), Document.status == DocStatus.PUBLISHED)
+            )
+            docs = {d.id: d for d in docs_r.scalars().all()}
+            for doc_id in doc_ids:
+                doc = docs.get(doc_id)
+                if not doc:
+                    continue
+                folder = doc.folder
+                # Vérif accès
+                if not await _can_access(
+                    member, user,
+                    folder.min_grade, folder.group_id, db,
+                    personal_owner_id=folder.personal_owner_id,
+                ):
+                    continue
+                results.append({
+                    "doc": doc,
+                    "folder": folder,
+                    "snip_title": hit_map[doc_id]["snip_title"],
+                    "snip_body": hit_map[doc_id]["snip_body"],
+                })
+    return templates.TemplateResponse(request, "pages/documents/search.html", {
+        "current_user": user,
+        "current_member": member,
+        "q": q,
+        "results": results,
+        "is_admin": user.is_admin,
+    })
+
+
+@router.post("/admin/reindex")
+async def admin_reindex(
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Lance une ré-indexation complète de la GED."""
+    from app.services.doc_index import reindex_all
+    count = await reindex_all(db)
+    return RedirectResponse(url=f"/admin/data?_msg=reindexed&n={count}", status_code=303)
+
 
 @router.post("/admin/space")
 async def admin_create_space(
@@ -1184,47 +1265,7 @@ async def documents_picker(
     return results
 
 
-@router.get("/search", response_class=HTMLResponse)
-async def documents_search(
-    request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-    q: str = "",
-):
-    user, member = ctx
-
-    results = []
-    if q.strip():
-        pattern = f"%{q.strip()}%"
-        docs_r = await db.execute(
-            select(Document)
-            .options(selectinload(Document.folder))
-            .where(
-                Document.deleted_at == None,
-                Document.status == DocStatus.PUBLISHED,
-                or_(Document.name.ilike(pattern), Document.description.ilike(pattern)),
-            )
-        )
-        all_docs = docs_r.scalars().all()
-
-        for doc in all_docs:
-            folder = doc.folder
-            if not folder:
-                continue
-            space = await db.get(DocSpace, folder.space_id)
-            if not space:
-                continue
-            if (await _can_access(member, user, folder.min_grade, folder.group_id, db)
-                    and await _can_access(member, user, space.min_grade, space.group_id, db)):
-                results.append(doc)
-
-    return templates.TemplateResponse(request, "pages/documents/search.html", {
-        "current_member": member,
-        "current_user": user,
-        "documents": results,
-        "q": q,
-        "is_admin": user.is_admin,
-    })
+# (ancien endpoint /search supprimé — remplacé par la version FTS5 ci-dessus)
 
 
 # ── Feature 3 — Versioning ────────────────────────────────────────────────────

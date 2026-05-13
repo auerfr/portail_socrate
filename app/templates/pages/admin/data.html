@@ -79,7 +79,19 @@
   <section class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
     <h2 class="font-semibold text-gray-900 mb-3"><i class="ti ti-tools text-amber-600"></i> Maintenance</h2>
     <div class="space-y-3 text-sm">
-      <form method="post" action="/admin/data/vacuum"
+        <form method="post" action="/documents/admin/reindex"
+            onsubmit="return confirm('Lancer la ré-indexation full-text de tous les documents publiés ? Peut prendre quelques secondes.')"
+            class="flex items-center justify-between gap-3 bg-loge-50 border border-loge-200 rounded-xl px-3 py-2">
+        <div>
+          <div class="font-semibold text-loge-900">Re-indexer la GED (full-text)</div>
+          <div class="text-xs text-loge-700">Reconstruit l'index de recherche depuis tous les PDF, Word et fichiers texte publiés.</div>
+        </div>
+        <button class="bg-loge-700 hover:bg-loge-800 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap">
+          <i class="ti ti-refresh"></i> Re-indexer
+        </button>
+      </form>
+
+    <form method="post" action="/admin/data/vacuum"
             onsubmit="return confirm('Lancer VACUUM ? La base sera verrouillée quelques secondes.')"
             class="flex items-center justify-between gap-3 bg-amber-50 border border-amber-200 rounded-xl px-3 py-2">
         <div>
