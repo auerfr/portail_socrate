@@ -304,6 +304,12 @@
       </a>
       {% endif %}
 
+      <a href="/bookmarks/"
+         class="nav-item {% if '/bookmarks' in request.url.path %}active{% endif %}">
+        <i class="ti ti-bookmarks"></i>
+        Liens partagés
+      </a>
+
       <div class="nav-section">Gestion</div>
 
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'TRESORIER'])) %}

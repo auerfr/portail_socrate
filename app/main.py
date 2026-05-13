@@ -34,6 +34,7 @@ from app.routers import forum as forum_router
 from app.routers import projects as projects_router
 from app.routers import admin as admin_router
 from app.routers import mailing as mailing_router
+from app.routers import bookmarks as bookmarks_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -46,6 +47,7 @@ import app.models.content       # noqa: F401
 import app.models.system        # noqa: F401  # PushSubscription, Notification, etc.
 import app.models.forum         # noqa: F401  # ForumTheme/Subject/Message/Subscription
 import app.models.mailing       # noqa: F401  # MailingList/Campaign/Delivery
+import app.models.bookmarks     # noqa: F401  # Bookmark
 from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -650,6 +652,7 @@ app.include_router(forum_router.router)
 app.include_router(projects_router.router)
 app.include_router(admin_router.router)
 app.include_router(mailing_router.router)
+app.include_router(bookmarks_router.router)
 # app.include_router(admin.router)
 
 
