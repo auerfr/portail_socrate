@@ -133,6 +133,24 @@ async def dashboard(
         for m in mr.scalars().all():
             members_cache[m.id] = m
 
+    # Stats par membre : tâches totales + done + taux de complétion
+    member_stats: dict[int, dict] = {}
+    if member_ids:
+        for mid in member_ids:
+            total = (await db.execute(
+                select(func.count(Task.id)).where(Task.assigned_to_id == mid)
+            )).scalar() or 0
+            done = (await db.execute(
+                select(func.count(Task.id)).where(
+                    Task.assigned_to_id == mid, Task.status == TaskStatus.DONE
+                )
+            )).scalar() or 0
+            member_stats[mid] = {
+                "total": total,
+                "done": done,
+                "pct": int(done * 100 / total) if total else 0,
+            }
+
     # Stats globales
     total_tasks = (await db.execute(select(func.count(Task.id)))).scalar() or 0
     done_tasks = (await db.execute(select(func.count(Task.id)).where(Task.status == TaskStatus.DONE))).scalar() or 0
@@ -148,6 +166,7 @@ async def dashboard(
         "soon": soon,
         "load": load,
         "members_cache": members_cache,
+        "member_stats": member_stats,
         "total_tasks": total_tasks,
         "done_tasks": done_tasks,
         "active_projects": active_projects,
@@ -950,6 +969,61 @@ async def project_ical(
     return Response(
         content=body, media_type="text/calendar; charset=utf-8",
         headers={"Content-Disposition": f'attachment; filename="projet-{project_id}.ics"'},
+    )
+
+
+@router.get("/{project_id}/export.csv")
+async def project_export_csv(
+    project_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Export CSV des tâches d'un projet (racines + sous-tâches)."""
+    import csv as csvmod
+    import io
+    user, member = ctx
+    p = (await db.execute(select(Project).where(Project.id == project_id))).scalar_one_or_none()
+    if not p:
+        raise HTTPException(404)
+
+    tasks = (await db.execute(
+        select(Task).where(Task.project_id == project_id)
+        .order_by(Task.order_position, Task.created_at)
+    )).scalars().all()
+
+    # Cache assignés
+    mids = {t.assigned_to_id for t in tasks if t.assigned_to_id}
+    mcache: dict[int, Member] = {}
+    if mids:
+        for m in (await db.execute(select(Member).where(Member.id.in_(mids)))).scalars().all():
+            mcache[m.id] = m
+
+    buf = io.StringIO()
+    buf.write('﻿')  # BOM pour Excel
+    w = csvmod.writer(buf, delimiter=';', quoting=csvmod.QUOTE_ALL)
+    w.writerow(["ID", "Titre", "Statut", "Priorité", "Assigné", "Début", "Échéance",
+                "Avancement (%)", "Jalon", "Sous-tâche de", "Créé le"])
+    for t in tasks:
+        assignee = ""
+        if t.assigned_to_id and t.assigned_to_id in mcache:
+            m = mcache[t.assigned_to_id]
+            assignee = f"{m.first_name} {m.last_name}"
+        w.writerow([
+            t.id, t.title, t.status.value, t.priority.value,
+            assignee,
+            t.start_date.isoformat() if t.start_date else "",
+            t.due_date.isoformat() if t.due_date else "",
+            t.progress,
+            "Oui" if t.is_milestone else "Non",
+            t.parent_task_id or "",
+            t.created_at.strftime("%d/%m/%Y") if t.created_at else "",
+        ])
+
+    fname = f"projet-{project_id}-taches.csv"
+    return Response(
+        content=buf.getvalue().encode("utf-8"),
+        media_type="text/csv; charset=utf-8",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
     )
 
 

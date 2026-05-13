@@ -103,11 +103,28 @@
     <ul class="divide-y divide-gray-100">
       {% for mid, count in load %}
       {% set m = members_cache.get(mid) %}
-      <li class="px-5 py-3 flex items-center justify-between">
-        <div class="text-sm text-gray-800">
-          {% if m %}{{ m.first_name }} {{ m.last_name }}{% else %}—{% endif %}
+      {% set ms = member_stats.get(mid, {}) %}
+      <li class="px-5 py-3">
+        <div class="flex items-center justify-between mb-1">
+          <div class="text-sm font-medium text-gray-800">
+            {% if m %}{{ m.first_name }} {{ m.last_name }}{% else %}—{% endif %}
+          </div>
+          <div class="flex items-center gap-2 text-xs text-gray-500">
+            <span class="font-semibold text-loge-700">{{ count }} en cours</span>
+            <span>·</span>
+            <span>{{ ms.done or 0 }}/{{ ms.total or 0 }} terminées</span>
+            <span class="ml-1 font-semibold text-{% if ms.pct and ms.pct >= 80 %}emerald{% elif ms.pct and ms.pct >= 40 %}amber{% else %}gray{% endif %}-700">
+              {{ ms.pct or 0 }}%
+            </span>
+          </div>
         </div>
-        <span class="text-xs font-semibold text-loge-700 bg-loge-50 px-2 py-1 rounded-full">{{ count }} active{{ 's' if count > 1 else '' }}</span>
+        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full rounded-full
+                      {% if ms.pct and ms.pct >= 80 %}bg-emerald-500
+                      {% elif ms.pct and ms.pct >= 40 %}bg-amber-500
+                      {% else %}bg-loge-500{% endif %}"
+               style="width:{{ ms.pct or 0 }}%"></div>
+        </div>
       </li>
       {% endfor %}
     </ul>

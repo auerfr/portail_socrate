@@ -49,6 +49,11 @@
         {% endif %}
       </div>
       <div class="flex items-center gap-2">
+        <a href="/projects/{{ project.id }}/export.csv"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl"
+           title="Export CSV des tâches">
+          <i class="ti ti-table-export"></i> CSV
+        </a>
         <a href="/projects/{{ project.id }}/ical"
            class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl"
            title="Export iCal">
@@ -563,9 +568,10 @@
           <i class="ti ti-list-tree"></i> Sous-tâches
           <span class="text-xs font-normal text-gray-400">({{ subtasks_by_parent.get(t.id, [])|length }})</span>
         </h3>
-        <ul class="space-y-1">
+        <ul class="space-y-1 subtask-list" data-parent="{{ t.id }}">
           {% for st in subtasks_by_parent.get(t.id, []) %}
-          <li class="flex items-center gap-2 text-sm bg-gray-50 rounded-lg px-2 py-1.5">
+          <li class="flex items-center gap-2 text-sm bg-gray-50 rounded-lg px-2 py-1.5 cursor-grab" data-st-id="{{ st.id }}">
+            <i class="ti ti-grip-vertical text-gray-300 text-xs cursor-grab"></i>
             <form method="post" action="/projects/tasks/{{ st.id }}/toggle">
               <button type="submit" class="leading-none {% if st.status.value == 'DONE' %}text-emerald-600{% else %}text-gray-300 hover:text-loge-600{% endif %}">
                 <i class="ti {% if st.status.value == 'DONE' %}ti-circle-check-filled{% else %}ti-circle{% endif %}"></i>
@@ -578,7 +584,7 @@
             </form>
           </li>
           {% else %}
-          <li class="text-xs text-gray-400 text-center py-1">Aucune sous-tâche.</li>
+          <li class="text-xs text-gray-400 text-center py-1 no-drag">Aucune sous-tâche.</li>
           {% endfor %}
         </ul>
         <form method="post" action="/projects/tasks/{{ t.id }}/subtask" class="mt-2 flex gap-2">
@@ -788,6 +794,31 @@
   {% endif %}
 
 </div>
+
+{# ── Sortable.js pour les sous-tâches dans les modals ── #}
+<script src="https://cdn.jsdelivr.net/npm/sortablejs@1.15.0/Sortable.min.js"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+  document.querySelectorAll('.subtask-list').forEach(list => {
+    new Sortable(list, {
+      animation: 150,
+      handle: '.ti-grip-vertical',
+      filter: '.no-drag',
+      ghostClass: 'opacity-50',
+      onEnd: async (evt) => {
+        const items = [...list.querySelectorAll('[data-st-id]')];
+        for (let i = 0; i < items.length; i++) {
+          const stId = items[i].dataset.stId;
+          const fd = new FormData();
+          fd.append('status', 'TODO');  // garde le statut
+          fd.append('position', i);
+          await fetch(`/projects/tasks/${stId}/move`, { method: 'POST', body: fd }).catch(() => {});
+        }
+      }
+    });
+  });
+});
+</script>
 
 {# ── Sortable.js pour drag-and-drop dans le Kanban ── #}
 {% if view == 'kanban' and can_manage %}
