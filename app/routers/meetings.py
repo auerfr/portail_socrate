@@ -694,6 +694,21 @@ async def meeting_banquet(
         + len(agape_guests)
     )
 
+    # ── Substituts désignés pour cette tenue (depuis Conseil d'officiers) ──
+    subs_qs = await db.execute(
+        select(MeetingOffice).where(
+            MeetingOffice.meeting_id == meeting_id,
+            MeetingOffice.substitute_member_id.isnot(None),
+        )
+    )
+    subs_by_office = {s.office_label: s for s in subs_qs.scalars().all()}
+    sub_member_ids = {s.substitute_member_id for s in subs_by_office.values()}
+    sub_members_cache: dict[int, Member] = {}
+    if sub_member_ids:
+        sm = await db.execute(select(Member).where(Member.id.in_(sub_member_ids)))
+        for m in sm.scalars().all():
+            sub_members_cache[m.id] = m
+
     # Résumé régimes
     diet_counts: dict[str, int] = {}
     for g in agape_guests:
@@ -715,6 +730,8 @@ async def meeting_banquet(
         "agape_members": agape_members,
         "agape_visitors": agape_visitors,
         "agape_guests": agape_guests,
+        "subs_by_office": subs_by_office,
+        "sub_members_cache": sub_members_cache,
         "total_covers": total_covers,
         "diet_counts": diet_counts,
         "diet_labels": diet_labels,
@@ -772,6 +789,25 @@ def _can_manage_officiers(user, member) -> bool:
         LodgeFunction.VM, LodgeFunction.SECRETAIRE,
         LodgeFunction.PREMIER_S, LodgeFunction.SECOND_S,
     )
+
+
+@router.get("/me/officiers")
+async def my_officiers(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Redirige vers le Conseil d'officiers de la prochaine tenue (VM/Surveillants)."""
+    user, member = ctx
+    today = date.today()
+    r = await db.execute(
+        select(Meeting).where(Meeting.meeting_date >= today)
+        .order_by(Meeting.meeting_date.asc())
+        .limit(1)
+    )
+    m = r.scalar_one_or_none()
+    if not m:
+        return RedirectResponse(url="/meetings/", status_code=303)
+    return RedirectResponse(url=f"/meetings/{m.id}/officiers", status_code=303)
 
 
 @router.get("/{meeting_id}/officiers", response_class=HTMLResponse)
@@ -871,6 +907,108 @@ async def meeting_officiers(
         "all_active": all_active,
         "AttendanceStatus": AttendanceStatus,
     })
+
+
+@router.get("/{meeting_id}/officiers/export.pdf")
+async def meeting_officiers_pdf(
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Génère un PDF du conseil d'officiers via ReportLab."""
+    from fastapi.responses import StreamingResponse
+    import io
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle
+    except Exception:
+        raise HTTPException(500, "ReportLab manquant")
+
+    user, member = ctx
+    if not _can_manage_officiers(user, member):
+        raise HTTPException(403)
+
+    meeting = (await db.execute(
+        select(Meeting).options(selectinload(Meeting.attendances).selectinload(Attendance.member))
+        .where(Meeting.id == meeting_id)
+    )).scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(404)
+
+    offices = (await db.execute(select(LodgeOffice).order_by(LodgeOffice.sort_order, LodgeOffice.label))).scalars().all()
+    holder_ids = {o.member_id for o in offices if o.member_id}
+    holders: dict[int, Member] = {}
+    if holder_ids:
+        for m in (await db.execute(select(Member).where(Member.id.in_(holder_ids)))).scalars().all():
+            holders[m.id] = m
+    presence = {att.member_id: att.status.value for att in meeting.attendances}
+    subs = (await db.execute(select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id))).scalars().all()
+    sub_map = {s.office_label: s for s in subs}
+    sub_ids = {s.substitute_member_id for s in subs if s.substitute_member_id}
+    if sub_ids:
+        for m in (await db.execute(select(Member).where(Member.id.in_(sub_ids)))).scalars().all():
+            holders[m.id] = m
+    lodge_s = (await db.execute(select(LodgeSettings).limit(1))).scalar_one_or_none()
+    lodge_name = lodge_s.name if lodge_s else "Loge Socrate"
+
+    # Build PDF
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(buf, pagesize=A4, leftMargin=2*cm, rightMargin=2*cm, topMargin=2.5*cm, bottomMargin=2*cm)
+    styles = getSampleStyleSheet()
+    teal = colors.HexColor("#2c7a7b")
+    h1 = ParagraphStyle("H1", parent=styles["Heading1"], textColor=teal, fontSize=16)
+    h2 = ParagraphStyle("H2", parent=styles["Normal"], textColor=teal, fontSize=9, fontName="Helvetica-Bold")
+    normal = ParagraphStyle("N", parent=styles["Normal"], fontSize=9)
+
+    STATUS_LABEL = {"PRESENT": "✓ Présent", "EXCUSED": "⚠ Excusé", "ABSENT": "✗ Absent"}
+    STATUS_COLOR = {"PRESENT": colors.HexColor("#047857"), "EXCUSED": colors.HexColor("#b45309"), "ABSENT": colors.HexColor("#be123c")}
+
+    elems = [
+        Paragraph(lodge_name, h1),
+        Paragraph(f"Conseil d'officiers — {meeting.title or meeting.type.value} du {meeting.meeting_date.strftime('%d/%m/%Y')}", normal),
+        Spacer(1, 0.5*cm),
+    ]
+    header_row = [Paragraph(h, h2) for h in ["Office", "Titulaire", "Présence", "Remplaçant", "Notes"]]
+    data = [header_row]
+    for o in offices:
+        holder = holders.get(o.member_id) if o.member_id else None
+        st = presence.get(o.member_id, "") if o.member_id else ""
+        sub_record = sub_map.get(o.label)
+        sub = holders.get(sub_record.substitute_member_id) if sub_record and sub_record.substitute_member_id else None
+        holder_name = f"{holder.first_name} {holder.last_name}" if holder else "Vacant"
+        sub_name = f"{sub.first_name} {sub.last_name}" if sub else "—"
+        st_label = STATUS_LABEL.get(st, "—")
+        st_color = STATUS_COLOR.get(st, colors.HexColor("#6b7280"))
+        data.append([
+            Paragraph(o.label, normal),
+            Paragraph(holder_name, normal),
+            Paragraph(f'<font color="{st_color.hexval()}">{st_label}</font>', normal) if st else Paragraph("—", normal),
+            Paragraph(sub_name, ParagraphStyle("sub", parent=normal, textColor=teal) if sub else normal),
+            Paragraph(sub_record.notes or "" if sub_record else "", normal),
+        ])
+
+    col_w = [3.5*cm, 4*cm, 3*cm, 4*cm, 3*cm]
+    tbl = Table(data, colWidths=col_w)
+    tbl.setStyle(TableStyle([
+        ("BACKGROUND", (0,0), (-1,0), colors.HexColor("#e6f4f1")),
+        ("FONTNAME", (0,0), (-1,0), "Helvetica-Bold"),
+        ("FONTSIZE", (0,0), (-1,-1), 9),
+        ("GRID", (0,0), (-1,-1), 0.25, colors.HexColor("#cccccc")),
+        ("VALIGN", (0,0), (-1,-1), "TOP"),
+        ("ROWBACKGROUNDS", (0,1), (-1,-1), [colors.white, colors.HexColor("#f7fafa")]),
+        ("LEFTPADDING", (0,0), (-1,-1), 5),
+        ("RIGHTPADDING", (0,0), (-1,-1), 5),
+    ]))
+    elems.append(tbl)
+    doc.build(elems)
+    buf.seek(0)
+    return StreamingResponse(
+        buf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="officiers-{meeting_id}.pdf"'},
+    )
 
 
 @router.get("/{meeting_id}/officiers/print", response_class=HTMLResponse)

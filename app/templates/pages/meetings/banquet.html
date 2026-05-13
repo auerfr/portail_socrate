@@ -166,6 +166,30 @@
     {% endif %}
   </div>
 
+  <!-- Substituts désignés (depuis Conseil d'officiers) -->
+  {% if subs_by_office %}
+  <div class="bg-loge-50 border border-loge-200 rounded-xl p-5">
+    <h2 class="text-sm font-semibold text-loge-800 mb-3">
+      <i class="ti ti-crown"></i> Substituts désignés pour cette tenue
+    </h2>
+    <ul class="space-y-1.5 text-sm">
+      {% for label, sub_record in subs_by_office.items() %}
+      {% set sub_m = sub_members_cache.get(sub_record.substitute_member_id) %}
+      <li class="flex items-center justify-between bg-white rounded-lg px-3 py-1.5">
+        <span class="text-gray-600 font-medium">{{ label }}</span>
+        <span class="text-loge-800 font-semibold">
+          {% if sub_m %}{{ sub_m.first_name }} {{ sub_m.last_name }}{% else %}—{% endif %}
+          {% if sub_record.notes %}<span class="text-xs text-gray-400 ml-1">({{ sub_record.notes }})</span>{% endif %}
+        </span>
+      </li>
+      {% endfor %}
+    </ul>
+    <p class="text-[11px] text-loge-600 mt-2">
+      Configuré depuis <a href="/meetings/{{ meeting.id }}/officiers" class="underline">Conseil d'officiers</a>.
+    </p>
+  </div>
+  {% endif %}
+
   <!-- Liste d'attente -->
   {% if meeting.waitlist %}
   <div class="bg-white rounded-xl border border-amber-200 shadow-sm p-5">
