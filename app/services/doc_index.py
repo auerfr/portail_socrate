@@ -151,10 +151,10 @@ async def reindex_all(db: AsyncSession) -> int:
     """Reconstruit l'index complet depuis tous les documents publiés.
 
     Retourne le nombre de documents indexés.
+    Commits par batch de 50 pour libérer le verrou régulièrement et
+    permettre aux autres requêtes de passer.
     """
-    from app.database import AsyncSessionLocal
     from app.models.documents import Document, DocStatus
-
     from sqlalchemy import select
 
     docs = (await db.execute(
@@ -164,12 +164,20 @@ async def reindex_all(db: AsyncSession) -> int:
         )
     )).scalars().all()
 
+    # Vider l'index en une seule opération
     await db.execute(text("DELETE FROM doc_fts"))
+    await db.commit()
+
+    BATCH = 50
     count = 0
-    for doc in docs:
+    for i, doc in enumerate(docs):
         body = extract_text(doc.storage_path, doc.mime_type)
         if body or doc.name:
             await index_document(db, doc.id, doc.name, body)
             count += 1
-    await db.commit()
+        # Commit tous les 50 docs → libère le verrou brièvement
+        if (i + 1) % BATCH == 0:
+            await db.commit()
+
+    await db.commit()  # dernier batch
     return count

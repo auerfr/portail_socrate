@@ -69,6 +69,13 @@ settings = get_settings()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    # ── WAL mode : lectures simultanées même pendant une écriture ────────────
+    # Indispensable pour éviter "database is locked" quand la ré-indexation
+    # ou une sauvegarde tourne en parallèle d'une requête utilisateur.
+    async with engine.begin() as conn:
+        await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+        await conn.exec_driver_sql("PRAGMA busy_timeout=30000")  # 30s
+
     # Démarrage : créer les tables si elles n'existent pas
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)

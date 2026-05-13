@@ -21,7 +21,10 @@ _is_sqlite = settings.database_url.startswith("sqlite")
 engine = create_async_engine(
     settings.database_url,
     echo=settings.environment == "development",
-    connect_args={"check_same_thread": False} if _is_sqlite else {},
+    connect_args={
+        "check_same_thread": False,
+        "timeout": 30,  # attendre jusqu'à 30s si la DB est verrouillée
+    } if _is_sqlite else {},
     **({} if _is_sqlite else {"pool_pre_ping": True, "pool_size": 10, "max_overflow": 20}),
 )
 
