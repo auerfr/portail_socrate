@@ -8,6 +8,9 @@ taskkill /F /IM python3.13.exe >nul 2>&1
 taskkill /F /IM python.exe >nul 2>&1
 timeout /t 2 /nobreak >nul
 
+echo  Nettoyage cache Python __pycache__...
+for /d /r app %%d in (__pycache__) do @if exist "%%d" rd /s /q "%%d" >nul 2>&1
+
 echo.
 echo  =====================================
 echo   Portail Socrate - Lancement
