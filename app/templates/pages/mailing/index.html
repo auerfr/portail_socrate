@@ -69,16 +69,28 @@
             {{ c.created_at.strftime('%d/%m/%Y %H:%M') }}
           </div>
         </div>
-        <div class="text-right text-xs">
+        <div class="flex items-center gap-1.5 justify-end text-xs flex-shrink-0">
           {% set st = c.status.value %}
           {% if st == 'SENT' %}
           <span class="font-semibold text-emerald-700">✓ {{ c.sent_count }}/{{ c.recipients_count }}</span>
           {% elif st == 'SENDING' %}
-          <span class="font-semibold text-loge-700">⟳ En cours…</span>
+          <span class="font-semibold text-loge-700 animate-pulse">⟳ En cours…</span>
           {% elif st == 'DRAFT' %}
-          <span class="font-semibold text-gray-500">📝 Brouillon</span>
+          {% set lid = lists_by_id.get(c.list_id) %}
+          {% if lid %}
+          <a href="/mailing/lists/{{ lid.id }}/compose?draft_id={{ c.id }}"
+             class="px-2 py-1 rounded-lg text-loge-700 bg-loge-50 hover:bg-loge-100 font-semibold">✏ Modifier</a>
+          {% endif %}
+          <form method="post" action="/mailing/campaigns/{{ c.id }}/delete"
+                onsubmit="return confirm('Supprimer ce brouillon ?')">
+            <button class="px-2 py-1 rounded-lg text-rose-700 bg-rose-50 hover:bg-rose-100 font-semibold">🗑</button>
+          </form>
           {% elif st == 'FAILED' %}
           <span class="font-semibold text-rose-700">✗ Échec</span>
+          <form method="post" action="/mailing/campaigns/{{ c.id }}/delete"
+                onsubmit="return confirm('Supprimer ?')">
+            <button class="px-1.5 py-0.5 rounded text-rose-600 bg-rose-50 hover:bg-rose-100 text-[10px]">🗑</button>
+          </form>
           {% endif %}
         </div>
       </li>

@@ -598,6 +598,27 @@ async def list_external_import_csv(
     )
 
 
+@router.post("/campaigns/{campaign_id}/delete")
+async def campaign_delete(
+    campaign_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Supprime une campagne brouillon (ou en échec)."""
+    user, member = ctx
+    if not _can_send(user, member):
+        raise HTTPException(403)
+    campaign = await db.get(MailingCampaign, campaign_id)
+    if not campaign:
+        raise HTTPException(404)
+    if campaign.status not in (CampaignStatus.DRAFT, CampaignStatus.FAILED, CampaignStatus.CANCELLED):
+        raise HTTPException(400, "Seuls les brouillons et campagnes en échec peuvent être supprimés")
+    list_id = campaign.list_id
+    await db.delete(campaign)
+    await db.commit()
+    return RedirectResponse(url=f"/mailing/lists/{list_id}", status_code=303)
+
+
 @router.post("/campaigns/{campaign_id}/retry")
 async def campaign_retry(
     campaign_id: int,
