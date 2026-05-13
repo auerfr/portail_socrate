@@ -51,7 +51,18 @@
   <!-- En-tête -->
   <div class="flex items-center justify-between gap-3">
     <div>
-      <h1 class="text-xl font-bold text-gray-900">{{ folder.name }}</h1>
+      <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2 flex-wrap">
+        {{ folder.name }}
+        {% if not folder.allow_download %}
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+          <i class="ti ti-lock"></i> Lecture seule
+        </span>
+        {% elif folder.download_group_id %}
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-blue-50 text-blue-700 border border-blue-200">
+          <i class="ti ti-download"></i> Téléchargement restreint
+        </span>
+        {% endif %}
+      </h1>
       {% if folder.description %}
       <p class="text-sm text-gray-500 mt-0.5">{{ folder.description }}</p>
       {% endif %}
@@ -452,23 +463,32 @@
             </button>
             {% endif %}
 
-            <!-- Ouvrir / Télécharger -->
+            <!-- Ouvrir / Télécharger — conditionnel selon droits -->
+            {% if is_link %}
             <a href="/documents/file/{{ doc.id }}/download"
-               {% if is_link %}target="_blank" rel="noopener"{% endif %}
+               target="_blank" rel="noopener"
                class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors"
-               style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2c7a7b;background:#e6f4f1;{% endif %}">
-              {% if is_link %}
+               style="{% if platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2c7a7b;background:#e6f4f1;{% endif %}">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M13.5 6H5.25A2.25 2.25 0 003 8.25v10.5A2.25 2.25 0 005.25 21h10.5A2.25 2.25 0 0018 18.75V10.5m-10.5 6L21 3m0 0h-5.25M21 3v5.25"/>
               </svg>
               Ouvrir
-              {% else %}
+            </a>
+            {% elif can_download %}
+            <a href="/documents/file/{{ doc.id }}/download"
+               class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg transition-colors"
+               style="color:#2c7a7b;background:#e6f4f1;">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5M16.5 12L12 16.5m0 0L7.5 12m4.5 4.5V3"/>
               </svg>
               Télécharger
-              {% endif %}
             </a>
+            {% else %}
+            <span class="flex items-center gap-1.5 text-xs font-medium px-2.5 py-1.5 rounded-lg text-gray-400 bg-gray-100"
+                  title="Lecture seule — téléchargement non autorisé pour ce dossier">
+              <i class="ti ti-lock"></i> Lecture seule
+            </span>
+            {% endif %}
 
             <!-- Bouton Partager (visible pour tous les membres) -->
             <button type="button"
@@ -651,12 +671,18 @@
               Aperçu
             </button>
             {% endif %}
+            {% if is_link or can_download %}
             <a href="/documents/file/{{ doc.id }}/download"
                {% if is_link %}target="_blank" rel="noopener"{% endif %}
                class="block text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
                style="{% if is_link and platform %}color:{{ platform.color }};background:{{ platform.bg }};{% else %}color:#2c7a7b;background:#e6f4f1;{% endif %}">
               {% if is_link %}Ouvrir{% else %}Télécharger{% endif %}
             </a>
+            {% else %}
+            <span class="block text-center text-xs py-1.5 text-gray-400">
+              <i class="ti ti-lock"></i> Lecture seule
+            </span>
+            {% endif %}
             {% if is_admin %}
             <form method="post" action="/documents/file/{{ doc.id }}/trash">
               <button type="submit" class="block w-full text-center text-xs text-red-400 hover:text-red-600 py-0.5 transition-colors">

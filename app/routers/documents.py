@@ -83,6 +83,51 @@ async def _can_access(
     return member_lvl >= required
 
 
+async def _can_download(member: Member, user, folder: DocFolder, db: AsyncSession) -> bool:
+    """Peut-on télécharger depuis ce dossier ?
+
+    Priorités :
+    1. Admin → toujours oui
+    2. allow_download = False → non pour tout le monde (sauf admin)
+    3. download_group_id défini → seulement ce groupe
+    4. sinon → oui (même règle que la lecture)
+    """
+    if user.is_admin:
+        return True
+    if not folder.allow_download:
+        return False
+    if folder.download_group_id:
+        grp = await db.get(LodgeGroup, folder.download_group_id)
+        if not grp:
+            return False
+        member_ids = await resolve_group_member_ids(db, grp)
+        return member.id in member_ids
+    return True
+
+
+async def _can_write(member: Member, user, folder: DocFolder, db: AsyncSession) -> bool:
+    """Peut-on écrire (upload / édition / suppression) dans ce dossier ?
+
+    Priorités :
+    1. Admin → toujours oui
+    2. write_group_id défini → seulement ce groupe
+    3. write_min_grade → grade minimum requis
+    4. si les deux sont à leur valeur par défaut (ALL + pas de groupe) → même règle que la lecture
+    """
+    if user.is_admin:
+        return True
+    if folder.write_group_id:
+        grp = await db.get(LodgeGroup, folder.write_group_id)
+        if not grp:
+            return False
+        member_ids = await resolve_group_member_ids(db, grp)
+        return member.id in member_ids
+    # Grade minimum pour écrire
+    member_lvl = _GRADE_ORDER.get(member.masonic_grade, 0)
+    required   = _MIN_GRADE_ORDER.get(folder.write_min_grade, 0)
+    return member_lvl >= required
+
+
 async def _get_or_create_personal_space(db: AsyncSession) -> DocSpace:
     r = await db.execute(select(DocSpace).where(DocSpace.name == PERSONAL_SPACE_NAME))
     space = r.scalar_one_or_none()
@@ -336,6 +381,10 @@ async def documents_folder(
         for f in all_folders_r.scalars().all()
     ]
 
+    # Droits granulaires pour le template
+    can_dl    = await _can_download(member, user, folder, db)
+    can_write = await _can_write(member, user, folder, db)
+
     return templates.TemplateResponse(request, "pages/documents/folder.html", {
         "current_member": member,
         "current_user": user,
@@ -348,7 +397,9 @@ async def documents_folder(
         "all_groups": all_groups,
         "breadcrumb": breadcrumb,
         "is_admin": user.is_admin,
-        "can_upload": True,
+        "can_upload": can_write,
+        "can_download": can_dl,
+        "can_write": can_write,
         "saved": request.query_params.get("saved"),
         "error": request.query_params.get("error"),
         "sort": sort,
@@ -589,6 +640,14 @@ async def documents_download(
     user, member = ctx
     doc = await _get_authorized_doc(doc_id, user, member, db)
 
+    # ── Vérification permission téléchargement ──────────────────────────────
+    folder = await db.get(DocFolder, doc.folder_id)
+    if folder and not await _can_download(member, user, folder, db):
+        raise HTTPException(
+            status_code=403,
+            detail="Ce document est en lecture seule — le téléchargement n'est pas autorisé."
+        )
+
     if doc.link_url:
         doc.download_count = (doc.download_count or 0) + 1
         await db.commit()
@@ -656,6 +715,9 @@ async def document_view(
     is_previewable = doc.storage_path and doc.mime_type and (
         doc.mime_type.startswith("image/") or doc.mime_type == "application/pdf"
     )
+    # Droits granulaires pour le template
+    can_dl    = await _can_download(member, user, folder, db)
+    can_write = await _can_write(member, user, folder, db)
     return templates.TemplateResponse(request, "pages/documents/file_view.html", {
         "current_member": member,
         "current_user": user,
@@ -664,6 +726,8 @@ async def document_view(
         "space": space,
         "is_admin": user.is_admin,
         "is_previewable": is_previewable,
+        "can_download": can_dl,
+        "can_write": can_write,
     })
 
 
@@ -850,6 +914,12 @@ async def folder_edit_save(
     group_id: str = Form(""),
     order_position: int = Form(0),
     move_to: Optional[str] = Form(None),
+    # Permissions téléchargement
+    allow_download: str = Form("1"),
+    download_group_id: str = Form(""),
+    # Permissions écriture
+    write_group_id: str = Form(""),
+    write_min_grade: str = Form("ALL"),
 ):
     folder = await db.get(DocFolder, folder_id)
     if not folder:
@@ -859,6 +929,11 @@ async def folder_edit_save(
     folder.min_grade = MinGrade(min_grade)
     folder.group_id = int(group_id) if group_id.strip().isdigit() else None
     folder.order_position = order_position
+    # Permissions granulaires
+    folder.allow_download   = allow_download in ("1", "on", "true")
+    folder.download_group_id = int(download_group_id) if download_group_id.strip().isdigit() else None
+    folder.write_group_id   = int(write_group_id) if write_group_id.strip().isdigit() else None
+    folder.write_min_grade  = MinGrade(write_min_grade) if write_min_grade in MinGrade.__members__ else MinGrade.ALL
     # Déplacement optionnel via le sélecteur "move_to" (format "folder:42" ou "space:3")
     if move_to and ":" in move_to:
         target_type, target_id_str = move_to.split(":", 1)

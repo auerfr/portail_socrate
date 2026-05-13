@@ -185,6 +185,23 @@ async def lifespan(app: FastAPI):
             await conn.exec_driver_sql(
                 "ALTER TABLE doc_folders ADD COLUMN personal_owner_id INTEGER REFERENCES members(id) ON DELETE CASCADE"
             )
+        # Permissions granulaires (téléchargement + écriture)
+        if "allow_download" not in cols_df:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN allow_download BOOLEAN NOT NULL DEFAULT 1"
+            )
+        if "download_group_id" not in cols_df:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN download_group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
+            )
+        if "write_group_id" not in cols_df:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN write_group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
+            )
+        if "write_min_grade" not in cols_df:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN write_min_grade VARCHAR(20) NOT NULL DEFAULT 'ALL'"
+            )
 
         # ── GED — table doc_shares (partage externe) ──────────────────────────
         r_ds2 = await conn.exec_driver_sql("PRAGMA table_info(doc_shares)")

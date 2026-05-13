@@ -77,6 +77,27 @@ class DocFolder(Base):
         ForeignKey("members.id", ondelete="CASCADE"), nullable=True
     )
 
+    # ── Permissions granulaires (ajout Mai 2026) ──────────────────────────────
+    # TÉLÉCHARGEMENT
+    # - allow_download = False → lecture seule pour tout le monde (sauf admin)
+    # - download_group_id défini → seul ce groupe peut télécharger
+    # - sinon → tous ceux qui peuvent voir peuvent télécharger
+    allow_download: Mapped[bool] = mapped_column(Boolean, default=True)
+    download_group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lodge_groups.id", ondelete="SET NULL"), nullable=True
+    )
+
+    # ÉCRITURE (upload / édition / suppression)
+    # - write_group_id défini → seul ce groupe peut modifier (+ admins)
+    # - write_min_grade défini → grade minimum pour modifier
+    # - les deux à None → héritage des droits de lecture (rétrocompat)
+    write_group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lodge_groups.id", ondelete="SET NULL"), nullable=True
+    )
+    write_min_grade: Mapped[MinGrade] = mapped_column(
+        Enum(MinGrade), default=MinGrade.ALL
+    )
+
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
