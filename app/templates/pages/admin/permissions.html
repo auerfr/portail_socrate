@@ -26,7 +26,7 @@
       </thead>
       <tbody class="divide-y divide-gray-100">
         {% for u, m in user_rows %}
-        {% set user_perms = perms_by_user.get(u.id, set()) %}
+        {% set user_perms = perms_by_user.get(u.id) or [] %}
         <tr class="hover:bg-gray-50">
           <td class="px-4 py-2.5 sticky left-0 bg-white">
             <div class="font-medium text-gray-900">{{ m.last_name }} {{ m.first_name }}</div>

@@ -892,11 +892,14 @@ async def admin_permissions(
     )
     user_rows = list(users_r.all())
 
-    # Permissions actuelles
+    # Permissions actuelles — liste pour compatibilité Jinja2 (set() non disponible)
     perms_r = await db.execute(select(ModulePermission))
-    perms_by_user: dict[int, set] = {}
+    perms_by_user: dict[int, list] = {}
     for p in perms_r.scalars().all():
-        perms_by_user.setdefault(p.user_id, set()).add(p.permission)
+        if p.user_id not in perms_by_user:
+            perms_by_user[p.user_id] = []
+        if p.permission not in perms_by_user[p.user_id]:
+            perms_by_user[p.user_id].append(p.permission)
 
     return templates.TemplateResponse(request, "pages/admin/permissions.html", {
         "current_user": user, "current_member": member,
