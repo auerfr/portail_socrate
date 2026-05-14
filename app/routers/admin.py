@@ -793,6 +793,212 @@ async def admin_session_revoke_all(
     return RedirectResponse(url="/admin/sessions", status_code=303)
 
 
+@router.get("/data/backup/{filename}/inspect", response_class=HTMLResponse)
+async def admin_backup_inspect(
+    filename: str,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+):
+    """Inspecte un backup ZIP."""
+    import zipfile, os
+    user, member = ctx
+    if "/" in filename or ".." in filename or not filename.endswith(".zip"):
+        raise HTTPException(400)
+    path = os.path.join(os.getcwd(), "backups", filename)
+    if not os.path.isfile(path):
+        raise HTTPException(404)
+    try:
+        with zipfile.ZipFile(path) as zf:
+            infos = [{"name": i.filename, "size": i.file_size, "compressed": i.compress_size}
+                     for i in zf.infolist()]
+        total = sum(i["size"] for i in infos)
+    except Exception as e:
+        raise HTTPException(500, f"ZIP invalide : {e}")
+    return templates.TemplateResponse(request, "pages/admin/backup_inspect.html", {
+        "current_user": user, "current_member": member,
+        "filename": filename, "infos": infos,
+        "total_uncompressed": total, "active_tab": "data",
+    })
+
+
+@router.post("/data/backup/{filename}/restore")
+async def admin_backup_restore(
+    filename: str,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    confirm: str = Form(""),
+):
+    """Restaure la DB depuis un backup — DESTRUCTIF, double confirmation requise."""
+    import zipfile, os, shutil
+    from datetime import datetime as _dt
+    user, member = ctx
+    if confirm != "RESTORE":
+        raise HTTPException(400, "Confirmation requise (confirm=RESTORE)")
+    if "/" in filename or ".." in filename or not filename.endswith(".zip"):
+        raise HTTPException(400)
+    path = os.path.join(os.getcwd(), "backups", filename)
+    if not os.path.isfile(path):
+        raise HTTPException(404)
+    with zipfile.ZipFile(path) as zf:
+        db_files = [n for n in zf.namelist() if n.endswith(".db")]
+        if not db_files:
+            raise HTTPException(400, "Aucun fichier .db dans ce backup")
+    # Sauvegarde auto avant restore
+    try:
+        from app.services.backup import run_backup
+        await run_backup(to_email=None)
+    except Exception:
+        pass
+    from app.config import get_settings
+    s = get_settings()
+    db_path = s.database_url.replace("sqlite+aiosqlite:///./", "").replace("sqlite:///./", "")
+    db_abs = os.path.abspath(db_path)
+    stamp = _dt.utcnow().strftime("%Y%m%d_%H%M%S")
+    bak_path = db_abs + f".before_restore_{stamp}"
+    shutil.copy2(db_abs, bak_path)
+    with zipfile.ZipFile(path) as zf:
+        data = zf.read(db_files[0])
+    with open(db_abs, "wb") as f:
+        f.write(data)
+    await log_audit(db, actor_id=member.id, action="BACKUP_RESTORE",
+                    target_label=filename,
+                    details=f"Copie de sécurité : {os.path.basename(bak_path)}",
+                    request=request, commit=True)
+    return templates.TemplateResponse(request, "pages/admin/restore_success.html", {
+        "current_user": user, "current_member": member,
+        "filename": filename, "backup_copy": bak_path, "active_tab": "data",
+    })
+
+
+@router.get("/permissions", response_class=HTMLResponse)
+async def admin_permissions(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Gestion des permissions fines par module."""
+    user, member = ctx
+    from app.services.permissions import ALL_PERMISSIONS
+    from app.models.system import ModulePermission
+    from app.models.identity import User as UserModel
+
+    # Tous les utilisateurs actifs (non admin)
+    users_r = await db.execute(
+        select(UserModel, Member)
+        .join(Member, Member.id == UserModel.member_id)
+        .where(UserModel.is_active == True)  # noqa: E712
+        .order_by(Member.last_name, Member.first_name)
+    )
+    user_rows = list(users_r.all())
+
+    # Permissions actuelles
+    perms_r = await db.execute(select(ModulePermission))
+    perms_by_user: dict[int, set] = {}
+    for p in perms_r.scalars().all():
+        perms_by_user.setdefault(p.user_id, set()).add(p.permission)
+
+    return templates.TemplateResponse(request, "pages/admin/permissions.html", {
+        "current_user": user, "current_member": member,
+        "user_rows": user_rows,
+        "all_permissions": ALL_PERMISSIONS,
+        "perms_by_user": perms_by_user,
+        "active_tab": "users",
+    })
+
+
+@router.post("/permissions/{user_id}/grant")
+async def admin_permission_grant(
+    user_id: int, request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    permission: str = Form(...),
+):
+    actor_user, actor_member = ctx
+    from app.services.permissions import ALL_PERMISSIONS, grant_permission
+    if permission not in ALL_PERMISSIONS:
+        raise HTTPException(400, "Permission inconnue")
+    await grant_permission(db, user_id, permission, granted_by_id=actor_member.id)
+    await log_audit(db, actor_id=actor_member.id, action="PERM_GRANT",
+                    target_type="user", target_id=user_id, target_label=permission,
+                    request=request, commit=True)
+    return RedirectResponse(url="/admin/permissions", status_code=303)
+
+
+@router.post("/permissions/{user_id}/revoke/{permission}")
+async def admin_permission_revoke(
+    user_id: int, permission: str,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    actor_user, actor_member = ctx
+    from app.services.permissions import revoke_permission
+    await revoke_permission(db, user_id, permission)
+    await log_audit(db, actor_id=actor_member.id, action="PERM_REVOKE",
+                    target_type="user", target_id=user_id, target_label=permission,
+                    request=request, commit=True)
+    return RedirectResponse(url="/admin/permissions", status_code=303)
+
+
+@router.get("/email-templates", response_class=HTMLResponse)
+async def admin_email_templates(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    from app.services.email_templates import TEMPLATE_KEYS, get_template
+    templates_data = []
+    for key in TEMPLATE_KEYS:
+        templates_data.append(await get_template(key, db=db))
+    return templates.TemplateResponse(request, "pages/admin/email_templates.html", {
+        "current_user": user, "current_member": member,
+        "templates_data": templates_data, "active_tab": "comm",
+    })
+
+
+@router.post("/email-templates/{key}/save")
+async def admin_email_template_save(
+    key: str,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    subject: str = Form(""),
+    body_html: str = Form(""),
+    body_text: str = Form(""),
+):
+    actor_user, actor_member = ctx
+    from app.services.email_templates import TEMPLATE_KEYS, save_template
+    if key not in TEMPLATE_KEYS:
+        raise HTTPException(400, "Template inconnu")
+    await save_template(db, key, subject, body_html, body_text,
+                        actor_id=actor_member.id)
+    await log_audit(
+        db, actor_id=actor_member.id, action="EMAIL_TEMPLATE_SAVE",
+        target_label=key, details=f"sujet={subject[:60]}", request=request, commit=True,
+    )
+    return RedirectResponse(url=f"/admin/email-templates?_msg=saved&key={key}", status_code=303)
+
+
+@router.post("/email-templates/{key}/reset")
+async def admin_email_template_reset(
+    key: str,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Remet le template à son état par défaut (supprime les overrides)."""
+    actor_user, actor_member = ctx
+    from app.services.settings_store import set_setting
+    await set_setting(db, key, None, actor_id=actor_member.id)
+    await log_audit(
+        db, actor_id=actor_member.id, action="EMAIL_TEMPLATE_RESET",
+        target_label=key, request=request, commit=True,
+    )
+    return RedirectResponse(url=f"/admin/email-templates?_msg=reset&key={key}", status_code=303)
+
+
 @router.get("/confidentiality", response_class=HTMLResponse)
 async def admin_confidentiality(
     request: Request,

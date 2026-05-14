@@ -237,6 +237,10 @@ class User(Base):
     reset_token: Mapped[Optional[str]]           = mapped_column(String(100), nullable=True)
     reset_token_expires: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
 
+    # 2FA TOTP (optionnel, uniquement pour les admins)
+    totp_secret: Mapped[Optional[str]]  = mapped_column(String(64), nullable=True)
+    totp_enabled: Mapped[bool]          = mapped_column(Boolean, default=False)
+
     member: Mapped["Member"] = relationship(back_populates="user")
 
 

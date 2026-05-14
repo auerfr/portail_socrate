@@ -43,6 +43,37 @@ class SystemSetting(Base):
     )
 
 
+class ModulePermission(Base):
+    """Permission fine par module pour un utilisateur.
+
+    Permet de donner à un non-admin l'accès à un module précis
+    (ex: Trésorier → can_manage_finance).
+
+    Permissions disponibles :
+      can_manage_finance  — accès au module Finance (budget, cotisations)
+      can_manage_meetings — créer/modifier des tenues
+      can_manage_members  — gérer les membres (add, edit, grades)
+      can_send_mailing    — envoyer des listes de diffusion
+      can_manage_documents— gérer la GED (upload, dossiers)
+      can_manage_programs — créer/modifier les programmes
+    """
+    __tablename__ = "module_permissions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    user_id: Mapped[int] = mapped_column(
+        ForeignKey("users.id", ondelete="CASCADE"), index=True
+    )
+    permission: Mapped[str] = mapped_column(String(60), index=True)
+    granted_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("members.id", ondelete="SET NULL")
+    )
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    __table_args__ = (
+        {"comment": "Permissions fines par module (non-admin)"},
+    )
+
+
 class UserSession(Base):
     """Session utilisateur enregistrée pour permettre la révocation.
 

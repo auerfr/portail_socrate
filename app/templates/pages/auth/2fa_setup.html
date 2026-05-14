@@ -1,0 +1,81 @@
+{% extends "base.html" %}
+{% block title %}Configuration 2FA{% endblock %}
+
+{% block content %}
+<div class="min-h-screen bg-gray-50 flex items-center justify-center p-4">
+<div class="max-w-md w-full space-y-5">
+
+  <div class="text-center">
+    <h1 class="text-2xl font-bold text-gray-900"><i class="ti ti-shield-lock text-loge-700"></i> Authentification à 2 facteurs</h1>
+    <p class="text-sm text-gray-500 mt-1">Sécurisez votre compte admin avec une application d'authentification (Google Authenticator, Authy, etc.)</p>
+  </div>
+
+  {% set msg = request.query_params.get('_msg') %}
+  {% if msg == 'enabled' %}
+  <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-3 text-sm text-center">
+    <i class="ti ti-check"></i> 2FA activée avec succès. Votre compte est maintenant protégé.
+  </div>
+  {% elif msg == 'disabled' %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-3 text-sm text-center">
+    <i class="ti ti-shield-off"></i> 2FA désactivée.
+  </div>
+  {% endif %}
+
+  {% if already_enabled %}
+  {# 2FA déjà active #}
+  <div class="bg-emerald-50 border border-emerald-200 rounded-2xl p-5 text-center">
+    <div class="text-4xl mb-2">🛡️</div>
+    <div class="font-semibold text-emerald-900 mb-1">2FA activée</div>
+    <p class="text-sm text-emerald-700 mb-4">Votre compte est protégé par une authentification à deux facteurs.</p>
+    <details class="text-left">
+      <summary class="text-sm text-rose-700 cursor-pointer hover:underline">Désactiver la 2FA…</summary>
+      <form method="post" action="/auth/2fa/disable" class="mt-3 space-y-2">
+        <input type="text" name="code" required placeholder="Code à 6 chiffres"
+               class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm text-center font-mono text-lg focus:ring-2 focus:ring-rose-500"
+               maxlength="6" inputmode="numeric">
+        <button class="w-full bg-rose-600 hover:bg-rose-700 text-white text-sm font-semibold py-2 rounded-xl">
+          Désactiver la 2FA
+        </button>
+      </form>
+    </details>
+  </div>
+
+  {% else %}
+  {# Activation #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+    <div>
+      <h2 class="font-semibold text-gray-900 mb-2">1. Scannez le QR code</h2>
+      <div class="flex justify-center">
+        <img src="data:image/png;base64,{{ qr_b64 }}" alt="QR Code 2FA" class="w-48 h-48 border border-gray-200 rounded-lg">
+      </div>
+      <p class="text-xs text-gray-500 text-center mt-2">
+        Ou saisissez manuellement : <code class="font-mono bg-gray-100 px-2 py-0.5 rounded text-xs">{{ temp_secret }}</code>
+      </p>
+    </div>
+
+    <div class="border-t border-gray-100 pt-4">
+      <h2 class="font-semibold text-gray-900 mb-2">2. Entrez le code de vérification</h2>
+      <form method="post" action="/auth/2fa/enable" class="space-y-3">
+        <input type="hidden" name="temp_secret" value="{{ temp_secret }}">
+        <input type="text" name="code" required placeholder="123456"
+               class="w-full border border-gray-200 rounded-xl px-3 py-3 text-center font-mono text-2xl tracking-widest focus:ring-2 focus:ring-loge-500"
+               maxlength="6" inputmode="numeric" autocomplete="one-time-code">
+        <button class="w-full bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold py-2.5 rounded-xl">
+          Activer la 2FA
+        </button>
+      </form>
+    </div>
+  </div>
+
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 text-xs text-amber-800">
+    <strong>⚠ Important :</strong> Notez le code secret {{ temp_secret }} ou sauvegardez votre QR code avant d'activer. En cas de perte, vous ne pourrez plus accéder à votre compte.
+  </div>
+  {% endif %}
+
+  <div class="text-center">
+    <a href="/auth/password" class="text-sm text-gray-500 hover:text-gray-700">← Retour aux paramètres</a>
+  </div>
+
+</div>
+</div>
+{% endblock %}

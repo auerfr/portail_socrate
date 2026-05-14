@@ -39,10 +39,14 @@
             <td class="px-4 py-2 text-xs text-gray-600">{{ b.mtime.strftime('%d/%m/%Y %H:%M') }}</td>
             <td class="px-4 py-2 text-right text-xs text-gray-600">{{ b.size_mb }} Mo</td>
             <td class="px-4 py-2 text-right">
-              <a href="/admin/data/backup/{{ b.filename }}/download"
-                 class="text-loge-700 hover:text-loge-900 text-xs">
-                <i class="ti ti-download"></i>
-              </a>
+              <a href="/admin/data/backup/{{ b.filename }}/inspect"
+               class="text-amber-600 hover:text-amber-800 text-xs" title="Inspecter / Restaurer">
+              <i class="ti ti-database-import"></i>
+            </a>
+            <a href="/admin/data/backup/{{ b.filename }}/download"
+               class="text-loge-700 hover:text-loge-900 text-xs">
+              <i class="ti ti-download"></i>
+            </a>
             </td>
           </tr>
           {% endfor %}

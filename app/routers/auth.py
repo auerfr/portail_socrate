@@ -250,6 +250,128 @@ async def stop_impersonate(request: Request):
 
 # ── Changement de mot de passe (utilisateur connecté) ─────────────────────
 
+# ── 2FA TOTP ──────────────────────────────────────────────────────────────────
+
+@router.get("/2fa/setup", response_class=HTMLResponse)
+async def totp_setup_page(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Page de configuration 2FA (uniquement pour les admins)."""
+    user_obj, member = ctx
+    if not user_obj.is_admin:
+        raise HTTPException(403, "Réservé aux admins")
+    import pyotp, qrcode, io, base64
+    # Génère un secret temporaire (pas encore activé)
+    temp_secret = pyotp.random_base32()
+    totp = pyotp.TOTP(temp_secret)
+    provisioning_url = totp.provisioning_uri(
+        name=user_obj.login,
+        issuer_name=f"Portail Socrate",
+    )
+    # Génère le QR code
+    qr = qrcode.make(provisioning_url)
+    buf = io.BytesIO()
+    qr.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode()
+
+    return templates.TemplateResponse(request, "pages/auth/2fa_setup.html", {
+        "current_user": user_obj,
+        "current_member": member,
+        "temp_secret": temp_secret,
+        "qr_b64": qr_b64,
+        "already_enabled": bool(user_obj.totp_enabled),
+    })
+
+
+@router.post("/2fa/enable")
+async def totp_enable(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    temp_secret: str = Form(...),
+    code: str = Form(...),
+):
+    """Active la 2FA après vérification du code."""
+    import pyotp
+    user_obj, member = ctx
+    if not user_obj.is_admin:
+        raise HTTPException(403)
+    totp = pyotp.TOTP(temp_secret)
+    if not totp.verify(code.strip(), valid_window=1):
+        raise HTTPException(400, "Code invalide — vérifiez l'heure de votre appareil")
+    user_obj.totp_secret = temp_secret
+    user_obj.totp_enabled = True
+    await db.commit()
+    return RedirectResponse(url="/auth/2fa/setup?_msg=enabled", status_code=303)
+
+
+@router.post("/2fa/disable")
+async def totp_disable(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    code: str = Form(...),
+):
+    """Désactive la 2FA après vérification."""
+    import pyotp
+    user_obj, member = ctx
+    if not user_obj.totp_enabled or not user_obj.totp_secret:
+        raise HTTPException(400, "2FA non activée")
+    totp = pyotp.TOTP(user_obj.totp_secret)
+    if not totp.verify(code.strip(), valid_window=1):
+        raise HTTPException(400, "Code invalide")
+    user_obj.totp_secret = None
+    user_obj.totp_enabled = False
+    await db.commit()
+    return RedirectResponse(url="/auth/2fa/setup?_msg=disabled", status_code=303)
+
+
+@router.get("/2fa/verify", response_class=HTMLResponse)
+async def totp_verify_page(request: Request, next: str = "/"):
+    """Page de saisie du code TOTP (après login si 2FA activé)."""
+    return templates.TemplateResponse(request, "pages/auth/2fa_verify.html", {
+        "next": next,
+    })
+
+
+@router.post("/2fa/verify")
+async def totp_verify(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+    code: str = Form(...),
+    next: str = Form("/"),
+):
+    """Vérifie le code TOTP post-login."""
+    import pyotp
+    # Récupère user depuis le cookie (pas encore require_auth car 2FA pas encore validée)
+    raw_token = request.cookies.get("access_token")
+    if not raw_token:
+        return RedirectResponse(url="/auth/login", status_code=303)
+    try:
+        from app.dependencies import decode_token
+        payload = decode_token(raw_token)
+        user_id = int(payload.get("sub"))
+    except Exception:
+        return RedirectResponse(url="/auth/login", status_code=303)
+
+    from app.models.identity import User
+    from sqlalchemy import select
+    u = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if not u or not u.totp_enabled or not u.totp_secret:
+        return RedirectResponse(url=next or "/", status_code=303)
+
+    totp = pyotp.TOTP(u.totp_secret)
+    if not totp.verify(code.strip(), valid_window=1):
+        return templates.TemplateResponse(request, "pages/auth/2fa_verify.html", {
+            "error": "Code invalide. Réessayez.", "next": next,
+        })
+
+    # Marquer la session 2FA validée dans SystemSetting temporaire
+    from app.services.settings_store import set_setting
+    await set_setting(db, f"2fa_ok_{user_id}", {"ts": str(__import__('datetime').datetime.utcnow())})
+    return RedirectResponse(url=next or "/", status_code=303)
+
+
 @router.get("/password", response_class=HTMLResponse)
 async def change_password_page(
     request: Request,

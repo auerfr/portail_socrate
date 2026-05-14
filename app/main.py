@@ -401,6 +401,10 @@ async def lifespan(app: FastAPI):
             await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token VARCHAR(100)")
         if "reset_token_expires" not in cols_us:
             await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME")
+        if "totp_secret" not in cols_us:
+            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64)")
+        if "totp_enabled" not in cols_us:
+            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT 0")
 
         # ── Projets & Tâches — ajout colonnes (couleur projet, groupe, gantt) ──
         r_pr = await conn.exec_driver_sql("PRAGMA table_info(projects)")
