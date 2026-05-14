@@ -66,3 +66,7 @@ backups/
 uploads/
 membres_a_completer.xlsx
 ~$*.xlsx
+*.db-shm
+*.db-wal
+~$*.docx
+~$*.xlsx
