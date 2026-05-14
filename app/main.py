@@ -3,6 +3,11 @@ import asyncio
 from contextlib import asynccontextmanager
 from datetime import date, datetime
 
+# Logging configuré en tout premier (avant les autres imports)
+from app.logging_config import configure_logging as _configure_logging
+from app.config import get_settings as _get_settings_early
+_configure_logging(_get_settings_early().environment)
+
 from fastapi import Depends, FastAPI, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
