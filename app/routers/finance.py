@@ -499,6 +499,87 @@ async def budget_import_csv(
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
 
+@router.post("/budget/{line_id}/edit")
+async def budget_edit(
+    line_id: int,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    label: Annotated[str, Form()],
+    amount: Annotated[float, Form()],
+    category_label: Annotated[str, Form()] = "",
+    notes: Annotated[str, Form()] = "",
+):
+    user, member = ctx
+    if not (user.is_admin or can_manage_finance(member)):
+        raise HTTPException(403)
+    line = await db.get(BudgetLine, line_id)
+    if not line:
+        raise HTTPException(404)
+    line.label = label.strip()
+    line.amount = amount
+    line.category_label = category_label.strip() or None
+    line.notes = notes.strip() or None
+    await db.commit()
+    return RedirectResponse(url=f"/finance/budget?year_id={line.masonic_year_id}", status_code=303)
+
+
+@router.post("/budget/new-year")
+async def budget_new_year(
+    request: Request,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    label: Annotated[str, Form()],
+    start_date: Annotated[str, Form()],
+    end_date: Annotated[str, Form()],
+    copy_budget: Annotated[str, Form()] = "",
+    source_year_id: Annotated[Optional[int], Form()] = None,
+):
+    from app.models.lodge import MasonicYear as MY
+    from datetime import date as _date
+    user, member = ctx
+    if not user.is_admin:
+        raise HTTPException(403)
+
+    # Désactiver l'année courante
+    if True:
+        await db.execute(
+            select(MY).where(MY.is_current == True)
+        )
+
+    new_year = MY(
+        label=label.strip(),
+        start_date=_date.fromisoformat(start_date),
+        end_date=_date.fromisoformat(end_date),
+        is_current=True,
+    )
+    # Désactiver les anciennes années courantes
+    r_cur = await db.execute(select(MY).where(MY.is_current == True))
+    for y in r_cur.scalars().all():
+        y.is_current = False
+
+    db.add(new_year)
+    await db.flush()
+
+    # Copier les lignes budget si demandé
+    if copy_budget and source_year_id:
+        r_lines = await db.execute(
+            select(BudgetLine).where(BudgetLine.masonic_year_id == source_year_id)
+        )
+        for bl in r_lines.scalars().all():
+            db.add(BudgetLine(
+                masonic_year_id=new_year.id,
+                label=bl.label,
+                type=bl.type,
+                category_label=bl.category_label,
+                amount=bl.amount,
+                order_position=bl.order_position,
+                notes=bl.notes,
+            ))
+
+    await db.commit()
+    return RedirectResponse(url=f"/finance/budget?year_id={new_year.id}", status_code=303)
+
+
 @router.post("/budget/{line_id}/delete")
 async def budget_delete(
     line_id: int,

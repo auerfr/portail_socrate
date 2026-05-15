@@ -129,15 +129,18 @@
           {% endif %}
           {% endif %}
           <div class="flex items-center gap-3 px-5 py-2.5 group">
-            <div class="flex-1 text-sm text-gray-800 min-w-0">{{ line.label }}</div>
-            {% if line.notes %}
-            <div class="text-xs text-gray-400 italic hidden group-hover:block shrink-0">{{ line.notes }}</div>
-            {% endif %}
+            <div class="flex-1 text-sm text-gray-800 min-w-0">
+            {{ line.label }}
+            {% if line.category_label %}<span class="text-xs text-gray-400 ml-1">· {{ line.category_label }}</span>{% endif %}
+          </div>
             <div class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
+            <button type="button"
+                    onclick="openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else '\"\"' }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else '\"\"' }})"
+                    class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
-                  onsubmit="return confirm('Supprimer cette ligne ?')">
-              <button type="submit" class="text-gray-300 hover:text-red-500 text-xs px-1 opacity-0 group-hover:opacity-100 transition-opacity">✕</button>
+                  onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
+              <button type="submit" class="text-gray-300 hover:text-red-500 text-xs px-1 shrink-0" title="Supprimer">✕</button>
             </form>
             {% endif %}
           </div>
@@ -431,11 +434,106 @@
   </div>
   {% endif %}
 
-  <div class="mt-6">
+  <div class="mt-6 flex flex-wrap gap-3 items-center">
     <a href="/finance/" class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm hover:bg-gray-50">
       ← Retour Finance
     </a>
+    {% if is_admin %}
+    <button onclick="document.getElementById('modal-new-year').classList.remove('hidden')"
+            class="inline-flex items-center gap-2 border border-loge-200 text-loge-700 px-4 py-2 rounded-lg text-sm hover:bg-loge-50">
+      📅 Nouvelle année maçonnique
+    </button>
+    {% endif %}
   </div>
 
 </div>
+
+<!-- ── Modal édition ligne budget ── -->
+<div id="modal-edit-line" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <h2 class="text-lg font-bold text-gray-900 mb-4">Modifier la ligne</h2>
+    <form method="post" id="edit-line-form" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
+        <input type="text" name="category_label" id="edit-category"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Libellé</label>
+        <input type="text" name="label" id="edit-label" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
+        <input type="number" name="amount" id="edit-amount" step="0.01" min="0" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Notes (optionnel)</label>
+        <input type="text" name="notes" id="edit-notes"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 bg-loge-700 text-white py-2 rounded-xl text-sm font-semibold hover:bg-loge-800">Enregistrer</button>
+        <button type="button" onclick="document.getElementById('modal-edit-line').classList.add('hidden')"
+                class="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<!-- ── Modal nouvelle année ── -->
+{% if is_admin %}
+<div id="modal-new-year" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <h2 class="text-lg font-bold text-gray-900 mb-4">📅 Nouvelle année maçonnique</h2>
+    <form method="post" action="/finance/budget/new-year" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Label (ex: 6026-6027)</label>
+        <input type="text" name="label" required placeholder="6026-6027"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Début (1er sept)</label>
+          <input type="date" name="start_date" required
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fin (30 juin)</label>
+          <input type="date" name="end_date" required
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      {% if selected_year %}
+      <label class="flex items-center gap-2 cursor-pointer p-3 bg-loge-50 rounded-lg">
+        <input type="checkbox" name="copy_budget" value="1" checked class="rounded border-gray-300 text-loge-600">
+        <span class="text-sm text-loge-800">Copier le budget de {{ selected_year.label }}</span>
+        <input type="hidden" name="source_year_id" value="{{ selected_year.id }}">
+      </label>
+      {% endif %}
+      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
+        ⚠ Cette action rend la nouvelle année <strong>courante</strong>. L'ancienne reste accessible via le sélecteur d'année.
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 bg-loge-700 text-white py-2 rounded-xl text-sm font-semibold hover:bg-loge-800">Créer</button>
+        <button type="button" onclick="document.getElementById('modal-new-year').classList.add('hidden')"
+                class="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endif %}
+
+<script>
+function openEditLine(id, label, category, amount, notes) {
+  document.getElementById('edit-line-form').action = '/finance/budget/' + id + '/edit';
+  document.getElementById('edit-label').value = label;
+  document.getElementById('edit-category').value = category || '';
+  document.getElementById('edit-amount').value = amount;
+  document.getElementById('edit-notes').value = notes || '';
+  document.getElementById('modal-edit-line').classList.remove('hidden');
+}
+</script>
+
 {% endblock %}
