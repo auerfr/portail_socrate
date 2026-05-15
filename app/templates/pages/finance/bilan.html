@@ -216,7 +216,7 @@
 
   <!-- Comparaison Budget / Réalisé -->
   {% if budget_by_cat %}
-  <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-6">
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
     <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
       <h2 class="font-semibold text-gray-800">Budget prévisionnel vs Réalisé</h2>
       <a href="/finance/budget{% if selected_year %}?year_id={{ selected_year.id }}{% endif %}"
