@@ -7,10 +7,25 @@
   <nav class="text-sm text-gray-500 mb-4">
     <a href="/messages/" class="hover:text-loge-700">Messages</a>
     <span class="mx-2">›</span>
+    {% if reply_msg %}
+    <a href="/messages/{{ reply_msg.id }}" class="hover:text-loge-700">{{ reply_msg.subject }}</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Répondre</span>
+    {% else %}
     <span class="text-gray-800">Nouveau message</span>
+    {% endif %}
   </nav>
 
-  <h1 class="text-2xl font-bold text-gray-900 mb-6">Nouveau message</h1>
+  <h1 class="text-2xl font-bold text-gray-900 mb-6">
+    {% if reply_msg %}Répondre au message{% else %}Nouveau message{% endif %}
+  </h1>
+
+  {% if reply_msg %}
+  <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-sm text-gray-600">
+    <div class="font-semibold text-gray-700 mb-1">En réponse à : {{ reply_msg.subject }}</div>
+    <div class="text-xs text-gray-400 line-clamp-2">{{ reply_msg.body[:200] }}{% if reply_msg.body|length > 200 %}…{% endif %}</div>
+  </div>
+  {% endif %}
 
   <form method="post" action="/messages/send" enctype="multipart/form-data"
         x-data="{
@@ -45,6 +60,7 @@
         <label class="block text-sm font-semibold text-gray-700 mb-1.5">Objet</label>
         <input type="text" name="subject" required maxlength="300"
                placeholder="Objet du message…"
+               value="{% if reply_msg %}Re : {{ reply_msg.subject }}{% endif %}"
                class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
       <div>
@@ -132,6 +148,13 @@
         </ul>
       </template>
     </div>
+
+    {% if reply_msg %}
+    <!-- Réponse : destinataire fixe, ciblage masqué -->
+    <input type="hidden" name="parent_id" value="{{ reply_msg.id }}">
+    <input type="hidden" name="target_type" value="MANUAL">
+    <input type="hidden" name="target_member_ids" value="{{ reply_msg.sender_id }}">
+    {% else %}
 
     <!-- Ciblage -->
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-4">
@@ -235,6 +258,7 @@
 
       </div>
     </div>
+    {% endif %}{# end if not reply_msg #}
 
     <!-- Actions -->
     <div class="flex gap-3">
