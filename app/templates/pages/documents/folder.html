@@ -403,7 +403,7 @@
 
           <!-- Infos -->
           <div class="flex-1 min-w-0">
-            <div id="doc-name-{{ doc.id }}" class="text-sm font-medium text-gray-800 truncate">{{ doc.name }}</div>
+            <div id="doc-name-{{ doc.id }}" class="text-sm font-medium text-gray-800 line-clamp-2 sm:truncate sm:line-clamp-none">{{ doc.name }}</div>
             {% if is_admin %}
             <form id="rename-form-{{ doc.id }}" method="post" action="/documents/file/{{ doc.id }}/rename"
                   class="hidden items-center gap-1 mr-2">
@@ -416,7 +416,7 @@
             <div class="text-xs text-gray-400 flex items-center gap-2 mt-0.5">
               {% if is_link and platform %}
                 <span style="color:{{ platform.color }};" class="font-medium">{{ platform.name }}</span>
-                {% if doc.description %}<span>·</span><span class="truncate max-w-[200px]">{{ doc.description }}</span>{% endif %}
+                {% if doc.description %}<span>·</span><span class="line-clamp-1">{{ doc.description }}</span>{% endif %}
               {% else %}
                 {% if doc.original_filename %}<span>{{ ext.upper() or '?' }}</span>{% endif %}
                 {% if doc.file_size %}
@@ -435,8 +435,8 @@
             </div>
           </div>
 
-          <!-- Actions (visibles au survol) -->
-          <div class="flex items-center gap-1.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <!-- Actions (toujours visibles sur mobile, hover sur desktop) -->
+          <div class="flex items-center gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
 
             {% if has_embed %}
             <!-- Bouton lecteur embarqué -->
