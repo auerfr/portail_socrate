@@ -489,6 +489,8 @@ async def member_update(
     status_date:           str = Form(""),
     program_optin:         str = Form(""),
     pin_code:              str = Form(""),
+    login:                 str = Form(""),
+    is_admin:              str = Form(""),
 ):
     user, current_member = ctx
     if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
@@ -577,6 +579,19 @@ async def member_update(
             target.pin_code_hash = hash_password(pin_code.strip())
 
     target.birth_date = parse_date(birth_date)
+
+    # Mise à jour login + is_admin (admin uniquement)
+    if user.is_admin and login.strip():
+        user_result = await db.execute(select(User).where(User.member_id == member_id))
+        target_user = user_result.scalar_one_or_none()
+        if target_user:
+            new_login = login.strip().lower()
+            # Vérifier unicité si changement
+            if new_login != target_user.login:
+                existing = await db.execute(select(User).where(User.login == new_login))
+                if not existing.scalar_one_or_none():
+                    target_user.login = new_login
+            target_user.is_admin = bool(is_admin) and user.is_admin
 
     await db.commit()
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
