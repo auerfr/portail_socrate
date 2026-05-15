@@ -179,11 +179,8 @@
          class="nav-item {% if '/messages' in request.url.path %}active{% endif %}">
         <i class="ti ti-mail"></i>
         Messages
-        {% if global_unread_messages and global_unread_messages > 0 %}
-        <span class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">
-          {{ global_unread_messages }}
-        </span>
-        {% endif %}
+        <span id="msg-badge-sidebar"
+              class="ml-auto bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none{% if not global_unread_messages or global_unread_messages == 0 %} hidden{% endif %}">{{ global_unread_messages or '' }}</span>
       </a>
 
       <a href="/chat/"
@@ -461,9 +458,8 @@
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/messages' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-mail text-lg opacity-70"></i>
         <span class="flex-1">Messages</span>
-        {% if global_unread_messages and global_unread_messages > 0 %}
-        <span class="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none">{{ global_unread_messages }}</span>
-        {% endif %}
+        <span id="msg-badge-mobile"
+              class="bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none{% if not global_unread_messages or global_unread_messages == 0 %} hidden{% endif %}">{{ global_unread_messages or '' }}</span>
       </a>
 
       <a href="/chat/" @click="moreOpen=false"
@@ -723,30 +719,29 @@
 
   {% block scripts %}{% endblock %}
 
-  <!-- Polling pastille chat non lus -->
+  <!-- Polling pastilles messages & chat non lus -->
   <script>
   (function() {
-    function updateChatBadge(count) {
-      ['chat-badge-sidebar', 'chat-badge-mobile'].forEach(function(id) {
+    function updateBadge(ids, count) {
+      ids.forEach(function(id) {
         var el = document.getElementById(id);
         if (!el) return;
-        if (count > 0) {
-          el.textContent = count;
-          el.classList.remove('hidden');
-        } else {
-          el.classList.add('hidden');
-        }
+        if (count > 0) { el.textContent = count; el.classList.remove('hidden'); }
+        else { el.classList.add('hidden'); }
       });
     }
-    function pollChatUnread() {
+    function poll() {
       fetch('/chat/api/unread', {credentials: 'same-origin'})
         .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(data) { if (data) updateChatBadge(data.total || 0); })
+        .then(function(d) { if (d) updateBadge(['chat-badge-sidebar','chat-badge-mobile'], d.total || 0); })
+        .catch(function() {});
+      fetch('/messages/api/unread', {credentials: 'same-origin'})
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) { if (d) updateBadge(['msg-badge-sidebar','msg-badge-mobile'], d.total || 0); })
         .catch(function() {});
     }
-    // Première vérification rapide, puis toutes les 30s
-    setTimeout(pollChatUnread, 2000);
-    setInterval(pollChatUnread, 30000);
+    setTimeout(poll, 2000);
+    setInterval(poll, 30000);
   })();
   </script>
 </body>

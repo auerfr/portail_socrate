@@ -618,6 +618,17 @@ async def message_detail(
     })
 
 
+@router.get("/api/unread")
+async def messages_unread_count(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    count = await _unread_count(db, member.id)
+    from fastapi.responses import JSONResponse
+    return JSONResponse({"total": count})
+
+
 @router.post("/{message_id}/delete")
 async def delete_message(
     message_id: int,
