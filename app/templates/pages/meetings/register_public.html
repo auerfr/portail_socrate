@@ -142,17 +142,7 @@
                 {% endif %}
               </div>
             </label>
-            <div x-show="agape" class="flex items-center gap-3 px-1">
-              <label class="text-sm text-gray-600">Convives supplémentaires :</label>
-              <div class="flex items-center gap-2 ml-auto">
-                <button type="button" onclick="this.nextElementSibling.value=Math.max(0,+this.nextElementSibling.value-1)"
-                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg leading-none flex items-center justify-center">−</button>
-                <input type="number" name="agape_guests" min="0" max="5" value="0"
-                       class="w-12 text-center border border-gray-200 rounded-lg py-1 text-sm">
-                <button type="button" onclick="this.previousElementSibling.value=Math.min(5,+this.previousElementSibling.value+1)"
-                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 text-lg leading-none flex items-center justify-center">+</button>
-              </div>
-            </div>
+            <input type="hidden" name="agape_guests" value="0">
           </div>
         </template>
         <template x-if="full">
@@ -286,17 +276,7 @@
                 {% endif %}
               </div>
             </label>
-            <div x-show="agape" class="flex items-center gap-3 px-1">
-              <label class="text-sm text-gray-600">Convives supplémentaires :</label>
-              <div class="flex items-center gap-2 ml-auto">
-                <button type="button" onclick="this.nextElementSibling.value=Math.max(0,+this.nextElementSibling.value-1)"
-                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center justify-center">−</button>
-                <input type="number" name="agape_guests" min="0" max="5" value="0"
-                       class="w-12 text-center border border-gray-200 rounded-lg py-1 text-sm">
-                <button type="button" onclick="this.previousElementSibling.value=Math.min(5,+this.previousElementSibling.value+1)"
-                        class="w-7 h-7 rounded-full border border-gray-200 text-gray-600 hover:bg-gray-50 flex items-center justify-center">+</button>
-              </div>
-            </div>
+            <input type="hidden" name="agape_guests" value="0">
           </div>
         </template>
         <template x-if="full">
