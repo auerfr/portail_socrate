@@ -221,6 +221,20 @@
     .page-portrait .symbols.top    { top: 12mm; }
     .page-portrait .symbols.bottom { bottom: 12mm; }
 
+    /* ══ MOBILE — barre d'actions ══ */
+    @media screen and (max-width: 700px) {
+      .action-bar {
+        width: 100% !important;
+        max-width: 100vw !important;
+        padding: 8px !important;
+        box-sizing: border-box;
+      }
+      .action-bar-row {
+        flex-wrap: wrap !important;
+        gap: 6px !important;
+      }
+    }
+
     /* ══ IMPRESSION ══ */
     @page {
       size: A4 portrait;
@@ -252,10 +266,10 @@
 <body>
 
   <!-- ── Barre d'actions (écran seulement) ── -->
-  <div class="no-print" style="width:210mm;margin:0 auto;padding:10px 0;">
+  <div class="no-print action-bar" style="width:210mm;margin:0 auto;padding:10px 0;">
 
-    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
-      <div style="display:flex;gap:8px;align-items:center;">
+    <div class="action-bar-row" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px;">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;">
         <a href="/programs/" style="font-size:12px;padding:5px 14px;border:1px solid #d1d5db;border-radius:6px;background:white;color:#374151;text-decoration:none;">← Retour</a>
         {% if can_manage_programs %}
         <a href="/programs/{{ program.id }}/edit" style="font-size:12px;padding:5px 14px;border:1px solid #93c5fd;border-radius:6px;background:#eff6ff;color:#1d4ed8;text-decoration:none;">✏ Modifier</a>
@@ -582,6 +596,28 @@
     {% if print_mode %}
     window.addEventListener('load', () => setTimeout(() => window.print(), 400));
     {% endif %}
+
+    // Scaling mobile : adapte la page A4 à la largeur de l'écran
+    function scalePages() {
+      var pages = document.querySelectorAll('.page');
+      var pageWidthPx = 794; // ~210mm à 96dpi
+      var vw = window.innerWidth;
+      if (vw < pageWidthPx) {
+        var scale = vw / pageWidthPx;
+        pages.forEach(function(p) {
+          p.style.transform = 'scale(' + scale + ')';
+          p.style.transformOrigin = 'top center';
+          p.style.marginBottom = '-' + Math.round(pageWidthPx * (1 - scale)) + 'px';
+        });
+      } else {
+        pages.forEach(function(p) {
+          p.style.transform = '';
+          p.style.marginBottom = '';
+        });
+      }
+    }
+    scalePages();
+    window.addEventListener('resize', scalePages);
   </script>
 
 </body>
