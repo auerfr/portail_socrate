@@ -82,17 +82,17 @@
 
   <!-- Ligne 2 KPIs -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 text-sm">
-    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between">
-      <span class="text-gray-500">Budget prévu</span>
-      <span class="font-semibold text-gray-800">{{ "%.2f"|format(stats.total_budget) }} €</span>
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-2">
+      <span class="text-gray-500 min-w-0 text-xs sm:text-sm">Budget prévu</span>
+      <span class="font-semibold text-gray-800 shrink-0">{{ "%.2f"|format(stats.total_budget) }} €</span>
     </div>
-    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between">
-      <span class="text-gray-500">Dépenses (mouvements)</span>
-      <span class="font-semibold text-red-600">{{ "%.2f"|format(stats.total_expense) }} €</span>
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-2">
+      <span class="text-gray-500 min-w-0 text-xs sm:text-sm">Dépenses</span>
+      <span class="font-semibold text-red-600 shrink-0">{{ "%.2f"|format(stats.total_expense) }} €</span>
     </div>
-    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between">
-      <span class="text-gray-500">Avances (sur-paiements)</span>
-      <span class="font-semibold text-purple-600">{{ "%.2f"|format(stats.total_advances) }} €</span>
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-2">
+      <span class="text-gray-500 min-w-0 text-xs sm:text-sm">Avances</span>
+      <span class="font-semibold text-purple-600 shrink-0">{{ "%.2f"|format(stats.total_advances) }} €</span>
     </div>
   </div>
 
@@ -131,8 +131,8 @@
     <div class="{{ 'lg:col-span-3' if top_late else 'lg:col-span-4' }}">
 
       <!-- Filtres + recherche -->
-      <div class="flex flex-wrap items-center gap-3 mb-3">
-        <div class="flex gap-1">
+      <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 mb-3">
+        <div class="flex gap-1 flex-wrap">
           <a href="/finance/?status_filter=all{% if search %}&search={{ search }}{% endif %}"
              class="px-3 py-1.5 rounded-lg text-xs font-medium border
                     {% if status_filter == 'all' %}bg-gray-800 text-white border-gray-800{% else %}bg-white text-gray-600 border-gray-200 hover:border-gray-400{% endif %}">
@@ -150,7 +150,7 @@
           </a>
         </div>
 
-        <form method="get" class="flex-1 max-w-xs">
+        <form method="get" class="w-full sm:flex-1 sm:max-w-xs">
           <input type="hidden" name="status_filter" value="{{ status_filter }}">
           <input type="text" name="search" value="{{ search }}" placeholder="Recherche membre…"
                  class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
