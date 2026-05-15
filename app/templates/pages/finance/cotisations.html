@@ -524,14 +524,15 @@
         <tfoot>
           <tr class="border-t-2 border-gray-200 bg-gray-50 font-semibold text-sm">
             <td class="px-5 py-3 text-gray-700" id="tot-label">Totaux</td>
-            <td class="hidden sm:table-cell"></td>
-            <td class="hidden sm:table-cell"></td>
-            <td class="hidden sm:table-cell"></td>
-            <td class="hidden sm:table-cell"></td>
+            <td></td><!-- Type -->
+            <td></td><!-- Tranche -->
+            <td></td><!-- Part asso. -->
+            <td class="hidden sm:table-cell"></td><!-- Cap. nat. -->
+            <td class="hidden sm:table-cell"></td><!-- Cap. rég. -->
             <td class="text-right px-3 py-3 text-gray-800 tabular-nums" id="tot-due">—</td>
             <td class="text-right px-3 py-3 text-green-700 tabular-nums" id="tot-paid">—</td>
             <td class="text-right px-3 py-3 text-red-600 tabular-nums" id="tot-solde">—</td>
-            <td></td>
+            <td></td><!-- Statut -->
             {% if is_admin %}<td></td>{% endif %}
           </tr>
         </tfoot>
