@@ -693,6 +693,13 @@ async def meeting_banquet(
         select(Member).where(Member.status == MemberStatus.ACTIVE).order_by(Member.last_name)
     )
     all_members = all_members_r.scalars().all()
+
+    # Passants connus (pour dropdown)
+    known_mv_ids = {mv.visitor_id for mv in meeting.meeting_visitors}
+    all_visitors_r = await db.execute(
+        select(Visitor).order_by(Visitor.last_name, Visitor.first_name)
+    )
+    all_visitors = [v for v in all_visitors_r.scalars().all() if v.id not in known_mv_ids]
     agape_guests   = sorted([g for g in meeting.meeting_guests
                              if g.agape and g.status.value == "CONFIRMED"],
                             key=lambda g: g.last_name)
@@ -748,6 +755,7 @@ async def meeting_banquet(
         "can_manage": can_manage,
         "all_members": all_members,
         "agape_member_ids": agape_member_ids,
+        "all_visitors": all_visitors,
     })
 
 
@@ -855,24 +863,26 @@ async def banquet_add_visitor(
     meeting_id: int,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    civility: str = Form("F"),
-    last_name: str = Form(...),
-    first_name: str = Form(...),
-    lodge_name: str = Form(""),
     agape_guests: int = Form(0),
+    visitor_id: Optional[int] = Form(None),   # passant existant sélectionné
+    civility: str = Form("F"),
+    last_name: str = Form(""),
+    first_name: str = Form(""),
+    lodge_name: str = Form(""),
 ):
     user, member = ctx
     if not _can_manage_banquet(user, member):
         raise HTTPException(403)
-    # Chercher un visiteur existant (même nom + loge)
-    r = await db.execute(
-        select(Visitor).where(
-            Visitor.last_name.ilike(last_name.strip()),
-            Visitor.first_name.ilike(first_name.strip()),
-        )
-    )
-    visitor = r.scalars().first()
-    if not visitor:
+
+    if visitor_id:
+        # Passant existant
+        visitor = await db.get(Visitor, visitor_id)
+        if not visitor:
+            raise HTTPException(404)
+    else:
+        # Nouveau passant
+        if not last_name.strip() or not first_name.strip():
+            return RedirectResponse(url=f"/meetings/{meeting_id}/banquet", status_code=303)
         visitor = Visitor(
             civility=civility,
             last_name=last_name.strip().upper(),
@@ -881,6 +891,7 @@ async def banquet_add_visitor(
         )
         db.add(visitor)
         await db.flush()
+
     # Vérifier si déjà inscrit à cette tenue
     r2 = await db.execute(
         select(MeetingVisitor).where(

@@ -204,11 +204,12 @@
 
     <!-- Ajouter un membre de la loge -->
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <h3 class="text-sm font-semibold text-gray-800 mb-3">➕ Ajouter un frère/sœur</h3>
+      <h3 class="text-sm font-semibold text-gray-800 mb-1">➕ Ajouter un frère/sœur</h3>
+      <p class="text-xs text-gray-400 mb-3">Membre non encore inscrit aux agapes</p>
       <form method="post" action="/meetings/{{ meeting.id }}/banquet/add-member-select" class="space-y-3">
         <select name="member_id" required
                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
-          <option value="">— Sélectionner un membre —</option>
+          <option value="">— Sélectionner —</option>
           {% for m in all_members %}
           {% if m.id not in agape_member_ids %}
           <option value="{{ m.id }}">{{ m.last_name }} {{ m.first_name }}</option>
@@ -216,10 +217,9 @@
           {% endfor %}
         </select>
         <div class="flex items-center gap-2">
-          <label class="text-xs text-gray-600 shrink-0">Invités :</label>
+          <label class="text-xs text-gray-600 shrink-0" title="Nombre de convives supplémentaires accompagnant ce membre (conjoint, ami...)">+ convives :</label>
           <input type="number" name="guests" value="0" min="0" max="10"
-                 class="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center">
-          <input type="hidden" name="action" value="add">
+                 class="w-14 border border-gray-200 rounded px-2 py-1 text-sm text-center">
           <button type="submit"
                   class="flex-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-1.5 rounded-lg transition-colors">
             Ajouter
@@ -229,25 +229,59 @@
     </div>
 
     <!-- Ajouter un maçon passant -->
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <h3 class="text-sm font-semibold text-gray-800 mb-3">➕ Ajouter un maçon passant</h3>
-      <form method="post" action="/meetings/{{ meeting.id }}/banquet/add-visitor" class="space-y-2">
-        <div class="grid grid-cols-2 gap-2">
-          <select name="civility" class="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5" x-data="{mode:'existing'}">
+      <h3 class="text-sm font-semibold text-gray-800 mb-1">➕ Ajouter un maçon passant</h3>
+      <div class="flex gap-2 mb-3">
+        <button type="button" @click="mode='existing'"
+                :class="mode==='existing' ? 'bg-blue-100 text-blue-700 font-semibold border-blue-300' : 'text-gray-500 border-gray-200'"
+                class="text-xs px-2.5 py-1 rounded-full border transition-colors">Passant connu</button>
+        <button type="button" @click="mode='new'"
+                :class="mode==='new' ? 'bg-blue-100 text-blue-700 font-semibold border-blue-300' : 'text-gray-500 border-gray-200'"
+                class="text-xs px-2.5 py-1 rounded-full border transition-colors">Nouveau</button>
+      </div>
+
+      <form x-show="mode==='existing'" method="post" action="/meetings/{{ meeting.id }}/banquet/add-visitor" class="space-y-2">
+        {% if all_visitors %}
+        <select name="visitor_id" required
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <option value="">— Sélectionner un passant —</option>
+          {% for v in all_visitors %}
+          <option value="{{ v.id }}">{{ v.last_name }} {{ v.first_name }}{% if v.lodge_name %} — {{ v.lodge_name }}{% endif %}</option>
+          {% endfor %}
+        </select>
+        {% else %}
+        <p class="text-xs text-gray-400 italic">Aucun passant connu — utilisez "Nouveau".</p>
+        {% endif %}
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-600 shrink-0">+ convives :</label>
+          <input type="number" name="agape_guests" value="0" min="0" max="10"
+                 class="w-14 border border-gray-200 rounded px-2 py-1 text-sm text-center">
+          {% if all_visitors %}
+          <button type="submit"
+                  class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1.5 rounded-lg transition-colors">
+            Ajouter
+          </button>
+          {% endif %}
+        </div>
+      </form>
+
+      <form x-show="mode==='new'" x-cloak method="post" action="/meetings/{{ meeting.id }}/banquet/add-visitor" class="space-y-2">
+        <div class="grid grid-cols-3 gap-2">
+          <select name="civility" class="border border-gray-200 rounded-lg px-2 py-2 text-sm">
             <option value="F">F∴</option>
             <option value="S">S∴</option>
           </select>
-          <input type="text" name="last_name" required placeholder="NOM"
-                 class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <input type="text" name="last_name" placeholder="NOM" required
+                 class="col-span-2 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
         </div>
-        <input type="text" name="first_name" required placeholder="Prénom"
-               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <input type="text" name="first_name" placeholder="Prénom" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
         <input type="text" name="lodge_name" placeholder="Loge (optionnel)"
-               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
         <div class="flex items-center gap-2">
-          <label class="text-xs text-gray-600 shrink-0">Invités :</label>
+          <label class="text-xs text-gray-600 shrink-0">+ convives :</label>
           <input type="number" name="agape_guests" value="0" min="0" max="10"
-                 class="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center">
+                 class="w-14 border border-gray-200 rounded px-2 py-1 text-sm text-center">
           <button type="submit"
                   class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1.5 rounded-lg transition-colors">
             Ajouter
