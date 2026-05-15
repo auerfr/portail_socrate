@@ -254,7 +254,8 @@
             </td>
 
             <!-- Total dû (avec détection désynchronisation barème) -->
-            <td class="text-right px-3 py-3 font-medium text-gray-800 tabular-nums">
+            <td class="text-right px-3 py-3 font-medium text-gray-800 tabular-nums"
+                data-due="{{ contrib.total_amount|float if contrib else 0 }}">
               {% if contrib %}
               {% set tn_amount = (tiers | selectattr('id', 'equalto', contrib.tier_id) | list | first) %}
               {% if tn_amount and cfg %}
@@ -275,12 +276,14 @@
             </td>
 
             <!-- Encaissé -->
-            <td class="text-right px-3 py-3 text-gray-600 tabular-nums">
+            <td class="text-right px-3 py-3 text-gray-600 tabular-nums"
+                data-paid="{{ contrib.amount_paid|float if contrib else 0 }}">
               {% if contrib %}{{ "%.2f"|format(contrib.amount_paid) }} €{% else %}—{% endif %}
             </td>
 
             <!-- Solde -->
-            <td class="text-right px-3 py-3 tabular-nums font-semibold">
+            <td class="text-right px-3 py-3 tabular-nums font-semibold"
+                data-solde="{{ contrib.amount_remaining|float if contrib else 0 }}">
               {% if contrib %}
               {% set remaining = contrib.amount_remaining %}
               <span class="{% if remaining <= 0 %}text-green-600{% elif remaining < contrib.total_amount %}text-amber-600{% else %}text-red-600{% endif %}">
@@ -518,9 +521,46 @@
           {% endif %}{# end show #}
           {% endfor %}
         </tbody>
+        <tfoot>
+          <tr class="border-t-2 border-gray-200 bg-gray-50 font-semibold text-sm">
+            <td class="px-5 py-3 text-gray-700" id="tot-label">Totaux</td>
+            <td class="hidden sm:table-cell"></td>
+            <td class="hidden sm:table-cell"></td>
+            <td class="hidden sm:table-cell"></td>
+            <td class="hidden sm:table-cell"></td>
+            <td class="text-right px-3 py-3 text-gray-800 tabular-nums" id="tot-due">—</td>
+            <td class="text-right px-3 py-3 text-green-700 tabular-nums" id="tot-paid">—</td>
+            <td class="text-right px-3 py-3 text-red-600 tabular-nums" id="tot-solde">—</td>
+            <td></td>
+            {% if is_admin %}<td></td>{% endif %}
+          </tr>
+        </tfoot>
       </table>
     </div>
   </div>
+
+  <script>
+  (function() {
+    function updateTotals() {
+      var rows = document.querySelectorAll('tbody tr');
+      var due = 0, paid = 0, solde = 0, count = 0;
+      rows.forEach(function(row) {
+        var tdDue = row.querySelector('[data-due]');
+        if (!tdDue) return;
+        due   += parseFloat(tdDue.dataset.due   || 0);
+        paid  += parseFloat(row.querySelector('[data-paid]').dataset.paid  || 0);
+        solde += parseFloat(row.querySelector('[data-solde]').dataset.solde || 0);
+        count++;
+      });
+      var fmt = function(n) { return n.toFixed(2) + ' €'; };
+      document.getElementById('tot-due').textContent   = fmt(due);
+      document.getElementById('tot-paid').textContent  = fmt(paid);
+      document.getElementById('tot-solde').textContent = fmt(solde);
+      document.getElementById('tot-label').textContent = 'Totaux (' + count + ')';
+    }
+    updateTotals();
+  })();
+  </script>
 
   {% endif %}
 
