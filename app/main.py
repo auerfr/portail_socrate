@@ -622,6 +622,7 @@ async def maintenance_banner_middleware(request: Request, call_next):
 templates = Jinja2Templates(directory="app/templates")
 # Valeur de fallback : les pages qui ne calculent pas le compteur affichent 0
 templates.env.globals["global_unread_messages"] = 0
+templates.env.globals["global_unread_chat"] = 0
 
 # Filtre `| label` pour personnaliser l'affichage des enums depuis l'admin
 from app.services.labels import register_jinja as _register_label_filter
