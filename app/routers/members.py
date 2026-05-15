@@ -657,6 +657,75 @@ async def toggle_user_account(
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
 
 
+# ── Envoi des identifiants par email (superadmin) ─────────────────────────────
+
+@router.post("/{member_id}/send-credentials")
+async def send_credentials(
+    member_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    temp_password: str = Form(...),
+):
+    user, current_member = ctx
+    if not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    target = await db.get(Member, member_id)
+    if not target:
+        raise HTTPException(status_code=404)
+
+    user_result = await db.execute(select(User).where(User.member_id == member_id))
+    target_user = user_result.scalar_one_or_none()
+    if not target_user:
+        raise HTTPException(status_code=400, detail="Ce membre n'a pas de compte")
+
+    if not target.email:
+        raise HTTPException(status_code=400, detail="Ce membre n'a pas d'adresse email")
+
+    # Mise à jour du mot de passe
+    from app.dependencies import hash_password
+    target_user.password_hash = hash_password(temp_password)
+    await db.commit()
+
+    # Envoi de l'email
+    from app.config import get_settings
+    from app.services.email import _send_raw
+    settings = get_settings()
+    portal_url = f"https://portailsocrate.eu.pythonanywhere.com"
+
+    subject = f"[{settings.lodge_name}] Vos identifiants de connexion"
+    body = f"""Bonjour {target.first_name} {target.last_name},
+
+Votre compte sur le Portail {settings.lodge_name} a été créé (ou mis à jour).
+
+Vos identifiants de connexion :
+  Identifiant : {target_user.login}
+  Mot de passe temporaire : {temp_password}
+
+Connectez-vous ici : {portal_url}
+
+⚠ Pour votre sécurité, changez votre mot de passe dès votre première connexion :
+  → Menu profil → "Modifier mon profil" → section Compte d'accès
+  → Ou directement : {portal_url}/auth/password
+
+Cordialement,
+L'administration du Portail"""
+
+    try:
+        await _send_raw(
+            to=target.email,
+            subject=subject,
+            body=body,
+        )
+        return RedirectResponse(
+            url=f"/members/{member_id}/edit?credentials_sent=1",
+            status_code=302
+        )
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Erreur envoi email : {e}")
+
+
 # ── Responsabilités ───────────────────────────────────────────────────────────
 
 @router.get("/{member_id}/responsibilities", response_class=HTMLResponse)

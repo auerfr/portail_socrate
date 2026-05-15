@@ -292,6 +292,32 @@
   </div>
   {% endif %}
 
+  {% if current_user and current_user.is_admin and target_user and target and target.email %}
+  <!-- Envoi des identifiants -->
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-4">
+    <div class="text-sm font-medium text-blue-900 mb-1">📧 Envoyer les identifiants par email</div>
+    <div class="text-xs text-blue-700 mb-3">Définit un mot de passe temporaire et l'envoie à {{ target.email }} avec les instructions de connexion.</div>
+    {% if request.query_params.get('credentials_sent') %}
+    <div class="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mb-2">✓ Email envoyé avec succès à {{ target.email }}</div>
+    {% endif %}
+    <form method="post" action="/members/{{ target.id }}/send-credentials"
+          onsubmit="return confirm('Envoyer les identifiants à {{ target.email }} avec ce mot de passe temporaire ?')">
+      <div class="flex gap-2 items-end flex-wrap">
+        <div class="flex-1 min-w-[160px]">
+          <label class="block text-xs font-medium text-blue-800 mb-1">Mot de passe temporaire</label>
+          <input type="text" name="temp_password" required
+                 placeholder="ex: Socrate2024!"
+                 class="w-full border border-blue-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-400">
+        </div>
+        <button type="submit"
+                class="shrink-0 bg-blue-600 hover:bg-blue-700 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+          Envoyer
+        </button>
+      </div>
+    </form>
+  </div>
+  {% endif %}
+
   {% if current_user and current_user.is_admin and target and target.id != current_member.id %}
   <!-- Impersonation -->
   <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
