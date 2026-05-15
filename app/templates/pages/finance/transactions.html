@@ -58,8 +58,108 @@
 
   <div class="grid lg:grid-cols-3 gap-6">
 
+    <!-- ── Formulaire saisie (admin) — en premier sur mobile ─────────────── -->
+    {% if is_admin %}
+    <div class="space-y-4 order-first lg:order-last" x-data="{ newCat: false }">
+
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
+        <h2 class="font-semibold text-gray-800 mb-4">Saisir un mouvement</h2>
+        <form method="post" action="/finance/transactions/add" enctype="multipart/form-data" class="space-y-3">
+          <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+          <div class="flex gap-2">
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" name="txn_type" value="EXPENSE" checked class="sr-only peer">
+              <div class="text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600
+                          peer-checked:border-red-400 peer-checked:bg-red-50 peer-checked:text-red-700 transition-colors">
+                − Dépense
+              </div>
+            </label>
+            <label class="flex-1 cursor-pointer">
+              <input type="radio" name="txn_type" value="INCOME" class="sr-only peer">
+              <div class="text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600
+                          peer-checked:border-green-400 peer-checked:bg-green-50 peer-checked:text-green-700 transition-colors">
+                + Recette
+              </div>
+            </label>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
+            <input type="date" name="txn_date" required value="{{ today.strftime('%Y-%m-%d') }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <div class="flex items-center justify-between mb-1">
+              <label class="text-xs font-medium text-gray-700">Catégorie</label>
+              <button type="button" @click="newCat = !newCat" class="text-xs text-loge-600 hover:underline">
+                <span x-text="newCat ? 'Choisir existante' : '+ Nouvelle'"></span>
+              </button>
+            </div>
+            <div x-show="!newCat">
+              <select name="category_id"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                <option value="">— Aucune catégorie —</option>
+                {% if categories %}
+                <optgroup label="Dépenses">
+                  {% for c in categories if c.type.value == 'EXPENSE' %}
+                  <option value="{{ c.id }}">{{ c.name }}</option>
+                  {% endfor %}
+                </optgroup>
+                <optgroup label="Recettes">
+                  {% for c in categories if c.type.value == 'INCOME' %}
+                  <option value="{{ c.id }}">{{ c.name }}</option>
+                  {% endfor %}
+                </optgroup>
+                {% endif %}
+              </select>
+            </div>
+            <div x-show="newCat" x-cloak>
+              <input type="text" name="new_category" placeholder="Nom de la catégorie…"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            </div>
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Libellé</label>
+            <input type="text" name="label" required placeholder="Description du mouvement…"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
+            <input type="number" name="amount" step="0.01" min="0" required
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-xs font-medium text-gray-700 mb-1">📎 Justificatif (optionnel)</label>
+            <input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png"
+                   class="w-full text-xs text-gray-600 border border-gray-200 rounded-lg px-3 py-2
+                          file:mr-2 file:py-1 file:px-2 file:rounded file:border-0
+                          file:text-xs file:bg-gray-100 file:text-gray-700">
+          </div>
+          <button type="submit"
+                  class="w-full bg-loge-700 text-white py-2 rounded-lg text-sm font-semibold hover:bg-loge-800">
+            Enregistrer
+          </button>
+        </form>
+      </div>
+
+      {% if categories %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
+        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Catégories existantes</h3>
+        <div class="space-y-1">
+          {% for c in categories %}
+          <div class="flex items-center justify-between text-xs">
+            <span class="{% if c.type.value == 'INCOME' %}text-green-700{% else %}text-red-700{% endif %}">{{ c.name }}</span>
+            <span class="text-gray-400">{{ 'Recette' if c.type.value == 'INCOME' else 'Dépense' }}</span>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% endif %}
+
+    </div>
+    {% endif %}
+
     <!-- ── Tableau des mouvements ────────────────────────────────────────── -->
-    <div class="lg:col-span-2">
+    <div class="lg:col-span-2 order-last lg:order-first">
 
       <!-- Filtres rapides -->
       <div class="flex gap-2 mb-3 flex-wrap">
@@ -92,11 +192,11 @@
             <thead>
               <tr class="border-b border-gray-100 bg-gray-50">
                 <th class="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Date</th>
-                <th class="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Catégorie</th>
+                <th class="text-left px-4 py-2.5 text-xs text-gray-500 font-medium hidden sm:table-cell">Catégorie</th>
                 <th class="text-left px-4 py-2.5 text-xs text-gray-500 font-medium">Libellé</th>
                 <th class="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Recette</th>
                 <th class="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Dépense</th>
-                <th class="text-center px-3 py-2.5 text-xs text-gray-500 font-medium">Pièce</th>
+                <th class="text-center px-3 py-2.5 text-xs text-gray-500 font-medium hidden sm:table-cell">Pièce</th>
                 {% if is_admin %}<th class="px-3 py-2.5"></th>{% endif %}
               </tr>
             </thead>
@@ -106,7 +206,7 @@
                 <td class="px-4 py-2.5 text-gray-500 text-xs tabular-nums whitespace-nowrap">
                   {{ t.date.strftime('%d/%m/%Y') }}
                 </td>
-                <td class="px-4 py-2.5">
+                <td class="px-4 py-2.5 hidden sm:table-cell">
                   {% if t.category %}
                   <span class="text-xs px-1.5 py-0.5 rounded font-medium
                     {% if t.type.value == 'INCOME' %}bg-green-100 text-green-700{% else %}bg-red-100 text-red-700{% endif %}">
@@ -127,7 +227,7 @@
                 </td>
 
                 <!-- Pièce jointe -->
-                <td class="px-3 py-2.5 text-center">
+                <td class="px-3 py-2.5 text-center hidden sm:table-cell">
                   {% if t.attachment_url %}
                   <a href="{{ t.attachment_url }}" target="_blank"
                      class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline font-medium">
@@ -165,7 +265,7 @@
                   <form method="post" action="/finance/transactions/{{ t.id }}/delete"
                         onsubmit="return confirm('Supprimer ce mouvement ?')">
                     <button type="submit"
-                            class="text-gray-300 hover:text-red-500 opacity-0 group-hover:opacity-100 transition-opacity text-xs">✕</button>
+                            class="text-gray-300 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-xs">✕</button>
                   </form>
                 </td>
                 {% endif %}
@@ -189,123 +289,6 @@
         {% endif %}
       </div>
     </div>
-
-    <!-- ── Formulaire saisie (admin) ─────────────────────────────────────── -->
-    {% if is_admin %}
-    <div class="space-y-4" x-data="{ newCat: false }">
-
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h2 class="font-semibold text-gray-800 mb-4">Saisir un mouvement</h2>
-        <form method="post" action="/finance/transactions/add" enctype="multipart/form-data" class="space-y-3">
-          <input type="hidden" name="year_id" value="{{ selected_year.id }}">
-
-          <!-- Type -->
-          <div class="flex gap-2">
-            <label class="flex-1 cursor-pointer">
-              <input type="radio" name="txn_type" value="EXPENSE" checked class="sr-only peer">
-              <div class="text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600
-                          peer-checked:border-red-400 peer-checked:bg-red-50 peer-checked:text-red-700 transition-colors">
-                − Dépense
-              </div>
-            </label>
-            <label class="flex-1 cursor-pointer">
-              <input type="radio" name="txn_type" value="INCOME" class="sr-only peer">
-              <div class="text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600
-                          peer-checked:border-green-400 peer-checked:bg-green-50 peer-checked:text-green-700 transition-colors">
-                + Recette
-              </div>
-            </label>
-          </div>
-
-          <!-- Date -->
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
-            <input type="date" name="txn_date" required value="{{ today.strftime('%Y-%m-%d') }}"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-
-          <!-- Catégorie -->
-          <div>
-            <div class="flex items-center justify-between mb-1">
-              <label class="text-xs font-medium text-gray-700">Catégorie</label>
-              <button type="button" @click="newCat = !newCat"
-                      class="text-xs text-loge-600 hover:underline">
-                <span x-text="newCat ? 'Choisir existante' : '+ Nouvelle'"></span>
-              </button>
-            </div>
-            <div x-show="!newCat">
-              <select name="category_id"
-                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-                <option value="">— Aucune catégorie —</option>
-                {% if categories %}
-                <optgroup label="Dépenses">
-                  {% for c in categories if c.type.value == 'EXPENSE' %}
-                  <option value="{{ c.id }}">{{ c.name }}</option>
-                  {% endfor %}
-                </optgroup>
-                <optgroup label="Recettes">
-                  {% for c in categories if c.type.value == 'INCOME' %}
-                  <option value="{{ c.id }}">{{ c.name }}</option>
-                  {% endfor %}
-                </optgroup>
-                {% endif %}
-              </select>
-            </div>
-            <div x-show="newCat" x-cloak>
-              <input type="text" name="new_category" placeholder="Nom de la catégorie…"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            </div>
-          </div>
-
-          <!-- Libellé -->
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Libellé</label>
-            <input type="text" name="label" required placeholder="Description du mouvement…"
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-
-          <!-- Montant -->
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
-            <input type="number" name="amount" step="0.01" min="0" required
-                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          </div>
-
-          <!-- Justificatif -->
-          <div>
-            <label class="block text-xs font-medium text-gray-700 mb-1">📎 Justificatif (optionnel)</label>
-            <input type="file" name="document" accept=".pdf,.jpg,.jpeg,.png"
-                   class="w-full text-xs text-gray-600 border border-gray-200 rounded-lg px-3 py-2
-                          file:mr-2 file:py-1 file:px-2 file:rounded file:border-0
-                          file:text-xs file:bg-gray-100 file:text-gray-700">
-          </div>
-
-          <button type="submit"
-                  class="w-full bg-loge-700 text-white py-2 rounded-lg text-sm font-semibold hover:bg-loge-800">
-            Enregistrer
-          </button>
-        </form>
-      </div>
-
-      <!-- Aide catégories -->
-      {% if categories %}
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-4">
-        <h3 class="text-xs font-semibold text-gray-500 uppercase tracking-wide mb-2">Catégories existantes</h3>
-        <div class="space-y-1">
-          {% for c in categories %}
-          <div class="flex items-center justify-between text-xs">
-            <span class="{% if c.type.value == 'INCOME' %}text-green-700{% else %}text-red-700{% endif %}">
-              {{ c.name }}
-            </span>
-            <span class="text-gray-400">{{ 'Recette' if c.type.value == 'INCOME' else 'Dépense' }}</span>
-          </div>
-          {% endfor %}
-        </div>
-      </div>
-      {% endif %}
-
-    </div>
-    {% endif %}
 
   </div>
   {% endif %}
