@@ -230,6 +230,25 @@ async def impersonate(
     # Créer un token pour la cible
     target_token = create_access_token({"sub": str(target_user.id)})
 
+    # Enregistrer la session pour que la validation JTI passe
+    try:
+        from app.models.system import UserSession
+        from datetime import datetime as _dt
+        payload = decode_token(target_token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti:
+            expires = _dt.utcfromtimestamp(exp) if exp else None
+            db.add(UserSession(
+                user_id=target_user.id, jti=jti,
+                ip_address=request.client.host if request.client else None,
+                user_agent=(request.headers.get("user-agent", "")[:300]),
+                expires_at=expires,
+            ))
+            await db.commit()
+    except Exception:
+        pass
+
     redirect = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
     redirect.set_cookie("access_token", target_token, httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 8)
     redirect.set_cookie("impersonate_origin_token", origin_token, httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 8)
