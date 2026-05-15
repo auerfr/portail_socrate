@@ -271,7 +271,7 @@ async def program_detail(
     # Générer les QR codes SVG pour chaque tenue
     qr_codes: dict[int, str] = {}
     for pm in pm_sorted:
-        url = pm.registration_url or _inscription_url(request, pm.meeting.token)
+        url = _inscription_url(request, pm.meeting.token)
         qr_codes[pm.meeting_id] = _qr_svg(url)
 
     r_contacts = await db.execute(
@@ -417,6 +417,8 @@ async def program_delete(
     program = await db.get(Program, program_id)
     if not program:
         raise HTTPException(404)
+    from sqlalchemy import delete as sql_delete
+    await db.execute(sql_delete(ProgramMeeting).where(ProgramMeeting.program_id == program_id))
     await db.delete(program)
     await db.commit()
     return RedirectResponse(url="/programs/", status_code=303)
@@ -501,7 +503,7 @@ async def program_transmit(
     pm_sorted = sorted(program.meetings, key=lambda pm: pm.meeting.meeting_date)
     qr_codes: dict[int, str] = {}
     for pm in pm_sorted:
-        url = pm.registration_url or _inscription_url(request, pm.meeting.token)
+        url = _inscription_url(request, pm.meeting.token)
         qr_codes[pm.meeting_id] = _qr_svg(url)
 
     html_content = templates.TemplateResponse(
