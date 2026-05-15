@@ -22,9 +22,9 @@ from app.models.meetings import (
     Meeting, Attendance, AttendanceStatus, DegreeAttended,
     MeetingGrade, MeetingType, MeetingDegree,
     Visitor, MeetingVisitor, MeetingGuest, MeetingWaitlist,
-    DietaryRestriction, GuestStatus,
+    DietaryRestriction, GuestStatus, VisitorStatus,
 )
-from app.models.identity import Member, LodgeFunction
+from app.models.identity import Member, LodgeFunction, MemberStatus
 from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
 
 router = APIRouter(prefix="/meetings", tags=["meetings"])
@@ -679,11 +679,20 @@ async def meeting_banquet(
     if not meeting:
         raise HTTPException(status_code=404)
 
+    can_manage = _can_manage_banquet(user, member)
+
     agape_members  = sorted([a for a in meeting.attendances if a.agape],
                             key=lambda a: a.member.last_name)
     agape_visitors = sorted([mv for mv in meeting.meeting_visitors
                              if mv.agape and mv.status.value == "CONFIRMED"],
                             key=lambda mv: mv.visitor.last_name)
+    agape_member_ids = {a.member_id for a in agape_members}
+
+    # Tous les membres actifs (pour le formulaire d'ajout)
+    all_members_r = await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE).order_by(Member.last_name)
+    )
+    all_members = all_members_r.scalars().all()
     agape_guests   = sorted([g for g in meeting.meeting_guests
                              if g.agape and g.status.value == "CONFIRMED"],
                             key=lambda g: g.last_name)
@@ -736,7 +745,161 @@ async def meeting_banquet(
         "diet_counts": diet_counts,
         "diet_labels": diet_labels,
         "type_label": _type_label,
+        "can_manage": can_manage,
+        "all_members": all_members,
+        "agape_member_ids": agape_member_ids,
     })
+
+
+# ── Gestion agapes (Maître des Banquets / Admin / VM) ────────────────────────
+
+def _can_manage_banquet(user, member) -> bool:
+    return (
+        user.is_admin
+        or can_manage_meeting(member)
+        or member.lodge_function == LodgeFunction.MAITRE_BANQUETS
+    )
+
+
+@router.post("/{meeting_id}/banquet/member/{member_id}/agape")
+async def banquet_toggle_member(
+    meeting_id: int, member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    action: str = Form("toggle"),
+    guests: int = Form(0),
+):
+    user, member = ctx
+    if not _can_manage_banquet(user, member):
+        raise HTTPException(403)
+    r = await db.execute(
+        select(Attendance).where(Attendance.meeting_id == meeting_id, Attendance.member_id == member_id)
+    )
+    att = r.scalar_one_or_none()
+    if action == "remove":
+        if att:
+            att.agape = False
+            att.agape_guests = 0
+    elif action == "add":
+        if att:
+            att.agape = True
+            att.agape_guests = max(0, guests)
+        else:
+            db.add(Attendance(
+                meeting_id=meeting_id, member_id=member_id,
+                status=AttendanceStatus.PRESENT, agape=True, agape_guests=max(0, guests),
+            ))
+    elif action == "guests":
+        if att and att.agape:
+            att.agape_guests = max(0, guests)
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/banquet", status_code=303)
+
+
+@router.post("/{meeting_id}/banquet/visitor/{mv_id}/agape")
+async def banquet_toggle_visitor(
+    meeting_id: int, mv_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    action: str = Form("toggle"),
+    guests: int = Form(0),
+):
+    user, member = ctx
+    if not _can_manage_banquet(user, member):
+        raise HTTPException(403)
+    mv = await db.get(MeetingVisitor, mv_id)
+    if not mv or mv.meeting_id != meeting_id:
+        raise HTTPException(404)
+    if action == "remove":
+        mv.agape = False
+        mv.agape_guests = 0
+    elif action == "add":
+        mv.agape = True
+        mv.agape_guests = max(0, guests)
+    elif action == "guests":
+        if mv.agape:
+            mv.agape_guests = max(0, guests)
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/banquet", status_code=303)
+
+
+@router.post("/{meeting_id}/banquet/add-member-select")
+async def banquet_add_member(
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    member_id: int = Form(...),
+    guests: int = Form(0),
+):
+    user, member = ctx
+    if not _can_manage_banquet(user, member):
+        raise HTTPException(403)
+    r = await db.execute(
+        select(Attendance).where(Attendance.meeting_id == meeting_id, Attendance.member_id == member_id)
+    )
+    att = r.scalar_one_or_none()
+    if att:
+        att.agape = True
+        att.agape_guests = max(0, guests)
+    else:
+        db.add(Attendance(
+            meeting_id=meeting_id, member_id=member_id,
+            status=AttendanceStatus.PRESENT, agape=True, agape_guests=max(0, guests),
+        ))
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/banquet", status_code=303)
+
+
+@router.post("/{meeting_id}/banquet/add-visitor")
+async def banquet_add_visitor(
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    civility: str = Form("F"),
+    last_name: str = Form(...),
+    first_name: str = Form(...),
+    lodge_name: str = Form(""),
+    agape_guests: int = Form(0),
+):
+    user, member = ctx
+    if not _can_manage_banquet(user, member):
+        raise HTTPException(403)
+    # Chercher un visiteur existant (même nom + loge)
+    r = await db.execute(
+        select(Visitor).where(
+            Visitor.last_name.ilike(last_name.strip()),
+            Visitor.first_name.ilike(first_name.strip()),
+        )
+    )
+    visitor = r.scalars().first()
+    if not visitor:
+        visitor = Visitor(
+            civility=civility,
+            last_name=last_name.strip().upper(),
+            first_name=first_name.strip().title(),
+            lodge_name=lodge_name.strip() or None,
+        )
+        db.add(visitor)
+        await db.flush()
+    # Vérifier si déjà inscrit à cette tenue
+    r2 = await db.execute(
+        select(MeetingVisitor).where(
+            MeetingVisitor.meeting_id == meeting_id,
+            MeetingVisitor.visitor_id == visitor.id,
+        )
+    )
+    mv = r2.scalar_one_or_none()
+    if mv:
+        mv.agape = True
+        mv.agape_guests = max(0, agape_guests)
+        mv.status = VisitorStatus.CONFIRMED
+    else:
+        db.add(MeetingVisitor(
+            meeting_id=meeting_id, visitor_id=visitor.id,
+            status=VisitorStatus.CONFIRMED, agape=True, agape_guests=max(0, agape_guests),
+        ))
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/banquet", status_code=303)
 
 
 # ── Tableau "Mes agapes" pour le Maître des Banquets ──────────────────────────

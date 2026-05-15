@@ -120,6 +120,22 @@
         <span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-2 py-0.5">
           {{ 1 + att.agape_guests }} couvert{{ 's' if 1 + att.agape_guests > 1 else '' }}
         </span>
+        {% if can_manage %}
+        <div class="flex items-center gap-1 shrink-0">
+          <form method="post" action="/meetings/{{ meeting.id }}/banquet/member/{{ att.member_id }}/agape" class="flex items-center gap-1">
+            <input type="hidden" name="action" value="guests">
+            <input type="number" name="guests" value="{{ att.agape_guests }}" min="0" max="10"
+                   class="w-12 text-center border border-gray-200 rounded text-xs py-0.5"
+                   onchange="this.form.submit()" title="Invités supplémentaires">
+            <button type="submit" class="hidden"></button>
+          </form>
+          <form method="post" action="/meetings/{{ meeting.id }}/banquet/member/{{ att.member_id }}/agape"
+                onsubmit="return confirm('Retirer des agapes ?')">
+            <input type="hidden" name="action" value="remove">
+            <button type="submit" class="text-red-400 hover:text-red-600 text-xs px-1" title="Retirer des agapes">✕</button>
+          </form>
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
       {% endif %}
@@ -146,6 +162,22 @@
         <span class="text-xs font-semibold text-blue-600 bg-blue-50 rounded-full px-2 py-0.5">
           {{ 1 + mv.agape_guests }} couvert{{ 's' if 1 + mv.agape_guests > 1 else '' }}
         </span>
+        {% if can_manage %}
+        <div class="flex items-center gap-1 shrink-0">
+          <form method="post" action="/meetings/{{ meeting.id }}/banquet/visitor/{{ mv.id }}/agape" class="flex items-center gap-1">
+            <input type="hidden" name="action" value="guests">
+            <input type="number" name="guests" value="{{ mv.agape_guests }}" min="0" max="10"
+                   class="w-12 text-center border border-gray-200 rounded text-xs py-0.5"
+                   onchange="this.form.submit()" title="Invités supplémentaires">
+            <button type="submit" class="hidden"></button>
+          </form>
+          <form method="post" action="/meetings/{{ meeting.id }}/banquet/visitor/{{ mv.id }}/agape"
+                onsubmit="return confirm('Retirer ce passant des agapes ?')">
+            <input type="hidden" name="action" value="remove">
+            <button type="submit" class="text-red-400 hover:text-red-600 text-xs px-1" title="Retirer">✕</button>
+          </form>
+        </div>
+        {% endif %}
       </div>
       {% endfor %}
       {% endif %}
@@ -165,6 +197,67 @@
     </div>
     {% endif %}
   </div>
+
+  <!-- Gestion agapes (Maître des Banquets / Admin / VM) -->
+  {% if can_manage %}
+  <div class="grid sm:grid-cols-2 gap-4">
+
+    <!-- Ajouter un membre de la loge -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-800 mb-3">➕ Ajouter un frère/sœur</h3>
+      <form method="post" action="/meetings/{{ meeting.id }}/banquet/add-member-select" class="space-y-3">
+        <select name="member_id" required
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+          <option value="">— Sélectionner un membre —</option>
+          {% for m in all_members %}
+          {% if m.id not in agape_member_ids %}
+          <option value="{{ m.id }}">{{ m.last_name }} {{ m.first_name }}</option>
+          {% endif %}
+          {% endfor %}
+        </select>
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-600 shrink-0">Invités :</label>
+          <input type="number" name="guests" value="0" min="0" max="10"
+                 class="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center">
+          <input type="hidden" name="action" value="add">
+          <button type="submit"
+                  class="flex-1 bg-amber-600 hover:bg-amber-700 text-white text-sm font-semibold py-1.5 rounded-lg transition-colors">
+            Ajouter
+          </button>
+        </div>
+      </form>
+    </div>
+
+    <!-- Ajouter un maçon passant -->
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-800 mb-3">➕ Ajouter un maçon passant</h3>
+      <form method="post" action="/meetings/{{ meeting.id }}/banquet/add-visitor" class="space-y-2">
+        <div class="grid grid-cols-2 gap-2">
+          <select name="civility" class="border border-gray-200 rounded-lg px-2 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+            <option value="F">F∴</option>
+            <option value="S">S∴</option>
+          </select>
+          <input type="text" name="last_name" required placeholder="NOM"
+                 class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        </div>
+        <input type="text" name="first_name" required placeholder="Prénom"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <input type="text" name="lodge_name" placeholder="Loge (optionnel)"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-amber-400">
+        <div class="flex items-center gap-2">
+          <label class="text-xs text-gray-600 shrink-0">Invités :</label>
+          <input type="number" name="agape_guests" value="0" min="0" max="10"
+                 class="w-16 border border-gray-200 rounded px-2 py-1 text-sm text-center">
+          <button type="submit"
+                  class="flex-1 bg-blue-600 hover:bg-blue-700 text-white text-sm font-semibold py-1.5 rounded-lg transition-colors">
+            Ajouter
+          </button>
+        </div>
+      </form>
+    </div>
+
+  </div>
+  {% endif %}
 
   <!-- Substituts désignés (depuis Conseil d'officiers) -->
   {% if subs_by_office %}
