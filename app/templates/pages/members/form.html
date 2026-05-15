@@ -197,7 +197,8 @@
     {% endif %}
 
     <!-- Compte d'accès -->
-    {% if is_new or (target_user and current_user.is_admin) %}
+    {% set is_own = target and current_member and target.id == current_member.id %}
+    {% if is_new or (target_user and (current_user.is_admin or is_own)) %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-1">Compte d'accès</h2>
       {% if is_new %}

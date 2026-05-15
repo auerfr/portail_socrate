@@ -580,18 +580,19 @@ async def member_update(
 
     target.birth_date = parse_date(birth_date)
 
-    # Mise à jour login + is_admin (admin uniquement)
-    if user.is_admin and login.strip():
+    # Mise à jour login (admin ou propre profil) + is_admin (admin uniquement)
+    is_own_profile = (current_member.id == member_id)
+    if login.strip() and (user.is_admin or is_own_profile):
         user_result = await db.execute(select(User).where(User.member_id == member_id))
         target_user = user_result.scalar_one_or_none()
         if target_user:
             new_login = login.strip().lower()
-            # Vérifier unicité si changement
             if new_login != target_user.login:
                 existing = await db.execute(select(User).where(User.login == new_login))
                 if not existing.scalar_one_or_none():
                     target_user.login = new_login
-            target_user.is_admin = bool(is_admin) and user.is_admin
+            if user.is_admin:
+                target_user.is_admin = bool(is_admin)
 
     await db.commit()
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
