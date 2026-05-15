@@ -108,10 +108,10 @@
     <div class="lg:col-span-2 space-y-4">
 
       <!-- Charges -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100">
         <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
           <h2 class="text-sm font-semibold text-gray-700">Charges prévisionnelles</h2>
-          <span class="text-sm font-bold text-gray-800">{{ "%.2f"|format(total_charges) }} €</span>
+          <span class="text-sm font-bold text-gray-800 shrink-0 ml-2">{{ "%.2f"|format(total_charges) }} €</span>
         </div>
 
         {% if budget_lines %}
@@ -129,11 +129,11 @@
           {% endif %}
           {% endif %}
           <div class="flex items-center gap-3 px-5 py-2.5 group">
-            <div class="flex-1 text-sm text-gray-800">{{ line.label }}</div>
+            <div class="flex-1 text-sm text-gray-800 min-w-0">{{ line.label }}</div>
             {% if line.notes %}
-            <div class="text-xs text-gray-400 italic hidden group-hover:block">{{ line.notes }}</div>
+            <div class="text-xs text-gray-400 italic hidden group-hover:block shrink-0">{{ line.notes }}</div>
             {% endif %}
-            <div class="text-sm font-semibold text-gray-900 tabular-nums">{{ "%.2f"|format(line.amount) }} €</div>
+            <div class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
                   onsubmit="return confirm('Supprimer cette ligne ?')">
@@ -165,29 +165,29 @@
           <h2 class="text-sm font-semibold text-gray-700">Barème résultant</h2>
         </div>
         <div class="overflow-x-auto">
-        <table class="w-full text-sm min-w-[320px]">
+        <table class="w-full text-sm">
           <thead>
             <tr class="border-b border-gray-100">
-              <th class="text-left px-5 py-2 text-xs text-gray-500 font-medium">Tranche</th>
-              <th class="text-right px-3 py-2 text-xs text-gray-500 font-medium">Coeff.</th>
+              <th class="text-left px-4 py-2 text-xs text-gray-500 font-medium">Tranche</th>
+              <th class="text-right px-3 py-2 text-xs text-gray-500 font-medium hidden sm:table-cell">Coeff.</th>
               <th class="text-right px-3 py-2 text-xs text-gray-500 font-medium">Cotisation</th>
-              <th class="text-right px-5 py-2 text-xs text-gray-500 font-medium">+ Capitation</th>
-              <th class="text-right px-5 py-2 text-xs text-gray-500 font-medium">Total dû</th>
+              <th class="text-right px-3 py-2 text-xs text-gray-500 font-medium hidden sm:table-cell">+ Capitation</th>
+              <th class="text-right px-4 py-2 text-xs text-gray-500 font-medium">Total dû</th>
             </tr>
           </thead>
           <tbody class="divide-y divide-gray-50">
             {% set capitation = cfg.national_capitation_rate + cfg.regional_capitation_rate %}
             {% for tier in cfg.tiers | sort(attribute='tier_number') %}
             <tr class="{% if tier.tier_number == 3 %}bg-loge-50{% endif %}">
-              <td class="px-5 py-2">
+              <td class="px-4 py-2">
                 <span class="font-bold text-loge-700">T{{ tier.tier_number }}</span>
-                <span class="text-gray-500 ml-2">{{ tier_labels[tier.tier_number] }}</span>
-                {% if tier.tier_number == 3 %}<span class="ml-2 text-xs bg-loge-100 text-loge-700 px-1.5 py-0.5 rounded">référence</span>{% endif %}
+                <span class="text-gray-500 ml-1 text-xs">{{ tier_labels[tier.tier_number] }}</span>
+                {% if tier.tier_number == 3 %}<br><span class="text-xs bg-loge-100 text-loge-700 px-1.5 py-0.5 rounded">référence</span>{% endif %}
               </td>
-              <td class="text-right px-3 py-2 text-gray-600">×{{ "%.1f"|format(tier.coefficient) }}</td>
+              <td class="text-right px-3 py-2 text-gray-600 hidden sm:table-cell">×{{ "%.1f"|format(tier.coefficient) }}</td>
               <td class="text-right px-3 py-2 font-medium">{{ "%.2f"|format(tier.amount) }} €</td>
-              <td class="text-right px-3 py-2 text-gray-500">{{ "%.2f"|format(capitation) }} €</td>
-              <td class="text-right px-5 py-2 font-bold text-gray-900">{{ "%.2f"|format(tier.amount + capitation) }} €</td>
+              <td class="text-right px-3 py-2 text-gray-500 hidden sm:table-cell">{{ "%.2f"|format(capitation) }} €</td>
+              <td class="text-right px-4 py-2 font-bold text-gray-900">{{ "%.2f"|format(tier.amount + capitation) }} €</td>
             </tr>
             {% endfor %}
           </tbody>
