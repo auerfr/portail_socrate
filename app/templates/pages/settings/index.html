@@ -924,52 +924,39 @@
         <span class="text-xs text-gray-400">Accès technique complet</span>
       </div>
 
-      <div class="overflow-x-auto">
-      <table class="w-full text-sm min-w-[500px]">
-        <thead>
-          <tr class="border-b border-gray-100">
-            <th class="text-left py-2 text-xs text-gray-500 font-medium">Login</th>
-            <th class="text-left py-2 text-xs text-gray-500 font-medium">Membre lié</th>
-            <th class="text-center py-2 text-xs text-gray-500 font-medium">Super admin</th>
-            <th class="py-2"></th>
-          </tr>
-        </thead>
-        <tbody class="divide-y divide-gray-50">
-          {% for u in all_users %}
-          <tr class="{% if u.is_admin %}bg-amber-50{% endif %}">
-            <td class="py-2 font-mono text-gray-800">{{ u.login }}</td>
-            <td class="py-2 text-gray-600">
+      <div class="divide-y divide-gray-50">
+        {% for u in all_users %}
+        <div class="flex items-center justify-between gap-3 py-2.5 {% if u.is_admin %}bg-amber-50 -mx-5 px-5{% endif %}">
+          <div class="min-w-0 flex-1">
+            <div class="font-mono text-sm text-gray-800 truncate">{{ u.login }}</div>
+            <div class="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
               {% if u.member_id and u.member_id in all_member_map %}
               {{ all_member_map[u.member_id].first_name }} {{ all_member_map[u.member_id].last_name }}
               {% else %}
-              <span class="text-gray-400 italic">— compte système —</span>
+              <span class="italic">— compte système —</span>
               {% endif %}
-            </td>
-            <td class="py-2 text-center">
               {% if u.is_admin %}
-              <span class="inline-block w-2 h-2 rounded-full bg-amber-500"></span>
-              <span class="text-xs text-amber-700 ml-1">Oui</span>
-              {% else %}
-              <span class="text-xs text-gray-400">Non</span>
+              <span class="inline-flex items-center gap-1 text-xs text-amber-700 bg-amber-100 px-1.5 py-0.5 rounded-full">
+                <span class="w-1.5 h-1.5 rounded-full bg-amber-500 inline-block"></span>Admin
+              </span>
               {% endif %}
-            </td>
-            <td class="py-2 text-right">
-              {% if u.id != current_user.id %}
-              <form method="post" action="/settings/users/{{ u.id }}/toggle-admin"
-                    onsubmit="return confirm('{% if u.is_admin %}Retirer les droits super-admin à {{ u.login }} ?{% else %}Donner les droits super-admin à {{ u.login }} ?{% endif %}')">
-                <button type="submit"
-                        class="text-xs px-3 py-1 rounded border {% if u.is_admin %}border-red-200 text-red-600 hover:bg-red-50{% else %}border-loge-200 text-loge-700 hover:bg-loge-50{% endif %}">
-                  {% if u.is_admin %}Retirer admin{% else %}Rendre admin{% endif %}
-                </button>
-              </form>
-              {% else %}
-              <span class="text-xs text-gray-300">Vous</span>
-              {% endif %}
-            </td>
-          </tr>
-          {% endfor %}
-        </tbody>
-      </table>
+            </div>
+          </div>
+          <div class="flex-shrink-0">
+            {% if u.id != current_user.id %}
+            <form method="post" action="/settings/users/{{ u.id }}/toggle-admin"
+                  onsubmit="return confirm('{% if u.is_admin %}Retirer les droits super-admin à {{ u.login }} ?{% else %}Donner les droits super-admin à {{ u.login }} ?{% endif %}')">
+              <button type="submit"
+                      class="text-xs px-3 py-1 rounded border {% if u.is_admin %}border-red-200 text-red-600 hover:bg-red-50{% else %}border-loge-200 text-loge-700 hover:bg-loge-50{% endif %}">
+                {% if u.is_admin %}Retirer{% else %}Admin{% endif %}
+              </button>
+            </form>
+            {% else %}
+            <span class="text-xs text-gray-300">Vous</span>
+            {% endif %}
+          </div>
+        </div>
+        {% endfor %}
       </div>
     </div>
   </div>
