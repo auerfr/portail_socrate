@@ -359,7 +359,8 @@
       <li class="group" :class="sel.has({{ doc.id }}) ? 'bg-loge-50' : ''">
 
         <!-- Ligne principale -->
-        <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50 transition-colors">
+        <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
+          <div class="flex items-center gap-3 flex-1 min-w-0">
 
           <!-- Checkbox sélection (visible en selMode) -->
           {% if is_admin %}
@@ -403,7 +404,7 @@
 
           <!-- Infos -->
           <div class="flex-1 min-w-0">
-            <div id="doc-name-{{ doc.id }}" class="text-sm font-medium text-gray-800 line-clamp-2 sm:truncate sm:line-clamp-none">{{ doc.name }}</div>
+            <div id="doc-name-{{ doc.id }}" class="text-sm font-medium text-gray-800 break-words">{{ doc.name }}</div>
             {% if is_admin %}
             <form id="rename-form-{{ doc.id }}" method="post" action="/documents/file/{{ doc.id }}/rename"
                   class="hidden items-center gap-1 mr-2">
@@ -433,10 +434,11 @@
               <span>·</span><span>{{ doc.download_count }}×</span>
               {% endif %}
             </div>
-          </div>
+          </div><!-- fin info -->
+          </div><!-- fin row1 icon+info -->
 
-          <!-- Actions (toujours visibles sur mobile, hover sur desktop) -->
-          <div class="flex items-center gap-1.5 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <!-- Actions : toujours visibles sur mobile (sous le nom), hover sur desktop -->
+          <div class="flex items-center gap-1.5 ml-11 sm:ml-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
 
             {% if has_embed %}
             <!-- Bouton lecteur embarqué -->
