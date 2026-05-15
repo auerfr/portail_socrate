@@ -1711,15 +1711,48 @@ async def _compute_bilan(
         cat = bl.category_label or bl.label
         budget_by_cat[cat] = budget_by_cat.get(cat, Decimal("0")) + Decimal(str(bl.amount))
 
-    total_produits_global = total_produits + total_cotisations
-    resultat = total_produits_global - total_charges
+    # ── Capitation à reverser (nationale + régionale) ────────────────────────
+    # Somme des capitations de toutes les cotisations de l'année
+    # (quelle que soit leur statut : c'est la capitation collectée ou à collecter)
+    cap_due_r = await db.execute(
+        select(func.sum(MemberContribution.capitation_amount))
+        .where(MemberContribution.masonic_year_id == selected_year.id)
+    )
+    total_capitation_due = Decimal(str(cap_due_r.scalar_one() or 0))
 
-    # ── Cotisations dues (toujours sur l'année complète) ─────────────────────
-    cot_due_r = await db.execute(
+    # Capitation effectivement encaissée (proportionnelle aux paiements)
+    # = capitation_due × (cotisations_encaissées / cotisations_dues_brutes)
+    cot_brute_r = await db.execute(
         select(func.sum(MemberContribution.total_amount))
         .where(MemberContribution.masonic_year_id == selected_year.id)
     )
-    total_cotisations_due = Decimal(str(cot_due_r.scalar_one() or 0))
+    total_cotisations_due_brut = Decimal(str(cot_brute_r.scalar_one() or 0))
+
+    if total_cotisations_due_brut > 0:
+        ratio_encaisse = total_cotisations / total_cotisations_due_brut
+        total_capitation_encaissee = (total_capitation_due * ratio_encaisse).quantize(Decimal("0.01"))
+    else:
+        total_capitation_encaissee = Decimal("0")
+
+    # Config capitation (taux unitaires)
+    cfg_r = await db.execute(
+        select(ContributionConfig).where(ContributionConfig.masonic_year_id == selected_year.id)
+    )
+    contrib_cfg = cfg_r.scalar_one_or_none()
+
+    # Cotisations nettes (part associative seule, sans capitation)
+    total_cotisations_nettes = total_cotisations - total_capitation_encaissee
+
+    # Produits globaux et résultat
+    # Le résultat réel de la loge = produits divers + cotisations NETTES - charges
+    # (la capitation est un transit : collectée puis reversée)
+    total_produits_global = total_produits + total_cotisations
+    resultat_brut = total_produits_global - total_charges
+    # Résultat net après déduction capitation à reverser
+    resultat_net = total_produits + total_cotisations_nettes - total_charges
+
+    # ── Cotisations dues (toujours sur l'année complète) ─────────────────────
+    total_cotisations_due = total_cotisations_due_brut
 
     return {
         "charges_by_cat": dict(sorted(charges_by_cat.items())),
@@ -1727,8 +1760,13 @@ async def _compute_bilan(
         "produits_by_cat": dict(sorted(produits_by_cat.items())),
         "total_produits": total_produits,
         "total_cotisations": total_cotisations,
+        "total_cotisations_nettes": total_cotisations_nettes,
+        "total_capitation_encaissee": total_capitation_encaissee,
+        "total_capitation_due": total_capitation_due,
+        "contrib_cfg": contrib_cfg,
         "total_produits_global": total_produits_global,
-        "resultat": resultat,
+        "resultat": resultat_net,           # résultat réel loge (sans capitation)
+        "resultat_brut": resultat_brut,     # pour info
         "budget_by_cat": dict(sorted(budget_by_cat.items())),
         "total_budget": total_budget,
         "total_cotisations_due": total_cotisations_due,

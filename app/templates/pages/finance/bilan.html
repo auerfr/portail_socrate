@@ -83,11 +83,23 @@
   {% else %}
 
   <!-- Résultat global en haut -->
+  <!-- Alerte capitation -->
+  {% if total_capitation_encaissee > 0 %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 text-sm text-amber-800">
+    <strong>⚠ Capitation à reverser :</strong>
+    {{ "%.2f"|format(total_capitation_encaissee) }} € (nationale {{ "%.2f"|format(contrib_cfg.national_capitation_rate if contrib_cfg else 0) }} € + régionale {{ "%.2f"|format(contrib_cfg.regional_capitation_rate if contrib_cfg else 0) }} € × membres Appartenance).
+    Ce montant est collecté pour le compte de l'obédience — il est <strong>déduit du résultat net</strong> ci-dessous.
+  </div>
+  {% endif %}
+
   <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
     <div class="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-      <div class="text-xs text-green-600 uppercase tracking-wide mb-1">Total Produits</div>
+      <div class="text-xs text-green-600 uppercase tracking-wide mb-1">Total Produits bruts</div>
       <div class="text-2xl font-bold text-green-700">{{ "%.2f"|format(total_produits_global) }} €</div>
-      <div class="text-xs text-green-500 mt-1">dont {{ "%.2f"|format(total_cotisations) }} € cotisations</div>
+      <div class="text-xs text-green-500 mt-1">
+        dont {{ "%.2f"|format(total_cotisations_nettes) }} € cot. nettes
+        {% if total_capitation_encaissee > 0 %}+ {{ "%.2f"|format(total_capitation_encaissee) }} € capitation transit{% endif %}
+      </div>
     </div>
     <div class="bg-red-50 border border-red-200 rounded-xl p-5 text-center">
       <div class="text-xs text-red-600 uppercase tracking-wide mb-1">Total Charges</div>
@@ -98,13 +110,16 @@
                 {% if resultat >= 0 %}bg-loge-50 border-loge-200{% else %}bg-orange-50 border-orange-200{% endif %}">
       <div class="text-xs uppercase tracking-wide mb-1
                   {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
-        {% if resultat >= 0 %}Excédent{% else %}Déficit{% endif %}
+        {% if resultat >= 0 %}Excédent net{% else %}Déficit net{% endif %}
       </div>
       <div class="text-2xl font-bold {% if resultat >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
         {{ "%.2f"|format(resultat|abs) }} €
       </div>
       <div class="text-xs mt-1 {% if resultat >= 0 %}text-loge-400{% else %}text-orange-400{% endif %}">
-        Produits − Charges
+        Cot. nettes + produits − charges
+        {% if total_capitation_encaissee > 0 %}
+        <br><span class="text-gray-400">(capitation {{ "%.2f"|format(total_capitation_encaissee) }} € exclue)</span>
+        {% endif %}
       </div>
     </div>
   </div>
@@ -144,9 +159,21 @@
       </div>
 
       <!-- Cotisations encaissées (ligne spéciale) -->
-      <div class="flex items-center justify-between px-5 py-2.5 bg-loge-50">
-        <span class="text-sm text-loge-800 font-medium">Cotisations encaissées</span>
-        <span class="text-sm font-semibold text-loge-700 tabular-nums">{{ "%.2f"|format(total_cotisations) }} €</span>
+      <div class="bg-loge-50 divide-y divide-loge-100">
+        <div class="flex items-center justify-between px-5 py-2">
+          <span class="text-xs text-loge-700">Cotisations brutes encaissées</span>
+          <span class="text-sm font-semibold text-loge-700 tabular-nums">{{ "%.2f"|format(total_cotisations) }} €</span>
+        </div>
+        {% if total_capitation_encaissee > 0 %}
+        <div class="flex items-center justify-between px-5 py-2">
+          <span class="text-xs text-amber-700">− Capitation à reverser (GODF/régional)</span>
+          <span class="text-sm font-semibold text-amber-700 tabular-nums">−{{ "%.2f"|format(total_capitation_encaissee) }} €</span>
+        </div>
+        <div class="flex items-center justify-between px-5 py-2.5">
+          <span class="text-sm text-loge-800 font-medium">Cotisations nettes (part loge)</span>
+          <span class="text-sm font-bold text-loge-700 tabular-nums">{{ "%.2f"|format(total_cotisations_nettes) }} €</span>
+        </div>
+        {% endif %}
       </div>
 
       {% if produits_by_cat %}
