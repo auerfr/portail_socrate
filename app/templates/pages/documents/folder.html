@@ -354,6 +354,7 @@
       {% set platform = platforms.get(doc.id) if is_link else None %}
       {% set has_embed = platform and platform.embed_url %}
       {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if doc.original_filename and '.' in doc.original_filename else '' %}
+      {% set is_image = ext in ['jpg','jpeg','png','gif','webp'] %}
 
       <li class="group" :class="sel.has({{ doc.id }}) ? 'bg-loge-50' : ''">
 
