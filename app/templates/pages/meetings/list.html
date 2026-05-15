@@ -84,7 +84,7 @@
                 <span class="text-xs font-medium text-loge-700 bg-loge-50 rounded-full px-2 py-0.5">
                   {{ type_label(m.type) }}
                 </span>
-                <span class="text-xs text-gray-500">{{ grade_label(m.grade) }}</span>
+                <span class="hidden sm:inline text-xs text-gray-500">{{ grade_label(m.grade) }}</span>
                 {% if m.is_locked %}
                 <span class="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">🔒 Verrouillée</span>
                 {% endif %}
@@ -96,8 +96,8 @@
               <p class="text-sm text-gray-500 mt-0.5">{{ m.theme }}</p>
               {% endif %}
               <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
-                {% if m.meeting_time %}<span>⏰ {{ m.meeting_time }}</span>{% endif %}
-                {% if m.location %}<span>📍 {{ m.location }}</span>{% endif %}
+                {% if m.meeting_time %}<span class="hidden sm:inline">⏰ {{ m.meeting_time }}</span>{% endif %}
+                {% if m.location %}<span class="hidden sm:inline">📍 {{ m.location }}</span>{% endif %}
                 {% if not is_past %}<span>👥 {{ present_count }} inscrits</span>{% endif %}
               </div>
             </div>

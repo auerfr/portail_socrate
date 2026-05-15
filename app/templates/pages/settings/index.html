@@ -528,13 +528,13 @@
           {% for o in offices %}
           <div x-data="{ deleted: false }"
                :class="deleted ? 'opacity-40 bg-red-50 border-red-200' : 'border-gray-100 hover:border-gray-200'"
-               class="flex items-center gap-2 p-2 rounded-lg border transition-colors">
+               class="flex flex-col sm:flex-row sm:items-center gap-2 p-2 rounded-lg border transition-colors">
             <input type="hidden" name="office_id" value="{{ o.id }}">
             <input type="hidden" name="delete_{{ o.id }}" :value="deleted ? '1' : ''">
             <input type="text" name="label_{{ o.id }}" value="{{ o.label }}"
                    placeholder="Libellé de l'office"
                    :disabled="deleted"
-                   class="w-44 shrink-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 disabled:bg-gray-100">
+                   class="w-full sm:w-44 sm:shrink-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 disabled:bg-gray-100">
             <select name="member_{{ o.id }}"
                     :disabled="deleted"
                     class="flex-1 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 disabled:bg-gray-100">
@@ -558,10 +558,10 @@
         </div>
 
         <template x-for="(off, i) in newOffices" :key="i">
-          <div class="flex items-center gap-2 p-2 mt-2 rounded-lg border border-loge-200 bg-loge-50 transition-colors">
+          <div class="flex flex-col sm:flex-row sm:items-center gap-2 p-2 mt-2 rounded-lg border border-loge-200 bg-loge-50 transition-colors">
             <input type="text" name="new_label" x-model="off.label"
                    placeholder="Nom de l'office (ex: Couvreur)"
-                   class="w-44 shrink-0 border border-loge-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+                   class="w-full sm:w-44 sm:shrink-0 border border-loge-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
             <select name="new_member" x-model="off.member_id"
                     class="flex-1 border border-loge-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
               <option value="">— Aucun —</option>
@@ -623,7 +623,7 @@
            }">
 
         {% for c in external_contacts %}
-        <div class="flex items-center gap-3 py-2.5">
+        <div class="flex flex-wrap items-start gap-2 py-2.5">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium flex-shrink-0
             {% if c.contact_type == 'VISITOR' %}bg-loge-100 text-loge-700{% else %}bg-blue-50 text-blue-700{% endif %}">
             {{ '👤 Passant·e' if c.contact_type == 'VISITOR' else '🏛 Institutionnel' }}
@@ -648,7 +648,7 @@
           <!-- Modifier -->
           <button type="button"
                   @click="open({ id: {{ c.id }}, name: '{{ c.name | replace("'", "\\'") }}', first_name: '{{ (c.first_name or '') | replace("'", "\\'") }}', last_name: '{{ (c.last_name or '') | replace("'", "\\'") }}', email: '{{ c.email }}', organization: '{{ (c.organization or '') | replace("'", "\\'") }}', lodge_name: '{{ (c.lodge_name or '') | replace("'", "\\'") }}', orient: '{{ (c.orient or '') | replace("'", "\\'") }}', contact_type: '{{ c.contact_type }}', notes: '{{ (c.notes or '') | replace("'", "\\'") }}' })"
-                  class="text-gray-400 hover:text-loge-600 p-1 rounded hover:bg-loge-50 transition-colors flex-shrink-0" title="Modifier">
+                  class="text-gray-400 hover:text-loge-600 p-1 rounded hover:bg-loge-50 transition-colors flex-shrink-0 self-start" title="Modifier">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
             </svg>

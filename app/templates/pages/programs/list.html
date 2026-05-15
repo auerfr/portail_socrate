@@ -31,7 +31,7 @@
 
   <div class="space-y-3">
     {% for prog in programs %}
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex items-center gap-4 hover:border-loge-200 transition-colors">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 flex flex-col sm:flex-row items-start sm:items-center gap-3 hover:border-loge-200 transition-colors">
 
       <!-- Icône mois -->
       <div class="w-14 h-14 bg-loge-100 rounded-xl flex flex-col items-center justify-center flex-shrink-0">
@@ -40,7 +40,7 @@
       </div>
 
       <div class="flex-1 min-w-0">
-        <div class="font-semibold text-gray-900">{{ prog.title }}</div>
+        <div class="font-semibold text-gray-900 break-words line-clamp-2">{{ prog.title }}</div>
         <div class="text-sm text-gray-500 mt-0.5">
           {{ prog.meetings | length }} tenue{% if prog.meetings | length > 1 %}s{% endif %}
           · Créé le {{ prog.created_at.strftime('%d/%m/%Y') }}
@@ -50,7 +50,7 @@
         {% endif %}
       </div>
 
-      <div class="flex gap-2 shrink-0">
+      <div class="flex flex-wrap gap-2">
         <a href="/programs/{{ prog.id }}"
            class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
           👁 Aperçu

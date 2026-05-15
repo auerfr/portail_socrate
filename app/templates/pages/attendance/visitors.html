@@ -121,10 +121,10 @@
             <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="1">
               Loge <span class="sort-icon text-gray-300">↕</span>
             </th>
-            <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="2">
+            <th class="sortable hidden sm:table-cell px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="2">
               Orient <span class="sort-icon text-gray-300">↕</span>
             </th>
-            <th class="sortable px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="3">
+            <th class="sortable hidden sm:table-cell px-4 py-3 text-left font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="3">
               Obédience <span class="sort-icon text-gray-300">↕</span>
             </th>
             <th class="sortable px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="4">
@@ -158,8 +158,8 @@
               </div>
             </td>
             <td class="px-4 py-3 text-sm text-gray-700">{{ v.lodge_name or '—' }}</td>
-            <td class="px-4 py-3 text-sm text-gray-600">{{ v.orient_city or '—' }}</td>
-            <td class="px-4 py-3 text-sm text-gray-600">{{ v.obedience or '—' }}</td>
+            <td class="hidden sm:table-cell px-4 py-3 text-sm text-gray-600">{{ v.orient_city or '—' }}</td>
+            <td class="hidden sm:table-cell px-4 py-3 text-sm text-gray-600">{{ v.obedience or '—' }}</td>
             <td class="px-4 py-3 text-center">
               {% if visits >= 5 %}
               <span class="inline-flex items-center gap-1 text-xs font-medium bg-loge-100 text-loge-700 rounded-full px-2.5 py-1">⭐ {{ visits }} visites</span>
