@@ -60,7 +60,7 @@
 
     <!-- ── Formulaire saisie (admin) — en premier sur mobile ─────────────── -->
     {% if is_admin %}
-    <div class="space-y-4 order-first lg:order-last" x-data="{ newCat: false }">
+    <div class="space-y-4" x-data="{ newCat: false }">
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
         <h2 class="font-semibold text-gray-800 mb-4">Saisir un mouvement</h2>
@@ -159,7 +159,7 @@
     {% endif %}
 
     <!-- ── Tableau des mouvements ────────────────────────────────────────── -->
-    <div class="lg:col-span-2 order-last lg:order-first">
+    <div class="lg:col-span-2">
 
       <!-- Filtres rapides -->
       <div class="flex gap-2 mb-3 flex-wrap">
