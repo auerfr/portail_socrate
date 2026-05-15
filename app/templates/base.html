@@ -567,6 +567,14 @@
       </a>
       {% endif %}
 
+      {% if current_user and current_user.is_admin %}
+      <a href="/admin/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/admin' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-shield-lock text-lg opacity-70"></i>
+        Administration
+      </a>
+      {% endif %}
+
       <!-- ── Profil ── -->
       <div class="h-px mx-1 my-3" style="background:rgba(255,255,255,0.08);"></div>
 
