@@ -602,6 +602,20 @@ async def global_exception_handler(request: Request, exc: Exception):
     return PlainTextResponse(f"Erreur interne:\n{tb}", status_code=500)
 
 
+@app.exception_handler(401)
+async def unauthorized_handler(request: Request, exc):
+    """Redirige vers /auth/login pour les requêtes navigateur, JSON pour les API."""
+    accept = request.headers.get("accept", "")
+    is_api = request.url.path.startswith("/api/") or "application/json" in accept and "text/html" not in accept
+    if is_api:
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Authentification requise"}, status_code=401)
+    # Requête navigateur → redirection vers login
+    from urllib.parse import quote
+    next_url = quote(str(request.url.path))
+    return RedirectResponse(url=f"/auth/login?next={next_url}", status_code=302)
+
+
 @app.middleware("http")
 async def maintenance_banner_middleware(request: Request, call_next):
     """Charge la bannière maintenance + flag confidentialité dans request.state."""

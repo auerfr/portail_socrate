@@ -34,9 +34,13 @@ templates = Jinja2Templates(directory="app/templates")
 async def login_page(
     request: Request,
     db: Annotated[AsyncSession, Depends(get_db)],
+    next: str = "/",
 ):
     lodge = await _get_lodge(db)
-    return templates.TemplateResponse(request, "pages/auth/login.html", {"lodge": lodge})
+    return templates.TemplateResponse(request, "pages/auth/login.html", {
+        "lodge": lodge,
+        "next": next,
+    })
 
 
 @router.post("/login")
@@ -45,6 +49,7 @@ async def login_submit(
     response: Response,
     form_data: Annotated[OAuth2PasswordRequestForm, Depends()],
     db: Annotated[AsyncSession, Depends(get_db)],
+    next: str = Form("/"),
 ):
     """Authentification web — répond avec cookie + redirect."""
     identifier = form_data.username.strip().lower()
@@ -128,7 +133,9 @@ async def login_submit(
     except Exception:
         pass
 
-    redirect = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    # Rediriger vers la page d'origine si fournie (et sécurisée)
+    safe_next = next if (next and next.startswith("/") and not next.startswith("//")) else "/"
+    redirect = RedirectResponse(url=safe_next, status_code=status.HTTP_302_FOUND)
     redirect.set_cookie(
         "access_token", access_token,
         httponly=True, samesite="lax", secure=False,  # secure=True en prod
