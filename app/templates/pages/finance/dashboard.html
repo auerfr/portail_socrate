@@ -164,13 +164,13 @@
           <table class="w-full text-sm">
             <thead>
               <tr class="border-b border-gray-100 bg-gray-50">
-                <th class="text-left px-5 py-3 font-medium text-xs text-gray-500">Membre</th>
-                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Dû</th>
-                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Payé</th>
-                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Solde</th>
+                <th class="text-left px-4 py-3 font-medium text-xs text-gray-500">Membre</th>
+                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell">Dû</th>
+                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell">Payé</th>
+                <th class="text-right px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell">Solde</th>
                 <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Reste</th>
                 {% if is_admin %}
-                <th class="px-4 py-3 font-medium text-xs text-gray-500">Actions</th>
+                <th class="px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell">Actions</th>
                 {% endif %}
               </tr>
             </thead>
@@ -179,7 +179,7 @@
               <tr class="hover:bg-gray-50 {% if ms.is_late %}bg-red-50/30{% elif ms.is_ok and ms.contrib %}bg-green-50/20{% endif %}">
 
                 <!-- Membre -->
-                <td class="px-5 py-3">
+                <td class="px-4 py-3">
                   <a href="/members/{{ ms.member.id }}" class="font-medium text-gray-800 hover:text-loge-700">
                     {{ ms.member.last_name }} {{ ms.member.first_name }}
                   </a>
@@ -191,17 +191,17 @@
                 </td>
 
                 <!-- Dû -->
-                <td class="px-3 py-3 text-right tabular-nums text-gray-700">
+                <td class="px-3 py-3 text-right tabular-nums text-gray-700 hidden sm:table-cell">
                   {% if ms.contrib %}{{ "%.2f"|format(ms.due) }} €{% else %}<span class="text-gray-300">—</span>{% endif %}
                 </td>
 
                 <!-- Payé -->
-                <td class="px-3 py-3 text-right tabular-nums text-green-600 font-medium">
+                <td class="px-3 py-3 text-right tabular-nums text-green-600 font-medium hidden sm:table-cell">
                   {% if ms.contrib %}{{ "%.2f"|format(ms.paid) }} €{% else %}<span class="text-gray-300">—</span>{% endif %}
                 </td>
 
                 <!-- Solde (négatif si en retard) -->
-                <td class="px-3 py-3 text-right tabular-nums font-semibold">
+                <td class="px-3 py-3 text-right tabular-nums font-semibold hidden sm:table-cell">
                   {% if ms.contrib %}
                   {% set solde = ms.paid - ms.due %}
                   <span class="{% if solde < 0 %}text-red-600{% elif solde > 0 %}text-purple-600{% else %}text-green-600{% endif %}">
@@ -227,7 +227,7 @@
 
                 <!-- Actions -->
                 {% if is_admin %}
-                <td class="px-4 py-3">
+                <td class="px-4 py-3 hidden sm:table-cell">
                   <div class="flex gap-1">
                     <a href="/members/{{ ms.member.id }}"
                        class="text-xs border border-gray-200 text-gray-600 px-2 py-1 rounded hover:bg-gray-50">
