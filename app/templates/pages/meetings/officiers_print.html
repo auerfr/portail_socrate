@@ -36,7 +36,7 @@
     <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
     <h2>
       Conseil d'officiers — {{ meeting.title or (meeting.type | label) }}<br>
-      <small>{{ meeting.meeting_date.strftime('%A %d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}</small>
+      <small>{{ meeting.meeting_date | datefr('%A %d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}</small>
     </h2>
   </div>
 

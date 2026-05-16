@@ -58,7 +58,7 @@
         {{ lodge.name if lodge else 'Socrate Raison et Progrès' }}
       </h1>
       <p class="mt-3 text-base font-semibold text-gray-700">
-        Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date.strftime('%B %Y') | capitalize }}
+        Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
         en Loge d'{{ grade_label(meeting.grade) }}
       </p>
       {% if meeting.meeting_number %}

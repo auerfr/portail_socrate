@@ -716,6 +716,35 @@ templates = Jinja2Templates(directory="app/templates")
 templates.env.globals["global_unread_messages"] = 0
 templates.env.globals["global_unread_chat"] = 0
 
+# ── Filtre de dates en français ───────────────────────────────────────────────
+_MOIS = {
+    "January":"janvier","February":"février","March":"mars","April":"avril",
+    "May":"mai","June":"juin","July":"juillet","August":"août",
+    "September":"septembre","October":"octobre","November":"novembre","December":"décembre",
+    "Jan":"jan","Feb":"fév","Mar":"mars","Apr":"avr",
+    "Aug":"août","Sep":"sep","Oct":"oct","Nov":"nov","Dec":"déc",
+    "Jun":"juin","Jul":"juil",
+}
+_JOURS = {
+    "Monday":"lundi","Tuesday":"mardi","Wednesday":"mercredi","Thursday":"jeudi",
+    "Friday":"vendredi","Saturday":"samedi","Sunday":"dimanche",
+    "Mon":"lun","Tue":"mar","Wed":"mer","Thu":"jeu","Fri":"ven","Sat":"sam","Sun":"dim",
+}
+
+def _datefr(value, fmt="%d %B %Y"):
+    """Filtre Jinja2 : formate une date en français. Usage : {{ date | datefr('%A %d %B %Y') }}"""
+    if value is None:
+        return ""
+    import datetime as _dt
+    if isinstance(value, (_dt.datetime, _dt.date)):
+        s = value.strftime(fmt)
+        for en, fr in {**_MOIS, **_JOURS}.items():
+            s = s.replace(en, fr)
+        return s
+    return str(value)
+
+templates.env.filters["datefr"] = _datefr
+
 # Filtre `| label` pour personnaliser l'affichage des enums depuis l'admin
 from app.services.labels import register_jinja as _register_label_filter
 _register_label_filter(templates.env)

@@ -91,7 +91,7 @@
         <div class="bg-gradient-to-r from-loge-700 to-loge-600 px-4 py-3 flex items-center gap-3">
           <div class="text-center text-white flex-shrink-0 w-10">
             <div class="text-xl font-bold leading-none">{{ m.meeting_date.strftime('%d') }}</div>
-            <div class="text-xs text-loge-200 uppercase tracking-wide">{{ m.meeting_date.strftime('%b') }}</div>
+            <div class="text-xs text-loge-200 uppercase tracking-wide">{{ m.meeting_date | datefr('%b') }}</div>
           </div>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-semibold text-white truncate">{{ m.title or (m.type | label) }}</div>
@@ -162,7 +162,7 @@
                    title="{{ m.meeting_date.strftime('%d/%m/%Y') }}{% if m.title %} — {{ m.title }}{% endif %}">
                   <span class="block text-xs font-bold text-gray-700 group-hover:text-loge-700">{{ m.meeting_date.strftime('%d') }}</span>
                   <span class="block text-gray-400 group-hover:text-loge-500" style="font-size:9px; letter-spacing:0.05em;">
-                    {{ m.meeting_date.strftime('%b') | upper }}
+                    {{ m.meeting_date | datefr('%b') | upper }}
                   </span>
                 </a>
               </th>

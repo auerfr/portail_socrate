@@ -21,7 +21,7 @@
         <div class="text-xs text-loge-200 mb-1">{{ meeting.type | label }}</div>
         <h1 class="text-lg font-bold">{{ meeting.title or meeting.meeting_date.strftime('%d %B %Y') }}</h1>
         <div class="flex flex-wrap gap-3 mt-2 text-xs text-loge-200">
-          <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>
+          <span>📅 {{ meeting.meeting_date | datefr('%A %d %B %Y') }}</span>
           {% if meeting.location %}<span>📍 {{ meeting.location }}</span>{% endif %}
         </div>
       </div>

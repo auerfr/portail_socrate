@@ -78,7 +78,7 @@
 
           <!-- Infos pratiques -->
           <div class="mt-4 flex flex-wrap gap-4 text-sm text-loge-200">
-            <span>📅 {{ meeting.meeting_date.strftime('%A %d %B %Y') }}</span>
+            <span>📅 {{ meeting.meeting_date | datefr('%A %d %B %Y') }}</span>
             {% if meeting.meeting_time %}
             <span>⏰ {{ meeting.meeting_time }}</span>
             {% endif %}

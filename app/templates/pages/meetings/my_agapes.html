@@ -32,7 +32,7 @@
             {% endif %}
           </div>
           <div class="text-sm text-gray-500 mt-1">
-            {{ r.meeting.meeting_date.strftime('%A %d %B %Y') }}
+            {{ r.meeting.meeting_date | datefr('%A %d %B %Y') }}
             {% if r.meeting.meeting_time %} · {{ r.meeting.meeting_time }}{% endif %}
             {% if r.meeting.agape_location %} · 📍 {{ r.meeting.agape_location }}{% endif %}
           </div>

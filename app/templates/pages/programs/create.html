@@ -98,7 +98,7 @@
                      class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 flex-shrink-0">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-medium text-gray-800 text-sm">{{ m.meeting_date.strftime('%A %d %B %Y') | capitalize }}</span>
+                  <span class="font-medium text-gray-800 text-sm">{{ m.meeting_date | datefr('%A %d %B %Y') | capitalize }}</span>
                   {% if m.meeting_time %}<span class="text-xs text-gray-500">{{ m.meeting_time }}</span>{% endif %}
                   <span class="text-xs px-1.5 py-0.5 rounded font-medium
                     {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
@@ -144,7 +144,7 @@
                      class="mt-0.5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 flex-shrink-0">
               <div class="flex-1 min-w-0">
                 <div class="flex items-center gap-2 flex-wrap">
-                  <span class="font-medium text-gray-600 text-sm">{{ m.meeting_date.strftime('%A %d %B %Y') | capitalize }}</span>
+                  <span class="font-medium text-gray-600 text-sm">{{ m.meeting_date | datefr('%A %d %B %Y') | capitalize }}</span>
                   <span class="text-xs px-1.5 py-0.5 rounded font-medium
                     {% if m.type.value == 'SOLENNELLE' %}bg-purple-100 text-purple-700
                     {% elif m.type.value in ['INITIATION','ELEVATION','PASSAGE'] %}bg-amber-100 text-amber-700

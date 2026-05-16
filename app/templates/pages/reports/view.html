@@ -119,7 +119,7 @@
         <h2 class="text-lg font-bold text-gray-900">
           {{ meeting.type | label(default=TYPES.get(meeting.type.value, meeting.type.value)) }}
         </h2>
-        <p class="text-sm text-gray-500 mt-1">{{ meeting.meeting_date.strftime('%A %d %B %Y') | capitalize }}</p>
+        <p class="text-sm text-gray-500 mt-1">{{ meeting.meeting_date | datefr('%A %d %B %Y') | capitalize }}</p>
         {% if meeting.location %}
         <p class="text-xs text-gray-400 mt-0.5">{{ meeting.location }}</p>
         {% endif %}

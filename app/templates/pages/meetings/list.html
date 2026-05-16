@@ -72,7 +72,7 @@
         <a href="/meetings/{{ m.id }}"
            class="bg-loge-800 text-white flex flex-col items-center justify-center px-4 py-3 min-w-16 text-center hover:bg-loge-900 transition-colors">
           <div class="text-2xl font-bold leading-tight">{{ m.meeting_date.strftime('%d') }}</div>
-          <div class="text-xs uppercase tracking-wide text-loge-300">{{ m.meeting_date.strftime('%b') }}</div>
+          <div class="text-xs uppercase tracking-wide text-loge-300">{{ m.meeting_date | datefr('%b') }}</div>
           <div class="text-xs text-loge-400">{{ m.meeting_date.strftime('%Y') }}</div>
         </a>
 

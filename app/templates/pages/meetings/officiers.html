@@ -22,7 +22,7 @@
         </h1>
         <p class="text-sm text-gray-500 mt-1">
           {{ meeting.title or (meeting.type | label) }} ·
-          {{ meeting.meeting_date.strftime('%A %d %B %Y') }}
+          {{ meeting.meeting_date | datefr('%A %d %B %Y') }}
           {% if meeting.meeting_time %}· {{ meeting.meeting_time }}{% endif %}
         </p>
       </div>
