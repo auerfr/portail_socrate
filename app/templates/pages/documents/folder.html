@@ -7,7 +7,14 @@
        view: localStorage.getItem('docView') || 'list',
        setView(v) { this.view = v; localStorage.setItem('docView', v); },
        preview: null,
-       openPreview(id, name, type) { this.preview = { id, name, type }; document.body.style.overflow='hidden'; },
+       openPreview(id, name, type) {
+         const url = `/documents/file/${id}/preview`;
+         const w = Math.min(window.screen.width * 0.85, 1000);
+         const h = Math.min(window.screen.height * 0.85, 850);
+         const left = Math.round((window.screen.width - w) / 2);
+         const top = Math.round((window.screen.height - h) / 2);
+         window.open(url, 'apercu_' + id, `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+       },
        closePreview() { this.preview = null; document.body.style.overflow=''; },
        embeds: {},
        toggleEmbed(id) { this.embeds[id] = !this.embeds[id]; },
