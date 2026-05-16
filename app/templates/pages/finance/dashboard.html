@@ -110,7 +110,7 @@
           {% for item in top_late %}
           <div class="px-4 py-2.5 flex items-center justify-between">
             <span class="text-sm text-gray-800 truncate">
-              {{ item.member.last_name }} {{ item.member.first_name[:1] }}.
+              {{ item.member.last_name | anon_nom }} {{ item.member.first_name[:1] }}.
             </span>
             <span class="text-sm font-semibold text-red-600 tabular-nums ml-2 shrink-0">
               {{ "%.0f"|format(item.remaining) }} €
@@ -181,7 +181,7 @@
                 <!-- Membre -->
                 <td class="px-4 py-3">
                   <a href="/members/{{ ms.member.id }}" class="font-medium text-gray-800 hover:text-loge-700">
-                    {{ ms.member.last_name }} {{ ms.member.first_name }}
+                    {{ ms.member.last_name | anon_nom }} {{ ms.member.first_name }}
                   </a>
                   {% if ms.tier %}
                   <span class="ml-2 text-xs text-gray-400">T{{ ms.tier.tier_number }}</span>

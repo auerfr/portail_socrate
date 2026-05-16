@@ -206,7 +206,7 @@
             <!-- Nom -->
             <td class="px-5 py-3">
               <a href="/members/{{ m.id }}" class="font-medium text-gray-800 hover:text-loge-700">
-                {{ m.last_name }} {{ m.first_name }}
+                {{ m.last_name | anon_nom }} {{ m.first_name }}
               </a>
             </td>
 

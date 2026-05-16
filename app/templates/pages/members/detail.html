@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ target.first_name }} {{ target.last_name }} — Portail Socrate{% endblock %}
+{% block title %}{{ target.first_name }} {{ target.last_name | anon_nom }} — Portail Socrate{% endblock %}
 
 {% block content %}
 <div class="p-4 lg:p-8 max-w-4xl mx-auto">
@@ -10,7 +10,7 @@
     <div class="flex items-center gap-1.5">
       <a href="/members/" class="hover:text-loge-700">Membres</a>
       <span>›</span>
-      <span class="text-gray-800">{{ target.first_name }} {{ target.last_name }}</span>
+      <span class="text-gray-800">{{ target.first_name }} {{ target.last_name | anon_nom }}</span>
     </div>
     {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
     <a href="/attendance/member/{{ target.id }}"
@@ -30,10 +30,10 @@
     <div class="bg-gradient-to-r from-loge-800 to-loge-700 px-6 py-8 text-white">
       <div class="flex items-center gap-5">
         <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
-          {{ target.first_name[0] }}{{ target.last_name[0] }}
+          {{ target.first_name[0] }}{{ target.last_name | anon_nom | first }}
         </div>
         <div>
-          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.first_name }} {{ target.last_name }}</h1>
+          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.first_name }} {{ target.last_name | anon_nom }}</h1>
           <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade, target.civility) }} · {{ office_label or function_label(target.lodge_function, target.civility) }}</p>
           <div class="mt-2">
             {% if target.status.value == 'ACTIVE' %}

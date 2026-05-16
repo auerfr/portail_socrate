@@ -175,12 +175,12 @@
             <div class="flex items-center gap-2.5 px-4 py-2">
               <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
                    style="background:linear-gradient(135deg,#dc2626,#b91c1c);">
-                {{ item.member.first_name[0] }}{{ item.member.last_name[0] }}
+                {{ item.member.first_name[0] }}{{ item.member.last_name | anon_nom | first }}
               </div>
               <a href="/attendance/member/{{ item.member.id }}"
                  class="flex-1 text-xs font-medium text-gray-800 hover:text-loge-700 truncate">
                 {% if item.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                {{ item.member.first_name }} {{ item.member.last_name }}
+                {{ item.member.first_name }} {{ item.member.last_name | anon_nom }}
               </a>
               <span class="text-[10px] font-bold text-red-600 bg-red-50 rounded-full px-2 py-0.5 shrink-0">{{ item.absences }} abs.</span>
             </div>
@@ -246,7 +246,7 @@
               <p class="text-[9px] uppercase text-gray-400 mt-0.5">{{ MOIS_AB[a.anniv_date.month] }}</p>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-gray-800 truncate">{{ a.first_name }} {{ a.last_name }}</p>
+              <p class="text-sm text-gray-800 truncate">{{ a.first_name }} {{ a.last_name | anon_nom }}</p>
               <p class="text-xs text-gray-500">{{ a.years }} ans · {{ a.event_label }}</p>
             </div>
             {% if days_until == 0 %}
@@ -414,10 +414,10 @@
              class="flex items-start gap-2.5 px-4 py-2.5 hover:bg-loge-50/50 transition-colors group">
             <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
                  style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-              {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name[0] }}{% else %}?{% endif %}
+              {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name | anon_nom | first }}{% else %}?{% endif %}
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-[10px] text-gray-500">{{ (sender.first_name ~ ' ' ~ sender.last_name) if sender else '?' }}</div>
+              <div class="text-[10px] text-gray-500">{{ (sender.first_name ~ ' ' ~ (sender.last_name | anon_nom)) if sender else '?' }}</div>
               <div class="text-xs font-medium text-gray-900 truncate group-hover:text-loge-700">{{ rec.message.subject }}</div>
             </div>
             <div class="w-1.5 h-1.5 rounded-full bg-loge-500 flex-shrink-0 mt-2"></div>

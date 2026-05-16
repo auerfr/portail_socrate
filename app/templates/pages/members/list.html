@@ -58,10 +58,10 @@
       <a href="/members/{{ m.id }}" class="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors">
         <!-- Avatar -->
         <div class="flex-shrink-0 w-10 h-10 rounded-full bg-loge-700 flex items-center justify-center text-white font-semibold text-sm">
-          {{ m.first_name[0] }}{{ m.last_name[0] }}
+          {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
         </div>
         <div class="flex-1 min-w-0">
-          <div class="font-medium text-gray-900 truncate">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}</div>
+          <div class="font-medium text-gray-900 truncate">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name | anon_nom }}</div>
           <div class="text-xs text-gray-500">{{ grade_label(m.masonic_grade, m.civility) }}{% if office_by_member.get(m.id) %} · {{ office_by_member.get(m.id) }}{% endif %}</div>
         </div>
         <div class="flex-shrink-0">
@@ -92,9 +92,9 @@
           <td class="px-6 py-3">
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full bg-loge-700 flex items-center justify-center text-white text-xs font-semibold">
-                {{ m.first_name[0] }}{{ m.last_name[0] }}
+                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
               </div>
-              <span class="font-medium text-gray-900">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}</span>
+              <span class="font-medium text-gray-900">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name | anon_nom }}</span>
             </div>
           </td>
           <td class="px-6 py-3 text-gray-600">{{ grade_label(m.masonic_grade, m.civility) }}</td>

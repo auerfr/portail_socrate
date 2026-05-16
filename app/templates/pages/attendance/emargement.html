@@ -506,8 +506,8 @@ const INITIAL_MEMBERS = [
   {% for m in active_members %}
   {
     id: {{ m.id }},
-    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}",
-    initials: "{{ m.first_name[0] }}{{ m.last_name[0] }}",
+    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name | anon_nom }}",
+    initials: "{{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}",
     status: "{{ att_by_member[m.id].status.value if m.id in att_by_member else '' }}",
     excuse: "{{ (att_by_member[m.id].excuse_reason or '') if m.id in att_by_member else '' }}",
   },
