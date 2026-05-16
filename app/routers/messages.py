@@ -542,6 +542,68 @@ async def download_attachment(
     )
 
 
+@router.post("/trash/empty-trash")
+async def empty_trash_2(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    from sqlalchemy import delete as sql_delete
+    await db.execute(sql_delete(MessageRecipient).where(
+        MessageRecipient.member_id == member.id,
+        MessageRecipient.deleted_at.isnot(None),
+    ))
+    deleted_sent = await db.execute(select(Message).where(
+        Message.sender_id == member.id,
+        Message.sender_deleted_at.isnot(None),
+    ))
+    for msg in deleted_sent.scalars().all():
+        await db.delete(msg)
+    await db.commit()
+    return RedirectResponse(url="/messages/trash", status_code=303)
+
+
+@router.get("/trash", response_class=HTMLResponse)
+async def trash_view(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    r1 = await db.execute(
+        select(MessageRecipient)
+        .join(Message, Message.id == MessageRecipient.message_id)
+        .where(
+            MessageRecipient.member_id == member.id,
+            MessageRecipient.deleted_at.isnot(None),
+            Message.sent_at.isnot(None),
+        )
+        .options(selectinload(MessageRecipient.message))
+        .order_by(MessageRecipient.deleted_at.desc())
+    )
+    trashed_received = r1.scalars().all()
+    r2 = await db.execute(
+        select(Message).where(
+            Message.sender_id == member.id,
+            Message.sender_deleted_at.isnot(None),
+        ).order_by(Message.sender_deleted_at.desc())
+    )
+    trashed_sent = r2.scalars().all()
+    sender_ids = {rec.message.sender_id for rec in trashed_received}
+    senders_map: dict[int, object] = {}
+    if sender_ids:
+        from app.models.identity import Member as _M
+        sr = await db.execute(select(_M).where(_M.id.in_(sender_ids)))
+        senders_map = {m.id: m for m in sr.scalars().all()}
+    unread = await _unread_count(db, member.id)
+    return templates.TemplateResponse(request, "pages/messages/trash.html", {
+        "current_member": member, "current_user": user,
+        "trashed_received": trashed_received, "trashed_sent": trashed_sent,
+        "senders_map": senders_map, "unread_count": unread,
+        "can_send": _can_send(user, member), "tab": "trash",
+    })
+
+
 @router.get("/{message_id}", response_class=HTMLResponse)
 async def message_detail(
     message_id: int,
