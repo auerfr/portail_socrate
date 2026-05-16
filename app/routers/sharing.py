@@ -6,7 +6,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, FileResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from pathlib import Path
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +22,7 @@ from app.models.lodge_calendar import LodgeEvent
 router = APIRouter(prefix="/documents", tags=["sharing"])
 public_router = APIRouter(tags=["sharing-public"])
 
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 # ─────────────────────────────────────────────────────────────────────────────

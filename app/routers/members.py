@@ -4,7 +4,6 @@ from datetime import date
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -22,7 +21,7 @@ from app.models.lodge import MasonicYear, LodgeOffice
 from app.models.finance import MemberContribution, ContributionTier, ContributionStatus
 
 router = APIRouter(prefix="/members", tags=["members"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 _LABEL_FUNCTION_MAP = [
     ("vénérable", LodgeFunction.VM),

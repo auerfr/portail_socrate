@@ -7,7 +7,6 @@ from typing import Annotated, Optional, List
 
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -39,7 +38,7 @@ ALLOWED_MIME_TYPES = {
 ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".txt"}
 
 router = APIRouter(prefix="/messages", tags=["messages"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 # Fonctions autorisées à envoyer des messages
 SENDER_FUNCTIONS = {

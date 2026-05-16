@@ -5,7 +5,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from markupsafe import Markup, escape as _escape
 from sqlalchemy import select, delete, func as sql_func, or_, and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -21,7 +20,7 @@ from app.models.chat import (
 )
 
 router = APIRouter(prefix="/chat", tags=["chat"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 def _render_chat(text: str) -> Markup:
     if not text:

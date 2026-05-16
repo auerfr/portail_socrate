@@ -6,7 +6,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +24,7 @@ from app.services.mailing import (
 )
 
 router = APIRouter(prefix="/mailing", tags=["mailing"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 def _can_send(user, member) -> bool:

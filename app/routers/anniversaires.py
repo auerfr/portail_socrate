@@ -4,7 +4,6 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +13,7 @@ from app.models.identity import Member, MemberStatus
 from app.services.anniversaires import compute_anniversaires, upcoming
 
 router = APIRouter(prefix="/anniversaires", tags=["anniversaires"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 @router.get("/", response_class=HTMLResponse)

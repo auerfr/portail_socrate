@@ -6,7 +6,6 @@ from typing import Annotated
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, Response, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.security import OAuth2PasswordRequestForm
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -25,7 +24,7 @@ async def _get_lodge(db: AsyncSession):
     return r.scalar_one_or_none()
 
 router = APIRouter(prefix="/auth", tags=["auth"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 # ── Login (form web) ───────────────────────────────────────────────────────

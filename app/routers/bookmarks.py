@@ -4,7 +4,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, or_, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -14,7 +13,7 @@ from app.models.bookmarks import Bookmark
 from app.models.identity import Member
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 @router.get("/", response_class=HTMLResponse)

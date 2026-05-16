@@ -8,7 +8,6 @@ import io
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -28,7 +27,7 @@ from app.models.identity import Member, LodgeFunction, MemberStatus
 from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
 
 router = APIRouter(prefix="/meetings", tags=["meetings"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 async def _count_agapes(db: AsyncSession, meeting_id: int) -> int:

@@ -4,7 +4,6 @@ from typing import Annotated, Optional, List
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -15,7 +14,7 @@ from app.models.groups import LodgeGroup as Group, GroupMembership, GroupType, S
 from app.models.identity import Member, MemberStatus, LodgeFunction, MasonicGrade
 
 router = APIRouter(prefix="/groups", tags=["groups"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 GRADE_ORDER = {
     MasonicGrade.APPRENTI: 1,

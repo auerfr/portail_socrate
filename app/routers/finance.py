@@ -10,7 +10,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -29,7 +28,7 @@ from app.models.identity import Member, MemberStatus, MembershipType, User
 from app.models.lodge import MasonicYear
 
 router = APIRouter(prefix="/finance", tags=["finance"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 def _capitation(full_capitation: float, member: Member) -> float:
     """Retourne la capitation applicable : 0 pour les affiliés, pleine pour les membres en appartenance."""

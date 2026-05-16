@@ -6,7 +6,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -22,7 +21,7 @@ from app.models.meetings import (
 from app.models.system import TracingSection, TracingSectionType
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 def _require_attendance_mgr(user, member):

@@ -6,7 +6,6 @@ from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -19,7 +18,7 @@ from app.models.identity import MasonicGrade, Member
 from app.routers.groups import resolve_group_member_ids
 
 router = APIRouter(prefix="/documents", tags=["documents"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 UPLOAD_DIR = Path("uploads/documents")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)

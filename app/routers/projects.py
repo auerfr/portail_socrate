@@ -5,7 +5,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, desc, delete, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,7 +22,7 @@ from app.models.projects import (
 from app.models.forum import ForumSubject
 
 router = APIRouter(prefix="/projects", tags=["projects"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 def _is_manager(user, member) -> bool:

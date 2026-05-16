@@ -15,7 +15,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, desc, delete
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -36,7 +35,7 @@ MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25 Mo
 ALLOWED_LINK_PREFIXES = ("http://", "https://")
 
 router = APIRouter(prefix="/forum", tags=["forum"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 def _is_admin_or_manager(user, member) -> bool:

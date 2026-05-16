@@ -15,7 +15,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, func, desc, or_, delete as sa_delete
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -29,7 +28,7 @@ from app.services.audit import log_audit
 
 
 router = APIRouter(prefix="/admin", tags=["admin"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 # Filtre `| label` pour afficher les libellés personnalisés depuis l'admin
 from app.services.labels import register_jinja as _register_label_filter
 _register_label_filter(templates.env)

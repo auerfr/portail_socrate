@@ -9,7 +9,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -24,7 +23,7 @@ from app.models.documents import (
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/planches", tags=["planches"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 UPLOAD_DIR = Path("uploads/planches")
 
 _GRADE_LEVEL = {

@@ -5,7 +5,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -21,7 +20,7 @@ from app.routers.groups import resolve_group_member_ids, ensure_system_groups
 from app.services.anniversaires import compute_anniversaires
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 # ── Helpers ────────────────────────────────────────────────────────────────

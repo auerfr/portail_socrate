@@ -13,7 +13,6 @@ import qrcode.image.svg
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -27,7 +26,7 @@ from app.models.lodge import MasonicYear, LodgeSettings, ExternalContact
 from app.models.documents import DocFolder, DocSpace, DocStatus, Document
 
 router = APIRouter(prefix="/programs", tags=["programs"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 _PROGRAM_MANAGERS = {LodgeFunction.VM, LodgeFunction.SECRETAIRE}
 

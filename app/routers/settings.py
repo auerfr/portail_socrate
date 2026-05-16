@@ -8,7 +8,6 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 LOGO_DIR = Path("app/static/uploads/logo")
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 _LOGO_ALLOWED = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
@@ -52,7 +51,7 @@ def _detect_function(label: str) -> LodgeFunction | None:
         if keyword in normalized:
             return fn
     return None
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 async def _get_lodge(db: AsyncSession) -> LodgeSettings | None:

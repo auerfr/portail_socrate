@@ -7,7 +7,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -33,7 +32,7 @@ def _date_mac(d) -> str:
     return f"Le {d.day}ème jour du {_ORD[mois_n]} mois de l'an {d.year + 4000} de la V∴L∴"
 
 router = APIRouter(prefix="/reports", tags=["reports"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 logger = logging.getLogger(__name__)
 
 UPLOAD_DIR = "uploads/documents"

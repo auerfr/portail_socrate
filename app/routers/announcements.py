@@ -4,7 +4,6 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -15,7 +14,7 @@ from app.models.identity import Member
 from app.models.communication import Announcement, AnnouncementRead
 
 router = APIRouter(prefix="/announcements", tags=["announcements"])
-templates = Jinja2Templates(directory="app/templates")
+from app.template_engine import templates
 
 
 def _require_manager(user, member):
