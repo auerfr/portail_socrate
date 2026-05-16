@@ -82,12 +82,14 @@ async def main():
     from app.services.contribution_reminders import daily_contribution_reminder_loop
     from app.services.projects_reminders import daily_task_reminder_loop
     from app.services.mailing_scheduler import mailing_scheduler_loop
+    from app.services.planche_importer import planche_import_loop
 
     await asyncio.gather(
         daily_anniversary_loop(_get_active_members, _get_lodge_name),
         daily_contribution_reminder_loop(),
         daily_task_reminder_loop(),
         mailing_scheduler_loop(),
+        planche_import_loop(),
         _heartbeat(),
         return_exceptions=True,   # une tâche qui plante n'arrête pas les autres
     )

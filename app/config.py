@@ -37,6 +37,13 @@ class Settings(BaseSettings):
     # URL publique du portail (pour les liens externes, QR codes, emails)
     portal_url: str = ""   # ex: https://staging.amisdesocrate.fr
 
+    # IMAP — réception planches externes
+    imap_host: str = ""
+    imap_port: int = 993
+    imap_user: str = ""
+    imap_pass: str = ""
+    imap_folder: str = "INBOX"
+
     # Uploads
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 20
