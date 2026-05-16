@@ -236,11 +236,11 @@
           {% for att in meeting.attendances|sort(attribute='member.last_name') %}
           <div class="flex items-center gap-3 px-5 py-3">
             <div class="w-8 h-8 rounded-full bg-loge-700 flex items-center justify-center text-white text-xs font-bold shrink-0">
-              {{ att.member.first_name[0] }}{{ att.member.last_name[0] }}
+              {{ att.member.first_name[0] }}{{ att.member.last_name | anon_nom | first }}
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium text-gray-900">
-                F∴ {{ att.member.first_name }} {{ att.member.last_name }}
+                F∴ {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
               </div>
               {% if att.excuse_reason %}
               <div class="text-xs text-gray-400">{{ att.excuse_reason }}</div>
@@ -403,7 +403,7 @@
             <div class="flex-1 min-w-0">
               <span class="text-gray-800">
                 {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                {{ att.member.first_name }} {{ att.member.last_name }}
+                {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
               </span>
               {% if att.agape_guests %}
               <span class="text-xs text-gray-400 ml-1">+{{ att.agape_guests }} invité{{ 's' if att.agape_guests > 1 else '' }}</span>

@@ -58,7 +58,7 @@
       {% set sender = senders_map.get(msg.sender_id) %}
       <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
            style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-        {{ sender.first_name[0] if sender else '?' }}{{ sender.last_name[0] if sender else '' }}
+        {{ sender.first_name[0] if sender else '?' }}{{ sender.last_name | anon_nom | first if sender else '' }}
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between gap-2">
@@ -75,7 +75,7 @@
           </span>
         </div>
         <div class="text-xs text-gray-500 mt-0.5">
-          De : {{ (sender.first_name ~ ' ' ~ sender.last_name) if sender else 'Inconnu' }}
+          De : {{ (sender.first_name ~ ' ' ~ (sender.last_name | anon_nom)) if sender else 'Inconnu' }}
           {% if sender and sender.lodge_function and sender.lodge_function.value != 'FRERE' %}
           · <span class="text-gray-400">{{ sender.lodge_function | label }}</span>
           {% endif %}

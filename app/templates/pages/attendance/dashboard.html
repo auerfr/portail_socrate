@@ -187,7 +187,7 @@
             {% set is_danger = expected > 0 and recorded > 0 and pct < threshold_danger %}
             {% set is_warn   = expected > 0 and recorded > 0 and pct < threshold_warn and not is_danger %}
             <tr class="dash-member-row {% if is_danger %}bg-red-50/40{% elif is_warn %}bg-amber-50/40{% endif %} hover:bg-blue-50/20 transition-colors"
-                data-name="{{ mbr.last_name }} {{ mbr.first_name }}"
+                data-name="{{ mbr.last_name | anon_nom }} {{ mbr.first_name }}"
                 data-p="{{ present }}" data-e="{{ excused }}" data-a="{{ absent }}" data-pct="{{ pct }}">
 
               <td style="position:sticky; left:0; background:{% if is_danger %}#fff1f2{% elif is_warn %}#fffbeb{% else %}#ffffff{% endif %}; z-index:5; border-right:1px solid #e5e7eb;"
@@ -195,12 +195,12 @@
                 <a href="/attendance/member/{{ mbr.id }}" class="flex items-center gap-2.5 group">
                   <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
                        style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-                    {{ mbr.first_name[0] }}{{ mbr.last_name[0] }}
+                    {{ mbr.first_name[0] }}{{ mbr.last_name | anon_nom | first }}
                   </div>
                   <div>
                     <div class="text-sm font-medium text-gray-900 group-hover:text-loge-700">
                       {% if mbr.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                      {{ mbr.first_name }} {{ mbr.last_name }}
+                      {{ mbr.first_name }} {{ mbr.last_name | anon_nom }}
                     </div>
                     {% if is_danger %}
                     <div class="text-xs text-red-500 font-medium leading-tight">🔴 Assiduité {{ pct }}%</div>

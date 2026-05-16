@@ -37,7 +37,7 @@
         <span>{{ article.created_at.strftime('%d %B %Y') }}</span>
         {% if author %}
         <span>·</span>
-        <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name }}</span>
+        <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name | anon_nom }}</span>
         {% endif %}
         {% if article.updated_at and article.updated_at != article.created_at %}
         <span>· Mis à jour {{ article.updated_at.strftime('%d/%m/%Y') }}</span>

@@ -43,7 +43,7 @@
           <div class="flex-1 min-w-0">
             <div class="text-sm font-semibold text-gray-900 truncate">{{ s.title }}</div>
             <div class="text-xs text-gray-400 mt-0.5">
-              {% if author %}par {{ author.first_name }} {{ author.last_name }} ·{% endif %}
+              {% if author %}par {{ author.first_name }} {{ author.last_name | anon_nom }} ·{% endif %}
               créé le {{ s.created_at.strftime('%d/%m/%Y') }}
               {% if s.last_message_at and s.last_message_at != s.created_at %}
               · dernière activité {{ s.last_message_at.strftime('%d/%m/%Y %H:%M') }}

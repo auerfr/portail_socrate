@@ -112,12 +112,12 @@ function gedPicker() {
   <div id="m-{{ msg.id }}" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
     <div class="flex items-start gap-3">
       <div class="w-9 h-9 rounded-full bg-loge-100 text-loge-700 flex items-center justify-center text-sm font-semibold shrink-0">
-        {% if author %}{{ (author.first_name or '?')[0] }}{{ (author.last_name or '')[0] }}{% else %}?{% endif %}
+        {% if author %}{{ (author.first_name or '?')[0] }}{{ (author.last_name | anon_nom or '')[0] }}{% else %}?{% endif %}
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm font-semibold text-gray-900">
-            {% if author %}{{ author.first_name }} {{ author.last_name }}{% else %}—{% endif %}
+            {% if author %}{{ author.first_name }} {{ author.last_name | anon_nom }}{% else %}—{% endif %}
           </div>
           <div class="text-xs text-gray-400">{{ msg.created_at.strftime('%d/%m/%Y à %H:%M') }}</div>
         </div>
@@ -173,7 +173,7 @@ function gedPicker() {
         {% endif %}
       </div>
       <div class="text-xs text-gray-400">
-        proposé par {% if author %}{{ author.first_name }} {{ author.last_name }}{% else %}—{% endif %}
+        proposé par {% if author %}{{ author.first_name }} {{ author.last_name | anon_nom }}{% else %}—{% endif %}
       </div>
     </div>
 
@@ -260,7 +260,7 @@ function gedPicker() {
               {% if p == 'AGREE' %}✓{% elif p == 'DISAGREE' %}✗{% elif p == 'ABSTAIN' %}⊘{% else %}⛔{% endif %}
             </span>
             <div class="flex-1">
-              <span class="font-medium text-gray-700">{% if sa %}{{ sa.first_name }} {{ sa.last_name }}{% else %}—{% endif %}</span>
+              <span class="font-medium text-gray-700">{% if sa %}{{ sa.first_name }} {{ sa.last_name | anon_nom }}{% else %}—{% endif %}</span>
               {% if st.reason %}<span class="text-gray-500"> — {{ st.reason }}</span>{% endif %}
             </div>
           </li>

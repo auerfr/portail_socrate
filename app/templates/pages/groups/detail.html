@@ -94,11 +94,11 @@
             <div class="flex items-center gap-3">
               <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
                    style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-                {{ m.first_name[0] }}{{ m.last_name[0] }}
+                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
               </div>
               <div>
                 <a href="/members/{{ m.id }}" class="text-sm font-medium text-gray-900 hover:text-loge-700">
-                  {{ m.last_name }} {{ m.first_name }}
+                  {{ m.last_name | anon_nom }} {{ m.first_name }}
                 </a>
                 <div class="text-xs text-gray-500">
                   {{ m.masonic_grade | label }}
@@ -134,7 +134,7 @@
           <select name="member_id"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             {% for m in members_not_in %}
-            <option value="{{ m.id }}">{{ m.last_name }} {{ m.first_name }}</option>
+            <option value="{{ m.id }}">{{ m.last_name | anon_nom }} {{ m.first_name }}</option>
             {% endfor %}
           </select>
           <button type="submit"

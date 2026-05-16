@@ -107,7 +107,7 @@
       <li class="px-5 py-3">
         <div class="flex items-center justify-between mb-1">
           <div class="text-sm font-medium text-gray-800">
-            {% if m %}{{ m.first_name }} {{ m.last_name }}{% else %}—{% endif %}
+            {% if m %}{{ m.first_name }} {{ m.last_name | anon_nom }}{% else %}—{% endif %}
           </div>
           <div class="flex items-center gap-2 text-xs text-gray-500">
             <span class="font-semibold text-loge-700">{{ count }} en cours</span>

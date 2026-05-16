@@ -1,5 +1,5 @@
 {% extends "base.html" %}
-{% block title %}{{ target.first_name }} {{ target.last_name }} — Finance{% endblock %}
+{% block title %}{{ target.first_name }} {{ target.last_name | anon_nom }} — Finance{% endblock %}
 
 {% block content %}
 <div class="p-4 lg:p-8 max-w-4xl mx-auto">
@@ -10,13 +10,13 @@
     <span class="mx-2">›</span>
     <a href="/finance/cotisations" class="hover:text-loge-700">Cotisations</a>
     <span class="mx-2">›</span>
-    <span class="text-gray-800">{{ target.first_name }} {{ target.last_name }}</span>
+    <span class="text-gray-800">{{ target.first_name }} {{ target.last_name | anon_nom }}</span>
   </nav>
 
   <!-- En-tête membre -->
   <div class="flex items-start justify-between mb-6 gap-4">
     <div>
-      <h1 class="text-2xl font-bold text-gray-900">{{ target.first_name }} {{ target.last_name }}</h1>
+      <h1 class="text-2xl font-bold text-gray-900">{{ target.first_name }} {{ target.last_name | anon_nom }}</h1>
       <p class="text-sm text-gray-500 mt-1">
         {% if target.membership_type and target.membership_type.value == 'AFFILIATION' %}Affilié{% else %}Appartenance{% endif %}
         · {{ target.email or '—' }}

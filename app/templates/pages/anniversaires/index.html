@@ -28,7 +28,7 @@
           </p>
         </div>
         <div class="flex-1 min-w-0">
-          <p class="text-sm font-medium text-gray-800 truncate">{{ a.first_name }} {{ a.last_name }}</p>
+          <p class="text-sm font-medium text-gray-800 truncate">{{ a.first_name }} {{ a.last_name | anon_nom }}</p>
           <p class="text-xs text-gray-500">
             <strong class="text-loge-700">{{ a.years }} ans</strong> d'{{ a.event_label.lower() }}
             <span class="text-gray-300">·</span>
@@ -70,7 +70,7 @@
           {% for a in months[month] %}
           <li class="flex items-baseline gap-2 text-sm">
             <span class="text-gray-400 font-mono w-7 shrink-0">{{ "%02d"|format(a.anniv_date.day) }}</span>
-            <span class="text-gray-700 flex-1 min-w-0 truncate">{{ a.first_name }} {{ a.last_name }}</span>
+            <span class="text-gray-700 flex-1 min-w-0 truncate">{{ a.first_name }} {{ a.last_name | anon_nom }}</span>
             <span class="text-xs text-loge-700 font-medium shrink-0">{{ a.years }}a · {{ a.event_label[:4] }}</span>
           </li>
           {% endfor %}

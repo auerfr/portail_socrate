@@ -38,7 +38,7 @@
 
     <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
       {% if planche.author %}
-      <span>Par {{ planche.author.first_name }} {{ planche.author.last_name[0] }}∴</span>
+      <span>Par {{ planche.author.first_name }} {{ planche.author.last_name | anon_nom | first }}∴</span>
       {% endif %}
       {% if planche.meeting %}
       <span>· Ten∴ du {{ planche.meeting.meeting_date.strftime('%d/%m/%Y') }}</span>
@@ -117,12 +117,12 @@
       {% for c in planche.comments %}
       <div class="flex gap-3">
         <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-700 font-bold text-xs flex items-center justify-center shrink-0">
-          {{ c.author.first_name[0] if c.author else '?' }}{{ c.author.last_name[0] if c.author else '' }}
+          {{ c.author.first_name[0] if c.author else '?' }}{{ c.author.last_name | anon_nom | first if c.author else '' }}
         </div>
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-2 mb-1">
             <span class="text-sm font-medium text-gray-800">
-              {% if c.author %}{{ c.author.first_name }} {{ c.author.last_name[0] }}∴{% else %}Frère{% endif %}
+              {% if c.author %}{{ c.author.first_name }} {{ c.author.last_name | anon_nom | first }}∴{% else %}Frère{% endif %}
             </span>
             <span class="text-xs text-gray-400">{{ c.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
           </div>

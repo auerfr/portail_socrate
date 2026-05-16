@@ -171,7 +171,7 @@
       <option value="">Tous assignés</option>
       <option value="none" {% if filters.f_assignee == 'none' %}selected{% endif %}>Non assigné</option>
       <optgroup label="Membres">
-        {% for m in all_active %}<option value="m:{{ m.id }}" {% if filters.f_assignee == 'm:' ~ m.id %}selected{% endif %}>{{ m.first_name }} {{ m.last_name }}</option>{% endfor %}
+        {% for m in all_active %}<option value="m:{{ m.id }}" {% if filters.f_assignee == 'm:' ~ m.id %}selected{% endif %}>{{ m.first_name }} {{ m.last_name | anon_nom }}</option>{% endfor %}
       </optgroup>
       <optgroup label="Groupes">
         {% for g in all_groups %}<option value="g:{{ g.id }}" {% if filters.f_assignee == 'g:' ~ g.id %}selected{% endif %}>{{ g.name }}</option>{% endfor %}
@@ -244,7 +244,7 @@
           </td>
           <td class="px-4 py-3 text-gray-600">
             {% if t.assigned_to_id and members_cache.get(t.assigned_to_id) %}
-              <span class="inline-flex items-center gap-1"><i class="ti ti-user"></i>{{ members_cache[t.assigned_to_id].first_name }} {{ members_cache[t.assigned_to_id].last_name }}</span>
+              <span class="inline-flex items-center gap-1"><i class="ti ti-user"></i>{{ members_cache[t.assigned_to_id].first_name }} {{ members_cache[t.assigned_to_id].last_name | anon_nom }}</span>
             {% elif t.assigned_to_group_id and groups_cache.get(t.assigned_to_group_id) %}
               <span class="inline-flex items-center gap-1 text-loge-700"><i class="ti ti-users-group"></i>{{ groups_cache[t.assigned_to_group_id].name }}</span>
             {% else %}
@@ -413,7 +413,7 @@
             <div class="text-sm font-medium text-gray-900 truncate">{{ t.title }}</div>
             <div class="text-[11px] text-gray-500 truncate">
               {% if t.assigned_to_id and members_cache.get(t.assigned_to_id) %}
-                {{ members_cache[t.assigned_to_id].first_name }} {{ members_cache[t.assigned_to_id].last_name }}
+                {{ members_cache[t.assigned_to_id].first_name }} {{ members_cache[t.assigned_to_id].last_name | anon_nom }}
               {% elif t.assigned_to_group_id and groups_cache.get(t.assigned_to_group_id) %}
                 {{ groups_cache[t.assigned_to_group_id].name }}
               {% else %}—{% endif %}
@@ -513,7 +513,7 @@
             <option value="none" {% if not t.assigned_to_id and not t.assigned_to_group_id %}selected{% endif %}>— Non assigné —</option>
             <optgroup label="Membres">
               {% for m in all_active %}
-              <option value="m:{{ m.id }}" {% if t.assigned_to_id == m.id %}selected{% endif %}>{{ m.first_name }} {{ m.last_name }}</option>
+              <option value="m:{{ m.id }}" {% if t.assigned_to_id == m.id %}selected{% endif %}>{{ m.first_name }} {{ m.last_name | anon_nom }}</option>
               {% endfor %}
             </optgroup>
             <optgroup label="Groupes">
@@ -661,7 +661,7 @@
           {% set au = members_cache.get(c.author_id) %}
           <div class="bg-gray-50 rounded-xl px-3 py-2 text-sm">
             <div class="flex items-center justify-between text-[11px] text-gray-500 mb-1">
-              <span class="font-semibold text-gray-700">{% if au %}{{ au.first_name }} {{ au.last_name }}{% else %}—{% endif %}</span>
+              <span class="font-semibold text-gray-700">{% if au %}{{ au.first_name }} {{ au.last_name | anon_nom }}{% else %}—{% endif %}</span>
               <span class="flex items-center gap-2">
                 <span>{{ c.created_at.strftime('%d/%m %H:%M') }}</span>
                 {% if c.author_id == current_member.id or current_user.is_admin %}
@@ -771,7 +771,7 @@
         <span class="mt-1.5 w-1.5 h-1.5 rounded-full bg-loge-500 flex-shrink-0"></span>
         <div class="min-w-0 flex-1">
           <div class="text-gray-800">
-            <span class="font-semibold">{% if au %}{{ au.first_name }} {{ au.last_name }}{% else %}—{% endif %}</span>
+            <span class="font-semibold">{% if au %}{{ au.first_name }} {{ au.last_name | anon_nom }}{% else %}—{% endif %}</span>
             <span class="text-gray-500">·</span>
             <span class="text-xs text-gray-500">
               {% if a.action == 'CREATE_TASK' %}a créé la tâche

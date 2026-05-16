@@ -70,7 +70,7 @@
               <span>{{ article.created_at.strftime('%d %b %Y') }}</span>
               {% if author %}
               <span>·</span>
-              <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name }}</span>
+              <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name | anon_nom }}</span>
               {% endif %}
               <span class="ml-auto">
                 <a href="/news/{{ article.id }}" class="text-loge-600 hover:text-loge-800 font-medium">Lire →</a>

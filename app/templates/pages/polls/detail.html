@@ -59,7 +59,7 @@
         <span>{{ total_votes }} vote{{ 's' if total_votes != 1 }}</span>
         {% if author %}
         <span>·</span>
-        <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name }}</span>
+        <span>{% if author.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ author.first_name }} {{ author.last_name | anon_nom }}</span>
         {% endif %}
         {% if poll.ends_at %}
         <span>·</span>
@@ -138,7 +138,7 @@
           <div class="flex flex-wrap gap-1 mt-1.5">
             {% for voter in r.voters %}
             <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
-              {{ voter.first_name }} {{ voter.last_name }}
+              {{ voter.first_name }} {{ voter.last_name | anon_nom }}
             </span>
             {% endfor %}
           </div>

@@ -114,7 +114,7 @@
             <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-2 flex-wrap">
               <span>
                 {% if ann.author.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                {{ ann.author.first_name }} {{ ann.author.last_name }}
+                {{ ann.author.first_name }} {{ ann.author.last_name | anon_nom }}
               </span>
               <span>·</span>
               <span>{{ ann.created_at.strftime('%d/%m/%Y à %H:%M') }}</span>
@@ -171,7 +171,7 @@
           <span>Lu par :</span>
           {% for r in ann.reads[:6] %}
           <span class="bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
-            {{ r.member.first_name[0] if r.member else '?' }}.{{ r.member.last_name[0] if r.member else '?' }}
+            {{ r.member.first_name[0] if r.member else '?' }}.{{ r.member.last_name | anon_nom | first if r.member else '?' }}
           </span>
           {% endfor %}
           {% if ann.reads | length > 6 %}

@@ -171,12 +171,12 @@
       <div class="flex {% if is_mine %}justify-end{% endif %} items-end gap-2 group" id="msg-{{ msg.id }}">
         {% if not is_mine %}
         <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5">
-          {{ msg.sender.first_name[0] }}{{ msg.sender.last_name[0] }}
+          {{ msg.sender.first_name[0] }}{{ msg.sender.last_name | anon_nom | first }}
         </div>
         {% endif %}
         <div class="max-w-[80%] sm:max-w-[70%]">
           {% if not is_mine %}
-          <div class="text-xs text-gray-500 mb-1 pl-1">{{ msg.sender.first_name }} {{ msg.sender.last_name }}</div>
+          <div class="text-xs text-gray-500 mb-1 pl-1">{{ msg.sender.first_name }} {{ msg.sender.last_name | anon_nom }}</div>
           {% endif %}
           {% if msg.reply_to %}
           <div class="text-xs bg-gray-100 border-l-2 border-loge-400 rounded px-2 py-1 mb-1 text-gray-500 truncate">
@@ -329,12 +329,12 @@
           <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-48 overflow-y-auto">
             {% for m in active_members %}
             <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
-                   x-show="!search || '{{ (m.first_name ~ ' ' ~ m.last_name) | lower }}'.includes(search.toLowerCase())">
+                   x-show="!search || '{{ (m.first_name ~ ' ' ~ (m.last_name | anon_nom)) | lower }}'.includes(search.toLowerCase())">
               <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {{ m.first_name[0] }}{{ m.last_name[0] }}
+                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
               </div>
               <div class="flex-1 min-w-0">
-                <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name }}</div>
+                <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name | anon_nom }}</div>
                 <div class="text-xs text-gray-400">{{ m.masonic_grade.value }}</div>
               </div>
               <input type="checkbox" class="rounded border-gray-300 text-loge-600 focus:ring-loge-500"
@@ -376,12 +376,12 @@
         <input type="hidden" name="target_id" value="{{ m.id }}">
         <button type="submit"
                 class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
-                x-show="!search || '{{ (m.first_name ~ ' ' ~ m.last_name) | lower }}'.includes(search.toLowerCase())">
+                x-show="!search || '{{ (m.first_name ~ ' ' ~ (m.last_name | anon_nom)) | lower }}'.includes(search.toLowerCase())">
           <div class="w-9 h-9 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-sm font-bold shrink-0">
-            {{ m.first_name[0] }}{{ m.last_name[0] }}
+            {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
           </div>
           <div class="flex-1 min-w-0 text-left">
-            <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name }}</div>
+            <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name | anon_nom }}</div>
             <div class="text-xs text-gray-400">
               {% if m.lodge_function and m.lodge_function.value != 'FRERE' %}{{ m.lodge_function | label }} · {% endif %}
               {{ m.masonic_grade | label }}
