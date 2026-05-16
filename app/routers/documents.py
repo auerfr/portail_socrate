@@ -706,7 +706,17 @@ async def documents_preview(
     if not path.exists():
         raise HTTPException(status_code=404, detail="Fichier introuvable sur le serveur")
 
-    mime = doc.mime_type or "application/octet-stream"
+    # Auto-détecter le MIME type depuis l'extension si non défini
+    _MIME_MAP = {
+        ".pdf": "application/pdf",
+        ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+        ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
+        ".doc": "application/msword",
+        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        ".odt": "application/vnd.oasis.opendocument.text",
+    }
+    ext = path.suffix.lower()
+    mime = doc.mime_type or _MIME_MAP.get(ext, "application/octet-stream")
     content = path.read_bytes()
 
     return _Response(

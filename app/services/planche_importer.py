@@ -76,19 +76,51 @@ def _decode_header(value: str) -> str:
     return " ".join(result)
 
 
-def _extract_sender_label(from_header: str) -> str:
-    """Extrait un label court depuis l'expéditeur (ex: 'Jean DUPONT <j@loge.fr>' → 'Jean_DUPONT')."""
+def _extract_sender_label(from_header: str, body_text: str = "") -> str:
+    """Extrait un label court depuis l'expéditeur.
+    Pour les emails transférés, cherche le vrai expéditeur dans le corps.
+    """
     import re
-    # Extraire le nom avant le <email>
+
+    # Dans un email transféré, chercher "De :" ou "From :" dans le corps
+    if body_text:
+        for pattern in [
+            r'De\s*:\s*(.+?)(?:\n|<)',
+            r'From\s*:\s*(.+?)(?:\n|<)',
+            r'Expéditeur\s*:\s*(.+?)(?:\n|<)',
+        ]:
+            m = re.search(pattern, body_text, re.IGNORECASE)
+            if m:
+                candidate = m.group(1).strip()
+                if candidate and len(candidate) > 3 and '@' not in candidate:
+                    return re.sub(r'[^\w\s-]', '', candidate).strip().replace(' ', '_')[:40]
+                # Si c'est un email, prendre le domaine
+                m2 = re.search(r'@([^>\s]+)', candidate)
+                if m2:
+                    domain = m2.group(1).split('.')[0]
+                    return re.sub(r'[^\w-]', '', domain)[:40]
+
+    # Sinon extraire depuis le From: header
     m = re.match(r'^"?([^"<]+)"?\s*<', from_header)
     if m:
         name = m.group(1).strip()
     else:
-        # Utiliser le domaine de l'email
         m2 = re.search(r'@([^>]+)', from_header)
         name = m2.group(1).split('.')[0] if m2 else "Externe"
-    # Nettoyer
     return re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')[:40]
+
+
+def _get_body_text(msg) -> str:
+    """Extrait le texte brut d'un email (pour trouver les infos de transfert)."""
+    for part in msg.walk():
+        if part.get_content_type() == "text/plain":
+            payload = part.get_payload(decode=True)
+            if payload:
+                try:
+                    return payload.decode("utf-8", errors="replace")
+                except Exception:
+                    pass
+    return ""
 
 
 async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
@@ -100,7 +132,8 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
     subject = _decode_header(msg.get("Subject", "Sans objet"))
     received_at = datetime.now()
     folder_name = received_at.strftime("%Y-%m")
-    sender_label = _extract_sender_label(sender_raw)
+    body_text = _get_body_text(msg)
+    sender_label = _extract_sender_label(sender_raw, body_text)
     date_label = received_at.strftime("%Y-%m-%d")
 
     space = await _get_or_create_space(db, ESPACE_NOM)
@@ -130,12 +163,25 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
         dest = upload_dir / stored_name
         dest.write_bytes(content)
 
+        # Détecter le MIME type
+        mime_map = {
+            ".pdf": "application/pdf",
+            ".doc": "application/msword",
+            ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            ".odt": "application/vnd.oasis.opendocument.text",
+            ".rtf": "application/rtf",
+            ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+            ".png": "image/png",
+        }
+        mime_type = mime_map.get(ext, "application/octet-stream")
+
         doc = Document(
             folder_id=folder.id,
             name=safe_name,
             original_filename=filename,
             storage_path=str(dest),
             file_size=len(content),
+            mime_type=mime_type,
             status=DocStatus.PUBLISHED,
             description=f"Reçu de {sender} — {subject}",
         )
