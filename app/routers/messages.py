@@ -208,20 +208,25 @@ async def inbox(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = 1,
+    label: Optional[str] = None,
 ):
     user, member = ctx
     per_page = 20
     offset = (page - 1) * per_page
 
+    base_where = [
+        MessageRecipient.member_id == member.id,
+        Message.sent_at.isnot(None),
+        MessageRecipient.deleted_at.is_(None),
+    ]
+    if label:
+        base_where.append(MessageRecipient.label == label)
+
     # Messages reçus
     r = await db.execute(
         select(MessageRecipient)
         .join(Message, Message.id == MessageRecipient.message_id)
-        .where(
-            MessageRecipient.member_id == member.id,
-            Message.sent_at.isnot(None),
-            MessageRecipient.deleted_at.is_(None),
-        )
+        .where(*base_where)
         .options(selectinload(MessageRecipient.message))
         .order_by(Message.sent_at.desc())
         .offset(offset).limit(per_page)
@@ -232,13 +237,21 @@ async def inbox(
     r_total = await db.execute(
         select(func.count(MessageRecipient.id))
         .join(Message, Message.id == MessageRecipient.message_id)
-        .where(
-            MessageRecipient.member_id == member.id,
-            Message.sent_at.isnot(None),
-            MessageRecipient.deleted_at.is_(None),
-        )
+        .where(*base_where)
     )
     total = r_total.scalar_one() or 0
+
+    # Labels existants de ce membre (pour filtres)
+    r_labels = await db.execute(
+        select(MessageRecipient.label)
+        .where(
+            MessageRecipient.member_id == member.id,
+            MessageRecipient.label.isnot(None),
+            MessageRecipient.deleted_at.is_(None),
+        )
+        .distinct()
+    )
+    all_labels = sorted({row[0] for row in r_labels.all() if row[0]})
 
     # Expéditeurs
     sender_ids = {rec.message.sender_id for rec in received}
@@ -262,6 +275,8 @@ async def inbox(
         "global_unread_messages": unread,
         "can_send": _can_send(user, member),
         "tab": "inbox",
+        "active_label": label,
+        "all_labels": all_labels,
     })
 
 
@@ -687,6 +702,7 @@ async def message_detail(
         "can_send": _can_send(user, member),
         "attachments": msg.attachments,
         "recipient_label": recipient_label,
+        "all_labels": [],  # labels existants (chargés si besoin)
     })
 
 

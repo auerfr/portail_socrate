@@ -113,14 +113,27 @@
         {% if not is_sender %}
         <!-- Label -->
         <form method="post" action="/messages/{{ msg.id }}/label" class="flex items-center gap-1">
-          <select name="label" onchange="this.form.submit()"
-                  class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 focus:outline-none focus:ring-1 focus:ring-loge-400">
-            <option value="">🏷 Label…</option>
-            <option value="Important" {% if recipient_label == 'Important' %}selected{% endif %}>⭐ Important</option>
-            <option value="À faire" {% if recipient_label == 'À faire' %}selected{% endif %}>📌 À faire</option>
-            <option value="Archivé" {% if recipient_label == 'Archivé' %}selected{% endif %}>📁 Archivé</option>
-            <option value="Lu" {% if recipient_label == 'Lu' %}selected{% endif %}>✓ Lu</option>
-          </select>
+          <datalist id="label-suggestions">
+            <option value="Important">
+            <option value="À faire">
+            <option value="Archivé">
+            <option value="Conseil d'officiers">
+            <option value="Externe">
+            <option value="Personnel">
+            <option value="Administratif">
+            {% for l in all_labels %}
+            <option value="{{ l }}">
+            {% endfor %}
+          </datalist>
+          <input type="text" name="label" list="label-suggestions"
+                 value="{{ recipient_label or '' }}"
+                 placeholder="🏷 Label…" maxlength="50"
+                 class="text-xs border border-gray-200 rounded-lg px-2 py-1 text-gray-500 w-36 focus:outline-none focus:ring-1 focus:ring-loge-400"
+                 onchange="this.form.submit()">
+          {% if recipient_label %}
+          <button type="submit" name="label" value=""
+                  class="text-gray-300 hover:text-red-400 text-xs" title="Retirer le label">✕</button>
+          {% endif %}
         </form>
       {% endif %}
       {% if not is_sender %}
