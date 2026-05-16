@@ -605,6 +605,14 @@ async def message_detail(
 
     unread = await _unread_count(db, member.id)
 
+    # Label du destinataire courant
+    recipient_label = None
+    if msg.sender_id != member.id:
+        for r in msg.recipients:
+            if r.member_id == member.id:
+                recipient_label = r.label
+                break
+
     return templates.TemplateResponse(request, "pages/messages/detail.html", {
         "current_member": member,
         "current_user": user,
@@ -616,6 +624,7 @@ async def message_detail(
         "unread_count": unread,
         "can_send": _can_send(user, member),
         "attachments": msg.attachments,
+        "recipient_label": recipient_label,
     })
 
 

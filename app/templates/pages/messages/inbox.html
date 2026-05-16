@@ -26,12 +26,12 @@
   </div>
 
   <!-- Onglets -->
-  <div class="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg w-fit">
+  <div class="flex gap-1 mb-4 bg-gray-100 p-1 rounded-lg flex-wrap">
     <a href="/messages/"
        class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors
               {% if tab == 'inbox' %}bg-white shadow text-gray-900{% else %}text-gray-500 hover:text-gray-700{% endif %}">
       Reçus
-      {% if unread_count and tab != 'inbox' %}
+      {% if unread_count %}
       <span class="ml-1.5 bg-loge-600 text-white text-xs rounded-full px-1.5 py-0.5">{{ unread_count }}</span>
       {% endif %}
     </a>
@@ -42,6 +42,11 @@
       Envoyés
     </a>
     {% endif %}
+    <a href="/messages/trash"
+       class="px-4 py-1.5 rounded-md text-sm font-medium transition-colors
+              {% if tab == 'trash' %}bg-white shadow text-red-600{% else %}text-gray-400 hover:text-red-500{% endif %}">
+      🗑 Corbeille
+    </a>
   </div>
 
   <!-- Liste Reçus -->
@@ -69,6 +74,9 @@
             <span class="text-sm {% if is_unread %}font-bold text-gray-900{% else %}font-medium text-gray-700{% endif %} truncate">
               {{ msg.subject }}
             </span>
+            {% if rec.label %}
+            <span class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-loge-100 text-loge-700">{{ rec.label }}</span>
+            {% endif %}
           </div>
           <span class="text-xs text-gray-400 flex-shrink-0">
             {{ msg.sent_at.strftime('%d/%m %H:%M') if msg.sent_at else '' }}
