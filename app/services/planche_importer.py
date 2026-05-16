@@ -153,6 +153,13 @@ async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int
     from app.config import get_settings
     from app.database import AsyncSessionLocal
 
+    # Charger tous les modèles pour que SQLAlchemy résolve les FK
+    import app.models.documents
+    import app.models.identity
+    import app.models.groups
+    import app.models.lodge
+    import app.models.meetings
+
     s = get_settings()
     if not s.imap_host or not s.imap_user or not s.imap_pass:
         logger.debug("IMAP non configuré — import planches ignoré")
