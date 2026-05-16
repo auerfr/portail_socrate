@@ -38,6 +38,7 @@ class Message(Base):
 
     sent_at: Mapped[Optional[datetime]]  = mapped_column(DateTime)   # None = brouillon
     created_at: Mapped[datetime]         = mapped_column(DateTime, server_default=func.now())
+    sender_deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # corbeille expéditeur
 
     recipients: Mapped[list["MessageRecipient"]] = relationship(
         back_populates="message", cascade="all, delete-orphan"
@@ -87,6 +88,8 @@ class MessageRecipient(Base):
     delivered_at: Mapped[datetime]          = mapped_column(DateTime, server_default=func.now())
     read_at: Mapped[Optional[datetime]]     = mapped_column(DateTime)
     email_sent: Mapped[bool]                = mapped_column(Boolean, default=False)
+    deleted_at: Mapped[Optional[datetime]]  = mapped_column(DateTime, nullable=True)   # corbeille destinataire
+    label: Mapped[Optional[str]]            = mapped_column(String(50), nullable=True)  # label/dossier
 
     message: Mapped["Message"] = relationship(back_populates="recipients")
 

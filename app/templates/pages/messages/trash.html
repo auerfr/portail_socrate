@@ -1,0 +1,86 @@
+{% extends "base.html" %}
+{% block title %}Corbeille — Messages{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto">
+
+  <!-- Navigation -->
+  <div class="flex items-center gap-3 mb-6 flex-wrap">
+    <a href="/messages/" class="text-sm {% if tab == 'inbox' %}text-loge-700 font-semibold border-b-2 border-loge-600{% else %}text-gray-500 hover:text-gray-700{% endif %} pb-1">
+      Reçus
+      {% if unread_count > 0 %}<span class="ml-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5">{{ unread_count }}</span>{% endif %}
+    </a>
+    {% if can_send %}
+    <a href="/messages/sent" class="text-sm text-gray-500 hover:text-gray-700 pb-1">Envoyés</a>
+    {% endif %}
+    <a href="/messages/trash" class="text-sm text-red-600 font-semibold border-b-2 border-red-500 pb-1">🗑 Corbeille</a>
+  </div>
+
+  <!-- En-tête corbeille -->
+  <div class="flex items-center justify-between mb-4">
+    <h1 class="text-lg font-bold text-gray-900">🗑 Corbeille</h1>
+    {% if trashed_received or trashed_sent %}
+    <form method="post" action="/messages/trash/empty"
+          onsubmit="return confirm('Vider définitivement la corbeille ? Cette action est irréversible.')">
+      <button type="submit"
+              class="text-sm text-red-500 hover:text-red-700 border border-red-200 hover:bg-red-50 px-3 py-1.5 rounded-lg transition-colors">
+        Vider la corbeille
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+  {% if not trashed_received and not trashed_sent %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-6 py-12 text-center text-gray-400">
+    <div class="text-4xl mb-3">🗑</div>
+    <p class="text-sm">La corbeille est vide</p>
+  </div>
+  {% else %}
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden divide-y divide-gray-50">
+
+    {% for rec in trashed_received %}
+    {% set sender = senders_map.get(rec.message.sender_id) %}
+    <div class="flex items-start gap-3 px-5 py-3">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+           style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
+        {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name | anon_nom | first }}{% else %}?{% endif %}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs text-gray-400">Reçu de {{ (sender.first_name ~ ' ' ~ (sender.last_name | anon_nom)) if sender else '?' }}</div>
+        <div class="text-sm font-medium text-gray-700 truncate">{{ rec.message.subject }}</div>
+        <div class="text-xs text-gray-400">{{ rec.message.sent_at.strftime('%d/%m/%Y') if rec.message.sent_at else '' }}</div>
+      </div>
+      <form method="post" action="/messages/{{ rec.message_id }}/restore" class="shrink-0">
+        <button type="submit" class="text-xs text-loge-600 hover:text-loge-800 border border-loge-200 hover:bg-loge-50 px-2 py-1 rounded-lg">
+          Restaurer
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+
+    {% for msg in trashed_sent %}
+    <div class="flex items-start gap-3 px-5 py-3">
+      <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+           style="background:linear-gradient(135deg,#6b7280,#4b5563);">
+        ↗
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="text-xs text-gray-400">Envoyé · {{ msg.recipients | length }} destinataire{{ 's' if msg.recipients | length > 1 }}</div>
+        <div class="text-sm font-medium text-gray-700 truncate">{{ msg.subject }}</div>
+        <div class="text-xs text-gray-400">{{ msg.sent_at.strftime('%d/%m/%Y') if msg.sent_at else '' }}</div>
+      </div>
+      <form method="post" action="/messages/{{ msg.id }}/restore" class="shrink-0">
+        <button type="submit" class="text-xs text-loge-600 hover:text-loge-800 border border-loge-200 hover:bg-loge-50 px-2 py-1 rounded-lg">
+          Restaurer
+        </button>
+      </form>
+    </div>
+    {% endfor %}
+
+  </div>
+  <p class="text-xs text-gray-400 text-center mt-3">Les messages en corbeille sont supprimés définitivement lors du vidage.</p>
+  {% endif %}
+
+</div>
+{% endblock %}

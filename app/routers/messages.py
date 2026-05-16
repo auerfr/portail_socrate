@@ -220,6 +220,7 @@ async def inbox(
         .where(
             MessageRecipient.member_id == member.id,
             Message.sent_at.isnot(None),
+            MessageRecipient.deleted_at.is_(None),
         )
         .options(selectinload(MessageRecipient.message))
         .order_by(Message.sent_at.desc())
@@ -234,6 +235,7 @@ async def inbox(
         .where(
             MessageRecipient.member_id == member.id,
             Message.sent_at.isnot(None),
+            MessageRecipient.deleted_at.is_(None),
         )
     )
     total = r_total.scalar_one() or 0
@@ -634,20 +636,169 @@ async def delete_message(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    """Déplace vers la corbeille (soft delete) pour l'expéditeur ou le destinataire."""
     user, member = ctx
     msg = await db.get(Message, message_id, options=[selectinload(Message.recipients)])
     if not msg:
         raise HTTPException(404)
 
+    now = datetime.now()
     is_sender = msg.sender_id == member.id
-    anyone_read = any(r.read_at for r in msg.recipients)
 
-    if not (user.is_admin or (is_sender and not anyone_read)):
-        raise HTTPException(403, "Suppression impossible : message déjà lu")
+    if is_sender or user.is_admin:
+        msg.sender_deleted_at = now
+    else:
+        # Destinataire → soft delete sur son enregistrement recipient
+        r = await db.execute(
+            select(MessageRecipient).where(
+                MessageRecipient.message_id == message_id,
+                MessageRecipient.member_id == member.id,
+            )
+        )
+        rec = r.scalar_one_or_none()
+        if rec:
+            rec.deleted_at = now
+        else:
+            raise HTTPException(403)
 
-    await db.delete(msg)
     await db.commit()
 
     if is_sender:
         return RedirectResponse(url="/messages/sent", status_code=303)
     return RedirectResponse(url="/messages/", status_code=303)
+
+
+@router.post("/{message_id}/restore")
+async def restore_message(
+    message_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Restaure un message depuis la corbeille."""
+    user, member = ctx
+    msg = await db.get(Message, message_id)
+    if not msg:
+        raise HTTPException(404)
+
+    if msg.sender_id == member.id or user.is_admin:
+        msg.sender_deleted_at = None
+    else:
+        r = await db.execute(
+            select(MessageRecipient).where(
+                MessageRecipient.message_id == message_id,
+                MessageRecipient.member_id == member.id,
+            )
+        )
+        rec = r.scalar_one_or_none()
+        if rec:
+            rec.deleted_at = None
+
+    await db.commit()
+    return RedirectResponse(url="/messages/trash", status_code=303)
+
+
+@router.post("/trash/empty")
+async def empty_trash(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Vide définitivement la corbeille de l'utilisateur."""
+    user, member = ctx
+    from sqlalchemy import delete as sql_delete
+
+    # Supprimer les enregistrements recipient en corbeille
+    await db.execute(
+        sql_delete(MessageRecipient).where(
+            MessageRecipient.member_id == member.id,
+            MessageRecipient.deleted_at.isnot(None),
+        )
+    )
+    # Messages envoyés en corbeille (si plus personne ne les a reçus → supprimer)
+    deleted_sent = await db.execute(
+        select(Message).where(
+            Message.sender_id == member.id,
+            Message.sender_deleted_at.isnot(None),
+        )
+    )
+    for msg in deleted_sent.scalars().all():
+        await db.delete(msg)
+
+    await db.commit()
+    return RedirectResponse(url="/messages/trash", status_code=303)
+
+
+@router.get("/trash", response_class=HTMLResponse)
+async def trash(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+
+    # Messages reçus en corbeille
+    r1 = await db.execute(
+        select(MessageRecipient)
+        .join(Message, Message.id == MessageRecipient.message_id)
+        .where(
+            MessageRecipient.member_id == member.id,
+            MessageRecipient.deleted_at.isnot(None),
+            Message.sent_at.isnot(None),
+        )
+        .options(selectinload(MessageRecipient.message))
+        .order_by(MessageRecipient.deleted_at.desc())
+    )
+    trashed_received = r1.scalars().all()
+
+    # Messages envoyés en corbeille
+    r2 = await db.execute(
+        select(Message).where(
+            Message.sender_id == member.id,
+            Message.sender_deleted_at.isnot(None),
+        )
+        .order_by(Message.sender_deleted_at.desc())
+    )
+    trashed_sent = r2.scalars().all()
+
+    sender_ids = {rec.message.sender_id for rec in trashed_received}
+    senders_map: dict[int, "Member"] = {}
+    if sender_ids:
+        from app.models.identity import Member as _Member
+        sr = await db.execute(
+            select(_Member).where(_Member.id.in_(sender_ids))
+        )
+        senders_map = {m.id: m for m in sr.scalars().all()}
+
+    unread = await _unread_count(db, member.id)
+
+    return templates.TemplateResponse(request, "pages/messages/trash.html", {
+        "current_member": member,
+        "current_user": user,
+        "trashed_received": trashed_received,
+        "trashed_sent": trashed_sent,
+        "senders_map": senders_map,
+        "unread_count": unread,
+        "can_send": _can_send(user, member),
+        "tab": "trash",
+    })
+
+
+@router.post("/{message_id}/label")
+async def set_label(
+    message_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    label: str = Form(""),
+):
+    """Définit un label sur un message reçu."""
+    user, member = ctx
+    r = await db.execute(
+        select(MessageRecipient).where(
+            MessageRecipient.message_id == message_id,
+            MessageRecipient.member_id == member.id,
+        )
+    )
+    rec = r.scalar_one_or_none()
+    if rec:
+        rec.label = label.strip()[:50] or None
+        await db.commit()
+    return RedirectResponse(url=f"/messages/{message_id}", status_code=303)
