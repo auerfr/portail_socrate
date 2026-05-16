@@ -2,7 +2,7 @@
 import uuid
 from pathlib import Path
 from typing import Annotated, Optional
-from fastapi import APIRouter, Depends, Form, Request, HTTPException
+from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 
 LOGO_DIR = Path("app/static/uploads/logo")
@@ -483,6 +483,66 @@ async def external_contact_add(
     ))
     await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
+
+
+@router.get("/external-contacts/template.csv")
+async def external_contacts_template(ctx: Annotated[object, Depends(require_auth)]):
+    from fastapi.responses import Response
+    content = "type,prenom,nom,email,organisation,loge,orient,notes\n"
+    content += "VISITOR,Jean,DUPONT,jean.dupont@loge.fr,,Loge Les 3 Piliers,Nancy,Reçoit les programmes\n"
+    content += "EXTERNAL,,,contact@obedience.fr,GLNF — Grande Loge,,, Institutionnel\n"
+    return Response(content=content, media_type="text/csv",
+                    headers={"Content-Disposition": "attachment; filename=contacts_externes_template.csv"})
+
+
+@router.post("/external-contacts/import-csv")
+async def external_contacts_import_csv(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+
+    import csv, io
+    content = await file.read()
+    try:
+        text = content.decode("utf-8-sig")  # gère le BOM Excel
+    except UnicodeDecodeError:
+        text = content.decode("latin-1")
+
+    reader = csv.DictReader(io.StringIO(text))
+    imported = 0
+    errors = []
+    for i, row in enumerate(reader, start=2):
+        email = (row.get("email") or "").strip().lower()
+        if not email:
+            errors.append(f"Ligne {i} ignorée : email manquant")
+            continue
+        contact_type = (row.get("type") or "EXTERNAL").strip().upper()
+        if contact_type not in ("EXTERNAL", "VISITOR"):
+            contact_type = "EXTERNAL"
+        first_name = (row.get("prenom") or "").strip()
+        last_name = (row.get("nom") or "").strip()
+        name = f"{first_name} {last_name}".strip() or email
+        db.add(ExternalContact(
+            name=name,
+            first_name=first_name or None,
+            last_name=last_name or None,
+            email=email,
+            organization=(row.get("organisation") or "").strip() or None,
+            lodge_name=(row.get("loge") or "").strip() or None,
+            orient=(row.get("orient") or "").strip() or None,
+            notes=(row.get("notes") or "").strip() or None,
+            contact_type=contact_type,
+            is_active=True,
+        ))
+        imported += 1
+
+    await db.commit()
+    return RedirectResponse(url=f"/settings/?saved=contacts&imported={imported}", status_code=303)
 
 
 @router.post("/external-contacts/{contact_id}/delete")
