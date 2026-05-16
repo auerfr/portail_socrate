@@ -25,14 +25,15 @@ ESPACE_NOM = "Planches reçues"
 async def _get_or_create_space(db, nom: str):
     """Retourne (ou crée) l'espace GED 'Planches reçues'."""
     from sqlalchemy import select
-    from app.models.documents import DocSpace, DocSpaceType
+    from app.models.documents import DocSpace, DocAccessMode, MinGrade
     r = await db.execute(select(DocSpace).where(DocSpace.name == nom))
     space = r.scalar_one_or_none()
     if not space:
         space = DocSpace(
             name=nom,
-            space_type=DocSpaceType.SHARED,
             description="Planches reçues par email d'autres loges",
+            access_mode=DocAccessMode.GRADE,
+            min_grade=MinGrade.MAITRE,
         )
         db.add(space)
         await db.flush()
@@ -64,7 +65,7 @@ async def _get_or_create_folder(db, space_id: int, folder_name: str):
 
 async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
     """Traite un email et importe ses PJ dans la GED. Retourne le nb de fichiers importés."""
-    from app.models.documents import Document, DocStatus
+    from app.models.documents import Document, DocStatus, DocFolder
     msg = email.message_from_bytes(msg_bytes)
     sender = msg.get("From", "Inconnu")
     subject = msg.get("Subject", "Sans objet")
@@ -102,7 +103,7 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
             original_filename=filename,
             storage_path=str(dest),
             file_size=len(content),
-            status=DocStatus.ACTIVE,
+            status=DocStatus.PUBLISHED,
             description=f"Reçu de {sender} — {subject}",
         )
         db.add(doc)
