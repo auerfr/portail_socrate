@@ -469,7 +469,7 @@ async def send_message(
     # ── Notifications email ───────────────────────────────────────────────
     sender_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.first_name} {member.last_name}"
     settings = get_settings()
-    portal_url = f"https://{settings.lodge_domain}"
+    portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
 
     # Charger les membres destinataires pour leurs emails
     if recipient_ids:
