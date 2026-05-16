@@ -81,8 +81,11 @@ def _date_civil(d: date) -> str:
 
 
 def _inscription_url(request: Request, token: str) -> str:
-    base = str(request.base_url).rstrip("/")
-    return f"{base}/inscription/{token}"
+    from app.config import get_settings
+    portal = get_settings().portal_url.rstrip("/")
+    if not portal:
+        portal = str(request.base_url).rstrip("/")
+    return f"{portal}/inscription/{token}"
 
 
 def _qr_svg(url: str) -> str:

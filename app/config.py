@@ -34,6 +34,9 @@ class Settings(BaseSettings):
     cpanel_api_url: str = ""
     cpanel_api_token: str = ""
 
+    # URL publique du portail (pour les liens externes, QR codes, emails)
+    portal_url: str = ""   # ex: https://staging.amisdesocrate.fr
+
     # Uploads
     upload_dir: str = "./uploads"
     max_upload_size_mb: int = 20
