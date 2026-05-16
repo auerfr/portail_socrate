@@ -452,15 +452,18 @@
             </button>
             {% endif %}
 
-            <!-- Aperçu (PDF et images uniquement) — nouvel onglet -->
+            <!-- Aperçu (PDF et images uniquement) -->
             {% if ext == 'pdf' or is_image %}
-            <a href="/documents/file/{{ doc.id }}/preview" target="_blank" rel="noopener"
-               class="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
+            <button data-doc-id="{{ doc.id }}"
+                    data-doc-name="{{ doc.name | e }}"
+                    data-doc-type="{{ 'pdf' if ext == 'pdf' else 'image' }}"
+                    @click="openPreview($el.dataset.docId, $el.dataset.docName, $el.dataset.docType)"
+                    class="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg bg-gray-100 text-gray-600 hover:bg-gray-200 transition-colors">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/><path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
               </svg>
               Aperçu
-            </a>
+            </button>
             {% endif %}
 
             <!-- Ouvrir / Télécharger — conditionnel selon droits -->
@@ -1249,20 +1252,11 @@
   <!-- Zone de contenu -->
   <div class="flex-1 overflow-hidden min-h-0">
 
-    <!-- PDF : iframe + fallback nouvel onglet -->
+    <!-- PDF : rendu natif navigateur -->
     <template x-if="preview && preview.type === 'pdf'">
-      <div class="w-full h-full flex flex-col">
-        <iframe :src="`/documents/file/${preview.id}/preview`"
-                class="flex-1 w-full border-0 min-h-0"
-                allowfullscreen>
-        </iframe>
-        <div class="flex-shrink-0 px-4 py-2 bg-white/5 border-t border-white/10 text-center">
-          <a :href="`/documents/file/${preview.id}/preview`" target="_blank"
-             class="text-xs text-white/60 hover:text-white transition-colors">
-            🔗 Ouvrir dans un nouvel onglet
-          </a>
-        </div>
-      </div>
+      <embed :src="`/documents/file/${preview.id}/preview`"
+             type="application/pdf"
+             class="w-full h-full">
     </template>
 
     <!-- Image : centrée avec fond sombre (inline) -->

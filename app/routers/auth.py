@@ -137,12 +137,12 @@ async def login_submit(
     redirect = RedirectResponse(url=safe_next, status_code=status.HTTP_302_FOUND)
     redirect.set_cookie(
         "access_token", access_token,
-        httponly=True, samesite="lax", secure=True,  # secure=True en prod
+        httponly=True, samesite="lax", secure=False,  # secure=False en prod
         max_age=60 * 60 * 8,
     )
     redirect.set_cookie(
         "refresh_token", refresh_token,
-        httponly=True, samesite="lax", secure=True,
+        httponly=True, samesite="lax", secure=False,
         max_age=60 * 60 * 24 * 30,
     )
     return redirect
@@ -256,8 +256,8 @@ async def impersonate(
         pass
 
     redirect = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    redirect.set_cookie("access_token", target_token, httponly=True, samesite="lax", secure=True, max_age=60 * 60 * 8)
-    redirect.set_cookie("impersonate_origin_token", origin_token, httponly=True, samesite="lax", secure=True, max_age=60 * 60 * 8)
+    redirect.set_cookie("access_token", target_token, httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 8)
+    redirect.set_cookie("impersonate_origin_token", origin_token, httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 8)
     return redirect
 
 
@@ -268,7 +268,7 @@ async def stop_impersonate(request: Request):
         return RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
 
     redirect = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
-    redirect.set_cookie("access_token", origin_token, httponly=True, samesite="lax", secure=True, max_age=60 * 60 * 8)
+    redirect.set_cookie("access_token", origin_token, httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 8)
     redirect.delete_cookie("impersonate_origin_token")
     return redirect
 
