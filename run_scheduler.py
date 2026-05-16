@@ -64,8 +64,19 @@ async def _get_lodge_name():
         return lodge.name if lodge else "Socrate Raison et Progrès"
 
 # ── Boucle principale ─────────────────────────────────────────────────────────
+async def _heartbeat():
+    """Log un signe de vie toutes les heures."""
+    while True:
+        await asyncio.sleep(3600)
+        logger.info("♥ Scheduler actif — anniversaires / cotisations / projets / mailing")
+
+
 async def main():
     logger.info("Démarrage du scheduler Portail Socrate")
+    logger.info("  → Anniversaires maçonniques  : tous les jours à 07h00")
+    logger.info("  → Rappels projets            : tous les jours à 08h00")
+    logger.info("  → Rappels cotisations        : tous les jours à 09h00")
+    logger.info("  → Mailing scheduler          : toutes les 60 secondes")
 
     from app.services.anniversaires import daily_anniversary_loop
     from app.services.contribution_reminders import daily_contribution_reminder_loop
@@ -77,6 +88,7 @@ async def main():
         daily_contribution_reminder_loop(),
         daily_task_reminder_loop(),
         mailing_scheduler_loop(),
+        _heartbeat(),
         return_exceptions=True,   # une tâche qui plante n'arrête pas les autres
     )
 
