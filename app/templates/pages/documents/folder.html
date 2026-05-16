@@ -1255,11 +1255,20 @@
   <!-- Zone de contenu -->
   <div class="flex-1 overflow-hidden min-h-0">
 
-    <!-- PDF : rendu natif navigateur (inline) -->
+    <!-- PDF : iframe + fallback nouvel onglet -->
     <template x-if="preview && preview.type === 'pdf'">
-      <embed :src="`/documents/file/${preview.id}/preview`"
-             type="application/pdf"
-             class="w-full h-full">
+      <div class="w-full h-full flex flex-col">
+        <iframe :src="`/documents/file/${preview.id}/preview`"
+                class="flex-1 w-full border-0 min-h-0"
+                allowfullscreen>
+        </iframe>
+        <div class="flex-shrink-0 px-4 py-2 bg-white/5 border-t border-white/10 text-center">
+          <a :href="`/documents/file/${preview.id}/preview`" target="_blank"
+             class="text-xs text-white/60 hover:text-white transition-colors">
+            🔗 Ouvrir dans un nouvel onglet
+          </a>
+        </div>
+      </div>
     </template>
 
     <!-- Image : centrée avec fond sombre (inline) -->
