@@ -18,7 +18,7 @@ from pathlib import Path
 
 logger = logging.getLogger(__name__)
 
-EXTENSIONS_ACCEPTEES = {".pdf", ".doc", ".docx", ".odt", ".txt", ".jpg", ".jpeg", ".png"}
+EXTENSIONS_ACCEPTEES = {".pdf", ".doc", ".docx", ".odt", ".rtf", ".jpg", ".jpeg", ".png"}
 ESPACE_NOM = "Planches reçues"
 
 
@@ -63,14 +63,45 @@ async def _get_or_create_folder(db, space_id: int, folder_name: str):
     return folder
 
 
+def _decode_header(value: str) -> str:
+    """Décode un header email (gère le RFC 2047 / encodages divers)."""
+    import email.header
+    parts = email.header.decode_header(value or "")
+    result = []
+    for part, enc in parts:
+        if isinstance(part, bytes):
+            result.append(part.decode(enc or "utf-8", errors="replace"))
+        else:
+            result.append(part)
+    return " ".join(result)
+
+
+def _extract_sender_label(from_header: str) -> str:
+    """Extrait un label court depuis l'expéditeur (ex: 'Jean DUPONT <j@loge.fr>' → 'Jean_DUPONT')."""
+    import re
+    # Extraire le nom avant le <email>
+    m = re.match(r'^"?([^"<]+)"?\s*<', from_header)
+    if m:
+        name = m.group(1).strip()
+    else:
+        # Utiliser le domaine de l'email
+        m2 = re.search(r'@([^>]+)', from_header)
+        name = m2.group(1).split('.')[0] if m2 else "Externe"
+    # Nettoyer
+    return re.sub(r'[^\w\s-]', '', name).strip().replace(' ', '_')[:40]
+
+
 async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
     """Traite un email et importe ses PJ dans la GED. Retourne le nb de fichiers importés."""
     from app.models.documents import Document, DocStatus, DocFolder
     msg = email.message_from_bytes(msg_bytes)
-    sender = msg.get("From", "Inconnu")
-    subject = msg.get("Subject", "Sans objet")
+    sender_raw = msg.get("From", "Inconnu")
+    sender = _decode_header(sender_raw)
+    subject = _decode_header(msg.get("Subject", "Sans objet"))
     received_at = datetime.now()
     folder_name = received_at.strftime("%Y-%m")
+    sender_label = _extract_sender_label(sender_raw)
+    date_label = received_at.strftime("%Y-%m-%d")
 
     space = await _get_or_create_space(db, ESPACE_NOM)
     folder = await _get_or_create_folder(db, space.id, folder_name)
@@ -91,8 +122,10 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
         if not content:
             continue
 
-        # Nettoyage du nom de fichier
-        safe_name = "".join(c for c in filename if c.isalnum() or c in "._- ")[:200]
+        # Nommage enrichi : date + expéditeur + nom original
+        base = Path(filename).stem
+        safe_base = "".join(c for c in base if c.isalnum() or c in "._- ")[:80]
+        safe_name = f"{date_label}_{sender_label}_{safe_base}{ext}" if safe_base else f"{date_label}_{sender_label}{ext}"
         stored_name = f"{uuid.uuid4().hex}{ext}"
         dest = upload_dir / stored_name
         dest.write_bytes(content)
