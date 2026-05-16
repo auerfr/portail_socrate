@@ -255,14 +255,91 @@ async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int
     return total
 
 
+async def cleanup_old_planches(max_months: int = 3) -> int:
+    """Supprime automatiquement les planches reçues de plus de max_months mois.
+    Supprime aussi les dossiers mensuels vides."""
+    from app.database import AsyncSessionLocal
+    import app.models.documents, app.models.identity, app.models.groups
+    import app.models.lodge, app.models.meetings
+    from sqlalchemy import select
+    from app.models.documents import DocSpace, DocFolder, Document
+    from datetime import timedelta
+
+    cutoff = datetime.now() - timedelta(days=30 * max_months)
+    deleted = 0
+
+    async with AsyncSessionLocal() as db:
+        # Trouver l'espace
+        r = await db.execute(select(DocSpace).where(DocSpace.name == ESPACE_NOM))
+        space = r.scalar_one_or_none()
+        if not space:
+            return 0
+
+        # Trouver les dossiers mensuels
+        r_folders = await db.execute(
+            select(DocFolder).where(DocFolder.space_id == space.id)
+        )
+        folders = r_folders.scalars().all()
+
+        for folder in folders:
+            # Vérifier si le dossier correspond à un mois dépassé (format YYYY-MM)
+            try:
+                from datetime import datetime as _dt
+                folder_date = _dt.strptime(folder.name, "%Y-%m")
+                if folder_date > cutoff:
+                    continue  # Dossier récent → garder
+            except ValueError:
+                continue  # Nom non reconnu → ignorer
+
+            # Supprimer les documents du dossier
+            r_docs = await db.execute(
+                select(Document).where(Document.folder_id == folder.id)
+            )
+            docs = r_docs.scalars().all()
+            for doc in docs:
+                # Supprimer le fichier physique
+                if doc.storage_path:
+                    try:
+                        Path(doc.storage_path).unlink(missing_ok=True)
+                    except Exception:
+                        pass
+                await db.delete(doc)
+                deleted += 1
+
+            # Supprimer le dossier maintenant vide
+            await db.delete(folder)
+            logger.info("Dossier %s supprimé (%d fichier(s))", folder.name, len(docs))
+
+        if deleted:
+            await db.commit()
+            logger.info("Nettoyage planches : %d fichier(s) supprimé(s) (> %d mois)", deleted, max_months)
+
+    return deleted
+
+
 async def planche_import_loop():
-    """Boucle infinie — vérifie les emails toutes les 15 minutes."""
+    """Boucle infinie — vérifie les emails toutes les 15 minutes.
+    Nettoyage automatique des planches > 3 mois une fois par jour (à 2h)."""
     logger.info("Démarrage service import planches (IMAP, toutes les 15 min)")
+    last_cleanup = None
+
     while True:
         try:
             n = await run_once()
             if n:
                 logger.info("Import planches : %d fichier(s) ajouté(s) à la GED", n)
         except Exception as e:
-            logger.error("planche_import_loop erreur : %s", e)
+            logger.error("planche_import_loop erreur import : %s", e)
+
+        # Nettoyage quotidien à 2h
+        now = datetime.now()
+        if now.hour == 2 and (last_cleanup is None or last_cleanup.date() < now.date()):
+            try:
+                d = await cleanup_old_planches(max_months=3)
+                last_cleanup = now
+                if d:
+                    logger.info("Nettoyage auto : %d planche(s) supprimée(s)", d)
+            except Exception as e:
+                logger.error("planche_import_loop erreur nettoyage : %s", e)
+
         await asyncio.sleep(15 * 60)  # 15 minutes
