@@ -596,41 +596,119 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+def _is_api_request(request: Request) -> bool:
+    accept = request.headers.get("accept", "")
+    return (
+        request.url.path.startswith("/api/")
+        or ("application/json" in accept and "text/html" not in accept)
+    )
+
+
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     tb = _tb.format_exc()
-    return PlainTextResponse(f"Erreur interne:\n{tb}", status_code=500)
+    if _is_api_request(request):
+        return PlainTextResponse(f"Erreur interne:\n{tb}", status_code=500)
+    try:
+        return templates.TemplateResponse(
+            request, "errors/500.html",
+            {"detail": tb if settings.environment == "development" else None},
+            status_code=500,
+        )
+    except Exception:
+        return PlainTextResponse(f"Erreur interne:\n{tb}", status_code=500)
 
 
 @app.exception_handler(401)
 async def unauthorized_handler(request: Request, exc):
-    """Redirige vers /auth/login pour les requêtes navigateur, JSON pour les API."""
-    accept = request.headers.get("accept", "")
-    is_api = request.url.path.startswith("/api/") or "application/json" in accept and "text/html" not in accept
-    if is_api:
+    if _is_api_request(request):
         from fastapi.responses import JSONResponse
         return JSONResponse({"detail": "Authentification requise"}, status_code=401)
-    # Requête navigateur → redirection vers login
     from urllib.parse import quote
     next_url = quote(str(request.url.path))
     return RedirectResponse(url=f"/auth/login?next={next_url}", status_code=302)
 
 
+@app.exception_handler(403)
+async def forbidden_handler(request: Request, exc):
+    if _is_api_request(request):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Accès refusé"}, status_code=403)
+    try:
+        return templates.TemplateResponse(request, "errors/403.html", {}, status_code=403)
+    except Exception:
+        return PlainTextResponse("Accès refusé", status_code=403)
+
+
+@app.exception_handler(404)
+async def not_found_handler(request: Request, exc):
+    if _is_api_request(request):
+        from fastapi.responses import JSONResponse
+        return JSONResponse({"detail": "Ressource introuvable"}, status_code=404)
+    try:
+        return templates.TemplateResponse(request, "errors/404.html", {}, status_code=404)
+    except Exception:
+        return PlainTextResponse("Page introuvable", status_code=404)
+
+
 @app.middleware("http")
 async def maintenance_banner_middleware(request: Request, call_next):
-    """Charge la bannière maintenance + flag confidentialité dans request.state."""
+    """Charge la bannière maintenance + flag confidentialité dans request.state.
+    Si maintenance_mode est activé, redirige tous les non-admins vers la page maintenance."""
+    from app.services.settings_store import get_setting
+
+    # ── Mode maintenance complet ─────────────────────────────────────────────
+    _MAINTENANCE_BYPASS = {"/auth/login", "/auth/logout", "/static"}
+    path = request.url.path
+    bypass = (
+        path.startswith("/static")
+        or path in {"/auth/login", "/auth/logout"}
+        or path == "/maintenance"
+    )
+    if not bypass:
+        try:
+            maintenance_mode = await get_setting("maintenance_mode")
+            if maintenance_mode:
+                # Vérifier si l'utilisateur est admin (via cookie)
+                is_admin = False
+                token = request.cookies.get("access_token")
+                if token:
+                    try:
+                        from app.dependencies import decode_token
+                        from app.database import AsyncSessionLocal
+                        from app.models.identity import User
+                        from sqlalchemy import select as _sel
+                        payload = decode_token(token)
+                        user_id = int(payload.get("sub", 0))
+                        async with AsyncSessionLocal() as _db:
+                            _u = (await _db.execute(_sel(User).where(User.id == user_id))).scalar_one_or_none()
+                            is_admin = bool(_u and _u.is_admin)
+                    except Exception:
+                        pass
+                if not is_admin:
+                    msg = await get_setting("maintenance_message") or None
+                    return templates.TemplateResponse(
+                        request, "errors/maintenance.html",
+                        {"message": msg},
+                        status_code=503,
+                    )
+        except Exception:
+            pass
+
+    # ── Bannière maintenance (simple message) ────────────────────────────────
     try:
-        from app.services.settings_store import get_setting
         request.state.banner = await get_setting("maintenance_banner")
     except Exception:
         request.state.banner = None
-    # Flag confidentialité (bannière visible sur pages sensibles)
+
+    # ── Flag confidentialité ────────────────────────────────────────────────
     try:
         from app.services.confidentiality import get_config as _get_conf
         c = await _get_conf()
         request.state.show_conf_banner = bool(c.get("show_confidentiality_banner"))
     except Exception:
         request.state.show_conf_banner = False
+
     return await call_next(request)
 
 templates = Jinja2Templates(directory="app/templates")

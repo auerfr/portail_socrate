@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Maintenance — Portail Socrate</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>tailwind.config = { theme: { extend: { colors: { loge: { 50:'#e6f4f1', 100:'#cce9e3', 500:'#4a9d8f', 700:'#2c7a7b', 800:'#1a5252' } } } } }</script>
+  <style>
+    @keyframes pulse-slow { 0%,100%{opacity:1} 50%{opacity:.5} }
+    .animate-pulse-slow { animation: pulse-slow 3s ease-in-out infinite; }
+  </style>
+</head>
+<body class="bg-gradient-to-br from-loge-800 to-gray-900 min-h-screen flex items-center justify-center p-4">
+  <div class="text-center max-w-lg">
+
+    <!-- Logo / icône -->
+    <div class="animate-pulse-slow text-7xl mb-6">🔧</div>
+
+    <h1 class="text-3xl font-bold text-white mb-3">Maintenance en cours</h1>
+    <p class="text-loge-100 text-lg mb-2">
+      Le Portail Socrate est temporairement indisponible.
+    </p>
+
+    {% if message %}
+    <div class="bg-white/10 border border-white/20 rounded-2xl px-6 py-4 mb-6 text-white text-sm">
+      {{ message }}
+    </div>
+    {% else %}
+    <p class="text-loge-200 text-sm mb-8">
+      Nous effectuons des opérations de maintenance. Le service sera rétabli très prochainement.
+    </p>
+    {% endif %}
+
+    <div class="bg-white/5 border border-white/10 rounded-2xl px-6 py-4 text-loge-200 text-sm">
+      <p>Pour toute urgence, contactez l'administrateur.</p>
+    </div>
+
+    <!-- Lien de connexion admin (discret) -->
+    <div class="mt-12">
+      <a href="/auth/login" class="text-white/20 hover:text-white/50 text-xs transition-colors">
+        Accès administrateur
+      </a>
+    </div>
+
+    <p class="mt-4 text-white/20 text-xs">Portail Socrate — Loge Socrate Raison et Progrès</p>
+  </div>
+</body>
+</html>

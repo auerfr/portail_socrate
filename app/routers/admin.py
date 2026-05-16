@@ -1083,10 +1083,14 @@ async def admin_banner(
     user, member = ctx
     from app.services.settings_store import get_setting
     banner = await get_setting("maintenance_banner", db=db) or {}
+    maintenance_mode = bool(await get_setting("maintenance_mode", db=db))
+    maintenance_message = await get_setting("maintenance_message", db=db) or ""
     return templates.TemplateResponse(request, "pages/admin/banner.html", {
         "current_user": user,
         "current_member": member,
         "banner": banner,
+        "maintenance_mode": maintenance_mode,
+        "maintenance_message": maintenance_message,
         "active_tab": "overview",
     })
 
@@ -1207,6 +1211,27 @@ async def admin_banner_save(
     await log_audit(
         db, actor_id=actor_member.id, action="BANNER_UPDATE",
         details=f"enabled={is_on} level={level} msg={payload['message'][:80]}",
+        request=request, commit=True,
+    )
+    return RedirectResponse(url="/admin/banner", status_code=303)
+
+
+@router.post("/maintenance")
+async def admin_maintenance_toggle(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    action: str = Form(...),
+    message: str = Form(""),
+):
+    actor_user, actor_member = ctx
+    from app.services.settings_store import set_setting
+    enable = action == "enable"
+    await set_setting(db, "maintenance_mode", enable, actor_id=actor_member.id)
+    await set_setting(db, "maintenance_message", (message or "").strip()[:300], actor_id=actor_member.id)
+    await log_audit(
+        db, actor_id=actor_member.id, action="MAINTENANCE_MODE",
+        details=f"mode={'ON' if enable else 'OFF'}",
         request=request, commit=True,
     )
     return RedirectResponse(url="/admin/banner", status_code=303)
