@@ -691,10 +691,10 @@ async def send_credentials(
     from app.config import get_settings
     from app.services.email import _send_raw
     settings = get_settings()
-    portal_url = f"https://portailsocrate.eu.pythonanywhere.com"
+    portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
 
     subject = f"[{settings.lodge_name}] Vos identifiants de connexion"
-    body = f"""Bonjour {target.first_name} {target.last_name},
+    text_body = f"""Bonjour {target.first_name} {target.last_name},
 
 Votre compte sur le Portail {settings.lodge_name} a été créé (ou mis à jour).
 
@@ -711,11 +711,24 @@ Connectez-vous ici : {portal_url}
 Cordialement,
 L'administration du Portail"""
 
+    html_body = f"""<p>Bonjour {target.first_name} {target.last_name},</p>
+<p>Votre compte sur le Portail <strong>{settings.lodge_name}</strong> a été créé (ou mis à jour).</p>
+<table style="border:1px solid #ddd;padding:12px;border-radius:8px;background:#f9f9f9">
+  <tr><td><strong>Identifiant</strong></td><td>{target_user.login}</td></tr>
+  <tr><td><strong>Mot de passe temporaire</strong></td><td>{temp_password}</td></tr>
+</table>
+<p><a href="{portal_url}" style="background:#2c7a7b;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:12px 0">
+  Se connecter au portail →
+</a></p>
+<p style="color:#e53e3e">⚠ Changez votre mot de passe dès votre première connexion via Menu profil → Compte d'accès.</p>
+<hr><p style="color:#888;font-size:12px">Portail {settings.lodge_name}</p>"""
+
     try:
         await _send_raw(
             to=target.email,
             subject=subject,
-            body=body,
+            html=html_body,
+            text=text_body,
         )
         return RedirectResponse(
             url=f"/members/{member_id}/edit?credentials_sent=1",
