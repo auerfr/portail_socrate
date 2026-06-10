@@ -504,6 +504,82 @@ async def remove_visitor_from_meeting(
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
 
 
+# ── Ajouter un visiteur au carnet (sans tenue) ────────────────────────────────
+
+@router.post("/visitor/add")
+async def add_visitor_standalone(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    civility: str = Form("F"),
+    last_name: str = Form(...),
+    first_name: str = Form(...),
+    lodge_name: str = Form(""),
+    orient_city: str = Form(""),
+    obedience: str = Form(""),
+    masonic_grade: str = Form(""),
+    is_vm: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    program_optin: str = Form(""),
+):
+    user, member = ctx
+    _require_attendance_mgr(user, member)
+    db.add(Visitor(
+        civility=civility,
+        last_name=last_name.strip().upper(),
+        first_name=first_name.strip().title(),
+        lodge_name=lodge_name.strip() or None,
+        orient_city=orient_city.strip() or None,
+        obedience=obedience.strip() or None,
+        masonic_grade=masonic_grade.strip() or None,
+        is_vm=bool(is_vm),
+        email=email.strip() or None,
+        phone=phone.strip() or None,
+        program_optin=bool(program_optin),
+    ))
+    await db.commit()
+    return RedirectResponse(url="/attendance/visitors", status_code=303)
+
+
+# ── Modifier un visiteur ───────────────────────────────────────────────────────
+
+@router.post("/visitor/{visitor_id}/edit")
+async def edit_visitor(
+    visitor_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    civility: str = Form("F"),
+    last_name: str = Form(...),
+    first_name: str = Form(...),
+    lodge_name: str = Form(""),
+    orient_city: str = Form(""),
+    obedience: str = Form(""),
+    masonic_grade: str = Form(""),
+    is_vm: str = Form(""),
+    email: str = Form(""),
+    phone: str = Form(""),
+    program_optin: str = Form(""),
+):
+    user, member = ctx
+    _require_attendance_mgr(user, member)
+    visitor = await db.get(Visitor, visitor_id)
+    if not visitor:
+        raise HTTPException(404)
+    visitor.civility = civility
+    visitor.last_name = last_name.strip().upper()
+    visitor.first_name = first_name.strip().title()
+    visitor.lodge_name = lodge_name.strip() or None
+    visitor.orient_city = orient_city.strip() or None
+    visitor.obedience = obedience.strip() or None
+    visitor.masonic_grade = masonic_grade.strip() or None
+    visitor.is_vm = bool(is_vm)
+    visitor.email = email.strip() or None
+    visitor.phone = phone.strip() or None
+    visitor.program_optin = bool(program_optin)
+    await db.commit()
+    return RedirectResponse(url="/attendance/visitors", status_code=303)
+
+
 # ── Supprimer un visiteur du carnet (toutes tenues) ───────────────────────────
 
 @router.post("/visitor/{visitor_id}/delete")

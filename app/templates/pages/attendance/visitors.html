@@ -15,9 +15,15 @@
       <h1 class="text-2xl font-bold text-gray-900">Maçons passants</h1>
       <p class="text-sm text-gray-500 mt-0.5">{{ total_unique }} frère{{ 's' if total_unique != 1 }} · {{ total_visits }} visite{{ 's' if total_visits != 1 }} au total</p>
     </div>
-    <a href="/attendance/bilan" class="text-sm bg-loge-700 text-white px-4 py-2 rounded-lg hover:bg-loge-800">
-      📊 Bilan d'activité
-    </a>
+    <div class="flex gap-2">
+      <button onclick="openVisitorModal()"
+              class="text-sm bg-loge-700 text-white px-4 py-2 rounded-lg hover:bg-loge-800 font-medium">
+        + Ajouter un passant
+      </button>
+      <a href="/attendance/bilan" class="text-sm border border-gray-200 text-gray-700 px-4 py-2 rounded-lg hover:bg-gray-50">
+        📊 Bilan d'activité
+      </a>
+    </div>
   </div>
 
   <!-- KPIs -->
@@ -133,6 +139,7 @@
             <th class="sortable px-4 py-3 text-center font-semibold text-gray-600 cursor-pointer hover:text-loge-700 select-none" data-col="5">
               Dernière visite <span class="sort-icon text-gray-300">↕</span>
             </th>
+            <th class="px-4 py-3 text-center font-semibold text-gray-600">Actions</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50" id="visitorsBody">
@@ -177,16 +184,33 @@
               {{ last_date.strftime('%d/%m/%Y') if last_date else '—' }}
             </td>
             <td class="px-4 py-3 text-center">
-              <form method="post" action="/attendance/visitor/{{ v.id }}/delete"
-                    onsubmit="return confirm('Supprimer définitivement {{ v.first_name }} {{ v.last_name }} et toutes ses visites ?')">
-                <button type="submit"
-                        title="Supprimer ce visiteur"
-                        class="w-7 h-7 inline-flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+              <div class="flex items-center justify-center gap-1">
+                <button type="button"
+                        onclick='openVisitorModal({{ {
+                          "id": v.id, "civility": v.civility or "F", "first_name": v.first_name,
+                          "last_name": v.last_name, "lodge_name": v.lodge_name or "",
+                          "orient_city": v.orient_city or "", "obedience": v.obedience or "",
+                          "masonic_grade": v.masonic_grade or "", "is_vm": v.is_vm,
+                          "email": v.email or "", "phone": v.phone or "",
+                          "program_optin": v.program_optin
+                        } | tojson }})'
+                        title="Modifier"
+                        class="w-7 h-7 inline-flex items-center justify-center rounded-lg text-gray-300 hover:text-loge-600 hover:bg-loge-50 transition-colors">
                   <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
                   </svg>
                 </button>
-              </form>
+                <form method="post" action="/attendance/visitor/{{ v.id }}/delete"
+                      onsubmit="return confirm('Supprimer définitivement {{ v.first_name }} {{ v.last_name }} et toutes ses visites ?')">
+                  <button type="submit"
+                          title="Supprimer ce visiteur"
+                          class="w-7 h-7 inline-flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+                    </svg>
+                  </button>
+                </form>
+              </div>
             </td>
           </tr>
           {% endfor %}
@@ -199,6 +223,122 @@
   </div>
 
 </div>
+
+<!-- ── Modal Ajouter/Modifier un maçon passant ── -->
+<div id="visitor-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg p-6 max-h-[90vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-4">
+      <h2 id="visitor-modal-title" class="text-lg font-bold text-gray-900">➕ Ajouter un maçon passant</h2>
+      <button onclick="closeVisitorModal()" class="text-gray-400 hover:text-gray-600">✕</button>
+    </div>
+    <form method="post" id="visitor-form" class="space-y-3">
+      <div class="grid grid-cols-3 gap-2">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Civilité</label>
+          <select name="civility" id="v-civility" class="w-full border border-gray-200 rounded-lg px-2 py-2 text-sm">
+            <option value="F">F∴</option>
+            <option value="S">S∴</option>
+          </select>
+        </div>
+        <div class="col-span-2">
+          <label class="block text-xs font-medium text-gray-700 mb-1">Nom <span class="text-red-500">*</span></label>
+          <input type="text" name="last_name" id="v-last-name" required
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Prénom <span class="text-red-500">*</span></label>
+        <input type="text" name="first_name" id="v-first-name" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Loge</label>
+          <input type="text" name="lodge_name" id="v-lodge"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Orient (ville)</label>
+          <input type="text" name="orient_city" id="v-orient"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Obédience</label>
+          <input type="text" name="obedience" id="v-obedience" placeholder="GODF, GLNF…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Grade</label>
+          <input type="text" name="masonic_grade" id="v-grade" placeholder="Maître…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-2">
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Email</label>
+          <input type="email" name="email" id="v-email"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-700 mb-1">Téléphone</label>
+          <input type="text" name="phone" id="v-phone"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div class="flex gap-4 pt-1">
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="is_vm" id="v-is-vm" value="1" class="rounded border-gray-300 text-loge-600">
+          V∴M∴ (Vénérable Maître)
+        </label>
+        <label class="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
+          <input type="checkbox" name="program_optin" id="v-optin" value="1" class="rounded border-gray-300 text-loge-600">
+          Reçoit les programmes
+        </label>
+      </div>
+      <div class="flex gap-3 pt-3 border-t border-gray-100">
+        <button type="submit" class="flex-1 bg-loge-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-loge-800">
+          Enregistrer
+        </button>
+        <button type="button" onclick="closeVisitorModal()"
+                class="px-5 py-2.5 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">
+          Annuler
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openVisitorModal(data) {
+  const form = document.getElementById('visitor-form');
+  const title = document.getElementById('visitor-modal-title');
+  if (data && data.id) {
+    title.textContent = '✏ Modifier ' + data.first_name + ' ' + data.last_name;
+    form.action = '/attendance/visitor/' + data.id + '/edit';
+    document.getElementById('v-civility').value = data.civility || 'F';
+    document.getElementById('v-last-name').value = data.last_name || '';
+    document.getElementById('v-first-name').value = data.first_name || '';
+    document.getElementById('v-lodge').value = data.lodge_name || '';
+    document.getElementById('v-orient').value = data.orient_city || '';
+    document.getElementById('v-obedience').value = data.obedience || '';
+    document.getElementById('v-grade').value = data.masonic_grade || '';
+    document.getElementById('v-email').value = data.email || '';
+    document.getElementById('v-phone').value = data.phone || '';
+    document.getElementById('v-is-vm').checked = !!data.is_vm;
+    document.getElementById('v-optin').checked = !!data.program_optin;
+  } else {
+    title.textContent = '➕ Ajouter un maçon passant';
+    form.action = '/attendance/visitor/add';
+    form.reset();
+  }
+  document.getElementById('visitor-modal').classList.remove('hidden');
+}
+function closeVisitorModal() {
+  document.getElementById('visitor-modal').classList.add('hidden');
+}
+</script>
 
 <script>
 // Tri de tableau
