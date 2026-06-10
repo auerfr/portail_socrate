@@ -74,7 +74,7 @@
       {% set nb_travaux = mtg_travaux | length %}
       <div class="bg-white rounded-xl border border-purple-100 shadow-sm px-5 py-4 text-center">
         <div class="text-3xl font-bold text-purple-700">{{ nb_travaux }}</div>
-        <div class="text-xs text-gray-400 mt-1">Tenues avec planches</div>
+        <div class="text-xs text-gray-400 mt-1">Tenues avec ordre du jour / travaux</div>
       </div>
       <!-- Agapes -->
       <div class="bg-white rounded-xl border border-amber-100 shadow-sm px-5 py-4 text-center">
@@ -196,10 +196,10 @@
   {% if mtg_travaux %}
   <section>
     <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-      Travaux de l'année
-      <span class="ml-2 text-xs font-normal normal-case text-gray-400">(planches, conférences, rituels)</span>
+      Ordres du jour &amp; travaux de l'année
+      <span class="ml-2 text-xs font-normal normal-case text-gray-400">(planches, conférences, rituels, ordre du jour)</span>
     </h2>
-    <div class="space-y-4">
+    <div class="space-y-4" id="travaux-section-wrapper">
       {% for m in past_meetings %}
       {% if m.id in mtg_travaux %}
       <div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden" id="travaux-{{ m.id }}">
@@ -216,6 +216,12 @@
             <span class="text-sm font-semibold text-gray-800">{{ m.theme }}</span>
             {% elif m.title %}
             <span class="text-sm font-semibold text-gray-800">{{ m.title }}</span>
+            {% endif %}
+            {% set src = mtg_travaux_source.get(m.id) %}
+            {% if src == 'agenda' %}
+            <span class="text-[10px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 print:hidden" title="Issu de l'ordre du jour de la tenue (programme)">📋 ODJ</span>
+            {% elif src == 'cr' %}
+            <span class="text-[10px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 print:hidden" title="Issu du compte-rendu de la tenue">📝 CR</span>
             {% endif %}
           </div>
           <a href="/attendance/meeting/{{ m.id }}/summary" class="text-xs text-gray-400 hover:text-loge-600 print:hidden">
@@ -514,11 +520,18 @@ document.querySelectorAll('th.sortable').forEach(th => {
   nav, button, form, .print\:hidden, details summary { display: none !important; }
   details[open] > :not(summary) { display: block; }
   details { open: true; }
-  body { background: white; font-size: 11pt; }
+  body { background: white; font-size: 10pt; }
   .shadow-sm { box-shadow: none; }
-  h2 { page-break-after: avoid; margin-top: 1.5rem; }
-  section { page-break-inside: avoid; }
-  .travaux-content { page-break-inside: avoid; }
+  h2 { page-break-after: avoid; break-after: avoid; margin-top: 1.5rem; }
+  /* Sections autorisées à s'étaler sur plusieurs pages */
+  section { page-break-inside: auto; break-inside: auto; }
+  /* Mais chaque bloc "tenue" (travaux/ODJ) reste groupé si possible */
+  #travaux-section-wrapper > div { page-break-inside: avoid; break-inside: avoid; }
+  .travaux-content { page-break-inside: avoid; break-inside: avoid; }
+  /* Lignes de tableau non coupées */
+  tr { page-break-inside: avoid; break-inside: avoid; }
+  table { page-break-inside: auto; }
+  thead { display: table-header-group; }
 }
 </style>
 {% endblock %}

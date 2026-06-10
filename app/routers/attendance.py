@@ -1243,8 +1243,12 @@ async def bilan_annuel(
     mtg_visitor_counts = Counter(mv.meeting_id for mv in all_mvs)
 
     # ── Travaux / planches par tenue ────────────────────────────────────────
+    # Source primaire : TracingSection (trace post-tenue, rarement remplie).
+    # Fallback : agenda_html (ordre du jour saisi à la création de la tenue,
+    # rempli systématiquement via les programmes) puis compte_rendu_html.
     mtg_travaux: dict[int, str] = {}
     mtg_odj: dict[int, str] = {}
+    mtg_travaux_source: dict[int, str] = {}  # "trace" | "agenda" | "cr"
     if past_ids:
         ts_r = await db.execute(
             select(TracingSection).where(
@@ -1255,8 +1259,23 @@ async def bilan_annuel(
         for ts in ts_r.scalars().all():
             if ts.section_type == TracingSectionType.TRAVAUX and ts.content_html:
                 mtg_travaux[ts.meeting_id] = ts.content_html
+                mtg_travaux_source[ts.meeting_id] = "trace"
             elif ts.section_type == TracingSectionType.ODJ and ts.content_html:
                 mtg_odj[ts.meeting_id] = ts.content_html
+
+    # Fallback sur l'ordre du jour / compte-rendu de la tenue elle-même
+    for m in past_meetings:
+        if m.id in mtg_travaux:
+            continue
+        if m.compte_rendu_html and m.compte_rendu_html.strip():
+            mtg_travaux[m.id] = m.compte_rendu_html
+            mtg_travaux_source[m.id] = "cr"
+        elif m.agenda_html and m.agenda_html.strip():
+            mtg_travaux[m.id] = m.agenda_html
+            mtg_travaux_source[m.id] = "agenda"
+        # Et si pas d'ODJ depuis la trace, utiliser l'agenda comme ODJ aussi
+        if m.id not in mtg_odj and m.agenda_html and m.agenda_html.strip():
+            mtg_odj[m.id] = m.agenda_html
 
     # ── Agapes par tenue ────────────────────────────────────────────────────
     # Membres avec agape=True + leurs invités
@@ -1319,6 +1338,7 @@ async def bilan_annuel(
         "mtg_att_stats": mtg_att_stats,
         "mtg_visitor_counts": dict(mtg_visitor_counts),
         "mtg_travaux": mtg_travaux,
+        "mtg_travaux_source": mtg_travaux_source,
         "mtg_odj": mtg_odj,
         "mtg_agape": mtg_agape,
         "total_agape_covers": total_agape_covers,
