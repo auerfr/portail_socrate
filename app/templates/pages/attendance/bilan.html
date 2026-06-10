@@ -517,6 +517,8 @@ document.querySelectorAll('th.sortable').forEach(th => {
 .travaux-content li { margin: 0.2rem 0; }
 
 @media print {
+  /* html/body en h-full clippent le contenu à 1 page à l'impression */
+  html, body, main { height: auto !important; min-height: 0 !important; overflow: visible !important; }
   nav, button, form, .print\:hidden, details summary { display: none !important; }
   details[open] > :not(summary) { display: block; }
   details { open: true; }
