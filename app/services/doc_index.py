@@ -163,18 +163,20 @@ async def search_documents(
 #  Ré-indexation complète (tâche de fond)
 # ─────────────────────────────────────────────────────────────────────────────
 
-async def reindex_all(db: AsyncSession) -> int:
-    """Reconstruit l'index complet depuis tous les documents publiés.
+async def reindex_all(db: AsyncSession, incremental: bool = False) -> int:
+    """Indexe les documents publiés.
 
-    L'extraction de texte (synchrone/bloquante) est déléguée à un thread
-    via asyncio.to_thread pour ne pas bloquer l'event loop.
-    Commits par batch de 20 pour libérer le verrou régulièrement.
-    Retourne le nombre de documents indexés.
+    incremental=False : reconstruction complète (DELETE puis tout réindexer).
+    incremental=True  : n'indexe que les documents ABSENTS de l'index
+                        (rapide, adapté au bouton web ; évite tout timeout
+                        sur les gros volumes déjà indexés par script + upload).
+
+    L'extraction de texte (bloquante) passe par asyncio.to_thread.
+    Retourne le nombre de documents indexés lors de cet appel.
     """
     from app.models.documents import Document, DocStatus
     from sqlalchemy import select
 
-    # Garantir que la table FTS existe avant toute opération
     await ensure_fts_table(db)
 
     docs = (await db.execute(
@@ -184,8 +186,14 @@ async def reindex_all(db: AsyncSession) -> int:
         )
     )).scalars().all()
 
-    await db.execute(text("DELETE FROM doc_fts"))
-    await db.commit()
+    if incremental:
+        # Ne garder que les documents pas encore indexés
+        rows = await db.execute(text("SELECT doc_id FROM doc_fts"))
+        already = {r[0] for r in rows.fetchall()}
+        docs = [d for d in docs if d.id not in already]
+    else:
+        await db.execute(text("DELETE FROM doc_fts"))
+        await db.commit()
 
     BATCH = 20
     count = 0

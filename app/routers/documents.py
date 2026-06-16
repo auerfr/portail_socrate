@@ -817,13 +817,14 @@ async def admin_reindex(
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Ré-indexation complète de la GED (synchrone).
+    """Ré-indexation incrémentale de la GED (synchrone, rapide).
 
-    pypdf est rapide → reste largement sous le timeout uWSGI pour des volumes
-    raisonnables. Pour de très gros volumes, utiliser scripts/reindex_ged.py.
+    N'indexe que les documents pas encore présents dans l'index → reste sous
+    le timeout uWSGI même avec beaucoup de documents (uploads et script gèrent
+    le reste). Pour une reconstruction COMPLÈTE, utiliser scripts/reindex_ged.py.
     """
     from app.services.doc_index import reindex_all
-    count = await reindex_all(db)
+    count = await reindex_all(db, incremental=True)
     return RedirectResponse(url=f"/admin/data?_msg=reindexed&n={count}", status_code=303)
 
 
