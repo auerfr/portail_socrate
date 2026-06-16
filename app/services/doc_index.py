@@ -174,6 +174,9 @@ async def reindex_all(db: AsyncSession) -> int:
     from app.models.documents import Document, DocStatus
     from sqlalchemy import select
 
+    # Garantir que la table FTS existe avant toute opération
+    await ensure_fts_table(db)
+
     docs = (await db.execute(
         select(Document).where(
             Document.status == DocStatus.PUBLISHED,

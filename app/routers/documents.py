@@ -817,13 +817,14 @@ async def admin_reindex(
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Lance une ré-indexation complète de la GED en tâche de fond."""
-    import asyncio
-    from app.services.doc_index import reindex_all
+    """Ré-indexation complète de la GED (synchrone).
 
-    # Fire-and-forget : retour immédiat, extraction PDF en arrière-plan
-    asyncio.create_task(reindex_all(db))
-    return RedirectResponse(url="/admin/data?_msg=reindex_started", status_code=303)
+    pypdf est rapide → reste largement sous le timeout uWSGI pour des volumes
+    raisonnables. Pour de très gros volumes, utiliser scripts/reindex_ged.py.
+    """
+    from app.services.doc_index import reindex_all
+    count = await reindex_all(db)
+    return RedirectResponse(url=f"/admin/data?_msg=reindexed&n={count}", status_code=303)
 
 
 @router.post("/admin/space")
