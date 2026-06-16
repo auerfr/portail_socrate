@@ -687,6 +687,12 @@ async def meeting_banquet(
                             key=lambda mv: mv.visitor.last_name)
     agape_member_ids = {a.member_id for a in agape_members}
 
+    # Passants présents/inscrits à la tenue mais pas encore aux agapes
+    # → affichés sur la page agapes pour ajout en un clic.
+    present_visitors = sorted([mv for mv in meeting.meeting_visitors
+                              if not mv.agape and mv.status.value == "CONFIRMED"],
+                             key=lambda mv: mv.visitor.last_name)
+
     # Tous les membres actifs (pour le formulaire d'ajout)
     all_members_r = await db.execute(
         select(Member).where(Member.status == MemberStatus.ACTIVE).order_by(Member.last_name)
@@ -759,6 +765,7 @@ async def meeting_banquet(
         "all_members": all_members,
         "agape_member_ids": agape_member_ids,
         "all_visitors": all_visitors,
+        "present_visitors": present_visitors,
     })
 
 

@@ -173,6 +173,42 @@
 
   <!-- Gestion agapes (Maître des Banquets / Admin / VM) -->
   {% if can_manage %}
+
+  <!-- Passants présents à la tenue, pas encore aux agapes -->
+  {% if present_visitors %}
+  <div class="bg-blue-50 border border-blue-200 rounded-xl p-5">
+    <h3 class="text-sm font-semibold text-blue-800 mb-1">
+      🚪 Passants présents à la tenue — pas encore aux agapes
+    </h3>
+    <p class="text-xs text-blue-600 mb-3">{{ present_visitors | length }} passant{{ 's' if present_visitors | length > 1 }} inscrit{{ 's' if present_visitors | length > 1 }} à la tenue. Ajoutez-les aux agapes en un clic.</p>
+    <div class="space-y-2">
+      {% for mv in present_visitors %}
+      <div class="flex items-center gap-3 bg-white rounded-lg px-3 py-2">
+        <div class="w-7 h-7 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-bold shrink-0">
+          {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
+        </div>
+        <div class="flex-1 min-w-0">
+          <span class="text-sm text-gray-800">
+            {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
+            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+          </span>
+          <span class="text-xs text-gray-400 ml-1">— {{ mv.visitor.lodge_name or 'Passant' }}</span>
+        </div>
+        <form method="post" action="/meetings/{{ meeting.id }}/banquet/add-visitor" class="flex items-center gap-2 shrink-0">
+          <input type="hidden" name="visitor_id" value="{{ mv.visitor.id }}">
+          <input type="number" name="agape_guests" value="0" min="0" max="10" title="Invités supplémentaires"
+                 class="w-14 border border-gray-200 rounded-lg px-2 py-1 text-sm text-center focus:outline-none focus:ring-2 focus:ring-blue-400">
+          <button type="submit"
+                  class="bg-blue-600 hover:bg-blue-700 text-white text-xs font-semibold px-3 py-1.5 rounded-lg whitespace-nowrap transition-colors">
+            + Agapes
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
   <div class="grid sm:grid-cols-2 gap-4">
 
     <!-- Ajouter un membre de la loge -->
