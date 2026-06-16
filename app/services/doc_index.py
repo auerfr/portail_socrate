@@ -1,9 +1,10 @@
 """Service d'indexation full-text des documents GED.
 
 Utilise SQLite FTS5 pour une recherche rapide sans dépendance externe.
-L'extraction de texte supporte : PDF (pdfminer), Word .docx (python-docx),
+L'extraction de texte supporte : PDF (pypdf), Word .docx (python-docx),
 texte brut, et fournit un résultat vide pour les autres formats (images…).
 """
+import asyncio
 import logging
 from pathlib import Path
 from typing import Optional
@@ -12,6 +13,9 @@ from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
 
 logger = logging.getLogger(__name__)
+
+# Silence les warnings pdfminer si encore présents en transitive dep
+logging.getLogger("pdfminer").setLevel(logging.ERROR)
 
 # ─────────────────────────────────────────────────────────────────────────────
 #  Extraction de texte selon le type MIME
@@ -39,8 +43,24 @@ def extract_text(storage_path: str, mime_type: Optional[str]) -> str:
 
 
 def _extract_pdf(path: Path) -> str:
-    from pdfminer.high_level import extract_text as pdf_extract
+    """Extraction PDF via pypdf (rapide, silencieux). Fallback pdfminer si absent."""
     try:
+        from pypdf import PdfReader
+        reader = PdfReader(str(path))
+        parts = []
+        for page in reader.pages:
+            try:
+                parts.append(page.extract_text() or "")
+            except Exception:
+                pass
+        return "\n".join(parts)[:100_000]
+    except ImportError:
+        pass
+    except Exception:
+        return ""
+    # Fallback pdfminer
+    try:
+        from pdfminer.high_level import extract_text as pdf_extract
         return (pdf_extract(str(path)) or "")[:100_000]
     except Exception:
         return ""
@@ -103,15 +123,11 @@ async def search_documents(
     query: str,
     limit: int = 30,
 ) -> list[dict]:
-    """Retourne les doc_id correspondants + extrait (snippet) triés par pertinence.
-
-    Le snippet est généré par FTS5 (highlight + ellipsis).
-    """
+    """Retourne les doc_id correspondants + extrait (snippet) triés par pertinence."""
     if not query or len(query.strip()) < 2:
         return []
 
     q = query.strip()
-    # Protège contre les injections FTS5 : on échappe les guillemets
     q_safe = q.replace('"', '""')
 
     try:
@@ -144,15 +160,16 @@ async def search_documents(
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-#  Ré-indexation complète (tâche admin)
+#  Ré-indexation complète (tâche de fond)
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def reindex_all(db: AsyncSession) -> int:
     """Reconstruit l'index complet depuis tous les documents publiés.
 
+    L'extraction de texte (synchrone/bloquante) est déléguée à un thread
+    via asyncio.to_thread pour ne pas bloquer l'event loop.
+    Commits par batch de 20 pour libérer le verrou régulièrement.
     Retourne le nombre de documents indexés.
-    Commits par batch de 50 pour libérer le verrou régulièrement et
-    permettre aux autres requêtes de passer.
     """
     from app.models.documents import Document, DocStatus
     from sqlalchemy import select
@@ -164,20 +181,20 @@ async def reindex_all(db: AsyncSession) -> int:
         )
     )).scalars().all()
 
-    # Vider l'index en une seule opération
     await db.execute(text("DELETE FROM doc_fts"))
     await db.commit()
 
-    BATCH = 50
+    BATCH = 20
     count = 0
     for i, doc in enumerate(docs):
-        body = extract_text(doc.storage_path, doc.mime_type)
+        # Extraction CPU-bound → thread pool, ne bloque pas l'event loop
+        body = await asyncio.to_thread(extract_text, doc.storage_path, doc.mime_type)
         if body or doc.name:
             await index_document(db, doc.id, doc.name, body)
             count += 1
-        # Commit tous les 50 docs → libère le verrou brièvement
         if (i + 1) % BATCH == 0:
             await db.commit()
 
-    await db.commit()  # dernier batch
+    await db.commit()
+    logger.info("Reindex GED terminé : %d documents indexés", count)
     return count
