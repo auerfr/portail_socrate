@@ -1,6 +1,7 @@
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine, async_sessionmaker
 from sqlalchemy.orm import DeclarativeBase, MappedColumn
 from sqlalchemy import MetaData
+from sqlalchemy.pool import NullPool
 from app.config import get_settings
 
 settings = get_settings()
@@ -25,7 +26,11 @@ engine = create_async_engine(
         "check_same_thread": False,
         "timeout": 30,  # attendre jusqu'à 30s si la DB est verrouillée
     } if _is_sqlite else {},
-    **({} if _is_sqlite else {"pool_pre_ping": True, "pool_size": 10, "max_overflow": 20}),
+    # SQLite sur uWSGI : NullPool → une connexion neuve par requête, jamais
+    # réutilisée. Évite la propagation d'une connexion fermée/corrompue entre
+    # requêtes (sinon "This Connection is closed" sur une requête suivante).
+    **({"poolclass": NullPool} if _is_sqlite
+       else {"pool_pre_ping": True, "pool_size": 10, "max_overflow": 20}),
 )
 
 AsyncSessionLocal = async_sessionmaker(
