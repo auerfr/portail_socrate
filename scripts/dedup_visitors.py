@@ -20,7 +20,9 @@ def _get_db_path() -> str:
                 url = line.split("=", 1)[1].strip().strip('"').strip("'")
                 # sqlite+aiosqlite:////path/to/file.db → /path/to/file.db
                 if "sqlite" in url:
-                    return url.split("///", 1)[-1].lstrip("/")
+                    # sqlite+aiosqlite:////abs/path → /abs/path (garder le / initial)
+                    path = url.split("///", 1)[-1]
+                    return path if path.startswith("/") else "/" + path
     return "/home/portailsocrate/portail-socrate/socrate_prod.db"
 
 
