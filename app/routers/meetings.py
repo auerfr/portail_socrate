@@ -1385,6 +1385,7 @@ async def meeting_create(
     agape_enabled:   str = Form(""),
     agape_capacity:  str = Form(""),
     agape_location:  str = Form(""),
+    registration_closes_at: str = Form(""),  # datetime-local "YYYY-MM-DDTHH:MM"
     visio_url:       str = Form(""),
     # Multi-degrés : liste de degrés séparés par virgule + descriptions
     degrees_grades:  str = Form(""),  # ex: "APPRENTI,COMPAGNON,MAITRE"
@@ -1408,8 +1409,16 @@ async def meeting_create(
         year_result = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True))
         masonic_year = year_result.scalar_one_or_none()
 
-    # Date de clôture des inscriptions = veille J-1 à 8h du matin
-    reg_closes = datetime(d.year, d.month, d.day, 8, 0, 0) - timedelta(days=1)
+    # Date de clôture des inscriptions (agapes incluses).
+    # Si fournie manuellement → on l'utilise ; sinon défaut = veille J-1 à 8h.
+    reg_closes = None
+    if registration_closes_at.strip():
+        try:
+            reg_closes = datetime.fromisoformat(registration_closes_at.strip())
+        except ValueError:
+            reg_closes = None
+    if reg_closes is None:
+        reg_closes = datetime(d.year, d.month, d.day, 8, 0, 0) - timedelta(days=1)
 
     # Auto-générer lien visio si configuré et aucun lien manuel fourni
     final_visio_url = visio_url.strip() or None
@@ -1550,6 +1559,7 @@ async def meeting_edit_save(
     agape_enabled:   str = Form(""),
     agape_capacity:  str = Form(""),
     agape_location:  str = Form(""),
+    registration_closes_at: str = Form(""),
     visio_url:       str = Form(""),
     degrees_grades:  str = Form(""),
     degrees_descs:   str = Form(""),
@@ -1583,6 +1593,16 @@ async def meeting_edit_save(
     meeting.agape_capacity  = int(agape_capacity) if agape_capacity else None
     meeting.agape_location  = agape_location or None
     meeting.visio_url       = visio_url or None
+
+    # Clôture des inscriptions (agapes incluses). Si modifiée, on rouvre les
+    # inscriptions si la nouvelle date est dans le futur.
+    if registration_closes_at.strip():
+        try:
+            meeting.registration_closes_at = datetime.fromisoformat(registration_closes_at.strip())
+            if meeting.registration_closes_at > datetime.now():
+                meeting.registration_open = True
+        except ValueError:
+            pass
 
     # Reconstruire la séquence des degrés
     for deg in list(meeting.degrees):
@@ -1871,29 +1891,65 @@ async def public_register_submit(
         })
 
     # ── Cas 2 : Maçon passant ──────────────────────────────────────────────
-    visitor = Visitor(
-        civility=civility if civility in ("F", "S") else "F",
-        last_name=last_name.strip().upper(),
-        first_name=first_name.strip().title(),
-        email=email.strip().lower() if email else None,
-        lodge_name=lodge_name or None,
-        orient_city=orient_city or None,
-        obedience=obedience or None,
-        masonic_grade=masonic_grade_str or None,
-        is_vm=bool(is_vm),
-        phone=phone or None,
+    # Dédoublonnage : réutiliser une fiche existante (même nom) plutôt que d'en
+    # créer une nouvelle à chaque inscription publique.
+    dup_r = await db.execute(
+        select(Visitor).where(
+            sql_func.lower(Visitor.last_name) == last_name.strip().lower(),
+            sql_func.lower(Visitor.first_name) == first_name.strip().lower(),
+        ).limit(1)
     )
-    db.add(visitor)
-    await db.flush()
+    visitor = dup_r.scalar_one_or_none()
+    if visitor:
+        # Enrichir les champs manquants
+        if not visitor.email and email.strip():
+            visitor.email = email.strip().lower()
+        if not visitor.lodge_name and lodge_name:
+            visitor.lodge_name = lodge_name
+        if not visitor.orient_city and orient_city:
+            visitor.orient_city = orient_city
+        if not visitor.obedience and obedience:
+            visitor.obedience = obedience
+        if not visitor.phone and phone:
+            visitor.phone = phone
+    else:
+        visitor = Visitor(
+            civility=civility if civility in ("F", "S") else "F",
+            last_name=last_name.strip().upper(),
+            first_name=first_name.strip().title(),
+            email=email.strip().lower() if email else None,
+            lodge_name=lodge_name or None,
+            orient_city=orient_city or None,
+            obedience=obedience or None,
+            masonic_grade=masonic_grade_str or None,
+            is_vm=bool(is_vm),
+            phone=phone or None,
+        )
+        db.add(visitor)
+        await db.flush()
 
-    db.add(MeetingVisitor(
-        meeting_id=meeting.id,
-        visitor_id=visitor.id,
-        agape=agape_bool,
-        agape_guests=agape_guests_int,
-        token_used=token,
-        comment=comment.strip() or None,
-    ))
+    # Éviter aussi un MeetingVisitor en double pour cette tenue
+    existing_mv = await db.execute(
+        select(MeetingVisitor).where(
+            MeetingVisitor.meeting_id == meeting.id,
+            MeetingVisitor.visitor_id == visitor.id,
+        )
+    )
+    mv = existing_mv.scalar_one_or_none()
+    if mv:
+        mv.agape = agape_bool
+        mv.agape_guests = agape_guests_int
+        mv.status = VisitorStatus.CONFIRMED
+        mv.comment = comment.strip() or mv.comment
+    else:
+        db.add(MeetingVisitor(
+            meeting_id=meeting.id,
+            visitor_id=visitor.id,
+            agape=agape_bool,
+            agape_guests=agape_guests_int,
+            token_used=token,
+            comment=comment.strip() or None,
+        ))
     await db.commit()
 
     return templates.TemplateResponse(request, "pages/meetings/register_success.html", {
