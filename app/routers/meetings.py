@@ -693,12 +693,16 @@ async def meeting_banquet(
     )
     all_members = all_members_r.scalars().all()
 
-    # Passants connus (pour dropdown)
-    known_mv_ids = {mv.visitor_id for mv in meeting.meeting_visitors}
+    # Passants connus (pour dropdown).
+    # On exclut uniquement ceux DÉJÀ inscrits aux agapes ; un passant présent
+    # à la tenue mais pas encore au banquet doit rester sélectionnable pour
+    # pouvoir l'ajouter aux agapes (la route fait alors mv.agape = True).
+    agape_visitor_ids = {mv.visitor_id for mv in meeting.meeting_visitors
+                         if mv.agape and mv.status.value == "CONFIRMED"}
     all_visitors_r = await db.execute(
         select(Visitor).order_by(Visitor.last_name, Visitor.first_name)
     )
-    all_visitors = [v for v in all_visitors_r.scalars().all() if v.id not in known_mv_ids]
+    all_visitors = [v for v in all_visitors_r.scalars().all() if v.id not in agape_visitor_ids]
     agape_guests   = sorted([g for g in meeting.meeting_guests
                              if g.agape and g.status.value == "CONFIRMED"],
                             key=lambda g: g.last_name)
