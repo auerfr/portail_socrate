@@ -879,17 +879,25 @@ async def banquet_add_visitor(
         if not visitor:
             raise HTTPException(404)
     else:
-        # Nouveau passant
+        # Nouveau passant — chercher un existant par nom pour éviter les doublons
         if not last_name.strip() or not first_name.strip():
             return RedirectResponse(url=f"/meetings/{meeting_id}/banquet", status_code=303)
-        visitor = Visitor(
-            civility=civility,
-            last_name=last_name.strip().upper(),
-            first_name=first_name.strip().title(),
-            lodge_name=lodge_name.strip() or None,
+        dup_r = await db.execute(
+            select(Visitor).where(
+                sql_func.lower(Visitor.last_name) == last_name.strip().lower(),
+                sql_func.lower(Visitor.first_name) == first_name.strip().lower(),
+            ).limit(1)
         )
-        db.add(visitor)
-        await db.flush()
+        visitor = dup_r.scalar_one_or_none()
+        if not visitor:
+            visitor = Visitor(
+                civility=civility,
+                last_name=last_name.strip().upper(),
+                first_name=first_name.strip().title(),
+                lodge_name=lodge_name.strip() or None,
+            )
+            db.add(visitor)
+            await db.flush()
 
     # Vérifier si déjà inscrit à cette tenue
     r2 = await db.execute(

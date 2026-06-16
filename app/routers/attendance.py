@@ -447,20 +447,28 @@ async def add_visitor_to_meeting(
         if not visitor:
             raise HTTPException(status_code=404, detail="Visiteur introuvable")
     else:
-        # Nouveau visiteur
+        # Nouveau visiteur — chercher un existant par nom pour éviter les doublons
         if not first_name.strip() or not last_name.strip():
             raise HTTPException(status_code=422, detail="Nom et prénom requis")
-        visitor = Visitor(
-            civility=civility,
-            first_name=first_name.strip(),
-            last_name=last_name.strip(),
-            lodge_name=lodge_name.strip() or None,
-            orient_city=orient_city.strip() or None,
-            obedience=obedience.strip() or None,
-            is_vm=is_vm,
+        dup_r = await db.execute(
+            select(Visitor).where(
+                sql_func.lower(Visitor.last_name) == last_name.strip().lower(),
+                sql_func.lower(Visitor.first_name) == first_name.strip().lower(),
+            ).limit(1)
         )
-        db.add(visitor)
-        await db.flush()  # pour avoir visitor.id
+        visitor = dup_r.scalar_one_or_none()
+        if not visitor:
+            visitor = Visitor(
+                civility=civility,
+                first_name=first_name.strip().title(),
+                last_name=last_name.strip().upper(),
+                lodge_name=lodge_name.strip() or None,
+                orient_city=orient_city.strip() or None,
+                obedience=obedience.strip() or None,
+                is_vm=is_vm,
+            )
+            db.add(visitor)
+            await db.flush()  # pour avoir visitor.id
 
     # Vérifier qu'il n'est pas déjà inscrit
     existing_r = await db.execute(
@@ -524,19 +532,40 @@ async def add_visitor_standalone(
 ):
     user, member = ctx
     _require_attendance_mgr(user, member)
-    db.add(Visitor(
-        civility=civility,
-        last_name=last_name.strip().upper(),
-        first_name=first_name.strip().title(),
-        lodge_name=lodge_name.strip() or None,
-        orient_city=orient_city.strip() or None,
-        obedience=obedience.strip() or None,
-        masonic_grade=masonic_grade.strip() or None,
-        is_vm=bool(is_vm),
-        email=email.strip() or None,
-        phone=phone.strip() or None,
-        program_optin=bool(program_optin),
-    ))
+    # Eviter les doublons : chercher un visiteur existant avec le même nom
+    dup_r = await db.execute(
+        select(Visitor).where(
+            sql_func.lower(Visitor.last_name) == last_name.strip().lower(),
+            sql_func.lower(Visitor.first_name) == first_name.strip().lower(),
+        ).limit(1)
+    )
+    existing = dup_r.scalar_one_or_none()
+    if existing:
+        # Enrichir les champs manquants de la fiche existante
+        if not existing.lodge_name and lodge_name.strip():
+            existing.lodge_name = lodge_name.strip()
+        if not existing.orient_city and orient_city.strip():
+            existing.orient_city = orient_city.strip()
+        if not existing.obedience and obedience.strip():
+            existing.obedience = obedience.strip()
+        if not existing.email and email.strip():
+            existing.email = email.strip()
+        if not existing.phone and phone.strip():
+            existing.phone = phone.strip()
+    else:
+        db.add(Visitor(
+            civility=civility,
+            last_name=last_name.strip().upper(),
+            first_name=first_name.strip().title(),
+            lodge_name=lodge_name.strip() or None,
+            orient_city=orient_city.strip() or None,
+            obedience=obedience.strip() or None,
+            masonic_grade=masonic_grade.strip() or None,
+            is_vm=bool(is_vm),
+            email=email.strip() or None,
+            phone=phone.strip() or None,
+            program_optin=bool(program_optin),
+        ))
     await db.commit()
     return RedirectResponse(url="/attendance/visitors", status_code=303)
 
