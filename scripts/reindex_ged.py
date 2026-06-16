@@ -32,9 +32,14 @@ def run() -> None:
     db_path = _get_db_path()
     print(f"Base : {db_path}\n")
 
-    con = sqlite3.connect(db_path, timeout=60)
+    con = sqlite3.connect(db_path, timeout=60)   # busy_timeout = 60s
     con.execute("PRAGMA busy_timeout=60000")
-    con.execute("PRAGMA journal_mode=WAL")   # lecteurs + 1 écrivain concurrents
+    # WAL est préférable (lecteurs + 1 écrivain) mais le passage en WAL exige un
+    # accès exclusif momentané : si l'app web tient le verrou, on continue sans.
+    try:
+        con.execute("PRAGMA journal_mode=WAL")
+    except sqlite3.OperationalError:
+        print("  (WAL indisponible — on continue avec le timeout de 60s)\n")
     cur = con.cursor()
 
     # Garantir la table FTS
