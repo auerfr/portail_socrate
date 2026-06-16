@@ -201,7 +201,7 @@
         <div class="flex-shrink-0">
           <label class="relative inline-flex items-center cursor-pointer gap-2 select-none"
                  x-data="{ on: {{ 'true' if mv.status.value == 'CONFIRMED' else 'false' }} }">
-            <input type="checkbox" name="visitor_present_{{ mv.id }}" value="1" x-model="on" class="sr-only peer">
+            <input type="checkbox" name="visitor_present_{{ mv.id }}" value="1" x-model="on" form="emargementForm" class="sr-only peer">
             <div @click="on = !on" :class="on ? 'bg-green-500' : 'bg-gray-200'"
                  class="w-10 h-5 rounded-full transition-colors cursor-pointer relative">
               <div :class="on ? 'translate-x-5' : 'translate-x-0.5'"
