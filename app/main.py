@@ -607,6 +607,11 @@ def _is_api_request(request: Request) -> bool:
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
     tb = _tb.format_exc()
+    # Toujours tracer dans le log serveur (sinon les 500 sont invisibles en prod)
+    import logging as _logging
+    _logging.getLogger("portail.errors").error(
+        "500 sur %s %s\n%s", request.method, request.url.path, tb
+    )
     if _is_api_request(request):
         return PlainTextResponse(f"Erreur interne:\n{tb}", status_code=500)
     try:
