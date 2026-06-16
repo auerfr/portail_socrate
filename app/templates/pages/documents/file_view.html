@@ -48,10 +48,12 @@
           <span>·</span>
           <span>{{ (doc.file_size / 1024) | int }} ko</span>
           {% endif %}
+          {% if doc.created_at %}
           <span>·</span>
           <span>{{ doc.created_at.strftime('%d/%m/%Y') }}</span>
+          {% endif %}
           <span>·</span>
-          <span>{{ doc.download_count }} téléchargement{{ 's' if doc.download_count != 1 }}</span>
+          <span>{{ doc.download_count or 0 }} téléchargement{{ 's' if (doc.download_count or 0) != 1 }}</span>
         </div>
       </div>
     </div>
