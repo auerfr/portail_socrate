@@ -149,91 +149,124 @@
   </form>
 
   <!-- Section Maçons passants — EN DEHORS du form principal -->
-    <div class="mt-2 mb-6">
-      <div class="flex items-center justify-between mb-3">
-        <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
-          </svg>
-          Maçons passants ({{ visitors | length }})
-        </h2>
-        <button @click="addVisitorOpen = true"
-                type="button"
-                class="text-xs text-loge-600 hover:text-loge-800 border border-loge-200 bg-loge-50 hover:bg-loge-100 rounded-lg px-3 py-1.5 font-medium transition-colors flex items-center gap-1.5">
-          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-          </svg>
-          Ajouter un passant
-        </button>
-      </div>
-
-      {% if visitors %}
-      <div class="space-y-2">
-        {% for mv in visitors %}
-        <div class="bg-white rounded-xl border transition-all
-             {% if mv.status.value == 'CANCELLED' %}border-red-200 bg-red-50/30 opacity-60{% else %}border-loge-100 bg-loge-50/20{% endif %}
-             px-4 py-3 flex items-center gap-3">
-
-          <!-- Avatar -->
-          <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 text-loge-700"
-               style="background:rgba(59,91,219,0.12);">
-            {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
-          </div>
-
-          <!-- Infos -->
-          <div class="flex-1 min-w-0">
-            <div class="text-sm font-medium text-gray-900 truncate">
-              {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-              {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
-            </div>
-            <div class="text-xs text-gray-400 truncate">
-              {{ mv.visitor.lodge_name or '?' }}
-              {% if mv.visitor.orient_city %} · {{ mv.visitor.orient_city }}{% endif %}
-              {% if mv.visitor.is_vm %} · <span class="text-loge-600 font-medium">V∴M∴</span>{% endif %}
-            </div>
-          </div>
-
-          <!-- Toggle présent / no-show -->
-          <div class="flex-shrink-0">
-            <label class="relative inline-flex items-center cursor-pointer gap-2 select-none"
-                   x-data="{ on: {{ 'true' if mv.status.value == 'CONFIRMED' else 'false' }} }">
-              <input type="checkbox"
-                     name="visitor_present_{{ mv.id }}"
-                     value="1"
-                     x-model="on"
-                     class="sr-only peer">
-              <div @click="on = !on"
-                   :class="on ? 'bg-green-500' : 'bg-gray-200'"
-                   class="w-10 h-5 rounded-full transition-colors cursor-pointer relative">
-                <div :class="on ? 'translate-x-5' : 'translate-x-0.5'"
-                     class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"></div>
-              </div>
-              <span :class="on ? 'text-green-700 font-medium' : 'text-red-400'"
-                    class="text-xs w-14" x-text="on ? 'Présent' : 'No-show'"></span>
-            </label>
-          </div>
-
-          <!-- Bouton retirer de la tenue -->
-          <form method="post"
-                action="/attendance/meeting/{{ meeting.id }}/remove-visitor/{{ mv.id }}"
-                onsubmit="return confirm('Retirer {{ mv.visitor.first_name }} {{ mv.visitor.last_name }} de cette tenue ?')"
-                class="flex-shrink-0">
-            <button type="submit"
-                    title="Retirer de cette tenue"
-                    class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
-              </svg>
-            </button>
-          </form>
-
-        </div>
-        {% endfor %}
-      </div>
-      {% else %}
-      <p class="text-xs text-gray-400 py-2 text-center">Aucun maçon passant inscrit — utilisez le bouton ci-dessus pour en ajouter</p>
-      {% endif %}
+  <div class="mt-2 mb-6" x-data="visitorEdit()">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider flex items-center gap-2">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
+        </svg>
+        Maçons passants ({{ visitors | length }})
+      </h2>
+      <button @click="addVisitorOpen = true" type="button"
+              class="text-xs text-loge-600 hover:text-loge-800 border border-loge-200 bg-loge-50 hover:bg-loge-100 rounded-lg px-3 py-1.5 font-medium transition-colors flex items-center gap-1.5">
+        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+        </svg>
+        Ajouter un passant
+      </button>
     </div>
+
+    {% if visitors %}
+    <div class="space-y-2">
+      {% for mv in visitors %}
+      <div class="bg-white rounded-xl border transition-all
+           {% if mv.status.value == 'CANCELLED' %}border-red-200 bg-red-50/30 opacity-60{% else %}border-loge-100 bg-loge-50/20{% endif %}
+           px-4 py-3 flex items-center gap-3">
+
+        <!-- Avatar -->
+        <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold flex-shrink-0 text-loge-700"
+             style="background:rgba(59,91,219,0.12);">
+          {{ mv.visitor.first_name[0] }}{{ mv.visitor.last_name[0] }}
+        </div>
+
+        <!-- Infos -->
+        <div class="flex-1 min-w-0">
+          <div class="text-sm font-medium text-gray-900 truncate">
+            {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
+            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+          </div>
+          <div class="text-xs text-gray-400 truncate">
+            {{ mv.visitor.lodge_name or '?' }}
+            {% if mv.visitor.orient_city %} · {{ mv.visitor.orient_city }}{% endif %}
+            {% if mv.visitor.is_vm %} · <span class="text-loge-600 font-medium">V∴M∴</span>{% endif %}
+          </div>
+          {% if mv.agape %}
+          <div class="text-xs text-amber-600 font-medium mt-0.5">
+            🍽 Agapes{% if mv.agape_guests %} +{{ mv.agape_guests }} invité{{ 's' if mv.agape_guests > 1 }}{% endif %}
+          </div>
+          {% endif %}
+        </div>
+
+        <!-- Toggle présent / no-show -->
+        <div class="flex-shrink-0">
+          <label class="relative inline-flex items-center cursor-pointer gap-2 select-none"
+                 x-data="{ on: {{ 'true' if mv.status.value == 'CONFIRMED' else 'false' }} }">
+            <input type="checkbox" name="visitor_present_{{ mv.id }}" value="1" x-model="on" class="sr-only peer">
+            <div @click="on = !on" :class="on ? 'bg-green-500' : 'bg-gray-200'"
+                 class="w-10 h-5 rounded-full transition-colors cursor-pointer relative">
+              <div :class="on ? 'translate-x-5' : 'translate-x-0.5'"
+                   class="absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform"></div>
+            </div>
+            <span :class="on ? 'text-green-700 font-medium' : 'text-red-400'"
+                  class="text-xs w-14" x-text="on ? 'Présent' : 'No-show'"></span>
+          </label>
+        </div>
+
+        <!-- Bouton modifier -->
+        <button type="button"
+                @click="openEdit({{ mv.id }}, {{ 'true' if mv.agape else 'false' }}, {{ mv.agape_guests or 0 }})"
+                title="Modifier"
+                class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-loge-500 hover:bg-loge-50 transition-colors flex-shrink-0">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931z"/>
+          </svg>
+        </button>
+
+        <!-- Bouton retirer -->
+        <form method="post"
+              action="/attendance/meeting/{{ meeting.id }}/remove-visitor/{{ mv.id }}"
+              onsubmit="return confirm('Retirer {{ mv.visitor.first_name }} {{ mv.visitor.last_name }} de cette tenue ?')"
+              class="flex-shrink-0">
+          <button type="submit" title="Retirer de cette tenue"
+                  class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+            </svg>
+          </button>
+        </form>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-xs text-gray-400 py-2 text-center">Aucun maçon passant inscrit — utilisez le bouton ci-dessus pour en ajouter</p>
+    {% endif %}
+
+    <!-- Modal modifier agape passant -->
+    <div x-show="editOpen" x-cloak class="fixed inset-0 z-50 flex items-end justify-center sm:items-center" @keydown.escape.window="editOpen = false">
+      <div @click="editOpen = false" class="absolute inset-0 bg-black/40"></div>
+      <div class="relative bg-white rounded-2xl shadow-xl w-full max-w-sm mx-4 p-5 space-y-4">
+        <h3 class="font-semibold text-gray-900">Modifier la participation</h3>
+        <form :action="`/attendance/meeting/{{ meeting.id }}/edit-visitor/${editMvId}`" method="post" class="space-y-3">
+          <label class="flex items-center gap-3 cursor-pointer select-none p-3 rounded-xl border border-gray-200 hover:bg-amber-50">
+            <input type="checkbox" name="agape" value="true" x-model="editAgape"
+                   class="rounded border-gray-300 text-amber-600 w-4 h-4">
+            <span class="text-sm font-medium text-gray-700">🍽 Participe aux agapes</span>
+          </label>
+          <div x-show="editAgape" class="flex items-center gap-3">
+            <label class="text-sm text-gray-600 whitespace-nowrap">Invités supplémentaires :</label>
+            <input type="number" name="agape_guests" x-model="editGuests" min="0" max="10"
+                   class="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div class="flex gap-2 pt-1">
+            <button type="button" @click="editOpen = false"
+                    class="flex-1 border border-gray-200 text-gray-600 py-2.5 rounded-xl text-sm font-medium hover:bg-gray-50">Annuler</button>
+            <button type="submit"
+                    class="flex-1 bg-loge-700 text-white py-2.5 rounded-xl text-sm font-semibold hover:bg-loge-800">Enregistrer</button>
+          </div>
+        </form>
+      </div>
+    </div>
+  </div>
 
     <!-- Lien synthèse -->
     <div class="mb-4 text-center">
@@ -389,17 +422,26 @@
             <button type="button" @click="clearSelection(); visitorSearch = ''" class="text-green-400 hover:text-green-700 text-xs font-medium">Changer</button>
           </div>
 
-          <!-- Options agape pour le passant existant -->
-          <label class="flex items-center gap-2 cursor-pointer px-1">
-            <input type="checkbox" id="existingAgape" class="rounded border-gray-300 text-loge-600 w-4 h-4">
-            <span class="text-sm text-gray-700">Participe aux agapes</span>
-          </label>
-
-          <form method="post" action="/attendance/meeting/{{ meeting.id }}/add-visitor" id="addExistingForm">
+          <form method="post" action="/attendance/meeting/{{ meeting.id }}/add-visitor" id="addExistingForm" class="space-y-3">
             <input type="hidden" name="visitor_id" x-bind:value="selectedVisitor ? selectedVisitor.id : 0">
             <input type="hidden" name="civility" value="F">
             <input type="hidden" name="first_name" value="x">
             <input type="hidden" name="last_name" value="x">
+
+            <!-- Agapes -->
+            <div x-data="{ agape: false }" class="space-y-2">
+              <label class="flex items-center gap-3 cursor-pointer select-none p-3 rounded-xl border border-gray-200 hover:bg-amber-50">
+                <input type="checkbox" name="agape" value="true" x-model="agape"
+                       class="rounded border-gray-300 text-amber-600 w-4 h-4">
+                <span class="text-sm font-medium text-gray-700">🍽 Participe aux agapes</span>
+              </label>
+              <div x-show="agape" class="flex items-center gap-3 px-1">
+                <label class="text-sm text-gray-600 whitespace-nowrap">Invités :</label>
+                <input type="number" name="agape_guests" value="0" min="0" max="10"
+                       class="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-loge-500">
+              </div>
+            </div>
+
             <button type="submit"
                     class="w-full bg-loge-700 text-white py-3 rounded-xl text-sm font-semibold hover:bg-loge-800 transition-colors flex items-center justify-center gap-2">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
@@ -483,6 +525,20 @@
                    class="rounded border-gray-300 text-loge-600 focus:ring-loge-500 w-4 h-4">
             <span class="text-sm text-gray-700">Vénérable Maître en exercice (V∴M∴)</span>
           </label>
+
+          <!-- Agapes -->
+          <div x-data="{ agape: false }" class="space-y-2 pt-1 border-t border-gray-100">
+            <label class="flex items-center gap-3 cursor-pointer select-none p-3 rounded-xl border border-gray-200 hover:bg-amber-50">
+              <input type="checkbox" name="agape" value="true" x-model="agape"
+                     class="rounded border-gray-300 text-amber-600 w-4 h-4">
+              <span class="text-sm font-medium text-gray-700">🍽 Participe aux agapes</span>
+            </label>
+            <div x-show="agape" class="flex items-center gap-3 px-1">
+              <label class="text-sm text-gray-600 whitespace-nowrap">Invités :</label>
+              <input type="number" name="agape_guests" value="0" min="0" max="10"
+                     class="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-loge-500">
+            </div>
+          </div>
 
           <button type="submit"
                   class="w-full bg-loge-700 text-white py-3 rounded-xl text-sm font-semibold hover:bg-loge-800 transition-colors flex items-center justify-center gap-2">
@@ -607,6 +663,21 @@ function emargement() {
       this.visitorSearch = '';
       this.visitorResults = [];
       this.newVisitor = { civility: 'F', first_name: '', last_name: '', lodge_name: '', orient_city: '', obedience: '', is_vm: false };
+    },
+  };
+}
+
+function visitorEdit() {
+  return {
+    editOpen: false,
+    editMvId: null,
+    editAgape: false,
+    editGuests: 0,
+    openEdit(mvId, agape, guests) {
+      this.editMvId = mvId;
+      this.editAgape = agape;
+      this.editGuests = guests;
+      this.editOpen = true;
     },
   };
 }

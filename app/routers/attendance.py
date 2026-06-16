@@ -430,24 +430,23 @@ async def add_visitor_to_meeting(
     orient_city: str = Form(""),
     obedience: str = Form(""),
     is_vm: bool = Form(False),
+    agape: bool = Form(False),
+    agape_guests: int = Form(0),
 ):
     """Ajoute un maçon passant à la tenue (existant ou nouveau)."""
     user, member = ctx
     _require_attendance_mgr(user, member)
 
-    # Vérifier que la tenue existe
     mtg_r = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
     if not mtg_r.scalar_one_or_none():
         raise HTTPException(status_code=404)
 
     if visitor_id:
-        # Visiteur existant
         vis_r = await db.execute(select(Visitor).where(Visitor.id == visitor_id))
         visitor = vis_r.scalar_one_or_none()
         if not visitor:
             raise HTTPException(status_code=404, detail="Visiteur introuvable")
     else:
-        # Nouveau visiteur — chercher un existant par nom pour éviter les doublons
         if not first_name.strip() or not last_name.strip():
             raise HTTPException(status_code=422, detail="Nom et prénom requis")
         dup_r = await db.execute(
@@ -468,23 +467,57 @@ async def add_visitor_to_meeting(
                 is_vm=is_vm,
             )
             db.add(visitor)
-            await db.flush()  # pour avoir visitor.id
+            await db.flush()
 
-    # Vérifier qu'il n'est pas déjà inscrit
     existing_r = await db.execute(
         select(MeetingVisitor).where(
             MeetingVisitor.meeting_id == meeting_id,
             MeetingVisitor.visitor_id == visitor.id,
         )
     )
-    if not existing_r.scalar_one_or_none():
+    mv = existing_r.scalar_one_or_none()
+    if mv:
+        # Déjà inscrit : mettre à jour agape si demandé
+        if agape:
+            mv.agape = True
+            mv.agape_guests = max(0, agape_guests)
+    else:
         db.add(MeetingVisitor(
             meeting_id=meeting_id,
             visitor_id=visitor.id,
             status=VisitorStatus.CONFIRMED,
+            agape=agape,
+            agape_guests=max(0, agape_guests),
         ))
 
     await db.commit()
+    return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
+
+
+# ── Modifier un passant sur une tenue (agape, invités) ────────────────────────
+
+@router.post("/meeting/{meeting_id}/edit-visitor/{mv_id}")
+async def edit_visitor_on_meeting(
+    meeting_id: int,
+    mv_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    agape: bool = Form(False),
+    agape_guests: int = Form(0),
+):
+    user, member = ctx
+    _require_attendance_mgr(user, member)
+    mv_r = await db.execute(
+        select(MeetingVisitor).where(
+            MeetingVisitor.id == mv_id,
+            MeetingVisitor.meeting_id == meeting_id,
+        )
+    )
+    mv = mv_r.scalar_one_or_none()
+    if mv:
+        mv.agape = agape
+        mv.agape_guests = max(0, agape_guests)
+        await db.commit()
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
 
 
