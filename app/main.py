@@ -42,6 +42,7 @@ from app.routers import mailing as mailing_router
 from app.routers import bookmarks as bookmarks_router
 from app.routers import guide as guide_router
 from app.routers import faq as faq_router
+from app.routers import presence as presence_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -495,6 +496,15 @@ async def lifespan(app: FastAPI):
             if col not in cols_el:
                 await conn.exec_driver_sql(f"ALTER TABLE email_logs ADD COLUMN {col} {ddl}")
 
+    # ── members.last_activity_at : présence en ligne ────────────────────────
+    async with engine.begin() as conn:
+        r_pres = await conn.exec_driver_sql("PRAGMA table_info(members)")
+        cols_pres = [row[1] for row in r_pres.fetchall()]
+        if "last_activity_at" not in cols_pres:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN last_activity_at DATETIME"
+            )
+
     # ── audit_logs : nouvelles colonnes (target_label, user_agent) ─────────
     async with engine.begin() as conn:
         r_al = await conn.exec_driver_sql("PRAGMA table_info(audit_logs)")
@@ -740,6 +750,10 @@ templates.env.globals["global_unread_chat"] = 0
 from app.services.labels import register_jinja as _register_label_filter
 _register_label_filter(templates.env)
 
+# Filtres `| presence_status` / `| presence_label` — présence en ligne
+from app.services.presence import register_jinja as _register_presence_filters
+_register_presence_filters(templates.env)
+
 # ── Filtre Jinja2 : rendu des messages chat (bold, liens cliquables) ──────────
 import re
 from markupsafe import Markup, escape as _escape
@@ -802,6 +816,7 @@ app.include_router(mailing_router.router)
 app.include_router(bookmarks_router.router)
 app.include_router(guide_router.router)
 app.include_router(faq_router.router)
+app.include_router(presence_router.router)
 # app.include_router(admin.router)
 
 

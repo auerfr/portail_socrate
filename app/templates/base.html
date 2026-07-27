@@ -762,5 +762,16 @@
     setInterval(poll, 30000);
   })();
   </script>
+
+  <!-- Battement de présence — garde le statut "en ligne" pendant qu'un onglet reste ouvert -->
+  <script>
+  (function() {
+    function ping() {
+      fetch('/presence/ping', {method: 'POST', credentials: 'same-origin', keepalive: true}).catch(function() {});
+    }
+    ping();
+    setInterval(ping, 45000);
+  })();
+  </script>
 </body>
 </html>

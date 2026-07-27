@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_presence.html" as presence %}
 {% block title %}{{ target.first_name }} {{ target.last_name | anon_nom }} — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -29,12 +30,14 @@
     <!-- En-tête -->
     <div class="bg-gradient-to-r from-loge-800 to-loge-700 px-6 py-8 text-white">
       <div class="flex items-center gap-5">
-        <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
+        <div class="relative w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
           {{ target.first_name[0] }}{{ target.last_name | anon_nom | first }}
+          {{ presence.dot(target, size='md') }}
         </div>
         <div>
           <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.first_name }} {{ target.last_name | anon_nom }}</h1>
           <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade, target.civility) }} · {{ office_label or function_label(target.lodge_function, target.civility) }}</p>
+          <p class="text-loge-200 text-xs mt-1">{{ target | presence_label }}</p>
           <div class="mt-2">
             {% if target.status.value == 'ACTIVE' %}
             <span class="inline-flex items-center gap-1 text-xs font-medium text-green-200 bg-green-800/40 rounded-full px-2.5 py-1">

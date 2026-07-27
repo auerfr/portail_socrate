@@ -270,6 +270,7 @@ async def chat_messages_poll(
                 "sender": f"{m.reply_to.sender.first_name} {m.reply_to.sender.last_name}",
                 "preview": (m.reply_to.content or "")[:80],
             }
+        from app.services.presence import presence_status
         return {
             "id": m.id,
             "sender_id": m.sender_id,
@@ -281,6 +282,7 @@ async def chat_messages_poll(
             "created_at": m.created_at.strftime("%H:%M"),
             "created_date": m.created_at.strftime("%d/%m/%Y"),
             "reply": reply,
+            "presence": presence_status(m.sender),
         }
 
     return JSONResponse({

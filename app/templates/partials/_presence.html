@@ -1,0 +1,10 @@
+{# Badge de présence en ligne — à importer : {% import "partials/_presence.html" as presence %}
+   puis {{ presence.dot(member) }} en overlay d'un avatar avec class="relative ...". #}
+{% macro dot(member, size='sm') %}
+{% if member %}
+{% set status = member | presence_status %}
+{% set color = {'online': 'bg-emerald-500', 'away': 'bg-amber-400', 'offline': 'bg-gray-300'}[status] %}
+{% set size_cls = {'xs': 'w-2 h-2', 'sm': 'w-2.5 h-2.5', 'md': 'w-3.5 h-3.5'}[size] %}
+<span class="absolute -bottom-0.5 -right-0.5 {{ size_cls }} {{ color }} rounded-full ring-2 ring-white" title="{{ member | presence_label }}"></span>
+{% endif %}
+{% endmacro %}

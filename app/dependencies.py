@@ -114,7 +114,19 @@ async def get_current_user(
         select(Member).where(Member.id == user.member_id)
     )
     member = member_result.scalar_one_or_none()
-    return (user, member) if member else None
+    if member is None:
+        return None
+
+    # Présence — battement throttlé (pas plus d'une écriture par minute par membre)
+    now = datetime.utcnow()
+    if member.last_activity_at is None or (now - member.last_activity_at) > timedelta(seconds=60):
+        member.last_activity_at = now
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+
+    return (user, member)
 
 
 async def require_auth(

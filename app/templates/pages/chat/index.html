@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_presence.html" as presence %}
 {% block title %}Chat — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -170,8 +171,9 @@
       {% set is_mine = msg.sender_id == current_member.id %}
       <div class="flex {% if is_mine %}justify-end{% endif %} items-end gap-2 group" id="msg-{{ msg.id }}">
         {% if not is_mine %}
-        <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5">
+        <div class="relative w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5">
           {{ msg.sender.first_name[0] }}{{ msg.sender.last_name | anon_nom | first }}
+          {{ presence.dot(msg.sender, size='xs') }}
         </div>
         {% endif %}
         <div class="max-w-[80%] sm:max-w-[70%]">
@@ -213,8 +215,11 @@
       <template x-for="msg in newMessages" :key="msg.id">
         <div class="flex items-end gap-2" :class="msg.is_mine ? 'justify-end' : ''" :id="'msg-' + msg.id">
           <template x-if="!msg.is_mine">
-            <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5"
-                 x-text="msg.sender_initials"></div>
+            <div class="relative w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5">
+              <span x-text="msg.sender_initials"></span>
+              <span class="absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ring-2 ring-white"
+                    :class="{'bg-emerald-500': msg.presence === 'online', 'bg-amber-400': msg.presence === 'away', 'bg-gray-300': !msg.presence || msg.presence === 'offline'}"></span>
+            </div>
           </template>
           <div class="max-w-[80%] sm:max-w-[70%]">
             <template x-if="!msg.is_mine">
@@ -330,8 +335,9 @@
             {% for m in active_members %}
             <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
                    x-show="!search || '{{ (m.first_name ~ ' ' ~ (m.last_name | anon_nom)) | lower }}'.includes(search.toLowerCase())">
-              <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
+              <div class="relative w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
                 {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+                {{ presence.dot(m, size='xs') }}
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name | anon_nom }}</div>
@@ -377,8 +383,9 @@
         <button type="submit"
                 class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
                 x-show="!search || '{{ (m.first_name ~ ' ' ~ (m.last_name | anon_nom)) | lower }}'.includes(search.toLowerCase())">
-          <div class="w-9 h-9 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-sm font-bold shrink-0">
+          <div class="relative w-9 h-9 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-sm font-bold shrink-0">
             {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+            {{ presence.dot(m) }}
           </div>
           <div class="flex-1 min-w-0 text-left">
             <div class="text-sm font-medium text-gray-900">{{ m.first_name }} {{ m.last_name | anon_nom }}</div>

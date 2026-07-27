@@ -147,6 +147,8 @@ class Member(Base):
     program_optin: Mapped[bool]          = mapped_column(Boolean, default=True)
     # Notifications email : True = reçoit un email à chaque message reçu sur le portail
     email_notifications: Mapped[bool]   = mapped_column(Boolean, default=True)
+    # Présence — dernière activité authentifiée sur le portail (battement, cf. app/dependencies.py)
+    last_activity_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
