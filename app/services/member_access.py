@@ -2,11 +2,14 @@
 guide utilisateur (PDF) et envoi de l'email avec pièce jointe.
 """
 import asyncio
+import hashlib
+import hmac
 import logging
 import secrets
 import unicodedata
 from datetime import datetime, timedelta
 from typing import Optional
+from urllib.parse import quote
 
 from sqlalchemy import select
 
@@ -14,7 +17,7 @@ from app.config import get_settings
 from app.database import AsyncSessionLocal
 from app.models.identity import Member, MemberStatus, User
 from app.models.system import EmailLog
-from app.services.email import _send_raw
+from app.services.email import _send_raw, create_pending_log
 
 logger = logging.getLogger(__name__)
 
@@ -28,9 +31,43 @@ ACCESS_EMAIL_DELAY_MS = 300
 _RUNNING_TASKS: set = set()
 
 
-def launch_bulk_access_send() -> None:
+# ── Tokens de suivi ouverture/clic ──────────────────────────────────────────
+# Namespace "acc." distinct de app.services.mailing.make_tracking_token pour
+# éviter toute collision de signature entre un id EmailLog et un id
+# MailingDelivery (même secret HMAC, payload différent).
+
+def _track_secret() -> bytes:
+    return (get_settings().secret_key or "fallback-secret").encode("utf-8")
+
+
+def make_access_track_token(log_id: int, kind: str) -> str:
+    """kind = 'o' (ouverture) ou 'c' (clic)."""
+    payload = f"acc.{log_id}.{kind}"
+    sig = hmac.new(_track_secret(), payload.encode(), hashlib.sha256).hexdigest()[:12]
+    return f"{log_id}.{kind}.{sig}"
+
+
+def verify_access_track_token(token: str) -> Optional[tuple[int, str]]:
+    """Retourne (log_id, kind) ou None si invalide."""
+    try:
+        parts = token.split(".")
+        if len(parts) != 3:
+            return None
+        log_id_s, kind, sig = parts
+        if kind not in ("o", "c"):
+            return None
+        payload = f"acc.{log_id_s}.{kind}"
+        expected = hmac.new(_track_secret(), payload.encode(), hashlib.sha256).hexdigest()[:12]
+        if not hmac.compare_digest(expected, sig):
+            return None
+        return (int(log_id_s), kind)
+    except (ValueError, AttributeError):
+        return None
+
+
+def launch_bulk_access_send(member_ids: Optional[list[int]] = None) -> None:
     """Démarre l'envoi groupé en tâche de fond (fire-and-forget)."""
-    task = asyncio.ensure_future(run_bulk_access_send())
+    task = asyncio.ensure_future(run_bulk_access_send(member_ids=member_ids))
     _RUNNING_TASKS.add(task)
     task.add_done_callback(_RUNNING_TASKS.discard)
 
@@ -232,9 +269,21 @@ def build_guide_pdf(lodge_name: str, portal_url: str) -> bytes:
 
 # ── Email d'accès ───────────────────────────────────────────────────────────
 
-def _access_email_content(member: Member, user: User, token: str, portal_url: str, lodge_name: str) -> tuple[str, str]:
-    reset_url = f"{portal_url}/auth/reset-password/{token}"
+def _access_email_content(
+    member: Member, user: User, token: str, portal_url: str, lodge_name: str,
+    log_id: Optional[int] = None,
+) -> tuple[str, str]:
+    raw_reset_url = f"{portal_url}/auth/reset-password/{token}"
     guide_url = f"{portal_url}/guide"
+
+    if log_id is not None:
+        click_token = make_access_track_token(log_id, "c")
+        reset_url = f"{portal_url}/access/click/{click_token}?url={quote(raw_reset_url, safe='')}"
+        open_token = make_access_track_token(log_id, "o")
+        open_pixel = f'<img src="{portal_url}/access/open/{open_token}" width="1" height="1" alt="" style="display:none">'
+    else:
+        reset_url = raw_reset_url
+        open_pixel = ""
 
     text = f"""Bonjour {member.first_name},
 
@@ -270,14 +319,15 @@ vous pouvez l'ignorer et vous connecter directement sur <a href="{portal_url}/au
 sur <a href="{guide_url}">{guide_url}</a>). Il précise notamment que le bureau affiché est celui de l'année
 <strong>2025-2026</strong> (mise à jour en septembre lors de l'installation) et qu'une <strong>formation aux outils</strong>
 sera prochainement organisée par visioconférence, avec plusieurs créneaux au choix.</p>
-<hr><p style="color:#888;font-size:12px">Portail {lodge_name}</p>"""
+<hr><p style="color:#888;font-size:12px">Portail {lodge_name}</p>{open_pixel}"""
 
     return html, text
 
 
 async def send_access_email(db, member: Member, portal_url: str, guide_pdf: bytes) -> tuple[bool, Optional[str]]:
     """Assure le compte, régénère un token de réinitialisation (7j) et envoie
-    l'email d'accès avec le guide en pièce jointe."""
+    l'email d'accès avec le guide en pièce jointe. Le lien et un pixel de suivi
+    permettent de savoir si l'email a été ouvert / le lien cliqué."""
     if not member.email:
         return False, "Membre sans adresse email"
 
@@ -287,28 +337,39 @@ async def send_access_email(db, member: Member, portal_url: str, guide_pdf: byte
     user.reset_token_expires = datetime.utcnow() + timedelta(days=7)
     await db.commit()
 
-    html, text = _access_email_content(member, user, user.reset_token, portal_url, settings.lodge_name)
+    subject = f"[{settings.lodge_name}] {ACCESS_EMAIL_SUBJECT}"
+    log_id = await create_pending_log(member.email, subject, has_attachment=True)
+
+    html, text = _access_email_content(
+        member, user, user.reset_token, portal_url, settings.lodge_name, log_id=log_id,
+    )
     ok, err = await _send_raw(
         to=member.email,
-        subject=f"[{settings.lodge_name}] {ACCESS_EMAIL_SUBJECT}",
+        subject=subject,
         html=html,
         text=text,
         attachments=[("guide-utilisateur-portail.pdf", guide_pdf, "application/pdf")],
+        log_id=log_id,
     )
     return ok, err
 
 
-async def run_bulk_access_send(portal_url: Optional[str] = None) -> None:
-    """Envoie l'accès à tous les membres actifs, en tâche de fond (sa propre
-    session DB, calqué sur app.services.mailing.send_campaign_async)."""
+async def run_bulk_access_send(
+    portal_url: Optional[str] = None,
+    member_ids: Optional[list[int]] = None,
+) -> None:
+    """Envoie l'accès aux membres actifs sélectionnés (ou à tous si member_ids
+    est None), en tâche de fond (sa propre session DB, calqué sur
+    app.services.mailing.send_campaign_async)."""
     settings = get_settings()
     base_url = (portal_url or settings.portal_url or "https://portail.amisdesocrate.fr").rstrip("/")
     guide_pdf = build_guide_pdf(settings.lodge_name, base_url)
 
     async with AsyncSessionLocal() as db:
-        members = (await db.execute(
-            select(Member).where(Member.status == MemberStatus.ACTIVE).order_by(Member.last_name)
-        )).scalars().all()
+        stmt = select(Member).where(Member.status == MemberStatus.ACTIVE)
+        if member_ids is not None:
+            stmt = stmt.where(Member.id.in_(member_ids))
+        members = (await db.execute(stmt.order_by(Member.last_name))).scalars().all()
 
         for member in members:
             try:

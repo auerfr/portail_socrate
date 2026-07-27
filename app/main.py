@@ -484,6 +484,17 @@ async def lifespan(app: FastAPI):
             if col not in cols_md2:
                 await conn.exec_driver_sql(f"ALTER TABLE mailing_deliveries ADD COLUMN {col} {ddl}")
 
+    # ── email_logs : colonnes tracking (accès membres) ──────────────────────
+    async with engine.begin() as conn:
+        r_el = await conn.exec_driver_sql("PRAGMA table_info(email_logs)")
+        cols_el = [row[1] for row in r_el.fetchall()]
+        for col, ddl in [
+            ("opened_at",  "DATETIME"),
+            ("clicked_at", "DATETIME"),
+        ]:
+            if col not in cols_el:
+                await conn.exec_driver_sql(f"ALTER TABLE email_logs ADD COLUMN {col} {ddl}")
+
     # ── audit_logs : nouvelles colonnes (target_label, user_agent) ─────────
     async with engine.begin() as conn:
         r_al = await conn.exec_driver_sql("PRAGMA table_info(audit_logs)")

@@ -1121,6 +1121,7 @@ async def admin_invitations(
     rows = [{
         "member": m,
         "has_account": m.id in accounts,
+        "never_logged": (m.id not in accounts) or accounts[m.id].last_login_at is None,
         "last_log": send_status.get(m.email),
     } for m in all_active]
 
@@ -1165,23 +1166,23 @@ async def admin_invitation_send(
     )
 
 
-@router.post("/invitations/send-all")
-async def admin_invitation_send_all(
+@router.post("/invitations/send-bulk")
+async def admin_invitation_send_bulk(
     request: Request,
     ctx: Annotated[tuple, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    member_ids: Annotated[list[int], Form()] = [],
 ):
-    """Déclenche l'envoi des accès à tous les membres actifs, en tâche de fond."""
+    """Déclenche l'envoi des accès aux membres sélectionnés, en tâche de fond."""
     from app.services.member_access import launch_bulk_access_send
     actor_user, actor_member = ctx
-    n = (await db.execute(
-        select(func.count(Member.id)).where(Member.status == MemberStatus.ACTIVE)
-    )).scalar() or 0
+    if not member_ids:
+        return RedirectResponse(url="/admin/invitations?_msg=none_selected", status_code=303)
     await log_audit(
         db, actor_id=actor_member.id, action="ACCESS_SEND_ALL",
-        details=f"{n} membre(s) actif(s) ciblé(s)", request=request, commit=True,
+        details=f"{len(member_ids)} membre(s) sélectionné(s)", request=request, commit=True,
     )
-    launch_bulk_access_send()
+    launch_bulk_access_send(member_ids=member_ids)
     return RedirectResponse(url="/admin/invitations?_msg=started", status_code=303)
 
 

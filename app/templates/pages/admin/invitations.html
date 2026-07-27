@@ -3,100 +3,166 @@
 
 {% block admin_content %}
 
-<div class="flex items-center justify-between gap-3 flex-wrap mb-4">
-  <div>
-    <h2 class="font-semibold text-gray-900 text-lg"><i class="ti ti-mail-forward text-loge-700"></i> Accès membres</h2>
-    <p class="text-xs text-gray-500 mt-0.5">
-      Envoie par email l'accès au portail (compte + lien de connexion + guide utilisateur en pièce jointe)
-      à chaque membre actif, et permet de vérifier que l'envoi a bien eu lieu.
-    </p>
-  </div>
-  <form method="post" action="/admin/invitations/send-all"
-        onsubmit="return confirm('Envoyer l\'email d\'accès à TOUS les membres actifs ({{ rows|length }}) ? Cette action envoie de vrais emails.')">
-    <button class="text-sm font-semibold text-white bg-loge-700 hover:bg-loge-800 px-4 py-2 rounded-xl inline-flex items-center gap-1.5">
-      <i class="ti ti-send"></i> Envoyer à tous les membres actifs ({{ rows|length }})
-    </button>
-  </form>
-</div>
+<div
+  x-data="{
+    selected: {{ (rows | rejectattr('member.id', 'equalto', current_member.id) | map(attribute='member.id') | list) | tojson }},
+    allIds: {{ (rows | map(attribute='member.id') | list) | tojson }},
+    neverLoggedIds: {{ (rows | selectattr('never_logged') | map(attribute='member.id') | list) | tojson }},
+  }"
+>
 
-{# Flash messages #}
-{% set msg = request.query_params.get('_msg') %}
-{% if msg == 'no_email' %}
-<div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl px-4 py-2 mb-4 text-sm">
-  Ce membre n'a pas d'email renseigné — ajoute-le d'abord dans sa fiche.
-</div>
-{% elif msg == 'sent' %}
-<div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-2 mb-4 text-sm">
-  <i class="ti ti-check"></i> Accès envoyé.
-</div>
-{% elif msg == 'fail' %}
-<div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl px-4 py-2 mb-4 text-sm">
-  <i class="ti ti-alert-triangle"></i> Échec de l'envoi — voir le détail dans <a href="/admin/comm" class="underline">Communication</a>.
-</div>
-{% elif msg == 'started' %}
-<div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-4 py-2 mb-4 text-sm">
-  <i class="ti ti-clock"></i> Envoi groupé lancé en arrière-plan. Actualisez cette page dans quelques instants pour suivre l'avancement
-  (statut « Dernier envoi » ci-dessous), ou consultez le détail complet dans <a href="/admin/comm" class="underline">Communication</a>.
-</div>
-{% endif %}
+  <div class="flex items-center justify-between gap-3 flex-wrap mb-4">
+    <div>
+      <h2 class="font-semibold text-gray-900 text-lg"><i class="ti ti-mail-forward text-loge-700"></i> Accès membres</h2>
+      <p class="text-xs text-gray-500 mt-0.5">
+        Envoie par email l'accès au portail (compte + lien de connexion + guide utilisateur en pièce jointe)
+        aux membres sélectionnés, et permet de vérifier que l'envoi a bien eu lieu (envoyé, ouvert, lien cliqué).
+      </p>
+    </div>
+  </div>
 
-<div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
-  <div class="px-5 py-3 border-b border-gray-100">
-    <h2 class="font-semibold text-gray-900">Membres actifs</h2>
-    <p class="text-xs text-gray-500 mt-0.5">Un compte est créé automatiquement au premier envoi si le membre n'en a pas encore.</p>
+  {# Flash messages #}
+  {% set msg = request.query_params.get('_msg') %}
+  {% if msg == 'no_email' %}
+  <div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl px-4 py-2 mb-4 text-sm">
+    Ce membre n'a pas d'email renseigné — ajoute-le d'abord dans sa fiche.
   </div>
-  {% if rows %}
-  <div class="overflow-x-auto">
-  <table class="w-full text-sm min-w-[640px]">
-    <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
-      <tr>
-        <th class="text-left font-semibold px-4 py-2">Membre</th>
-        <th class="text-left font-semibold px-4 py-2">Email</th>
-        <th class="text-left font-semibold px-4 py-2">Compte</th>
-        <th class="text-left font-semibold px-4 py-2">Dernier envoi</th>
-        <th class="text-right font-semibold px-4 py-2">Action</th>
-      </tr>
-    </thead>
-    <tbody class="divide-y divide-gray-100">
-      {% for row in rows %}
-      {% set m = row.member %}
-      {% set log = row.last_log %}
-      <tr class="hover:bg-gray-50">
-        <td class="px-4 py-2 text-sm font-medium text-gray-900">{{ m.last_name }} {{ m.first_name }}</td>
-        <td class="px-4 py-2 text-xs text-gray-600">{{ m.email or '—' }}</td>
-        <td class="px-4 py-2 text-xs">
-          {% if row.has_account %}
-          <span class="text-emerald-700"><i class="ti ti-check"></i> Existant</span>
-          {% else %}
-          <span class="text-gray-400">À créer</span>
-          {% endif %}
-        </td>
-        <td class="px-4 py-2 text-xs">
-          {% if not log %}
-          <span class="text-gray-400">Jamais envoyé</span>
-          {% elif log.status.value == 'SENT' %}
-          <span class="text-emerald-700" title="{{ log.created_at }}"><i class="ti ti-circle-check"></i> Envoyé le {{ log.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
-          {% else %}
-          <span class="text-rose-700" title="{{ log.error or '' }}"><i class="ti ti-circle-x"></i> Échec le {{ log.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
-          {% endif %}
-        </td>
-        <td class="px-4 py-2 text-right">
-          <form method="post" action="/admin/invitations/{{ m.id }}/send"
-                onsubmit="return confirm('Envoyer l\'accès à {{ m.first_name }} {{ m.last_name }} ?')">
-            <button class="text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 px-3 py-1.5 rounded-lg"
-                    {% if not m.email %}disabled title="Pas d'email renseigné"{% endif %}>
-              <i class="ti ti-mail-forward"></i> {{ 'Renvoyer' if log else 'Envoyer' }}
-            </button>
-          </form>
-        </td>
-      </tr>
-      {% endfor %}
-    </tbody>
-  </table>
+  {% elif msg == 'sent' %}
+  <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-2 mb-4 text-sm">
+    <i class="ti ti-check"></i> Accès envoyé.
   </div>
-  {% else %}
-  <div class="p-8 text-center text-sm text-gray-500">Aucun membre actif.</div>
+  {% elif msg == 'fail' %}
+  <div class="bg-rose-50 border border-rose-200 text-rose-800 rounded-2xl px-4 py-2 mb-4 text-sm">
+    <i class="ti ti-alert-triangle"></i> Échec de l'envoi — voir le détail dans <a href="/admin/comm" class="underline">Communication</a>.
+  </div>
+  {% elif msg == 'none_selected' %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 rounded-2xl px-4 py-2 mb-4 text-sm">
+    Aucun membre sélectionné — coche au moins une case avant d'envoyer.
+  </div>
+  {% elif msg == 'started' %}
+  <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-4 py-2 mb-4 text-sm">
+    <i class="ti ti-clock"></i> Envoi groupé lancé en arrière-plan. Actualisez cette page dans quelques instants pour suivre l'avancement
+    (colonnes « Dernier envoi » / « Ouvert » / « Cliqué » ci-dessous), ou consultez le détail complet dans <a href="/admin/comm" class="underline">Communication</a>.
+  </div>
   {% endif %}
+
+  <form method="post" action="/admin/invitations/send-bulk"
+        onsubmit="return confirm('Confirmer l\'envoi de l\'email d\'accès (compte + lien + guide) ? Cette action envoie de vrais emails.')">
+
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+      <div class="px-5 py-3 border-b border-gray-100 flex items-center justify-between gap-3 flex-wrap">
+        <div>
+          <h2 class="font-semibold text-gray-900">Membres actifs</h2>
+          <p class="text-xs text-gray-500 mt-0.5">Un compte est créé automatiquement au premier envoi si le membre n'en a pas encore.</p>
+        </div>
+        <div class="flex items-center gap-1.5 flex-wrap">
+          <button type="button" @click="selected = [...allIds]"
+                  class="text-xs font-medium text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">
+            Tout cocher
+          </button>
+          <button type="button" @click="selected = []"
+                  class="text-xs font-medium text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">
+            Tout décocher
+          </button>
+          <button type="button" @click="selected = [...neverLoggedIds]"
+                  class="text-xs font-medium text-gray-600 border border-gray-200 px-2.5 py-1.5 rounded-lg hover:bg-gray-50">
+            Cocher les jamais connectés
+          </button>
+        </div>
+      </div>
+
+      {% if rows %}
+      <div class="overflow-x-auto">
+      <table class="w-full text-sm min-w-[760px]">
+        <thead class="bg-gray-50 text-xs text-gray-500 uppercase">
+          <tr>
+            <th class="text-left font-semibold px-4 py-2 w-8"></th>
+            <th class="text-left font-semibold px-4 py-2">Membre</th>
+            <th class="text-left font-semibold px-4 py-2">Email</th>
+            <th class="text-left font-semibold px-4 py-2">Compte</th>
+            <th class="text-left font-semibold px-4 py-2">Dernier envoi</th>
+            <th class="text-left font-semibold px-4 py-2">Ouvert</th>
+            <th class="text-left font-semibold px-4 py-2">Lien cliqué</th>
+            <th class="text-right font-semibold px-4 py-2">Action</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-100">
+          {% for row in rows %}
+          {% set m = row.member %}
+          {% set log = row.last_log %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2">
+              <input type="checkbox" name="member_ids" value="{{ m.id }}"
+                     x-model.number="selected"
+                     class="rounded border-gray-300 text-loge-700 focus:ring-loge-500">
+            </td>
+            <td class="px-4 py-2 text-sm font-medium text-gray-900">
+              {{ m.last_name }} {{ m.first_name }}
+              {% if m.id == current_member.id %}<span class="text-[10px] text-gray-400 font-normal">(vous)</span>{% endif %}
+            </td>
+            <td class="px-4 py-2 text-xs text-gray-600">{{ m.email or '—' }}</td>
+            <td class="px-4 py-2 text-xs">
+              {% if row.has_account %}
+              <span class="text-emerald-700"><i class="ti ti-check"></i> Existant</span>
+              {% else %}
+              <span class="text-gray-400">À créer</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-xs">
+              {% if not log %}
+              <span class="text-gray-400">Jamais envoyé</span>
+              {% elif log.status.value == 'SENT' %}
+              <span class="text-emerald-700" title="{{ log.created_at }}"><i class="ti ti-circle-check"></i> {{ log.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+              {% elif log.status.value == 'FAILED' %}
+              <span class="text-rose-700" title="{{ log.error or '' }}"><i class="ti ti-circle-x"></i> Échec {{ log.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+              {% else %}
+              <span class="text-blue-600"><i class="ti ti-clock"></i> En cours…</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-xs">
+              {% if log and log.opened_at %}
+              <span class="text-emerald-700" title="{{ log.opened_at }}"><i class="ti ti-mail-opened"></i> {{ log.opened_at.strftime('%d/%m/%Y %H:%M') }}</span>
+              {% else %}
+              <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-xs">
+              {% if log and log.clicked_at %}
+              <span class="text-emerald-700" title="{{ log.clicked_at }}"><i class="ti ti-click"></i> {{ log.clicked_at.strftime('%d/%m/%Y %H:%M') }}</span>
+              {% else %}
+              <span class="text-gray-400">—</span>
+              {% endif %}
+            </td>
+            <td class="px-4 py-2 text-right">
+              <button type="submit" formaction="/admin/invitations/{{ m.id }}/send"
+                      class="text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 px-3 py-1.5 rounded-lg"
+                      {% if not m.email %}disabled title="Pas d'email renseigné"{% endif %}>
+                <i class="ti ti-mail-forward"></i> {{ 'Renvoyer' if log else 'Envoyer' }}
+              </button>
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      </div>
+      {% else %}
+      <div class="p-8 text-center text-sm text-gray-500">Aucun membre actif.</div>
+      {% endif %}
+    </div>
+
+    {% if rows %}
+    <div class="flex justify-end mt-4">
+      <button type="submit"
+              :disabled="selected.length === 0"
+              :class="selected.length === 0 ? 'opacity-50 cursor-not-allowed' : ''"
+              class="text-sm font-semibold text-white bg-loge-700 hover:bg-loge-800 px-4 py-2 rounded-xl inline-flex items-center gap-1.5">
+        <i class="ti ti-send"></i> Envoyer aux membres sélectionnés (<span x-text="selected.length"></span>)
+      </button>
+    </div>
+    {% endif %}
+
+  </form>
+
 </div>
 
 {% endblock %}

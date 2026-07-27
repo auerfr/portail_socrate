@@ -13,25 +13,57 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+async def create_pending_log(to: str, subject: str, has_attachment: bool = False) -> Optional[int]:
+    """Pré-crée un EmailLog en statut PENDING et retourne son id — utile quand
+    le corps de l'email a besoin de connaître l'id avant l'envoi (liens de
+    suivi ouverture/clic). Best-effort : retourne None si l'insertion échoue."""
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models.system import EmailLog, EmailStatus
+        async with AsyncSessionLocal() as s:
+            log = EmailLog(
+                recipient=to[:300],
+                subject=subject[:500],
+                status=EmailStatus.PENDING,
+                has_attachment=has_attachment,
+            )
+            s.add(log)
+            await s.commit()
+            await s.refresh(log)
+            return log.id
+    except Exception:
+        return None
+
+
 async def _send_raw(
     to: str,
     subject: str,
     html: str,
     text: str,
     attachments: Optional[list[tuple[str, bytes, str]]] = None,
+    log_id: Optional[int] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     Envoie un email brut. Retourne (True, None) si succès.
     attachments : liste de (filename, content_bytes, mime_type)
+    log_id : si fourni (cf. create_pending_log), met à jour cette ligne
+             EmailLog existante au lieu d'en créer une nouvelle.
     """
     settings = get_settings()
 
     async def _journal(ok: bool, err: Optional[str]):
-        """Insert un EmailLog (best-effort, ne lève jamais)."""
+        """Met à jour ou insère un EmailLog (best-effort, ne lève jamais)."""
         try:
             from app.database import AsyncSessionLocal
             from app.models.system import EmailLog, EmailStatus
             async with AsyncSessionLocal() as s:
+                if log_id is not None:
+                    log = await s.get(EmailLog, log_id)
+                    if log:
+                        log.status = EmailStatus.SENT if ok else EmailStatus.FAILED
+                        log.error = err[:2000] if err else None
+                        await s.commit()
+                        return
                 s.add(EmailLog(
                     recipient=to[:300],
                     subject=subject[:500],
