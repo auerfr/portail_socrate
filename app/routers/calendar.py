@@ -5,7 +5,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from sqlalchemy import select
+from sqlalchemy import select, or_, and_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -218,11 +218,19 @@ async def calendar_index(
     )
     meetings_list = meetings_r.scalars().all()
 
-    # Récupérer les LodgeEvents du mois
+    # Récupérer les LodgeEvents du mois — un événement est inclus dès lors que
+    # sa plage [start, end] chevauche la grille visible (et pas seulement si
+    # son début tombe dedans, sinon un événement multi-jours commencé avant
+    # la grille disparaîtrait de la vue).
+    range_start = datetime.combine(date_from, datetime.min.time())
+    range_end = datetime.combine(date_to, datetime.max.time())
     events_r = await db.execute(
         select(LodgeEvent).where(
-            LodgeEvent.start_datetime >= datetime.combine(date_from, datetime.min.time()),
-            LodgeEvent.start_datetime <= datetime.combine(date_to, datetime.max.time()),
+            LodgeEvent.start_datetime <= range_end,
+            or_(
+                LodgeEvent.end_datetime >= range_start,
+                and_(LodgeEvent.end_datetime.is_(None), LodgeEvent.start_datetime >= range_start),
+            ),
         )
     )
     lodge_events = events_r.scalars().all()
@@ -239,8 +247,14 @@ async def calendar_index(
         if not await _event_visible_to(e, member, db, user):
             continue
         ev = _lodge_event_to_dict(e)
-        d = e.start_datetime.date()
-        events_by_day.setdefault(d, []).append(ev)
+        # Un événement multi-jours (ex: convent) doit apparaître sur chaque
+        # jour de sa plage, pas uniquement le jour de début.
+        span_start = max(e.start_datetime.date(), date_from)
+        span_end = min((e.end_datetime.date() if e.end_datetime else e.start_datetime.date()), date_to)
+        d = span_start
+        while d <= span_end:
+            events_by_day.setdefault(d, []).append(ev)
+            d += timedelta(days=1)
 
     # Anniversaires (civils + maçonniques) — visibles par tous
     for ev in await _load_anniversaires_in_range(db, date_from, date_to):
