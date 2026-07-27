@@ -1,0 +1,142 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Guide d'utilisation — {{ lodge_name }}</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            loge: {
+              50:  '#e6f4f1',
+              100: '#d0ede9',
+              300: '#8eccc6',
+              500: '#4a9d8f',
+              600: '#3d8a7c',
+              700: '#2c7a7b',
+              800: '#1a5f60',
+              900: '#0f4445',
+            }
+          }
+        }
+      }
+    }
+  </script>
+</head>
+<body class="min-h-full bg-gray-50 font-sans">
+
+  <div class="max-w-2xl mx-auto px-4 py-10">
+
+    <div class="flex items-center justify-between gap-3 mb-8">
+      <div>
+        <p class="text-xs font-semibold uppercase tracking-wide text-loge-700">Portail des membres</p>
+        <h1 class="text-2xl font-bold text-gray-900">Guide d'utilisation</h1>
+        <p class="text-sm text-gray-500 mt-1">{{ lodge_name }}</p>
+      </div>
+      <a href="/guide.pdf" target="_blank"
+         class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl whitespace-nowrap">
+        Télécharger en PDF
+      </a>
+    </div>
+
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm p-6 space-y-8">
+
+      <section>
+        <h2 class="text-lg font-semibold text-loge-800 mb-2">Premiers pas</h2>
+        <ol class="text-sm text-gray-700 space-y-2 list-decimal list-inside">
+          <li>
+            <strong>Se connecter</strong> — rendez-vous sur
+            <a href="{{ portal_url }}/auth/login" class="text-loge-700 underline">{{ portal_url }}/auth/login</a>,
+            saisissez votre identifiant et votre mot de passe. Si vous recevez un accès pour la première fois,
+            utilisez le lien fourni dans l'email pour choisir votre mot de passe avant de vous connecter.
+          </li>
+          <li>
+            <strong>Vérifier votre profil</strong> — depuis le menu profil (en bas de la barre latérale), vous
+            pouvez changer votre mot de passe et votre identifiant à tout moment.
+          </li>
+          <li>
+            <strong>Régler vos notifications</strong> — dans Paramètres, choisissez si vous souhaitez recevoir
+            un email à chaque message reçu sur le portail.
+          </li>
+          <li>
+            <strong>Explorer le menu</strong> — la barre latérale liste les rubriques auxquelles vous avez accès ;
+            certaines dépendent de votre grade ou de votre fonction (voir ci-dessous).
+          </li>
+        </ol>
+      </section>
+
+      <section>
+        <h2 class="text-lg font-semibold text-loge-800 mb-2">Ce que vous pouvez faire sur le portail</h2>
+        <p class="text-sm text-gray-700 leading-relaxed mb-3">
+          Selon votre grade (Apprenti, Compagnon, Maître) et votre fonction (officier, membre d'une commission…),
+          certaines rubriques peuvent ne pas apparaître dans votre menu — c'est normal, elles sont réservées
+          à certains rôles. Si vous occupez une fonction particulière (Trésorier, Secrétaire, Maître des Banquets,
+          Vénérable Maître), une <a href="/faq" class="text-loge-700 underline">FAQ dédiée</a> détaille les outils
+          qui vous concernent.
+        </p>
+        <ul class="text-sm text-gray-700 space-y-1.5 list-disc list-inside">
+          <li><strong>Tableau de bord</strong> — actualités et informations de la loge.</li>
+          <li><strong>Messagerie</strong> — messages internes entre membres.</li>
+          <li><strong>Documents / Bibliothèque</strong> — planches, comptes-rendus, archives de la loge, et un espace personnel pour vos propres fichiers.</li>
+          <li><strong>Calendrier</strong> — tenues et événements de la loge, avec export vers votre agenda personnel.</li>
+          <li><strong>Forum</strong> — échanges par thème et par sujet entre membres.</li>
+          <li><strong>Planches</strong> — rédigez, déposez et commentez vos planches.</li>
+          <li><strong>Annuaire des membres</strong> — coordonnées et fiches des frères.</li>
+          <li><strong>Ma cotisation</strong> — choisissez votre tranche de cotisation quand l'appel est ouvert, et suivez votre statut de paiement.</li>
+          <li><strong>Chat</strong> — discussion instantanée entre membres.</li>
+          <li><strong>Sondages</strong> — participez aux votes et consultations de la loge.</li>
+          <li><strong>Projets</strong> — suivi des tâches des projets auxquels vous participez.</li>
+          <li><strong>Liens partagés</strong> et <strong>Anniversaires</strong> — ressources utiles et rappels des anniversaires (d'âge et maçonniques).</li>
+          <li><strong>Rubriques réservées</strong> (officiers, présences, trésorerie, diffusion, annonces, administration…) — visibles
+            uniquement par les frères occupant la fonction correspondante.</li>
+        </ul>
+      </section>
+
+      <section>
+        <h2 class="text-lg font-semibold text-loge-800 mb-2">En cas de souci</h2>
+        <ul class="text-sm text-gray-700 space-y-1.5 list-disc list-inside">
+          <li><strong>Mot de passe oublié</strong> — utilisez
+            <a href="{{ portal_url }}/auth/reset-password" class="text-loge-700 underline">{{ portal_url }}/auth/reset-password</a>
+            pour recevoir un lien de réinitialisation par email.</li>
+          <li><strong>Vous ne recevez pas nos emails</strong> — pensez à vérifier votre dossier spams/courrier indésirable.</li>
+          <li><strong>Une rubrique semble manquante</strong> — c'est normal si elle dépend de votre grade ou de
+            votre fonction ; consultez la <a href="/faq" class="text-loge-700 underline">FAQ</a> pour vérifier ce qui vous concerne.</li>
+          <li><strong>Autre difficulté</strong> — contactez le webmestre ou un membre du bureau, ils pourront vous
+            accompagner ou réinitialiser votre accès.</li>
+        </ul>
+      </section>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <p class="text-sm font-semibold text-amber-900 mb-1">⚠ Le bureau affiché est celui de 2025-2026</p>
+        <p class="text-sm text-amber-800 leading-relaxed">
+          Les officiers actuellement affichés sur le portail correspondent au bureau de l'année maçonnique
+          2025-2026. Ce bureau sera mis à jour en septembre, lors de l'installation du nouveau bureau.
+        </p>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <p class="text-sm font-semibold text-amber-900 mb-1">⚠ Une formation aux outils sera organisée</p>
+        <p class="text-sm text-amber-800 leading-relaxed">
+          Une formation à l'utilisation du portail sera organisée par visioconférence, avec plusieurs créneaux
+          proposés au choix pour s'adapter aux disponibilités de chacun. Les dates seront communiquées prochainement.
+        </p>
+      </div>
+
+      <section class="border-t border-gray-100 pt-5">
+        <p class="text-sm text-gray-600">
+          <strong>Besoin d'aide ?</strong> En cas de difficulté pour vous connecter ou utiliser le portail,
+          contactez le webmestre ou un membre du bureau — ils pourront vous accompagner ou réinitialiser
+          votre accès si nécessaire.
+        </p>
+      </section>
+
+    </div>
+
+    <p class="text-xs text-gray-400 mt-6 text-center">Portail interne de la loge — {{ lodge_name }}</p>
+  </div>
+
+</body>
+</html>

@@ -40,6 +40,8 @@ from app.routers import projects as projects_router
 from app.routers import admin as admin_router
 from app.routers import mailing as mailing_router
 from app.routers import bookmarks as bookmarks_router
+from app.routers import guide as guide_router
+from app.routers import faq as faq_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -787,6 +789,8 @@ app.include_router(projects_router.router)
 app.include_router(admin_router.router)
 app.include_router(mailing_router.router)
 app.include_router(bookmarks_router.router)
+app.include_router(guide_router.router)
+app.include_router(faq_router.router)
 # app.include_router(admin.router)
 
 

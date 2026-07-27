@@ -1100,91 +1100,89 @@ async def admin_invitations(
     ctx: Annotated[tuple, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Liste des membres SANS compte utilisateur — permet de leur créer un compte
-    + lien de réinitialisation pour qu'ils définissent leur mot de passe."""
+    """Accès membres — envoie par email (compte + lien + guide utilisateur en PJ)
+    à tous les membres actifs, et permet de vérifier l'état des envois."""
+    from app.services.member_access import last_send_status
     user, member = ctx
-    # Membres actifs sans compte User
-    r = await db.execute(
-        select(Member).outerjoin(User, User.member_id == Member.id)
-        .where(User.id.is_(None), Member.status == MemberStatus.ACTIVE)
+    all_active = (await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
         .order_by(Member.last_name, Member.first_name)
-    )
-    members_no_account = r.scalars().all()
+    )).scalars().all()
+
+    accounts = {
+        u.member_id: u for u in (await db.execute(
+            select(User).where(User.member_id.in_([m.id for m in all_active]))
+        )).scalars().all()
+    } if all_active else {}
+
+    emails = [m.email for m in all_active if m.email]
+    send_status = await last_send_status(db, emails)
+
+    rows = [{
+        "member": m,
+        "has_account": m.id in accounts,
+        "last_log": send_status.get(m.email),
+    } for m in all_active]
+
     return templates.TemplateResponse(request, "pages/admin/invitations.html", {
         "current_user": user,
         "current_member": member,
-        "members_no_account": members_no_account,
+        "rows": rows,
         "active_tab": "users",
     })
 
 
-@router.post("/invitations/{member_id}/create")
-async def admin_invitation_create(
+@router.post("/invitations/{member_id}/send")
+async def admin_invitation_send(
     member_id: int,
     request: Request,
     ctx: Annotated[tuple, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Crée un compte User pour ce membre + génère un lien de reset valide 7j."""
-    import secrets
+    """Envoie (ou renvoie) l'accès à ce membre : compte + lien + guide en PJ."""
+    from app.services.member_access import send_access_email, build_guide_pdf
+    from app.config import get_settings
     actor_user, actor_member = ctx
     m = (await db.execute(select(Member).where(Member.id == member_id))).scalar_one_or_none()
     if not m:
         raise HTTPException(404)
-    # Compte déjà existant ?
-    existing = (await db.execute(select(User).where(User.member_id == m.id))).scalar_one_or_none()
-    if existing:
-        return RedirectResponse(url="/admin/invitations?_msg=exists", status_code=303)
     if not m.email:
         return RedirectResponse(url="/admin/invitations?_msg=no_email", status_code=303)
 
-    # Génère un login depuis prenom.nom (à défaut : email)
-    base_login = f"{m.first_name}.{m.last_name}".lower().replace(" ", "").replace("'", "")
-    import unicodedata
-    base_login = "".join(
-        c for c in unicodedata.normalize("NFKD", base_login)
-        if not unicodedata.combining(c)
-    )
-    # Garantit unicité
-    login = base_login
-    n = 2
-    while (await db.execute(select(User).where(User.login == login))).scalar_one_or_none():
-        login = f"{base_login}{n}"
-        n += 1
+    settings = get_settings()
+    base_url = str(request.base_url).rstrip("/")
+    guide_pdf = build_guide_pdf(settings.lodge_name, base_url)
+    ok, err = await send_access_email(db, m, base_url, guide_pdf)
 
-    # Hash d'un mot de passe placeholder (jamais utilisé puisqu'on force reset)
-    try:
-        from passlib.context import CryptContext
-        pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        placeholder_hash = pwd_ctx.hash(secrets.token_urlsafe(32))
-    except Exception:
-        # Fallback brut si passlib indispo
-        import hashlib
-        placeholder_hash = "x" + hashlib.sha256(secrets.token_bytes(32)).hexdigest()
-
-    token = secrets.token_urlsafe(32)
-    u = User(
-        member_id=m.id,
-        login=login,
-        password_hash=placeholder_hash,
-        is_active=True,
-        is_admin=False,
-        reset_token=token,
-        reset_token_expires=datetime.utcnow() + timedelta(days=7),
-    )
-    db.add(u)
     await log_audit(
-        db, actor_id=actor_member.id, action="INVITATION_CREATE",
+        db, actor_id=actor_member.id, action="ACCESS_SEND",
         target_type="member", target_id=m.id,
         target_label=f"{m.last_name} {m.first_name}",
-        details=f"login={login} token 7j", request=request,
+        details=("OK" if ok else f"FAIL: {err}"), request=request, commit=True,
     )
-    await db.commit()
-    await db.refresh(u)
     return RedirectResponse(
-        url=f"/admin/invitations?invited_id={u.id}&invited_token={token}",
-        status_code=303,
+        url=f"/admin/invitations?_msg={'sent' if ok else 'fail'}", status_code=303
     )
+
+
+@router.post("/invitations/send-all")
+async def admin_invitation_send_all(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Déclenche l'envoi des accès à tous les membres actifs, en tâche de fond."""
+    from app.services.member_access import launch_bulk_access_send
+    actor_user, actor_member = ctx
+    n = (await db.execute(
+        select(func.count(Member.id)).where(Member.status == MemberStatus.ACTIVE)
+    )).scalar() or 0
+    await log_audit(
+        db, actor_id=actor_member.id, action="ACCESS_SEND_ALL",
+        details=f"{n} membre(s) actif(s) ciblé(s)", request=request, commit=True,
+    )
+    launch_bulk_access_send()
+    return RedirectResponse(url="/admin/invitations?_msg=started", status_code=303)
 
 
 @router.post("/banner")

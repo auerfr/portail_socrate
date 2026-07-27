@@ -1,0 +1,357 @@
+{% extends "base.html" %}
+{% block title %}FAQ{% endblock %}
+
+{% block content %}
+<div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 space-y-6">
+
+  <div>
+    <h1 class="text-2xl font-bold text-gray-900"><i class="ti ti-help-circle text-loge-700"></i> Foire aux questions</h1>
+    <p class="text-sm text-gray-500 mt-1">
+      Une question générale et, selon votre fonction, des sections dédiées. Voir aussi le
+      <a href="/guide" class="text-loge-700 underline">guide d'utilisation</a>.
+    </p>
+  </div>
+
+  {# Sommaire #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Sommaire</p>
+    <div class="flex flex-wrap gap-2 text-sm">
+      <a href="#general" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Général</a>
+      {% if show_tresorier %}<a href="#tresorier" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Trésorier</a>{% endif %}
+      {% if show_secretaire %}<a href="#secretaire" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Secrétaire</a>{% endif %}
+      {% if show_banquets %}<a href="#banquets" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Maître des Banquets</a>{% endif %}
+      {% if show_vm %}<a href="#vm" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Vénérable Maître</a>{% endif %}
+    </div>
+  </div>
+
+  {# ── Général ─────────────────────────────────────────────────────────── #}
+  <section id="general" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3">Général — tous les membres</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment me connecter ou récupérer mon mot de passe ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Utilisez votre identifiant (ou votre email) et votre mot de passe sur la page de connexion.
+          En cas d'oubli, cliquez sur « Mot de passe oublié ? » pour recevoir un lien de réinitialisation
+          par email, valable 2 heures.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment envoyer un message à un frère ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Depuis « Messagerie » dans le menu, composez un nouveau message. Vous pouvez aussi consulter
+          les messages envoyés et reçus, et éventuellement recevoir un email de notification (réglable
+          dans Paramètres).
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Où trouver les documents de la loge, et puis-je déposer les miens ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          La « Bibliothèque » regroupe planches, comptes-rendus et archives classés par dossiers.
+          Vous disposez aussi d'un espace personnel pour vos propres fichiers, visible par vous seul
+          sauf si vous choisissez de le partager.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment m'inscrire à une tenue ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Le calendrier liste les tenues à venir ; ouvrez celle qui vous intéresse pour vous inscrire
+          et, le cas échéant, indiquer votre participation aux agapes. Vous pouvez aussi exporter les
+          dates vers votre agenda personnel.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment choisir ma cotisation ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Rendez-vous sur « Ma cotisation » : tant que l'appel à cotisation est ouvert, vous pouvez
+          choisir votre tranche (de T1 à T5). Ce choix est définitif une fois validé — seul le
+          Trésorier peut le modifier ensuite. Vous y suivez aussi votre statut de paiement.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Forum, planches, annuaire… à quoi ça sert ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Le <strong>Forum</strong> permet des échanges par thème et par sujet. <strong>Planches</strong>
+          vous permet de rédiger, déposer et commenter vos planches. L'<strong>Annuaire</strong> donne
+          les coordonnées et fiches des frères. Vous disposez aussi d'un <strong>Chat</strong>, de
+          <strong>Sondages</strong>, d'un suivi de <strong>Projets</strong>, de <strong>Liens partagés</strong>
+          et des <strong>Anniversaires</strong> (d'âge et maçonniques).
+        </p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Je ne vois pas une rubrique dans mon menu, est-ce normal ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Oui — certaines rubriques (officiers, présences, trésorerie, diffusion, annonces,
+          administration…) ne sont visibles que par les frères occupant la fonction correspondante.
+          Si vous occupez une de ces fonctions, sa section dédiée apparaît dans le sommaire ci-dessus.
+        </p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Trésorier ───────────────────────────────────────────────────────── #}
+  {% if show_tresorier %}
+  <section id="tresorier" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-coins"></i> Trésorier</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment voir qui a payé, qui doit encore, et l'état de la trésorerie ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Le tableau de bord (Trésorerie) affiche l'état par membre (dû / payé / reste / avance), les
+          statistiques globales (total dû, encaissé, trésorerie théorique), et le top des retardataires,
+          avec recherche par nom ou statut.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment gérer le budget et les tranches de cotisation ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Dans « Budget », ajoutez/modifiez/supprimez des lignes budgétaires (import CSV possible),
+          configurez les taux de capitation, la trésorerie initiale et le montant de référence T3
+          (calculé automatiquement depuis le budget, ou saisi manuellement) : les tranches T1 à T5
+          sont des coefficients (0.4 à 1.6) appliqués à ce montant de référence.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment ouvrir ou fermer l'appel à cotisation ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Le bouton d'ouverture/fermeture de l'appel se trouve dans « Budget ». À la fermeture, les
+          membres n'ayant pas fait de choix se voient assigner automatiquement leur tranche de l'année
+          précédente (ou T3 par défaut), et les cotisations déjà ouvertes sont resynchronisées. Un
+          changement de configuration peut être annulé dans l'heure qui suit (undo).
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment enregistrer un paiement ou émettre un quitus ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Depuis « Cotisations », assignez une tranche à un membre, enregistrez son paiement ou
+          marquez-le exempté. Un quitus (reçu) peut être émis une fois la cotisation payée ou exemptée.
+          Un export CSV des retardataires est disponible.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment enregistrer une recette ou une dépense ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Dans « Mouvements », ajoutez une entrée avec date, catégorie et justificatif (PDF ou image).
+          Les catégories utilisées alimentent automatiquement le budget.
+        </p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment consulter le bilan, et qui peut ouvrir une nouvelle année comptable ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          « Bilan » calcule le résultat par catégorie (résultat net hors capitation, résultat brut),
+          exportable en CSV. L'ouverture d'une nouvelle année comptable (avec reprise optionnelle du
+          budget) est réservée au compte administrateur technique du site.
+        </p>
+      </details>
+
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Secrétaire ──────────────────────────────────────────────────────── #}
+  {% if show_secretaire %}
+  <section id="secretaire" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-notebook"></i> Secrétaire</h2>
+    <p class="text-xs text-gray-500 mb-3">La plupart de ces outils sont partagés avec le Vénérable Maître et les Surveillants.</p>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment créer ou modifier une tenue ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Depuis « Tenues », créez une tenue (type, grade, agapes) ; un lien d'inscription est généré
+          pour les membres et les passants.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment gérer le conseil d'officiers ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          La page « Officiers » d'une tenue montre qui est présent/excusé/sans réponse pour chaque
+          office, permet de désigner un remplaçant en cas d'absence ou d'office vacant, et propose un
+          export PDF du conseil.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment faire l'émargement d'une tenue ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          « Présences » permet de marquer chaque membre présent/excusé/absent (avec motif), de gérer
+          les passants (recherche, ajout, confirmation), de suivre l'assiduité par rapport aux seuils
+          configurés, et d'exporter en CSV.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment publier une annonce ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          « Annonces » permet de rédiger et épingler une annonce ; sa publication déclenche une
+          notification à tous les membres actifs. Cette rubrique est réservée au VM et au Secrétaire.
+        </p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment envoyer une campagne de diffusion (email) ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          « Diffusion » permet de gérer des listes de destinataires (membres et contacts externes) et
+          de composer/envoyer une campagne email, avec suivi des ouvertures et des clics. Accessible
+          aussi au Trésorier et aux Surveillants.
+        </p>
+      </details>
+
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Maître des Banquets ─────────────────────────────────────────────── #}
+  {% if show_banquets %}
+  <section id="banquets" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3">🍽 Maître des Banquets</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Où voir les agapes à venir et le nombre de couverts ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          « Mes agapes » liste toutes les tenues à venir avec agapes activées et le nombre de couverts
+          actuel pour chacune.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment gérer la participation aux agapes d'une tenue précise ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Depuis la page agapes d'une tenue, activez ou désactivez la participation d'un membre (et le
+          nombre d'invités), ajoutez des passants ou des invités profanes, et consultez le récapitulatif
+          des régimes alimentaires (végétarien, vegan, sans porc, autre).
+        </p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment obtenir la liste finale des couverts ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Un export Excel est disponible depuis la page agapes de la tenue, avec les sections Frères/
+          Sœurs, passants, invités profanes, les régimes alimentaires et les totaux.
+        </p>
+      </details>
+
+    </div>
+  </section>
+  {% endif %}
+
+  {# ── Vénérable Maître ────────────────────────────────────────────────── #}
+  {% if show_vm %}
+  <section id="vm" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-crown"></i> Vénérable Maître</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Qu'est-ce qui m'est propre, par rapport au Secrétaire ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Vous partagez la quasi-totalité des outils avec le Secrétaire (tenues, conseil d'officiers,
+          présences, annonces, diffusion — voir la section Secrétaire ci-dessus). L'action qui vous est
+          propre est le <strong>verrouillage d'une tenue</strong>, qui empêche toute modification
+          ultérieure de ses données.
+        </p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment nommer ou changer un officier ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          La nomination des officiers (onglet Officiers de Paramètres) est réservée au compte
+          administrateur technique du site, y compris pour le Vénérable Maître — transmettez la
+          demande de nomination au webmestre ou à l'administrateur.
+        </p>
+      </details>
+
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="text-xs text-gray-400 text-center pt-2">
+    Une question sans réponse ici ? Contactez le webmestre ou un membre du bureau.
+  </p>
+
+</div>
+{% endblock %}
