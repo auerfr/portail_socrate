@@ -649,6 +649,34 @@
         </form>
       </div>
 
+      <!-- Filtres d'affichage : type, loge, recherche -->
+      <form method="get" action="/settings/" class="flex flex-wrap items-center gap-2 mb-4">
+        <input type="hidden" name="tab" value="contacts">
+        <select name="contact_type_filter" onchange="this.form.submit()"
+                class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="" {% if not contact_type_filter %}selected{% endif %}>Tous les types</option>
+          <option value="VISITOR" {% if contact_type_filter == 'VISITOR' %}selected{% endif %}>👤 Passant·e·s</option>
+          <option value="EXTERNAL" {% if contact_type_filter == 'EXTERNAL' %}selected{% endif %}>🏛 Institutionnels</option>
+        </select>
+        {% if contact_lodges %}
+        <select name="contact_lodge_filter" onchange="this.form.submit()"
+                class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="" {% if not contact_lodge_filter %}selected{% endif %}>Toutes les loges</option>
+          {% for lg in contact_lodges %}
+          <option value="{{ lg }}" {% if contact_lodge_filter == lg %}selected{% endif %}>{{ lg }}</option>
+          {% endfor %}
+        </select>
+        {% endif %}
+        <input type="text" name="contact_q" value="{{ contact_q }}" placeholder="Rechercher (nom, email, organisation…)"
+               class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs flex-1 min-w-[180px] focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <button type="submit" class="text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50">
+          Filtrer
+        </button>
+        {% if contact_type_filter or contact_lodge_filter or contact_q %}
+        <a href="/settings/?tab=contacts" class="text-xs text-gray-400 hover:text-gray-600">Réinitialiser</a>
+        {% endif %}
+      </form>
+
       {% if external_contacts %}
       <div class="divide-y divide-gray-100 mb-5"
            x-data="{

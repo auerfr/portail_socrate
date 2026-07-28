@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 LOGO_DIR = Path("app/static/uploads/logo")
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 _LOGO_ALLOWED = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -97,6 +97,9 @@ async def settings_page(
     request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    contact_type_filter: str = "",
+    contact_lodge_filter: str = "",
+    contact_q: str = "",
 ):
     user, member = ctx
     from app.dependencies import can_manage_members
@@ -118,8 +121,28 @@ async def settings_page(
     r_all_members = await db.execute(select(Member).order_by(Member.last_name))
     all_member_map = {m.id: m for m in r_all_members.scalars().all()}
 
-    r_contacts = await db.execute(select(ExternalContact).order_by(ExternalContact.contact_type, ExternalContact.name))
+    contacts_stmt = select(ExternalContact).order_by(ExternalContact.contact_type, ExternalContact.name)
+    if contact_type_filter in ("EXTERNAL", "VISITOR"):
+        contacts_stmt = contacts_stmt.where(ExternalContact.contact_type == contact_type_filter)
+    if contact_lodge_filter.strip():
+        contacts_stmt = contacts_stmt.where(ExternalContact.lodge_name == contact_lodge_filter.strip())
+    if contact_q.strip():
+        like = f"%{contact_q.strip()}%"
+        contacts_stmt = contacts_stmt.where(or_(
+            ExternalContact.name.ilike(like),
+            ExternalContact.email.ilike(like),
+            ExternalContact.organization.ilike(like),
+            ExternalContact.lodge_name.ilike(like),
+        ))
+    r_contacts = await db.execute(contacts_stmt)
     external_contacts = r_contacts.scalars().all()
+
+    # Toutes les loges distinctes déjà enregistrées, pour le filtre déroulant
+    r_lodges = await db.execute(
+        select(ExternalContact.lodge_name).where(ExternalContact.lodge_name.isnot(None))
+        .distinct().order_by(ExternalContact.lodge_name)
+    )
+    contact_lodges = [row[0] for row in r_lodges.all()]
 
     from app.dependencies import can_manage_members
     can_manage_contacts = user.is_admin or can_manage_members(member)
@@ -144,6 +167,10 @@ async def settings_page(
         "can_manage_contacts": can_manage_contacts,
         "all_users": all_users,
         "all_member_map": all_member_map,
+        "contact_lodges": contact_lodges,
+        "contact_type_filter": contact_type_filter,
+        "contact_lodge_filter": contact_lodge_filter,
+        "contact_q": contact_q,
         "external_contacts": external_contacts,
         "backups": backups,
         "saved": request.query_params.get("saved"),
