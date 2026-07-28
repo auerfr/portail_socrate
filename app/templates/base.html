@@ -349,6 +349,11 @@
           </div>
         </div>
       </a>
+      <a href="/settings/notifications"
+         class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
+        <i class="ti ti-bell" style="font-size:15px;"></i>
+        Notifications
+      </a>
       <a href="/auth/password"
          class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
         <i class="ti ti-key" style="font-size:15px;"></i>
@@ -571,6 +576,12 @@
           {{ current_member.first_name[0] if current_member else '?' }}{{ current_member.last_name[0] if current_member else '' }}
         </div>
         Mon profil
+      </a>
+
+      <a href="/settings/notifications" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
+        <i class="ti ti-bell text-lg opacity-70"></i>
+        Notifications
       </a>
 
       <a href="/auth/password" @click="moreOpen=false"
