@@ -599,7 +599,7 @@
        CONTENU PRINCIPAL
   ════════════════════════════════════════════════════════ -->
   {% if request.cookies.get('impersonate_origin_token') %}
-  <div class="{% if not on_auth %}lg:ml-52{% endif %} sticky top-0 z-50 bg-amber-400 text-amber-900 px-4 py-2 flex items-center justify-between gap-3 text-sm font-medium shadow-md">
+  <div class="{% if not on_auth %}lg:ml-52{% endif %} sticky top-0 z-50 bg-amber-400 text-amber-900 px-4 py-2 flex items-center justify-between gap-3 text-sm font-medium shadow-md safe-top">
     <span class="flex items-center gap-2">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
@@ -615,7 +615,7 @@
   </div>
   {% endif %}
 
-  <main class="{% if not on_auth %}lg:ml-52 pb-20 lg:pb-0{% endif %} min-h-full">
+  <main class="{% if not on_auth %}lg:ml-52 pb-20 lg:pb-0{% endif %} min-h-full safe-top">
     {# ── Bannière de maintenance globale ─────────────────────────────────── #}
     {% set _banner = request.state.banner if request.state and request.state.banner else None %}
     {% if _banner and _banner.enabled and _banner.message %}
