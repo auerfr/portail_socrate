@@ -9,6 +9,17 @@ un redemarrage de l'app.
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 
+async def ensure_wal_mode(engine: AsyncEngine) -> None:
+    """Active le mode WAL (lectures simultanées même pendant une écriture) et
+    un busy_timeout généreux. Réglage persistant (stocké dans le fichier
+    SQLite lui-même), mais ne s'applique jamais si le lifespan ASGI qui
+    l'exécutait ne se déclenche pas sur l'hébergement — d'où son extraction
+    ici pour pouvoir être rejoué explicitement via scripts/migrate.py."""
+    async with engine.begin() as conn:
+        await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
+        await conn.exec_driver_sql("PRAGMA busy_timeout=30000")  # 30s
+
+
 async def run_lightweight_migrations(engine: AsyncEngine) -> None:
     """Applique toutes les migrations legeres (idempotent, sans risque a rejouer)."""
     # ── Migrations légères (ajout de colonnes manquantes) ──────────────────

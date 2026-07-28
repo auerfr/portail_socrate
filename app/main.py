@@ -20,7 +20,7 @@ import app.services.labels  # noqa: F401
 from typing import Annotated
 from app.config import get_settings
 from app.database import engine, Base, get_db
-from app.migrations import run_lightweight_migrations
+from app.migrations import run_lightweight_migrations, ensure_wal_mode
 from app.dependencies import get_current_user, can_manage_attendance
 from app.routers import auth, members, meetings, finance, programs, attendance, announcements
 from app.routers import settings as settings_router
@@ -81,9 +81,7 @@ async def lifespan(app: FastAPI):
     # ── WAL mode : lectures simultanées même pendant une écriture ────────────
     # Indispensable pour éviter "database is locked" quand la ré-indexation
     # ou une sauvegarde tourne en parallèle d'une requête utilisateur.
-    async with engine.begin() as conn:
-        await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
-        await conn.exec_driver_sql("PRAGMA busy_timeout=30000")  # 30s
+    await ensure_wal_mode(engine)
 
     # Démarrage : créer les tables si elles n'existent pas
     async with engine.begin() as conn:
