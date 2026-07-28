@@ -1887,6 +1887,7 @@ async def public_register_submit(
             "meeting": meeting, "visitor_type": "member",
             "first_name": target_member.first_name,
             "last_name": target_member.last_name,
+            "civility": target_member.civility,
             "agape": agape_bool, "type_label": _type_label,
         })
 
@@ -1955,6 +1956,7 @@ async def public_register_submit(
     return templates.TemplateResponse(request, "pages/meetings/register_success.html", {
         "meeting": meeting, "visitor_type": "visitor",
         "first_name": first_name, "last_name": last_name,
+        "civility": visitor.civility,
         "agape": agape_bool, "type_label": _type_label,
     })
 
