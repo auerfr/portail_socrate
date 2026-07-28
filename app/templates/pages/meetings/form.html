@@ -2,6 +2,9 @@
 {% block title %}{% if is_new %}Nouvelle tenue{% else %}Modifier la tenue{% endif %} — Portail Socrate{% endblock %}
 
 {% block content %}
+<!-- Quill CSS (editeur Ordre du jour) -->
+<link href="/static/css/quill.snow.css" rel="stylesheet">
+
 <div class="p-4 lg:p-8 max-w-3xl mx-auto">
 
   <nav class="text-sm text-gray-500 mb-4">
@@ -49,7 +52,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
           <input type="text" name="location"
-                 value="{{ meeting.location if meeting else '' }}"
+                 value="{{ (meeting.location or '') if meeting else '' }}"
                  placeholder="Temple maçonnique, rue…"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
@@ -57,7 +60,7 @@
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Adresse complète</label>
           <input type="text" name="address"
-                 value="{{ meeting.address if meeting else '' }}"
+                 value="{{ (meeting.address or '') if meeting else '' }}"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
 
@@ -96,7 +99,7 @@
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">Titre (optionnel)</label>
           <input type="text" name="title"
-                 value="{{ meeting.title if meeting else '' }}"
+                 value="{{ (meeting.title or '') if meeting else '' }}"
                  placeholder="Ex: Tenue blanche ouverte — Saint-Jean d'hiver"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
@@ -104,7 +107,7 @@
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">Thème (optionnel)</label>
           <input type="text" name="theme"
-                 value="{{ meeting.theme if meeting else '' }}"
+                 value="{{ (meeting.theme or '') if meeting else '' }}"
                  placeholder="Ex: La lumière dans la tradition maçonnique"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
@@ -112,7 +115,7 @@
         <div class="sm:col-span-2">
           <label class="block text-sm font-medium text-gray-700 mb-1">Lien visioconférence (optionnel)</label>
           <input type="url" name="visio_url"
-                 value="{{ meeting.visio_url if meeting else '' }}"
+                 value="{{ (meeting.visio_url or '') if meeting else '' }}"
                  placeholder="https://meet.jit.si/..."
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
@@ -122,14 +125,22 @@
             Ordre du jour
             <span class="text-gray-400 font-normal">(points de travaux — affiché sur le programme imprimable)</span>
           </label>
-          <textarea name="agenda_html" rows="5"
-                    placeholder="• Ouverture des travaux
-• Lecture et approbation du compte-rendu
-• Planche du F∴ …
-• Questions diverses
-• Fermeture des travaux"
-                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y font-mono">{{ meeting.agenda_html if meeting and meeting.agenda_html else '' }}</textarea>
-          <p class="text-xs text-gray-400 mt-1">Utilisez • pour les puces. Ce texte apparaîtra dans le bloc tenue du programme mensuel.</p>
+          <div id="agenda-quill-toolbar" class="border border-gray-200 rounded-t-lg bg-gray-50">
+            <span class="ql-formats">
+              <button class="ql-bold" title="Gras"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-list" value="bullet" title="Liste à puces"></button>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-link" title="Lien"></button>
+            </span>
+          </div>
+          <div id="agenda-quill-editor" class="border border-gray-200 border-t-0 rounded-b-lg bg-white text-sm"
+               style="min-height:130px;"></div>
+          <input type="hidden" name="agenda_html" id="agenda-html-input"
+                 value="{{ meeting.agenda_html if meeting and meeting.agenda_html else '' }}">
+          <p class="text-xs text-gray-400 mt-1">Ce contenu apparaîtra dans le bloc tenue du programme mensuel.</p>
         </div>
 
       </div>
@@ -255,7 +266,7 @@
           <div>
             <label class="block text-sm font-medium text-gray-700 mb-1">Lieu des agapes</label>
             <input type="text" name="agape_location"
-                   value="{{ meeting.agape_location if meeting else '' }}"
+                   value="{{ (meeting.agape_location or '') if meeting else '' }}"
                    placeholder="Restaurant, salle..."
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
           </div>
@@ -290,4 +301,21 @@
 
   </form>
 </div>
+
+<!-- Quill JS (editeur Ordre du jour) -->
+<script src="/static/js/quill.min.js"></script>
+<script>
+  const agendaQuill = new Quill('#agenda-quill-editor', {
+    theme: 'snow',
+    modules: { toolbar: '#agenda-quill-toolbar' },
+    placeholder: 'Ouverture des travaux, lecture et approbation du compte-rendu, planche du F∴ …, questions diverses, fermeture des travaux',
+  });
+  const agendaExisting = {{ (meeting.agenda_html if meeting and meeting.agenda_html else '') | tojson }};
+  if (agendaExisting) agendaQuill.clipboard.dangerouslyPasteHTML(agendaExisting);
+
+  document.querySelector('form').addEventListener('submit', function () {
+    const html = agendaQuill.root.innerHTML;
+    document.getElementById('agenda-html-input').value = (html === '<p><br></p>') ? '' : html;
+  });
+</script>
 {% endblock %}

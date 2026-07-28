@@ -132,7 +132,7 @@
                   <td style="padding:16px 18px;background-color:#ffffff;">
 
                     {% if m.agenda_html %}
-                    <div style="font-size:12px;color:#374151;line-height:1.7;margin-bottom:10px;">{{ m.agenda_html }}</div>
+                    <div style="font-size:12px;color:#374151;line-height:1.7;margin-bottom:10px;">{{ m.agenda_html | safe }}</div>
                     {% endif %}
 
                     {% if m.degrees and m.degrees | length > 1 %}

@@ -121,6 +121,30 @@ def _qr_png(url: str) -> bytes:
     return buf.getvalue()
 
 
+def _html_to_reportlab_markup(html: str) -> str:
+    """Convertit le HTML (Quill) d'un champ « ordre du jour » en balisage
+    compatible avec reportlab Paragraph. Paragraph supporte nativement
+    <b>, <i>, <u>, <a href="">, <br/> — mais pas <ul>/<li>/<p>, qu'on
+    convertit donc en lignes « • … » séparées par des <br/>."""
+    import re as _re
+    if not html:
+        return ""
+    text = html
+    text = _re.sub(r"<li[^>]*>\s*", "• ", text)
+    text = _re.sub(r"</li>", "<br/>", text)
+    text = _re.sub(r"</?(ul|ol)[^>]*>", "", text)
+    text = _re.sub(r"<p[^>]*>\s*", "", text)
+    text = _re.sub(r"</p>", "<br/>", text)
+    text = _re.sub(r"<br\s*/?>", "<br/>", text)
+    text = text.replace("<strong>", "<b>").replace("</strong>", "</b>")
+    text = text.replace("<em>", "<i>").replace("</em>", "</i>")
+    # Retire les balises non supportées par Paragraph (span, etc.) en gardant le texte
+    text = _re.sub(r"</?(?!b>|/b>|i>|/i>|u>|/u>|a[ >]|/a>|br/?>)[a-zA-Z][^>]*>", "", text)
+    # Retire un <br/> de fin superflu
+    text = _re.sub(r"(<br/>)+$", "", text).strip()
+    return text
+
+
 async def _render_program_pdf_via_browser(request: Request, program_id: int) -> Optional[bytes]:
     """Génère le PDF du programme en 'imprimant' la vraie page
     /programs/{id}?print_mode=true via un navigateur headless (Playwright) —
@@ -846,9 +870,8 @@ async def program_send_external(
                 card_rows = [[Paragraph(title_str, meeting_title)]]
 
                 if m.agenda_html:
-                    import re as _re
-                    agenda_clean = _re.sub(r"<[^>]+>", " ", m.agenda_html).strip()
-                    card_rows.append([Paragraph(agenda_clean, small)])
+                    agenda_markup = _html_to_reportlab_markup(m.agenda_html)
+                    card_rows.append([Paragraph(agenda_markup, small)])
 
                 if m.degrees and len(m.degrees) > 1:
                     for deg in m.degrees:
