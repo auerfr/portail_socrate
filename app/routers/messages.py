@@ -619,6 +619,117 @@ async def download_attachment(
     )
 
 
+@router.get("/{message_id}/attachment/{attachment_id}/preview")
+async def preview_attachment(
+    message_id: int,
+    attachment_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Aperçu inline (Content-Disposition: inline) — pour les vignettes image."""
+    from fastapi.responses import Response as _Response
+
+    user, member = ctx
+
+    att = await db.get(MessageAttachment, attachment_id)
+    if not att or att.message_id != message_id:
+        raise HTTPException(404)
+
+    msg = await db.get(Message, message_id, options=[selectinload(Message.recipients)])
+    if not msg:
+        raise HTTPException(404)
+
+    is_sender = msg.sender_id == member.id
+    is_recipient = any(r.member_id == member.id for r in msg.recipients)
+    if not (user.is_admin or is_sender or is_recipient):
+        raise HTTPException(403)
+
+    file_path = UPLOAD_DIR / att.stored_name
+    if not file_path.exists():
+        raise HTTPException(404, "Fichier introuvable sur le serveur")
+
+    return _Response(
+        content=file_path.read_bytes(),
+        media_type=att.mime_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'inline; filename="{att.filename}"',
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
+@router.post("/{message_id}/attachment/{attachment_id}/save-to-library")
+async def save_attachment_to_library(
+    message_id: int,
+    attachment_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Copie une pièce jointe reçue vers l'espace personnel du membre dans la
+    Bibliothèque documentaire (Documents), sans toucher au fichier original."""
+    user, member = ctx
+
+    att = await db.get(MessageAttachment, attachment_id)
+    if not att or att.message_id != message_id:
+        raise HTTPException(404)
+
+    msg = await db.get(Message, message_id, options=[selectinload(Message.recipients)])
+    if not msg:
+        raise HTTPException(404)
+
+    is_sender = msg.sender_id == member.id
+    is_recipient = any(r.member_id == member.id for r in msg.recipients)
+    if not (user.is_admin or is_sender or is_recipient):
+        raise HTTPException(403)
+
+    src_path = UPLOAD_DIR / att.stored_name
+    if not src_path.exists():
+        raise HTTPException(404, "Fichier introuvable sur le serveur")
+
+    from app.models.documents import DocFolder, Document, DocStatus, MinGrade
+    from app.routers.documents import _get_or_create_personal_space, UPLOAD_DIR as DOCS_UPLOAD_DIR
+
+    space = await _get_or_create_personal_space(db)
+    r = await db.execute(
+        select(DocFolder).where(
+            DocFolder.space_id == space.id,
+            DocFolder.personal_owner_id == member.id,
+            DocFolder.parent_id == None,  # noqa: E711
+        )
+    )
+    folder = r.scalar_one_or_none()
+    if not folder:
+        folder = DocFolder(
+            space_id=space.id,
+            name=f"{member.first_name} {member.last_name}",
+            min_grade=MinGrade.ALL,
+            personal_owner_id=member.id,
+            created_by_id=member.id,
+        )
+        db.add(folder)
+        await db.flush()
+
+    ext = Path(att.filename).suffix.lower()
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = DOCS_UPLOAD_DIR / stored_name
+    dest_path.write_bytes(src_path.read_bytes())
+
+    doc = Document(
+        folder_id=folder.id,
+        name=att.filename,
+        original_filename=att.filename,
+        mime_type=att.mime_type,
+        file_size=att.size_bytes,
+        storage_path=str(dest_path),
+        status=DocStatus.PUBLISHED,
+        author_id=member.id,
+    )
+    db.add(doc)
+    await db.commit()
+
+    return RedirectResponse(url=f"/messages/{message_id}?saved_to_library=1", status_code=303)
+
+
 @router.post("/trash/empty-trash")
 async def empty_trash_2(
     ctx: Annotated[object, Depends(require_auth)],
@@ -768,6 +879,7 @@ async def message_detail(
         "attachments": msg.attachments,
         "recipient_label": recipient_label,
         "all_labels": [],  # labels existants (chargés si besoin)
+        "saved_to_library": request.query_params.get("saved_to_library"),
     })
 
 
