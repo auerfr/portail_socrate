@@ -1,5 +1,6 @@
 """Router Paramètres — configuration loge, VM, Secrétaire, temple"""
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
@@ -480,6 +481,7 @@ async def external_contact_add(
         contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL",
         notes=notes.strip() or None,
         is_active=True,
+        last_confirmed_at=datetime.utcnow(),
     ))
     await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
@@ -538,6 +540,7 @@ async def external_contacts_import_csv(
             notes=(row.get("notes") or "").strip() or None,
             contact_type=contact_type,
             is_active=True,
+            last_confirmed_at=datetime.utcnow(),
         ))
         imported += 1
 
@@ -560,6 +563,61 @@ async def external_contact_delete(
         await db.delete(contact)
         await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
+
+
+@router.post("/external-contacts/send-confirmation")
+async def external_contacts_send_confirmation(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Déclenche l'envoi de l'email de confirmation annuelle à tous les
+    correspondants externes actifs, en tâche de fond."""
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+
+    from sqlalchemy import func
+    from app.services.contact_confirmation import launch_confirmation_campaign
+    from app.services.audit import log_audit
+
+    n = (await db.execute(
+        select(func.count(ExternalContact.id)).where(ExternalContact.is_active == True)  # noqa: E712
+    )).scalar() or 0
+    base_url = str(request.base_url).rstrip("/")
+    await log_audit(
+        db, actor_id=member.id, action="CONTACTS_CONFIRMATION_SEND",
+        details=f"{n} correspondant(s) actif(s) ciblé(s)", request=request, commit=True,
+    )
+    launch_confirmation_campaign(base_url)
+    return RedirectResponse(url="/settings/?saved=contacts&confirmation_started=1", status_code=303)
+
+
+@router.post("/external-contacts/deactivate-stale")
+async def external_contacts_deactivate_stale(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    older_than_days: int = Form(60),
+):
+    """Désactive (jamais supprime) les correspondants n'ayant pas confirmé
+    depuis `older_than_days` jours."""
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+
+    from app.services.contact_confirmation import deactivate_unconfirmed
+    from app.services.audit import log_audit
+
+    count = await deactivate_unconfirmed(db, older_than_days=older_than_days)
+    await log_audit(
+        db, actor_id=member.id, action="CONTACTS_DEACTIVATE_STALE",
+        details=f"{count} contact(s) désactivé(s) (> {older_than_days}j sans confirmation)",
+        request=request, commit=True,
+    )
+    return RedirectResponse(url=f"/settings/?saved=contacts&deactivated={count}", status_code=303)
 
 
 @router.post("/external-contacts/{contact_id}/edit")

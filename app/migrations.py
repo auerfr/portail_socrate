@@ -449,3 +449,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             if "user_agent" not in cols_al:
                 await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN user_agent VARCHAR(300)")
 
+    # ── external_contacts.last_confirmed_at : confirmation annuelle ─────────
+    async with engine.begin() as conn:
+        r_ec = await conn.exec_driver_sql("PRAGMA table_info(external_contacts)")
+        cols_ec = [row[1] for row in r_ec.fetchall()]
+        if cols_ec and "last_confirmed_at" not in cols_ec:
+            await conn.exec_driver_sql(
+                "ALTER TABLE external_contacts ADD COLUMN last_confirmed_at DATETIME"
+            )
+

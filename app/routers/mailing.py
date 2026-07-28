@@ -446,6 +446,7 @@ async def list_external_quick_add(
             orient=orient.strip() or None,
             contact_type="EXTERNAL",
             is_active=True,
+            last_confirmed_at=datetime.utcnow(),
         )
         db.add(ext)
         await db.flush()
@@ -568,6 +569,7 @@ async def list_external_import_csv(
                 lodge_name=lodge_n or None,
                 orient=orient_n or None,
                 contact_type="EXTERNAL", is_active=True,
+                last_confirmed_at=datetime.utcnow(),
             )
             db.add(ext)
             await db.flush()
