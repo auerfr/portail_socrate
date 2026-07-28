@@ -104,6 +104,23 @@ self.addEventListener('fetch', (event) => {
   );
 });
 
+// Pastille sur l'icône de l'app (Badging API — Android/Chrome, pas iOS Safari)
+// Recalculée depuis le serveur car le SW ne connaît pas le compteur en direct.
+async function updateAppBadge() {
+  if (!('setAppBadge' in self.navigator)) return;
+  try {
+    const [chatRes, msgRes] = await Promise.all([
+      fetch('/chat/api/unread', { credentials: 'same-origin' }),
+      fetch('/messages/api/unread', { credentials: 'same-origin' }),
+    ]);
+    const chatTotal = chatRes.ok ? (await chatRes.json()).total || 0 : 0;
+    const msgTotal = msgRes.ok ? (await msgRes.json()).total || 0 : 0;
+    const total = chatTotal + msgTotal;
+    if (total > 0) await self.navigator.setAppBadge(total);
+    else await self.navigator.clearAppBadge();
+  } catch (e) { /* silent */ }
+}
+
 // Push notifications
 self.addEventListener('push', (event) => {
   if (!event.data) return;
@@ -112,13 +129,16 @@ self.addEventListener('push', (event) => {
   try { data = event.data.json(); } catch (e) { data = { title: 'Portail Socrate', body: event.data.text() }; }
 
   event.waitUntil(
-    self.registration.showNotification(data.title || 'Portail Socrate', {
-      body: data.body || '',
-      icon: '/static/img/icon-192.png',
-      badge: '/static/img/icon-192.png',
-      data: { url: data.url || '/' },
-      vibrate: [200, 100, 200],
-    })
+    Promise.all([
+      self.registration.showNotification(data.title || 'Portail Socrate', {
+        body: data.body || '',
+        icon: '/static/img/icon-192.png',
+        badge: '/static/img/icon-192.png',
+        data: { url: data.url || '/' },
+        vibrate: [200, 100, 200],
+      }),
+      updateAppBadge(),
+    ])
   );
 });
 

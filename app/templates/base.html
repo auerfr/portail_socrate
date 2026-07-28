@@ -716,6 +716,9 @@
   <!-- Polling pastilles messages & chat non lus -->
   <script>
   (function() {
+    var lastChatTotal = 0;
+    var lastMsgTotal = 0;
+
     function updateBadge(ids, count) {
       ids.forEach(function(id) {
         var el = document.getElementById(id);
@@ -724,14 +727,33 @@
         else { el.classList.add('hidden'); }
       });
     }
+
+    // Pastille sur l'icône de l'app (PWA installée — Android/Chrome, pas iOS Safari)
+    function updateAppBadge() {
+      if (!('setAppBadge' in navigator)) return;
+      var total = lastChatTotal + lastMsgTotal;
+      if (total > 0) navigator.setAppBadge(total).catch(function() {});
+      else navigator.clearAppBadge().catch(function() {});
+    }
+
     function poll() {
       fetch('/chat/api/unread', {credentials: 'same-origin'})
         .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(d) { if (d) updateBadge(['chat-badge-sidebar','chat-badge-mobile'], d.total || 0); })
+        .then(function(d) {
+          if (!d) return;
+          lastChatTotal = d.total || 0;
+          updateBadge(['chat-badge-sidebar','chat-badge-mobile'], lastChatTotal);
+          updateAppBadge();
+        })
         .catch(function() {});
       fetch('/messages/api/unread', {credentials: 'same-origin'})
         .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(d) { if (d) updateBadge(['msg-badge-sidebar','msg-badge-mobile'], d.total || 0); })
+        .then(function(d) {
+          if (!d) return;
+          lastMsgTotal = d.total || 0;
+          updateBadge(['msg-badge-sidebar','msg-badge-mobile'], lastMsgTotal);
+          updateAppBadge();
+        })
         .catch(function() {});
     }
     setTimeout(poll, 2000);
