@@ -16,30 +16,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            loge: {
-              50:  '#e6f4f1',
-              100: '#d0ede9',
-              300: '#8eccc6',
-              500: '#4a9d8f',
-              600: '#3d8a7c',
-              700: '#2c7a7b',
-              800: '#236b6b',
-              900: '#1a5252',
-            }
-          },
-          fontFamily: {
-            sans: ['DM Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-          }
-        }
-      }
-    }
-  </script>
+  <link href="/static/css/app.css" rel="stylesheet">
 
   <style>
     /* ── Alpine.js : masquer les éléments x-cloak avant init ── */
@@ -132,8 +109,7 @@
     .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
   </style>
 
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script defer src="/static/js/alpine.min.js"></script>
 
   {% block head %}{% endblock %}
 </head>

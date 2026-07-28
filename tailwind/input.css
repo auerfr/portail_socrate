@@ -1,0 +1,18 @@
+@import "tailwindcss";
+
+@source "../app/templates/**/*.html";
+
+@theme {
+  --color-loge-50: #e6f4f1;
+  --color-loge-100: #d0ede9;
+  --color-loge-200: #afdcd8;
+  --color-loge-300: #8eccc6;
+  --color-loge-400: #6cb4ab;
+  --color-loge-500: #4a9d8f;
+  --color-loge-600: #3d8a7c;
+  --color-loge-700: #2c7a7b;
+  --color-loge-800: #236b6b;
+  --color-loge-900: #1a5252;
+
+  --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+}
