@@ -263,6 +263,19 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
           </svg>
         </button>
+        <div class="relative shrink-0" x-data="{ emojiOpen: false }">
+          <button type="button" @click="emojiOpen = !emojiOpen" @click.outside="emojiOpen = false"
+                  title="Insérer un emoji"
+                  class="w-10 h-10 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-lg flex items-center justify-center transition-colors">
+            😀
+          </button>
+          <div x-show="emojiOpen" x-cloak x-transition
+               class="absolute bottom-12 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-64 grid grid-cols-8 gap-0.5 max-h-44 overflow-y-auto">
+            {% for e in ['😀','😂','😊','😉','😍','🥳','😎','🤔','😅','😢','😮','😡','🙌','👍','👎','👏','🙏','🤝','💪','✌️','❤️','💛','💚','💙','🎉','✨','⭐','🔥','💡','✅','❌','⚠️','📌','📎','📅','📖','🕯️','📐','🧭','⚖️','🏛️','🔨','🗝️','☀️','🌙','🌈','☕','🍷','🎂'] %}
+            <button type="button" class="text-lg hover:bg-gray-100 rounded p-1" @click="insertEmojiChat('{{ e }}'); emojiOpen = false">{{ e }}</button>
+            {% endfor %}
+          </div>
+        </div>
         <textarea id="chat-textarea-{{ active_channel.id }}" name="content" rows="1" placeholder="Écrire un message…"
                   class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm
                          focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none
@@ -789,6 +802,16 @@ function pickDoc(doc) {
       bodyEl.focus();
     }
   }
+}
+function insertEmojiChat(emoji) {
+  var ta = document.querySelector('textarea[name="content"]');
+  if (!ta) return;
+  var start = ta.selectionStart || 0, end = ta.selectionEnd || 0;
+  ta.value = ta.value.slice(0, start) + emoji + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + emoji.length;
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+  ta.focus();
 }
 </script>
 {% endblock %}

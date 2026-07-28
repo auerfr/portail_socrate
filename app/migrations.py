@@ -95,6 +95,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE messages ADD COLUMN sender_deleted_at DATETIME"
             )
+        if "body_html" not in cols_msg:
+            await conn.exec_driver_sql(
+                "ALTER TABLE messages ADD COLUMN body_html TEXT"
+            )
         # message_attachments : créée par Base.metadata.create_all (nouveau modèle)
 
         r_mr = await conn.exec_driver_sql("PRAGMA table_info(message_recipients)")

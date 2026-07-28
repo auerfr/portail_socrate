@@ -1,5 +1,6 @@
 """Router — Messagerie interne ciblée"""
 import json
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -20,6 +21,19 @@ from app.models.messaging import Message, MessageAttachment, MessageRecipient, M
 from app.services.email import notify_new_message
 from app.models.groups import LodgeGroup as Group, SYSTEM_GROUPS
 from app.routers.groups import resolve_group_member_ids, ensure_system_groups
+
+def _strip_html_tags(html: str) -> str:
+    """Version texte brut d'un corps HTML (éditeur riche) — pour les aperçus,
+    notifications email/push, qui n'ont pas besoin de la mise en forme."""
+    if not html:
+        return ""
+    text = re.sub(r"</(p|div|li)>", "\n", html)
+    text = re.sub(r"<br\s*/?>", "\n", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    import html as _html_mod
+    text = _html_mod.unescape(text)
+    return "\n".join(line.strip() for line in text.splitlines() if line.strip())
+
 
 # ── Constantes upload ─────────────────────────────────────────────────────────
 UPLOAD_DIR = Path("app/static/uploads/messages")
@@ -456,10 +470,18 @@ async def send_message(
     if final_visio and not final_visio.startswith(("http://", "https://")):
         final_visio = "https://" + final_visio
 
+    # Le corps vient de l'éditeur riche (Quill) : on garde le HTML pour l'affichage
+    # et une version texte brut pour les aperçus / notifications email & push.
+    body_html_clean = body.strip()
+    if body_html_clean == "<p><br></p>":
+        body_html_clean = ""
+    body_plain = _strip_html_tags(body_html_clean)
+
     # Créer le message
     msg = Message(
         subject=subject.strip(),
-        body=body.strip(),
+        body=body_plain,
+        body_html=body_html_clean or None,
         sender_id=member.id,
         target_type=MessageTargetType(target_type),
         target_filter=target_filter_json,

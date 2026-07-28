@@ -47,7 +47,13 @@
     </div>
 
     <!-- Corps du message -->
+    {% if msg.body_html %}
+    <div class="py-5 text-sm text-gray-800 leading-relaxed prose prose-sm max-w-none
+                [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
+                [&_a]:text-loge-700 [&_a]:underline">{{ msg.body_html | safe }}</div>
+    {% else %}
     <div class="py-5 text-sm text-gray-800 leading-relaxed whitespace-pre-line">{{ msg.body }}</div>
+    {% endif %}
 
     <!-- Lien visio -->
     {% if msg.visio_url %}
