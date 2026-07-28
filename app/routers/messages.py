@@ -3,7 +3,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional, List, Union
 
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -392,11 +392,21 @@ async def send_message(
     target_member_ids: Annotated[Optional[str], Form()] = None,
     parent_id: Annotated[Optional[int], Form()] = None,
     visio_url: Annotated[Optional[str], Form()] = None,
-    attachments: Annotated[Optional[List[UploadFile]], File()] = None,
+    attachments: Annotated[Optional[Union[List[UploadFile], UploadFile]], File()] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
         raise HTTPException(403)
+
+    # Un <input type="file" multiple> soumis sans fichier envoie une seule
+    # partie vide — Starlette la remonte alors comme un UploadFile isolé au
+    # lieu d'une liste, d'où la normalisation ci-dessous.
+    if attachments is None:
+        attachment_list: List[UploadFile] = []
+    elif isinstance(attachments, list):
+        attachment_list = attachments
+    else:
+        attachment_list = [attachments]
 
     # Construire le filtre JSON
     tf: dict = {}
@@ -462,7 +472,7 @@ async def send_message(
         ))
 
     # ── Pièces jointes ────────────────────────────────────────────────────
-    for upload in (attachments or []):
+    for upload in attachment_list:
         if not upload.filename:
             continue
         ext = Path(upload.filename).suffix.lower()
