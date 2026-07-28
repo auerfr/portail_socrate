@@ -155,22 +155,31 @@
                     </p>
                     {% endif %}
 
-                    <!-- CTA inscription -->
-                    <table cellpadding="0" cellspacing="0" style="margin-top:14px;">
+                    <!-- CTA inscription + QR code -->
+                    <table cellpadding="0" cellspacing="0" width="100%" style="margin-top:14px;">
                       <tr>
-                        <td style="background-color:#1a5252;border-radius:6px;box-shadow:0 1px 3px rgba(26,82,82,0.3);">
-                          <a href="{{ url }}"
-                             style="display:inline-block;padding:10px 22px;color:#ffffff;font-size:11.5px;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;letter-spacing:0.3px;">
-                            ✉&nbsp; S'inscrire à cette tenue
-                          </a>
+                        <td style="vertical-align:middle;">
+                          <table cellpadding="0" cellspacing="0">
+                            <tr>
+                              <td style="background-color:#1a5252;border-radius:6px;box-shadow:0 1px 3px rgba(26,82,82,0.3);">
+                                <a href="{{ url }}"
+                                   style="display:inline-block;padding:10px 22px;color:#ffffff;font-size:11.5px;font-weight:bold;text-decoration:none;font-family:Arial,sans-serif;letter-spacing:0.3px;">
+                                  ✉&nbsp; S'inscrire à cette tenue
+                                </a>
+                              </td>
+                            </tr>
+                          </table>
+                          <!-- URL texte fallback -->
+                          <p style="margin:8px 0 0;font-size:9.5px;color:#9ca3af;font-family:Arial,sans-serif;word-break:break-all;">
+                            <a href="{{ url }}" style="color:#4a8f8f;">{{ url }}</a>
+                          </p>
+                        </td>
+                        <td width="72" style="vertical-align:middle;text-align:right;">
+                          <img src="cid:qr{{ m.id }}" width="64" height="64" alt="QR inscription"
+                               style="display:block;border:1px solid #e5e7eb;border-radius:4px;">
                         </td>
                       </tr>
                     </table>
-
-                    <!-- URL texte fallback -->
-                    <p style="margin:8px 0 0;font-size:9.5px;color:#9ca3af;font-family:Arial,sans-serif;word-break:break-all;">
-                      <a href="{{ url }}" style="color:#4a8f8f;">{{ url }}</a>
-                    </p>
 
                   </td>
                 </tr>

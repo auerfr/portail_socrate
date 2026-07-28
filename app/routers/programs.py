@@ -107,6 +107,64 @@ def _qr_svg(url: str) -> str:
     return svg[start:] if start >= 0 else svg
 
 
+def _qr_png(url: str) -> bytes:
+    """Génère un QR code au format PNG — pour intégration en image inline
+    dans l'email (les SVG inline ne sont pas fiables dans les clients mail)."""
+    img = qrcode.make(
+        url,
+        box_size=6,
+        border=2,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+    )
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    return buf.getvalue()
+
+
+async def _render_program_pdf_via_browser(request: Request, program_id: int) -> Optional[bytes]:
+    """Génère le PDF du programme en 'imprimant' la vraie page
+    /programs/{id}?print_mode=true via un navigateur headless (Playwright) —
+    garantit un rendu strictement identique à la page du site (QR codes,
+    couleurs, mise en page). Retourne None si indisponible (Chromium non
+    installé sur l'hébergement, page inaccessible…) — dans ce cas l'appelant
+    doit se replier sur la génération ReportLab."""
+    try:
+        from playwright.async_api import async_playwright
+    except ImportError:
+        return None
+
+    token = request.cookies.get("access_token")
+    if not token:
+        return None
+
+    base = str(request.base_url).rstrip("/")
+    url = f"{base}/programs/{program_id}?print_mode=true"
+    host = request.url.hostname or "localhost"
+
+    try:
+        async with async_playwright() as p:
+            browser = await p.chromium.launch(headless=True)
+            try:
+                context = await browser.new_context()
+                await context.add_cookies([{
+                    "name": "access_token", "value": token,
+                    "domain": host, "path": "/",
+                }])
+                page = await context.new_page()
+                await page.goto(url, wait_until="networkidle", timeout=20000)
+                pdf_bytes = await page.pdf(
+                    format="A4",
+                    print_background=True,
+                    margin={"top": "0mm", "bottom": "0mm", "left": "0mm", "right": "0mm"},
+                )
+                return pdf_bytes
+            finally:
+                await browser.close()
+    except Exception as _e:
+        logger.warning("PDF via navigateur headless indisponible, repli sur ReportLab : %s", _e, exc_info=True)
+        return None
+
+
 async def _get_lodge(db: AsyncSession) -> Optional[LodgeSettings]:
     r = await db.execute(select(LodgeSettings).limit(1))
     return r.scalar_one_or_none()
@@ -670,190 +728,219 @@ async def program_send_external(
     # Générer le HTML du programme via le template email dédié
     pm_sorted = sorted([pm for pm in program.meetings if pm.meeting], key=lambda pm: pm.meeting.meeting_date)
 
-    # ── PDF du programme (pièce jointe systématique) ──────────────────────
-    try:
-        from reportlab.lib.pagesizes import A4
-        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-        from reportlab.lib.units import cm
-        from reportlab.lib import colors
-        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable
-        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+    # QR codes PNG par tenue — pour intégration inline dans l'email (cid:)
+    qr_pngs: dict[int, bytes] = {}
+    for pm in pm_sorted:
+        m = pm.meeting
+        qr_url = pm.registration_url or _inscription_url(request, m.token)
+        qr_pngs[m.id] = _qr_png(qr_url)
 
-        buf = io.BytesIO()
-        doc = SimpleDocTemplate(
-            buf, pagesize=A4,
-            leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm,
-        )
-
-        TEAL = colors.HexColor("#1a5252")
-        TEAL_LIGHT = colors.HexColor("#ecfdf5")
-        TEAL_BORDER = colors.HexColor("#d1fae5")
-        GRAY = colors.HexColor("#374151")
-        GRAY_LIGHT = colors.HexColor("#9ca3af")
-
-        styles = getSampleStyleSheet()
-        h1 = ParagraphStyle("h1", parent=styles["Normal"], fontSize=16, textColor=colors.white,
-                             fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=2)
-        sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#a7d4d4"),
-                             fontName="Helvetica", alignment=TA_CENTER)
-        body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, textColor=GRAY,
-                              fontName="Helvetica", leading=14, spaceAfter=4)
-        meeting_title = ParagraphStyle("mt", parent=styles["Normal"], fontSize=11, textColor=TEAL,
-                                       fontName="Helvetica-Bold", leading=14)
-        small = ParagraphStyle("small", parent=styles["Normal"], fontSize=9, textColor=GRAY,
-                               fontName="Helvetica", leading=12)
-        url_style = ParagraphStyle("url", parent=styles["Normal"], fontSize=8, textColor=TEAL,
-                                   fontName="Helvetica", leading=10)
-        footer_label = ParagraphStyle("fl", parent=styles["Normal"], fontSize=9, textColor=TEAL,
-                                      fontName="Helvetica-Bold", leading=12)
-        footer_val = ParagraphStyle("fv", parent=styles["Normal"], fontSize=9, textColor=GRAY,
-                                    fontName="Helvetica", leading=12)
-
-        story = []
-
-        # ── En-tête ──
-        lodge_name = lodge.name if lodge else "Socrate — Raison et Progrès"
-        obedience = lodge.obedience if lodge else "Grand Orient de France"
-        orient = lodge.orient_city if lodge else ""
-        loge_num = f" — R∴L∴ n°{lodge.loge_number}" if lodge and lodge.loge_number else ""
-        rite = lodge.rite if lodge and lodge.rite else None
-
-        header_text = [
-            Paragraph(lodge_name, h1),
-            Paragraph(f"Au nom et sous les auspices du {obedience}<br/>Or∴ de {orient}{loge_num}", sub),
-        ]
-        if rite:
-            header_text.append(Paragraph(f"— ϕ — {rite} — ϕ —", sub))
-
-        header_table = Table([[header_text]], colWidths=[doc.width])
-        header_table.setStyle(TableStyle([
-            ("BACKGROUND", (0, 0), (-1, -1), TEAL),
-            ("TOPPADDING", (0, 0), (-1, -1), 14),
-            ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
-            ("LEFTPADDING", (0, 0), (-1, -1), 16),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 16),
-            ("ROUNDEDCORNERS", [6, 6, 6, 6]),
-        ]))
-        story.append(header_table)
-        story.append(Spacer(1, 0.4*cm))
-
-        # ── Salutation / intro ──
-        story.append(Paragraph("Mon T∴C∴F∴, ma T∴C∴S∴,", body))
-        if program.content_html:
-            import re as _re
-            clean_intro = _re.sub(r"<[^>]+>", " ", program.content_html).strip()
-            story.append(Paragraph(clean_intro, body))
-        story.append(Spacer(1, 0.3*cm))
-
-        # ── Tenues ──
-        MEETING_TYPE_SHORT = {
-            "BLANCHE": "Ten∴ Bl∴", "SOLENNELLE": "Ten∴ Sol∴", "INSTRUCTION": "Ten∴ d'Instr∴",
-            "INITIATION": "Ten∴ d'Init∴", "INSTALLATION": "Installation",
-            "ELECTION": "Élection du V∴M∴", "PASSAGE": "Passage au 2e degré",
-            "ELEVATION": "Élévation au 3e degré", "FETE": "Fête mac∴", "EXTRA": "Ten∴ extraordinaire",
-        }
-
-        for pm in pm_sorted:
-            m = pm.meeting
-            url = pm.registration_url or _inscription_url(request, m.token)
-
-            n = m.meeting_number
-            num_label = f"{n}{'ère' if n == 1 else 'ème'} " if n else ""
-            type_label = MEETING_TYPE_SHORT.get(m.type.value, m.type.value)
-            grade_label = {"APPRENTI": "App∴", "COMPAGNON": "Comp∴", "MAITRE": "M∴"}.get(m.grade.value, "TLR∴")
-            title_str = f"△ {num_label}{type_label} du {_date_civil(m.meeting_date)} en Loge d'{grade_label}"
-
-            card_rows = [[Paragraph(title_str, meeting_title)]]
-
-            if m.agenda_html:
-                import re as _re
-                agenda_clean = _re.sub(r"<[^>]+>", " ", m.agenda_html).strip()
-                card_rows.append([Paragraph(agenda_clean, small)])
-
-            if m.degrees and len(m.degrees) > 1:
-                for deg in m.degrees:
-                    deg_label = deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value)
-                    card_rows.append([Paragraph(f"• {deg_label}", small)])
-
-            if m.agape_enabled:
-                agape_text = f"• Agape fraternelle à l'issue"
-                if m.agape_location:
-                    agape_text += f" — {m.agape_location}"
-                agape_text += " <font color='#b45309'><b>(Réservation impérative)</b></font>"
-                card_rows.append([Paragraph(agape_text, small)])
-
-            card_rows.append([Paragraph(f"Inscription : {url}", url_style)])
-
-            card = Table(card_rows, colWidths=[doc.width])
-            card.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (0, 0), TEAL_LIGHT),
-                ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-                ("BOX", (0, 0), (-1, -1), 0.5, TEAL_BORDER),
-                ("LINEBELOW", (0, 0), (0, 0), 0.5, TEAL_BORDER),
-                ("TOPPADDING", (0, 0), (-1, -1), 6),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                ("ROUNDEDCORNERS", [4, 4, 4, 4]),
-            ]))
-            story.append(card)
-            story.append(Spacer(1, 0.3*cm))
-
-        # ── Ordre du jour commun ──
-        if lodge and lodge.common_agenda:
-            story.append(Paragraph("△ Ordre du jour commun à toutes les TTen∴", meeting_title))
-            for line in lodge.common_agenda.split("\n"):
-                stripped = line.strip()
-                if stripped:
-                    story.append(Paragraph(stripped, small))
-            story.append(Spacer(1, 0.3*cm))
-
-        # ── À noter ──
-        if program.next_meetings_text:
-            import re as _re
-            note_clean = _re.sub(r"<[^>]+>", " ", program.next_meetings_text).strip()
-            story.append(Paragraph(note_clean, body))
-            story.append(Spacer(1, 0.3*cm))
-
-        # ── Footer VM / Temple / Sec ──
-        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb")))
-        story.append(Spacer(1, 0.2*cm))
-
-        vm_lines = [Paragraph("V∴M∴", footer_label)]
-        if lodge and lodge.vm_name_display:
-            vm_lines.append(Paragraph(lodge.vm_name_display, footer_val))
-        if lodge and lodge.vm_email_display:
-            vm_lines.append(Paragraph(lodge.vm_email_display, footer_val))
-
-        temple_lines = [Paragraph("Temple", footer_label)]
-        if lodge and lodge.temple_name:
-            temple_lines.append(Paragraph(lodge.temple_name, footer_val))
-        if lodge and lodge.temple_address:
-            temple_lines.append(Paragraph(lodge.temple_address, footer_val))
-
-        sec_lines = [Paragraph("Sec∴", footer_label)]
-        if lodge and lodge.secretary_name_display:
-            sec_lines.append(Paragraph(lodge.secretary_name_display, footer_val))
-        if lodge and lodge.secretary_email_display:
-            sec_lines.append(Paragraph(lodge.secretary_email_display, footer_val))
-
-        footer_table = Table([[vm_lines, temple_lines, sec_lines]], colWidths=[doc.width/3]*3)
-        footer_table.setStyle(TableStyle([
-            ("VALIGN", (0, 0), (-1, -1), "TOP"),
-            ("LEFTPADDING", (0, 0), (-1, -1), 4),
-            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-        ]))
-        story.append(footer_table)
-
-        doc.build(story)
-        pdf_bytes = buf.getvalue()
+    # ── PDF du programme (pièce jointe systématique) ───────────────────────
+    # 1. Rendu fidèle : on "imprime" la vraie page /programs/{id}?print_mode=true
+    #    via un navigateur headless — identique au bouton "Imprimer / PDF" du site.
+    pdf_bytes = await _render_program_pdf_via_browser(request, program_id)
+    if pdf_bytes:
         attachments.insert(0, (f"{program.title}.pdf", pdf_bytes, "application/pdf"))
-    except Exception as _e:
-        logger.warning("PDF non généré (ReportLab) : %s", _e, exc_info=True)
+    else:
+        # 2. Repli : génération ReportLab (fiable partout, mise en page simplifiée)
+        try:
+            from reportlab.lib.pagesizes import A4
+            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+            from reportlab.lib.units import cm
+            from reportlab.lib import colors
+            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
+            from reportlab.lib.enums import TA_CENTER, TA_LEFT
+            import os as _os
+
+            buf = io.BytesIO()
+            doc = SimpleDocTemplate(
+                buf, pagesize=A4,
+                leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm,
+            )
+
+            TEAL = colors.HexColor("#1a5252")
+            TEAL_LIGHT = colors.HexColor("#ecfdf5")
+            TEAL_BORDER = colors.HexColor("#d1fae5")
+            GRAY = colors.HexColor("#374151")
+            GRAY_LIGHT = colors.HexColor("#9ca3af")
+
+            styles = getSampleStyleSheet()
+            h1 = ParagraphStyle("h1", parent=styles["Normal"], fontSize=16, textColor=colors.white,
+                                 fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=2)
+            sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#a7d4d4"),
+                                 fontName="Helvetica", alignment=TA_CENTER)
+            body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, textColor=GRAY,
+                                  fontName="Helvetica", leading=14, spaceAfter=4)
+            meeting_title = ParagraphStyle("mt", parent=styles["Normal"], fontSize=11, textColor=TEAL,
+                                           fontName="Helvetica-Bold", leading=14)
+            small = ParagraphStyle("small", parent=styles["Normal"], fontSize=9, textColor=GRAY,
+                                   fontName="Helvetica", leading=12)
+            url_style = ParagraphStyle("url", parent=styles["Normal"], fontSize=8, textColor=TEAL,
+                                       fontName="Helvetica", leading=10)
+            footer_label = ParagraphStyle("fl", parent=styles["Normal"], fontSize=9, textColor=TEAL,
+                                          fontName="Helvetica-Bold", leading=12)
+            footer_val = ParagraphStyle("fv", parent=styles["Normal"], fontSize=9, textColor=GRAY,
+                                        fontName="Helvetica", leading=12)
+
+            story = []
+
+            # ── En-tête ──
+            lodge_name = lodge.name if lodge else "Socrate — Raison et Progrès"
+            obedience = lodge.obedience if lodge else "Grand Orient de France"
+            orient = lodge.orient_city if lodge else ""
+            loge_num = f" — R∴L∴ n°{lodge.loge_number}" if lodge and lodge.loge_number else ""
+            rite = lodge.rite if lodge and lodge.rite else None
+
+            header_text = [
+                Paragraph(lodge_name, h1),
+                Paragraph(f"Au nom et sous les auspices du {obedience}<br/>Or∴ de {orient}{loge_num}", sub),
+            ]
+            if rite:
+                header_text.append(Paragraph(f"— ϕ — {rite} — ϕ —", sub))
+
+            seal_path = _os.path.join("app", "static", "img", "sceau-socrate-transparent.png")
+            seal_img = Image(seal_path, width=1.6*cm, height=1.6*cm) if _os.path.exists(seal_path) else None
+
+            if seal_img:
+                header_table = Table([[seal_img, header_text]], colWidths=[2.4*cm, doc.width - 2.4*cm])
+            else:
+                header_table = Table([[header_text]], colWidths=[doc.width])
+            header_table.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (-1, -1), TEAL),
+                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+                ("TOPPADDING", (0, 0), (-1, -1), 14),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
+                ("LEFTPADDING", (0, 0), (-1, -1), 16),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 16),
+                ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+            ]))
+            story.append(header_table)
+            story.append(Spacer(1, 0.4*cm))
+
+            # ── Salutation / intro ──
+            story.append(Paragraph("Mon T∴C∴F∴, ma T∴C∴S∴,", body))
+            if program.content_html:
+                import re as _re
+                clean_intro = _re.sub(r"<[^>]+>", " ", program.content_html).strip()
+                story.append(Paragraph(clean_intro, body))
+            story.append(Spacer(1, 0.3*cm))
+
+            # ── Tenues ──
+            MEETING_TYPE_SHORT = {
+                "BLANCHE": "Ten∴ Bl∴", "SOLENNELLE": "Ten∴ Sol∴", "INSTRUCTION": "Ten∴ d'Instr∴",
+                "INITIATION": "Ten∴ d'Init∴", "INSTALLATION": "Installation",
+                "ELECTION": "Élection du V∴M∴", "PASSAGE": "Passage au 2e degré",
+                "ELEVATION": "Élévation au 3e degré", "FETE": "Fête mac∴", "EXTRA": "Ten∴ extraordinaire",
+            }
+
+            for pm in pm_sorted:
+                m = pm.meeting
+                url = pm.registration_url or _inscription_url(request, m.token)
+
+                n = m.meeting_number
+                num_label = f"{n}{'ère' if n == 1 else 'ème'} " if n else ""
+                type_label = MEETING_TYPE_SHORT.get(m.type.value, m.type.value)
+                grade_label = {"APPRENTI": "App∴", "COMPAGNON": "Comp∴", "MAITRE": "M∴"}.get(m.grade.value, "TLR∴")
+                title_str = f"▲ {num_label}{type_label} du {_date_civil(m.meeting_date)} en Loge d'{grade_label}"
+
+                card_rows = [[Paragraph(title_str, meeting_title)]]
+
+                if m.agenda_html:
+                    import re as _re
+                    agenda_clean = _re.sub(r"<[^>]+>", " ", m.agenda_html).strip()
+                    card_rows.append([Paragraph(agenda_clean, small)])
+
+                if m.degrees and len(m.degrees) > 1:
+                    for deg in m.degrees:
+                        deg_label = deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value)
+                        card_rows.append([Paragraph(f"• {deg_label}", small)])
+
+                if m.agape_enabled:
+                    agape_text = f"• Agape fraternelle à l'issue"
+                    if m.agape_location:
+                        agape_text += f" — {m.agape_location}"
+                    agape_text += " <font color='#b45309'><b>(Réservation impérative)</b></font>"
+                    card_rows.append([Paragraph(agape_text, small)])
+
+                card_rows.append([Paragraph(f"Inscription : {url}", url_style)])
+                if qr_pngs.get(m.id):
+                    card_rows.append([Image(io.BytesIO(qr_pngs[m.id]), width=2.0*cm, height=2.0*cm)])
+
+                card = Table(card_rows, colWidths=[doc.width])
+                card.setStyle(TableStyle([
+                    ("BACKGROUND", (0, 0), (0, 0), TEAL_LIGHT),
+                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                    ("BOX", (0, 0), (-1, -1), 0.5, TEAL_BORDER),
+                    ("LINEBELOW", (0, 0), (0, 0), 0.5, TEAL_BORDER),
+                    ("TOPPADDING", (0, 0), (-1, -1), 6),
+                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                    ("ROUNDEDCORNERS", [4, 4, 4, 4]),
+                ]))
+                story.append(card)
+                story.append(Spacer(1, 0.3*cm))
+
+            # ── Ordre du jour commun ──
+            if lodge and lodge.common_agenda:
+                story.append(Paragraph("▲ Ordre du jour commun à toutes les TTen∴", meeting_title))
+                for line in lodge.common_agenda.split("\n"):
+                    stripped = line.strip()
+                    if stripped:
+                        story.append(Paragraph(stripped, small))
+                story.append(Spacer(1, 0.3*cm))
+
+            # ── À noter ──
+            if program.next_meetings_text:
+                import re as _re
+                note_clean = _re.sub(r"<[^>]+>", " ", program.next_meetings_text).strip()
+                story.append(Paragraph(note_clean, body))
+                story.append(Spacer(1, 0.3*cm))
+
+            # ── Footer VM / Temple / Sec ──
+            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb")))
+            story.append(Spacer(1, 0.2*cm))
+
+            vm_lines = [Paragraph("V∴M∴", footer_label)]
+            if lodge and lodge.vm_name_display:
+                vm_lines.append(Paragraph(lodge.vm_name_display, footer_val))
+            if lodge and lodge.vm_email_display:
+                vm_lines.append(Paragraph(lodge.vm_email_display, footer_val))
+
+            temple_lines = [Paragraph("Temple", footer_label)]
+            if lodge and lodge.temple_name:
+                temple_lines.append(Paragraph(lodge.temple_name, footer_val))
+            if lodge and lodge.temple_address:
+                temple_lines.append(Paragraph(lodge.temple_address, footer_val))
+
+            sec_lines = [Paragraph("Sec∴", footer_label)]
+            if lodge and lodge.secretary_name_display:
+                sec_lines.append(Paragraph(lodge.secretary_name_display, footer_val))
+            if lodge and lodge.secretary_email_display:
+                sec_lines.append(Paragraph(lodge.secretary_email_display, footer_val))
+
+            footer_table = Table([[vm_lines, temple_lines, sec_lines]], colWidths=[doc.width/3]*3)
+            footer_table.setStyle(TableStyle([
+                ("VALIGN", (0, 0), (-1, -1), "TOP"),
+                ("LEFTPADDING", (0, 0), (-1, -1), 4),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+            ]))
+            story.append(footer_table)
+
+            doc.build(story)
+            pdf_bytes = buf.getvalue()
+            attachments.insert(0, (f"{program.title}.pdf", pdf_bytes, "application/pdf"))
+        except Exception as _e:
+            logger.warning("PDF non généré (ReportLab) : %s", _e, exc_info=True)
 
     lodge_name = lodge.name if lodge else "La Loge"
     subject = f"[{lodge_name}] {program.title}"
     base_url = str(request.base_url).rstrip("/")
+
+    # QR codes en images inline (cid:) — référencées dans emails/programme.html
+    inline_images = [
+        (f"qr{meeting_id}", png, "image/png") for meeting_id, png in qr_pngs.items()
+    ]
 
     sent = 0
     for name, email in recipients:
@@ -886,7 +973,11 @@ async def program_send_external(
         text_lines.append(f"— {lodge_name}")
         text = "\n".join(text_lines)
 
-        ok, _ = await _send_raw(email, subject, html_str, text, attachments=attachments or None)
+        ok, _ = await _send_raw(
+            email, subject, html_str, text,
+            attachments=attachments or None,
+            inline_images=inline_images or None,
+        )
         if ok:
             sent += 1
 

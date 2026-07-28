@@ -41,11 +41,14 @@ async def _send_raw(
     html: str,
     text: str,
     attachments: Optional[list[tuple[str, bytes, str]]] = None,
+    inline_images: Optional[list[tuple[str, bytes, str]]] = None,
     log_id: Optional[int] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     Envoie un email brut. Retourne (True, None) si succès.
-    attachments : liste de (filename, content_bytes, mime_type)
+    attachments : liste de (filename, content_bytes, mime_type) — pièces jointes téléchargeables
+    inline_images : liste de (content_id, content_bytes, mime_type) — images référencées
+                    dans le HTML via <img src="cid:{content_id}">
     log_id : si fourni (cf. create_pending_log), met à jour cette ligne
              EmailLog existante au lieu d'en créer une nouvelle.
     """
@@ -85,9 +88,25 @@ async def _send_raw(
     alt.attach(MIMEText(text, "plain", "utf-8"))
     alt.attach(MIMEText(html, "html",  "utf-8"))
 
+    # Images inline (référencées via cid: dans le HTML) — enveloppent le corps alternatif
+    if inline_images:
+        related = MIMEMultipart("related")
+        related.attach(alt)
+        for content_id, content, mime_type in inline_images:
+            main_type, sub_type = (mime_type or "image/png").split("/", 1)
+            img_part = MIMEBase(main_type, sub_type)
+            img_part.set_payload(content)
+            encoders.encode_base64(img_part)
+            img_part.add_header("Content-ID", f"<{content_id}>")
+            img_part.add_header("Content-Disposition", "inline", filename=f"{content_id}.png")
+            related.attach(img_part)
+        body_part = related
+    else:
+        body_part = alt
+
     if attachments:
         msg = MIMEMultipart("mixed")
-        msg.attach(alt)
+        msg.attach(body_part)
         for filename, content, mime_type in attachments:
             main_type, sub_type = (mime_type or "application/octet-stream").split("/", 1)
             part = MIMEBase(main_type, sub_type)
@@ -96,7 +115,7 @@ async def _send_raw(
             part.add_header("Content-Disposition", "attachment", filename=filename)
             msg.attach(part)
     else:
-        msg = alt
+        msg = body_part
 
     msg["Subject"] = subject
     msg["From"]    = f"{settings.lodge_name} <{settings.smtp_from}>"
