@@ -305,6 +305,24 @@
 <!-- Quill JS (editeur Ordre du jour) -->
 <script src="/static/js/quill.min.js"></script>
 <script>
+  // Corrige les URL mal formées (ex: lien Markdown collé tel quel, ou URL
+  // sans schéma) avant que Quill ne les stocke comme href — sans ce garde-fou,
+  // un href du type "[texte](https://...)" est traité comme un chemin relatif
+  // par le navigateur et casse la navigation.
+  (function () {
+    const BaseLink = Quill.import('formats/link');
+    class SafeLink extends BaseLink {
+      static sanitize(url) {
+        let clean = (url || '').trim();
+        const mdMatch = clean.match(/^\[.*?\]\((https?:\/\/[^)]+)\)$/);
+        if (mdMatch) clean = mdMatch[1];
+        else if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(clean)) clean = 'https://' + clean;
+        return BaseLink.sanitize(clean);
+      }
+    }
+    Quill.register(SafeLink, true);
+  })();
+
   const agendaQuill = new Quill('#agenda-quill-editor', {
     theme: 'snow',
     modules: { toolbar: '#agenda-quill-toolbar' },

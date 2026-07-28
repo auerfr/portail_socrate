@@ -22,6 +22,28 @@ from app.services.email import notify_new_message
 from app.models.groups import LodgeGroup as Group, SYSTEM_GROUPS
 from app.routers.groups import resolve_group_member_ids, ensure_system_groups
 
+def _normalize_message_links(html: Optional[str]) -> Optional[str]:
+    """Corrige les liens mal formés dans un corps de message : si l'utilisateur
+    a collé une URL au format Markdown (`[texte](https://...)`) directement
+    dans le champ URL de l'éditeur, ou une URL sans schéma, le href stocké
+    n'est pas une URL absolue valide — le navigateur la traite alors comme un
+    chemin relatif (ex: /messages/[texte](https://...)), ce qui casse le lien
+    et peut même faire planter la page de destination."""
+    if not html:
+        return html
+
+    def _fix(m: re.Match) -> str:
+        href = m.group(1)
+        md_match = re.match(r"^\[.*?\]\((https?://[^)]+)\)$", href)
+        if md_match:
+            href = md_match.group(1)
+        elif not re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:", href):
+            href = "https://" + href
+        return f'href="{href}"'
+
+    return re.sub(r'href="([^"]*)"', _fix, html)
+
+
 def _strip_html_tags(html: str) -> str:
     """Version texte brut d'un corps HTML (éditeur riche) — pour les aperçus,
     notifications email/push, qui n'ont pas besoin de la mise en forme."""
@@ -736,6 +758,7 @@ async def message_detail(
         "current_member": member,
         "current_user": user,
         "msg": msg,
+        "body_html_display": _normalize_message_links(msg.body_html),
         "sender": sender,
         "recipients_detail": recipients_detail,
         "is_sender": msg.sender_id == member.id,
