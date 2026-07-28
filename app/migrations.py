@@ -91,7 +91,22 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE messages ADD COLUMN visio_url VARCHAR(500)"
             )
+        if "sender_deleted_at" not in cols_msg:
+            await conn.exec_driver_sql(
+                "ALTER TABLE messages ADD COLUMN sender_deleted_at DATETIME"
+            )
         # message_attachments : créée par Base.metadata.create_all (nouveau modèle)
+
+        r_mr = await conn.exec_driver_sql("PRAGMA table_info(message_recipients)")
+        cols_mr = [row[1] for row in r_mr.fetchall()]
+        if cols_mr and "deleted_at" not in cols_mr:
+            await conn.exec_driver_sql(
+                "ALTER TABLE message_recipients ADD COLUMN deleted_at DATETIME"
+            )
+        if cols_mr and "label" not in cols_mr:
+            await conn.exec_driver_sql(
+                "ALTER TABLE message_recipients ADD COLUMN label VARCHAR(50)"
+            )
 
         # ── Agenda ─────────────────────────────────────────────────────────
         # La table lodge_events est créée par Base.metadata.create_all
