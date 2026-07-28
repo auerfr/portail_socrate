@@ -333,6 +333,36 @@
             enctype="multipart/form-data"
             style="border:1px solid #d1fae5;border-top:none;border-radius:0 0 6px 6px;padding:12px;background:#f0fdf4;">
 
+        {% if mailing_lists_for_program %}
+        <div style="margin-bottom:10px;padding:8px 10px;background:#eef2ff;border:1px solid #c7d2fe;border-radius:6px;">
+          <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:6px;">📋 Listes de diffusion existantes (cochez pour sélectionner leurs contacts)</div>
+          {% for ml in mailing_lists_for_program %}
+          <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;margin-bottom:3px;cursor:pointer;">
+            <input type="checkbox" checked
+                   onchange="toggleProgramContactList([{{ ml.external_ids|join(',') }}], this.checked)">
+            <span>{{ ml.name }} <span style="color:#9ca3af;">({{ ml.external_ids|length }} contact{{ 's' if ml.external_ids|length > 1 }})</span></span>
+          </label>
+          {% endfor %}
+          <div style="display:flex;gap:8px;margin-top:6px;">
+            <button type="button" onclick="toggleProgramAllContacts(true)"
+                    style="font-size:11px;color:#1a5252;background:white;border:1px solid #8eccc6;border-radius:5px;padding:3px 8px;cursor:pointer;">Tout cocher</button>
+            <button type="button" onclick="toggleProgramAllContacts(false)"
+                    style="font-size:11px;color:#1a5252;background:white;border:1px solid #8eccc6;border-radius:5px;padding:3px 8px;cursor:pointer;">Tout décocher</button>
+          </div>
+        </div>
+        <script>
+          function toggleProgramContactList(ids, checked) {
+            ids.forEach(function (id) {
+              var cb = document.querySelector('input[name="contact_ids"][value="' + id + '"]');
+              if (cb) cb.checked = checked;
+            });
+          }
+          function toggleProgramAllContacts(checked) {
+            document.querySelectorAll('input[name="contact_ids"]').forEach(function (cb) { cb.checked = checked; });
+          }
+        </script>
+        {% endif %}
+
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
           {% set visitors = external_contacts | selectattr('contact_type', 'eq', 'VISITOR') | list %}
           {% set externals = external_contacts | selectattr('contact_type', 'eq', 'EXTERNAL') | list %}

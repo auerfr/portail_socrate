@@ -24,6 +24,7 @@ from app.models.identity import LodgeFunction
 from app.models.meetings import Meeting, MeetingType, MeetingGrade
 from app.models.lodge import MasonicYear, LodgeSettings, ExternalContact
 from app.models.documents import DocFolder, DocSpace, DocStatus, Document
+from app.models.mailing import MailingList, MailingListExternal
 
 router = APIRouter(prefix="/programs", tags=["programs"])
 from app.template_engine import templates
@@ -282,6 +283,24 @@ async def program_detail(
     )
     external_contacts = r_contacts.scalars().all()
 
+    # Listes de diffusion existantes (module Diffusion) pour sélection rapide
+    # des destinataires externes — cf. app/routers/mailing.py
+    r_lists = await db.execute(
+        select(MailingList.id, MailingList.name, MailingListExternal.external_id)
+        .join(MailingListExternal, MailingListExternal.list_id == MailingList.id)
+        .join(ExternalContact, ExternalContact.id == MailingListExternal.external_id)
+        .where(
+            MailingListExternal.unsubscribed_at.is_(None),
+            ExternalContact.is_active == True,
+        )
+        .order_by(MailingList.name)
+    )
+    mailing_lists_map: dict[int, dict] = {}
+    for list_id, list_name, external_id in r_lists.all():
+        entry = mailing_lists_map.setdefault(list_id, {"id": list_id, "name": list_name, "external_ids": []})
+        entry["external_ids"].append(external_id)
+    mailing_lists_for_program = [ml for ml in mailing_lists_map.values() if ml["external_ids"]]
+
     return templates.TemplateResponse(request, "pages/programs/detail.html", {
         "current_member": member,
         "current_user": user,
@@ -300,6 +319,7 @@ async def program_detail(
         "print_mode": print_mode,
         "now": datetime.now(),
         "external_contacts": external_contacts,
+        "mailing_lists_for_program": mailing_lists_for_program,
         "email_sent": request.query_params.get("email_sent"),
     })
 
