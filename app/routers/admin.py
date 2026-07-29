@@ -574,76 +574,17 @@ async def admin_rgpd_export(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Export RGPD : zip avec un JSON contenant toutes les données du membre."""
-    import io
-    import json
-    import zipfile
     from fastapi.responses import StreamingResponse
+    from app.services.rgpd import build_member_export_zip
 
     actor_user, actor_member = ctx
     m = (await db.execute(select(Member).where(Member.id == member_id))).scalar_one_or_none()
     if not m:
         raise HTTPException(404)
 
-    def _serialize(obj):
-        out = {}
-        for col in obj.__table__.columns:
-            val = getattr(obj, col.name)
-            if hasattr(val, "isoformat"):
-                val = val.isoformat()
-            elif hasattr(val, "value"):
-                val = val.value
-            out[col.name] = val
-        return out
-
-    data = {"member": _serialize(m)}
-
-    # User associé
-    u = (await db.execute(select(User).where(User.member_id == m.id))).scalar_one_or_none()
-    if u:
-        d = _serialize(u)
-        d.pop("password_hash", None)  # ne pas exporter le hash
-        d.pop("reset_token", None)
-        data["user_account"] = d
-
-    # Tenter de joindre quelques relations courantes
-    from sqlalchemy import text as sa_text
-    for label, sql in [
-        ("attendances",   "SELECT * FROM attendances WHERE member_id = :id"),
-        ("messages_sent", "SELECT id, subject, body, created_at FROM messages WHERE sender_id = :id"),
-        ("news_authored", "SELECT id, title, created_at FROM news_articles WHERE author_id = :id"),
-        ("poll_votes",    "SELECT * FROM poll_votes WHERE voter_id = :id"),
-        ("tasks_assigned","SELECT id, title, status, due_date FROM tasks WHERE assigned_to_id = :id"),
-        ("task_comments", "SELECT id, task_id, content, created_at FROM task_comments WHERE author_id = :id"),
-        ("audit_actions", "SELECT id, action, resource_type, target_label, created_at FROM audit_logs WHERE actor_id = :id"),
-    ]:
-        try:
-            r = await db.execute(sa_text(sql), {"id": m.id})
-            rows = [dict(row._mapping) for row in r.fetchall()]
-            for row in rows:
-                for k, v in list(row.items()):
-                    if hasattr(v, "isoformat"):
-                        row[k] = v.isoformat()
-            data[label] = rows
-        except Exception as e:
-            data[label] = {"_error": str(e)}
-
-    # Construction du ZIP en mémoire
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(
-            "donnees.json",
-            json.dumps(data, indent=2, ensure_ascii=False, default=str),
-        )
-        zf.writestr(
-            "README.txt",
-            "Export RGPD - Portail Socrate\n"
-            f"Membre : {m.last_name} {m.first_name} (id={m.id})\n"
-            f"Date d'export : {datetime.utcnow().isoformat()}\n"
-            f"Demandé par : {actor_member.first_name} {actor_member.last_name}\n\n"
-            "Ce ZIP contient l'ensemble des données personnelles associées à ce membre\n"
-            "dans la base de la loge, hors fichiers uploadés.\n",
-        )
-    buf.seek(0)
+    buf = await build_member_export_zip(
+        db, m, requested_by=f"{actor_member.first_name} {actor_member.last_name} (admin)"
+    )
 
     await log_audit(
         db, actor_id=actor_member.id, action="RGPD_EXPORT",

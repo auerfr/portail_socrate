@@ -499,6 +499,41 @@ async def change_username(
     return _render(login_success=True)
 
 
+# ── Export RGPD self-service (droit à la portabilité) ─────────────────────
+
+@router.get("/my-data")
+async def export_my_data(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Permet à tout membre de télécharger ses propres données (RGPD)."""
+    from fastapi.responses import StreamingResponse
+    from app.services.rgpd import build_member_export_zip
+
+    user, member = ctx
+    buf = await build_member_export_zip(
+        db, member, requested_by=f"{member.first_name} {member.last_name} (lui-même)"
+    )
+
+    try:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=member.id, action="RGPD_SELF_EXPORT",
+            target_type="member", target_id=member.id,
+            target_label=f"{member.last_name} {member.first_name}",
+            request=request, commit=True,
+        )
+    except Exception:
+        pass
+
+    fname = f"mes-donnees-{datetime.utcnow().strftime('%Y%m%d')}.zip"
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
+
+
 # ── Réinitialisation de mot de passe (public) ─────────────────────────────
 
 @router.get("/reset-password", response_class=HTMLResponse)
