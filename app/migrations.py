@@ -477,3 +477,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE external_contacts ADD COLUMN last_confirmed_at DATETIME"
             )
 
+    # ── members.notifications_seen_at : centre de notifications ────────────
+    async with engine.begin() as conn:
+        r_notif = await conn.exec_driver_sql("PRAGMA table_info(members)")
+        cols_notif = [row[1] for row in r_notif.fetchall()]
+        if cols_notif and "notifications_seen_at" not in cols_notif:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN notifications_seen_at DATETIME"
+            )
+

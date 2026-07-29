@@ -140,16 +140,19 @@
       </div>
     </a>
 
-    <!-- Recherche globale -->
-    <form method="get" action="/search" class="px-3 pt-3">
-      <div class="relative">
-        <i class="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
-        <input type="text" name="q" placeholder="Rechercher…"
-               value="{{ request.query_params.get('q', '') if '/search' in request.url.path else '' }}"
-               class="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs text-gray-200 placeholder-gray-500 border-0 focus:ring-1 focus:ring-loge-500"
-               style="background:rgba(255,255,255,0.08);">
-      </div>
-    </form>
+    <!-- Recherche globale + cloche de notifications -->
+    <div class="px-3 pt-3 flex items-center gap-1.5">
+      <form method="get" action="/search" class="flex-1">
+        <div class="relative">
+          <i class="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+          <input type="text" name="q" placeholder="Rechercher…"
+                 value="{{ request.query_params.get('q', '') if '/search' in request.url.path else '' }}"
+                 class="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs text-gray-200 placeholder-gray-500 border-0 focus:ring-1 focus:ring-loge-500"
+                 style="background:rgba(255,255,255,0.08);">
+        </div>
+      </form>
+      {% include "partials/_notif_bell.html" %}
+    </div>
 
     <!-- Navigation -->
     <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
@@ -647,6 +650,12 @@
   </div>
   {% endif %}
 
+  {% if not on_auth %}
+  <div class="lg:hidden sticky top-0 z-40 flex items-center justify-end px-3 py-1.5 safe-top border-b border-white/10" style="background:#2d3748;">
+    {% include "partials/_notif_bell.html" %}
+  </div>
+  {% endif %}
+
   <main class="{% if not on_auth %}lg:ml-52 pb-20 lg:pb-0{% endif %} min-h-full safe-top">
     {# ── Bannière de maintenance globale ─────────────────────────────────── #}
     {% set _banner = request.state.banner if request.state and request.state.banner else None %}
@@ -785,6 +794,17 @@
           lastMsgTotal = d.total || 0;
           updateBadge(['msg-badge-sidebar','msg-badge-mobile'], lastMsgTotal);
           updateAppBadge();
+        })
+        .catch(function() {});
+      fetch('/notifications/api/count', {credentials: 'same-origin'})
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          if (!d) return;
+          var count = d.total || 0;
+          document.querySelectorAll('.notif-badge').forEach(function(el) {
+            if (count > 0) { el.textContent = count > 9 ? '9+' : count; el.classList.remove('hidden'); }
+            else { el.classList.add('hidden'); }
+          });
         })
         .catch(function() {});
     }
