@@ -314,6 +314,34 @@ async def maintenance_banner_middleware(request: Request, call_next):
 
     return await call_next(request)
 
+
+@app.middleware("http")
+async def two_factor_gate_middleware(request: Request, call_next):
+    """Bloque l'accès aux pages tant que le code 2FA n'a pas été vérifié après
+    un login (claim "2fa_pending" présent dans le token d'accès)."""
+    path = request.url.path
+    bypass = (
+        path.startswith("/static")
+        or path.startswith("/auth/")
+        or path in {"/manifest.json", "/sw.js", "/favicon.ico"}
+    )
+    if not bypass:
+        token = request.cookies.get("access_token")
+        if token:
+            try:
+                from app.dependencies import decode_token
+                payload = decode_token(token)
+                if payload.get("2fa_pending"):
+                    from urllib.parse import quote
+                    next_path = path + (f"?{request.url.query}" if request.url.query else "")
+                    return RedirectResponse(
+                        url=f"/auth/2fa/verify?next={quote(next_path, safe='')}",
+                        status_code=303,
+                    )
+            except Exception:
+                pass
+    return await call_next(request)
+
 # Instance Jinja2 partagée (filtres datefr + label déjà enregistrés)
 from app.template_engine import templates
 
