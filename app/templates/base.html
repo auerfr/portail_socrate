@@ -140,6 +140,17 @@
       </div>
     </a>
 
+    <!-- Recherche globale -->
+    <form method="get" action="/search" class="px-3 pt-3">
+      <div class="relative">
+        <i class="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+        <input type="text" name="q" placeholder="Rechercher…"
+               value="{{ request.query_params.get('q', '') if '/search' in request.url.path else '' }}"
+               class="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs text-gray-200 placeholder-gray-500 border-0 focus:ring-1 focus:ring-loge-500"
+               style="background:rgba(255,255,255,0.08);">
+      </div>
+    </form>
+
     <!-- Navigation -->
     <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
 
@@ -441,6 +452,16 @@
     </div>
 
     <div class="px-3 pb-4">
+
+      <!-- Recherche globale -->
+      <form method="get" action="/search" class="px-3 pt-3 pb-2">
+        <div class="relative">
+          <i class="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+          <input type="text" name="q" placeholder="Rechercher…"
+                 class="w-full pl-8 pr-2 py-2 rounded-xl text-sm text-gray-200 placeholder-gray-500 border-0 focus:ring-1 focus:ring-loge-500"
+                 style="background:rgba(255,255,255,0.08);">
+        </div>
+      </form>
 
       <!-- ── Communication ── -->
       <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-3 pb-1">Communication</p>

@@ -45,6 +45,7 @@ from app.routers import guide as guide_router
 from app.routers import faq as faq_router
 from app.routers import presence as presence_router
 from app.routers import contact_confirmation as contact_confirmation_router
+from app.routers import search as search_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -421,6 +422,7 @@ app.include_router(guide_router.router)
 app.include_router(faq_router.router)
 app.include_router(presence_router.router)
 app.include_router(contact_confirmation_router.router)
+app.include_router(search_router.router)
 # app.include_router(admin.router)
 
 
