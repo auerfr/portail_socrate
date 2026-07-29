@@ -265,6 +265,14 @@
       </a>
       {% endif %}
 
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
+      <a href="/engagement/"
+         class="nav-item {% if '/engagement' in request.url.path %}active{% endif %}">
+        <i class="ti ti-chart-line"></i>
+        Engagement
+      </a>
+      {% endif %}
+
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'PREMIER_S', 'SECOND_S', 'SECRETAIRE'])) %}
       <a href="/meetings/me/officiers"
          class="nav-item {% if '/officiers' in request.url.path %}active{% endif %}">
@@ -539,6 +547,14 @@
         <i class="ti ti-clipboard-check text-lg opacity-70"></i>
         Présences
       </a>
+
+      {% if current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE']) %}
+      <a href="/engagement/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/engagement' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-chart-line text-lg opacity-70"></i>
+        Engagement
+      </a>
+      {% endif %}
       {% endif %}
 
       <!-- ── Gestion ── -->

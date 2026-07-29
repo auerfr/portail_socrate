@@ -257,3 +257,24 @@ def can_manage_attendance(member: Member) -> bool:
         LodgeFunction.PREMIER_S,
         LodgeFunction.SECOND_S,
     )
+
+
+def can_view_engagement_stats(member: Member) -> bool:
+    """Peut consulter le tableau de bord d'engagement (VM, Secrétaire)."""
+    return member.lodge_function in (
+        LodgeFunction.VM,
+        LodgeFunction.SECRETAIRE,
+    )
+
+
+async def require_engagement_viewer(
+    ctx: Annotated[tuple, Depends(require_active_member)]
+) -> tuple:
+    """Exige admin, VM ou Secrétaire — pour le tableau de bord d'engagement."""
+    user, member = ctx
+    if user.is_admin or can_view_engagement_stats(member):
+        return ctx
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Réservé au Vénérable Maître, au Secrétaire ou à l'administrateur",
+    )
