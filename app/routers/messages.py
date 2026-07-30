@@ -376,6 +376,7 @@ async def compose(
     db: Annotated[AsyncSession, Depends(get_db)],
     group_id: Optional[int] = None,
     reply_to: Optional[int] = None,
+    reply_all: bool = False,
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -391,8 +392,16 @@ async def compose(
 
     # Pré-remplissage si réponse à un message
     reply_msg = None
+    reply_member_ids: List[int] = []
     if reply_to:
-        reply_msg = await db.get(Message, reply_to)
+        reply_msg = await db.get(Message, reply_to, options=[selectinload(Message.recipients)])
+        if reply_msg:
+            if reply_all:
+                reply_member_ids = list(
+                    {reply_msg.sender_id} | {r.member_id for r in reply_msg.recipients} - {member.id}
+                )
+            else:
+                reply_member_ids = [reply_msg.sender_id]
 
     # Pré-sélection d'un groupe
     preselect_group = None
@@ -416,6 +425,8 @@ async def compose(
         "unread_count": unread,
         "can_send": True,
         "reply_msg": reply_msg,
+        "reply_member_ids": reply_member_ids,
+        "reply_all": bool(reply_all and reply_msg),
         "preselect_group": preselect_group,
         "visio_server": visio_server,
         "visio_prefix": visio_prefix,
@@ -469,21 +480,13 @@ async def send_message(
 
     target_filter_json = json.dumps(tf) if tf else None
 
-    # Pour une réponse : les destinataires = expéditeur + destinataires du message parent
-    if parent_id:
-        parent = await db.get(Message, parent_id, options=[selectinload(Message.recipients)])
-        if parent:
-            # Répondre à l'expéditeur du message original + inclure le membre courant comme expéditeur
-            reply_ids = list({parent.sender_id} | {rec.member_id for rec in parent.recipients} - {member.id})
-            target_type = MessageTargetType.MANUAL
-            tf = {"member_ids": reply_ids}
-            target_filter_json = json.dumps(tf)
-            recipient_ids = reply_ids
-        else:
-            parent_id = None
-            recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
-    else:
-        recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
+    # Pour une réponse : on garde le lien parent_id pour le fil de discussion,
+    # mais les destinataires suivent le ciblage réellement soumis (le compose
+    # pré-remplit target_member_ids avec l'expéditeur seul pour "Répondre",
+    # ou expéditeur + autres destinataires pour "Répondre à tous").
+    if parent_id and not await db.get(Message, parent_id):
+        parent_id = None
+    recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
 
     if not recipient_ids:
         raise HTTPException(400, "Aucun destinataire trouvé pour ce ciblage")

@@ -20,13 +20,20 @@
   </nav>
 
   <h1 class="text-2xl font-bold text-gray-900 mb-6">
-    {% if reply_msg %}Répondre au message{% else %}Nouveau message{% endif %}
+    {% if reply_msg %}{% if reply_all %}Répondre à tous{% else %}Répondre au message{% endif %}{% else %}Nouveau message{% endif %}
   </h1>
 
   {% if reply_msg %}
   <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-sm text-gray-600">
     <div class="font-semibold text-gray-700 mb-1">En réponse à : {{ reply_msg.subject }}</div>
     <div class="text-xs text-gray-400 line-clamp-2">{{ reply_msg.body[:200] }}{% if reply_msg.body|length > 200 %}…{% endif %}</div>
+    <div class="text-xs text-loge-700 mt-2 font-medium">
+      {% if reply_all %}
+      <i class="ti ti-users"></i> À {{ reply_member_ids | length }} destinataire{{ 's' if reply_member_ids|length != 1 else '' }} (expéditeur + autres destinataires)
+      {% else %}
+      <i class="ti ti-user"></i> À l'expéditeur uniquement
+      {% endif %}
+    </div>
   </div>
   {% endif %}
 
@@ -192,7 +199,7 @@
     <!-- Réponse : destinataire fixe, ciblage masqué -->
     <input type="hidden" name="parent_id" value="{{ reply_msg.id }}">
     <input type="hidden" name="target_type" value="MANUAL">
-    <input type="hidden" name="target_member_ids" value="{{ reply_msg.sender_id }}">
+    <input type="hidden" name="target_member_ids" value="{{ reply_member_ids | join(',') }}">
     {% else %}
 
     <!-- Ciblage -->

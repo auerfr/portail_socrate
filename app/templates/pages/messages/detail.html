@@ -188,6 +188,15 @@
           </svg>
           Répondre
         </a>
+        {% if msg.recipients | length > 1 %}
+        <a href="/messages/compose?reply_to={{ msg.id }}&reply_all=1"
+           class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-loge-200 hover:bg-loge-50 text-loge-700 text-sm font-semibold rounded-xl transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M7 16l-4-4m0 0l4-4m-4 4h11a4 4 0 010 8h-1M3 12h7"/>
+          </svg>
+          Répondre à tous
+        </a>
+        {% endif %}
         {% endif %}
         {% if is_sender or current_user.is_admin %}
         <form method="post" action="/messages/{{ msg.id }}/delete"
