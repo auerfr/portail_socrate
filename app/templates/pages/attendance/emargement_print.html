@@ -1,0 +1,100 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Émargement — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}</title>
+  <style>
+    @page { size: A4 portrait; margin: 1.5cm; }
+    * { box-sizing: border-box; }
+    body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; color: #111; margin: 0; }
+    .header { text-align: center; border-bottom: 2px solid #2c7a7b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0 0 .25rem; font-size: 18pt; color: #2c7a7b; }
+    .header h2 { margin: 0; font-size: 13pt; font-weight: normal; color: #555; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
+    th { background: #e6f4f1; text-align: left; padding: .4rem .6rem; font-size: 9.5pt; text-transform: uppercase; letter-spacing: .04em; color: #2c7a7b; border-bottom: 1px solid #b3d4cf; }
+    td { padding: .5rem .6rem; border-bottom: 1px solid #e5e7eb; font-size: 11pt; vertical-align: middle; }
+    .grade { color: #6b7280; font-size: 9.5pt; }
+    .exc  { color: #b45309; font-weight: 600; font-size: 9.5pt; }
+    .none { color: #9ca3af; font-size: 9.5pt; }
+    .sig  { border-bottom: 1px solid #9ca3af; }
+    .section-title { font-size: 11pt; font-weight: bold; color: #2c7a7b; margin: 1.5rem 0 .5rem; }
+    .footer { margin-top: 1.5rem; font-size: 9pt; color: #6b7280; text-align: center; }
+    @media print { .no-print { display: none !important; } tr { break-inside: avoid; } }
+    .no-print { text-align: center; margin: 1rem 0; }
+    .no-print button { background: #2c7a7b; color: white; border: none; padding: .5rem 1rem; border-radius: .5rem; cursor: pointer; font-size: 11pt; }
+  </style>
+</head>
+<body>
+
+  <div class="no-print">
+    <button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+  </div>
+
+  <div class="header">
+    <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
+    <h2>
+      Feuille d'émargement — {{ meeting.title or (meeting.type | label) }}<br>
+      <small>{{ meeting.meeting_date | datefr('%A %d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}</small>
+    </h2>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35%;">Membre</th>
+        <th style="width:15%;">Grade</th>
+        <th style="width:20%;">Statut connu</th>
+        <th>Signature</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in active_members %}
+      {% set att = att_by_member.get(m.id) %}
+      <tr>
+        <td>{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name }} {{ m.first_name }}</td>
+        <td class="grade">{{ m.masonic_grade.value }}</td>
+        <td>
+          {% if att and att.status.value == 'EXCUSED' %}
+          <span class="exc">Excusé{% if att.excuse_reason %} — {{ att.excuse_reason }}{% endif %}</span>
+          {% elif att and att.status.value == 'PRESENT' %}
+          <span class="exc" style="color:#047857;">Inscrit présent</span>
+          {% else %}
+          <span class="none">—</span>
+          {% endif %}
+        </td>
+        <td class="sig">&nbsp;</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  {% if visitors %}
+  <div class="section-title">Maçons passants confirmés</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:35%;">Visiteur</th>
+        <th style="width:35%;">Loge / Orient</th>
+        <th>Signature</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for mv in visitors %}
+      <tr>
+        <td>{% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}</td>
+        <td class="grade">{{ mv.visitor.lodge_name or '' }}{% if mv.visitor.orient_city %} — {{ mv.visitor.orient_city }}{% endif %}</td>
+        <td class="sig">&nbsp;</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="footer">
+    Document généré le {{ generated_on }} — Portail Socrate.
+    Les statuts « Excusé »/« Inscrit présent » reflètent les inscriptions faites avant la tenue ;
+    l'émargement de référence reste celui saisi sur le portail.
+  </div>
+
+</body>
+</html>
