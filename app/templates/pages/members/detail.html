@@ -153,14 +153,30 @@
           {% endif %}
         </div>
         {% if current_user.is_admin %}
-        <form method="post" action="/members/{{ target.id }}/toggle-user">
-          <button type="submit"
-                  class="text-xs border border-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-50">
-            {{ 'Désactiver' if target_user.is_active else 'Activer' }}
-          </button>
-        </form>
+        <div class="flex items-center gap-2">
+          {% if target_user.totp_enabled %}
+          <form method="post" action="/members/{{ target.id }}/reset-2fa"
+                onsubmit="return confirm('Désactiver la 2FA de ce membre ? À utiliser uniquement s\'il a perdu l\'accès à son application d\'authentification.')">
+            <button type="submit"
+                    class="text-xs border border-amber-200 text-amber-700 px-3 py-1 rounded-lg hover:bg-amber-50">
+              Réinitialiser la 2FA
+            </button>
+          </form>
+          {% endif %}
+          <form method="post" action="/members/{{ target.id }}/toggle-user">
+            <button type="submit"
+                    class="text-xs border border-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-50">
+              {{ 'Désactiver' if target_user.is_active else 'Activer' }}
+            </button>
+          </form>
+        </div>
         {% endif %}
       </div>
+      {% if request.query_params.get('_msg') == '2fa_reset' %}
+      <p class="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-2">
+        ✓ La 2FA de ce membre a été désactivée. Il peut désormais se reconnecter sans code, et réactiver la 2FA depuis son propre compte s'il le souhaite.
+      </p>
+      {% endif %}
       {% else %}
       <p class="text-sm text-gray-500">Pas encore de compte. <a href="/members/{{ target.id }}/edit" class="text-loge-700 hover:underline">Créer un accès</a></p>
       {% endif %}
