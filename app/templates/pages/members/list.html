@@ -11,12 +11,32 @@
       <h1 class="text-2xl font-bold text-gray-900">Tableau de la Loge</h1>
       <p class="text-sm text-gray-500 mt-1">{{ members|length }} membre(s)</p>
     </div>
-    {% if can_manage %}
-    <a href="/members/new/form"
-       class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">
-      <span>+</span> Nouveau membre
-    </a>
-    {% endif %}
+    <div class="flex items-center gap-2">
+      <div class="relative" x-data="{ exportOpen: false }">
+        <button type="button" @click="exportOpen = !exportOpen" @click.outside="exportOpen = false"
+                class="inline-flex items-center gap-2 border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-sm font-medium hover:bg-gray-50 transition-colors">
+          <i class="ti ti-download"></i> Exporter
+        </button>
+        <div x-show="exportOpen" x-cloak x-transition
+             class="absolute right-0 mt-2 w-48 bg-white border border-gray-200 rounded-xl shadow-lg z-50 overflow-hidden">
+          <a href="/members/export/csv?search={{ search }}&grade={{ grade_filter }}&status_filter={{ status_filter }}"
+             class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50">
+            📄 Export CSV
+          </a>
+          <a href="/members/print?search={{ search }}&grade={{ grade_filter }}&status_filter={{ status_filter }}"
+             target="_blank"
+             class="block px-4 py-2.5 text-sm text-gray-700 hover:bg-gray-50 border-t border-gray-100">
+            🖨️ Vue imprimable
+          </a>
+        </div>
+      </div>
+      {% if can_manage %}
+      <a href="/members/new/form"
+         class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">
+        <span>+</span> Nouveau membre
+      </a>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Filtres -->
