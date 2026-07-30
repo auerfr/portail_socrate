@@ -58,12 +58,9 @@
         {{ lodge.name if lodge else 'Socrate Raison et Progrès' }}
       </h1>
       <p class="mt-3 text-base font-semibold text-gray-700">
-        Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
+        {% if meeting.meeting_number %}{{ meeting.meeting_number }}ème {% endif %}Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
         en Loge d'{{ grade_label(meeting.grade) }}
       </p>
-      {% if meeting.meeting_number %}
-      <p class="text-xs text-gray-400 mt-1">{{ meeting.meeting_number }}ème tenue</p>
-      {% endif %}
     </div>
 
     <div class="px-10 py-6 space-y-5 text-sm leading-relaxed text-gray-800">
@@ -130,6 +127,16 @@
       <p class="text-justify">
         Étaient excusés, les FF∴ et les SS∴ :
         {% for att in excused %}{{ att.member.last_name | upper }} {{ att.member.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+      </p>
+      {% endif %}
+
+      <!-- ── Absents non excusés ── -->
+      {% if absent %}
+      <p class="text-justify">
+        {% if absent|length == 1 %}Était absent le {% if absent[0].member.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ absent[0].member.last_name | upper }} {{ absent[0].member.first_name }}.
+        {% else %}Étaient absent(e)s les FF∴ et les SS∴ :
+        {% for att in absent %}{{ att.member.last_name | upper }} {{ att.member.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+        {% endif %}
       </p>
       {% endif %}
 
@@ -225,6 +232,11 @@
                   class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-2 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
             ∴
           </button>
+          <button type="button" onclick="insertClosingFormula()"
+                  title="Insérer la formule de clôture standard"
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-2 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+            Formule de clôture
+          </button>
           <button onclick="toggleEdit()"
                   class="border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
             Annuler
@@ -287,6 +299,14 @@ function toggleEdit() {
     const existing = {{ (meeting.compte_rendu_html or '') | tojson }};
     if (existing) quill.clipboard.dangerouslyPasteHTML(existing);
   }
+}
+
+function insertClosingFormula() {
+  if (!quill) return;
+  const formula = "Le plan parfait étant épuisé, le V∴M∴ clôt les travaux en la forme accoutumée, invitant les FF∴ et les SS∴ à se retirer en paix, sous la loi du silence, pour partager de fraternelles agapes.";
+  const range = quill.getSelection(true);
+  quill.insertText(range.index, formula, 'user');
+  quill.setSelection(range.index + formula.length);
 }
 
 function insertMasonicTrace(token) {

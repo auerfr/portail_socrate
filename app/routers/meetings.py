@@ -558,7 +558,7 @@ async def meeting_trace(
         # (note: si le titulaire est aussi présent, le label reste sur le titulaire ;
         # ici on l'écrase pour le substitut s'il n'a pas déjà un autre office)
         if ms.substitute_member_id not in member_office:
-            member_office[ms.substitute_member_id] = ms.office_label + " *"
+            member_office[ms.substitute_member_id] = ms.office_label + " remplaçant"
 
     # Lodge infos
     lodge_r = await db.execute(select(LodgeSettings).limit(1))
