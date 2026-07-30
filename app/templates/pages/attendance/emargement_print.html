@@ -7,7 +7,9 @@
     @page { size: A4 portrait; margin: 1.5cm; }
     * { box-sizing: border-box; }
     body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; color: #111; margin: 0; }
-    .header { text-align: center; border-bottom: 2px solid #2c7a7b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header { display: grid; grid-template-columns: 70px 1fr 56px; align-items: center; gap: 10px;
+              border-bottom: 2px solid #2c7a7b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header img { display: block; margin: 0 auto; width: 100%; height: auto; }
     .header h1 { margin: 0 0 .25rem; font-size: 18pt; color: #2c7a7b; }
     .header h2 { margin: 0; font-size: 13pt; font-weight: normal; color: #555; }
     table { width: 100%; border-collapse: collapse; margin-bottom: 1.5rem; }
@@ -31,11 +33,15 @@
   </div>
 
   <div class="header">
-    <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
-    <h2>
-      Feuille d'émargement — {{ meeting.title or (meeting.type | label) }}<br>
-      <small>{{ meeting.meeting_date | datefr('%A %d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}</small>
-    </h2>
+    <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau">
+    <div>
+      <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
+      <h2>
+        Feuille d'émargement — {{ meeting.title or (meeting.type | label) }}<br>
+        <small>{{ meeting.meeting_date | datefr('%A %d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}</small>
+      </h2>
+    </div>
+    <img src="/static/img/rosace-godf.jpg" alt="Rosace">
   </div>
 
   <table>
@@ -73,8 +79,9 @@
   <table>
     <thead>
       <tr>
-        <th style="width:35%;">Visiteur</th>
-        <th style="width:35%;">Loge / Orient</th>
+        <th style="width:30%;">Visiteur</th>
+        <th style="width:30%;">Loge / Orient</th>
+        <th style="width:15%;">Obédience</th>
         <th>Signature</th>
       </tr>
     </thead>
@@ -83,6 +90,7 @@
       <tr>
         <td>{% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}</td>
         <td class="grade">{{ mv.visitor.lodge_name or '' }}{% if mv.visitor.orient_city %} — {{ mv.visitor.orient_city }}{% endif %}</td>
+        <td class="grade">{{ mv.visitor.obedience or '—' }}</td>
         <td class="sig">&nbsp;</td>
       </tr>
       {% endfor %}
