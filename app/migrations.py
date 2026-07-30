@@ -492,3 +492,21 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                         f"ALTER TABLE members ADD COLUMN {col} BOOLEAN NOT NULL DEFAULT 1"
                     )
 
+    # ── Fusion Tracé/PV : reporte l'ancien contenu des PV (jamais fusionné
+    # avec le tracé de la tenue) vers meetings.compte_rendu_html, avant que
+    # l'ancienne UI dédiée (app/routers/reports.py) ne soit retirée. Idempotent
+    # : ne touche que les tracés encore vides.
+    async with engine.begin() as conn:
+        await conn.exec_driver_sql("""
+            UPDATE meetings
+            SET compte_rendu_html = (
+                SELECT mr.content FROM meeting_reports mr
+                WHERE mr.meeting_id = meetings.id AND mr.content IS NOT NULL AND mr.content != ''
+            )
+            WHERE (compte_rendu_html IS NULL OR compte_rendu_html = '')
+              AND EXISTS (
+                SELECT 1 FROM meeting_reports mr
+                WHERE mr.meeting_id = meetings.id AND mr.content IS NOT NULL AND mr.content != ''
+              )
+        """)
+

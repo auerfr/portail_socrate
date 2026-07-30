@@ -5,6 +5,9 @@ import secrets
 
 import csv
 import io
+import os
+import uuid
+import logging
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
@@ -16,7 +19,7 @@ from app.database import get_db
 from app.dependencies import (
     require_auth, can_manage_meeting, can_lock_meeting,
 )
-from app.models.reports import MeetingReport
+from app.models.reports import MeetingReport, ReportStatus
 from app.models.meetings import (
     Meeting, Attendance, AttendanceStatus, DegreeAttended,
     MeetingGrade, MeetingType, MeetingDegree,
@@ -25,6 +28,10 @@ from app.models.meetings import (
 )
 from app.models.identity import Member, LodgeFunction, MemberStatus
 from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
+from app.models.documents import DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
+
+logger = logging.getLogger(__name__)
+TRACE_ARCHIVE_UPLOAD_DIR = "uploads/documents"
 
 router = APIRouter(prefix="/meetings", tags=["meetings"])
 from app.template_engine import templates
@@ -73,6 +80,49 @@ def _grade_label(g: MeetingGrade) -> str:
         "MAITRE": "Maîtres",
         "ALL": "Toutes loges réunies",
     }.get(g, g)
+
+
+def _can_approve_trace(user, member: Member) -> bool:
+    """V∴M∴ ou admin — seuls habilités à approuver et archiver un tracé."""
+    return user.is_admin or member.lodge_function == LodgeFunction.VM
+
+
+async def _get_or_create_pv_folder(db: AsyncSession, year_label: str) -> DocFolder:
+    """Trouve ou crée DocSpace 'Secrétariat' > DocFolder 'PV {année}' pour l'archivage des tracés approuvés."""
+    space_r = await db.execute(select(DocSpace).where(DocSpace.name == "Secrétariat").limit(1))
+    space = space_r.scalar_one_or_none()
+    if not space:
+        space = DocSpace(
+            name="Secrétariat",
+            description="Documents officiels du Secrétariat",
+            access_mode=DocAccessMode.GRADE,
+            min_grade=MinGrade.APPRENTI,
+            order_position=10,
+        )
+        db.add(space)
+        await db.flush()
+
+    folder_name = f"PV {year_label}"
+    folder_r = await db.execute(
+        select(DocFolder).where(
+            DocFolder.space_id == space.id,
+            DocFolder.parent_id.is_(None),
+            DocFolder.name == folder_name,
+        ).limit(1)
+    )
+    folder = folder_r.scalar_one_or_none()
+    if not folder:
+        folder = DocFolder(
+            space_id=space.id,
+            name=folder_name,
+            description=f"Procès-verbaux de l'année {year_label}",
+            min_grade=MinGrade.APPRENTI,
+            order_position=0,
+        )
+        db.add(folder)
+        await db.flush()
+
+    return folder
 
 
 # ── Liste des tenues ──────────────────────────────────────────────────────────
@@ -216,14 +266,12 @@ async def meeting_detail(
     present_count = sum(1 for a in meeting.attendances if a.status.value == "PRESENT")
     excused_count = sum(1 for a in meeting.attendances if a.status.value == "EXCUSED")
 
-    # PV de la tenue
+    # Statut du tracé (workflow d'approbation)
     report_r = await db.execute(
         select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
     )
     report = report_r.scalar_one_or_none()
-    from app.routers.reports import _can_write as _report_can_write, _can_approve as _report_can_approve
-    can_write_report = _report_can_write(user, member)
-    can_approve_report = _report_can_approve(user, member)
+    can_approve_report = _can_approve_trace(user, member)
 
     return templates.TemplateResponse(request, "pages/meetings/detail.html", {
         "current_member": member,
@@ -240,7 +288,6 @@ async def meeting_detail(
         "can_lock": can_lock_meeting(member),
         "registration_url": f"{request.base_url}inscription/{meeting.token}",
         "report": report,
-        "can_write_report": can_write_report,
         "can_approve_report": can_approve_report,
     })
 
@@ -590,7 +637,15 @@ async def meeting_trace(
                 vm_name = f"{att.member.last_name} {att.member.first_name}"
                 break
 
-    can_edit = can_manage_meeting(member) or user.is_admin
+    # Statut du tracé (workflow d'approbation V∴M∴ + archivage)
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    can_approve = _can_approve_trace(user, member)
+    is_approved = bool(report and report.status == ReportStatus.APPROUVE)
+
+    can_edit = (can_manage_meeting(member) or user.is_admin) and not is_approved
 
     # Audit consultation (si activé via /admin/confidentiality)
     try:
@@ -623,6 +678,8 @@ async def meeting_trace(
         "month_suffix": month_suffix,
         "vm_name": vm_name,
         "can_edit": can_edit,
+        "report": report,
+        "can_approve": can_approve,
     })
 
 
@@ -646,9 +703,192 @@ async def trace_save(
     if not meeting:
         raise HTTPException(status_code=404)
 
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if report and report.status == ReportStatus.APPROUVE:
+        raise HTTPException(status_code=400, detail="Ce tracé est approuvé et archivé, il ne peut plus être modifié")
+
     meeting.compte_rendu_html = compte_rendu_html or None
     await db.commit()
     return JSONResponse({"ok": True})
+
+
+# ── Workflow d'approbation du tracé (Secrétaire → V∴M∴ → archivage) ─────────
+
+@router.post("/{meeting_id}/trace/submit")
+async def trace_submit(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    meeting_r = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
+    meeting = meeting_r.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+    if not meeting.compte_rendu_html:
+        raise HTTPException(status_code=400, detail="Le corps du tracé est vide, impossible de le soumettre")
+
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if report and report.status != ReportStatus.BROUILLON:
+        raise HTTPException(status_code=400, detail="Ce tracé a déjà été soumis ou approuvé")
+
+    if not report:
+        report = MeetingReport(meeting_id=meeting_id, author_id=member.id, status=ReportStatus.BROUILLON)
+        db.add(report)
+
+    report.status = ReportStatus.SOUMIS
+    report.submitted_at = datetime.now()
+    if not report.author_id:
+        report.author_id = member.id
+    await db.commit()
+
+    return RedirectResponse(url=f"/meetings/{meeting_id}/trace?submitted=1", status_code=303)
+
+
+@router.post("/{meeting_id}/trace/approve")
+async def trace_approve(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not _can_approve_trace(user, member):
+        raise HTTPException(status_code=403, detail="Seul le V∴M∴ peut approuver un tracé")
+
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if not report or report.status != ReportStatus.SOUMIS:
+        raise HTTPException(status_code=400, detail="Ce tracé n'est pas en attente d'approbation")
+
+    meeting_r = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+        )
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = meeting_r.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    report.status = ReportStatus.APPROUVE
+    report.approved_by_id = member.id
+    report.approved_at = datetime.now()
+
+    # ── Archivage GED : snapshot HTML complet du tracé officiel ─────────────
+    try:
+        lodge_r = await db.execute(select(LodgeSettings).limit(1))
+        lodge = lodge_r.scalar_one_or_none()
+
+        offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
+        offices = offices_r.scalars().all()
+        member_office: dict[int, str] = {o.member_id: o.label for o in offices}
+        meeting_subs = (await db.execute(
+            select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
+        )).scalars().all()
+        for ms in meeting_subs:
+            if ms.substitute_member_id and ms.substitute_member_id not in member_office:
+                member_office[ms.substitute_member_id] = ms.office_label + " remplaçant"
+        officer_rows = [r for r in await _build_officer_rows(db, meeting) if r["needs_substitute"] or r["substitute"]]
+
+        present  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.PRESENT], key=lambda a: a.member.last_name)
+        excused  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.EXCUSED], key=lambda a: a.member.last_name)
+        absent   = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.ABSENT], key=lambda a: a.member.last_name)
+        visitors = sorted([mv for mv in meeting.meeting_visitors if mv.status.value == "CONFIRMED"], key=lambda mv: mv.visitor.last_name)
+
+        d = meeting.meeting_date
+        masonic_year  = d.year + 4000
+        masonic_month = d.month - 2 if d.month >= 3 else d.month + 10
+        day_suffix    = "er" if d.day == 1 else "ème"
+        month_suffix  = "er" if masonic_month == 1 else "ème"
+        vm_office = next((o for o in offices if o.label == "VM"), None)
+        vm_name = ""
+        if vm_office and vm_office.member_id:
+            for att in present:
+                if att.member_id == vm_office.member_id:
+                    vm_name = f"{att.member.last_name} {att.member.first_name}"
+                    break
+
+        archive_html = templates.get_template("pages/meetings/trace_archive.html").render({
+            "request": request, "meeting": meeting, "lodge": lodge,
+            "present": present, "excused": excused, "absent": absent, "visitors": visitors,
+            "member_office": member_office, "officer_rows": officer_rows,
+            "grade_label": _grade_label, "masonic_year": masonic_year, "masonic_month": masonic_month,
+            "day_suffix": day_suffix, "month_suffix": month_suffix, "vm_name": vm_name,
+            "approved_by": member, "approved_at": report.approved_at,
+        })
+
+        year_label = str(meeting.meeting_date.year)
+        folder = await _get_or_create_pv_folder(db, year_label)
+        type_label = _type_label(meeting.type.value if hasattr(meeting.type, "value") else meeting.type)
+        doc_name = f"PV — {type_label} — {meeting.meeting_date.strftime('%d/%m/%Y')}"
+
+        os.makedirs(TRACE_ARCHIVE_UPLOAD_DIR, exist_ok=True)
+        filename = f"pv_{uuid.uuid4().hex}.html"
+        storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
+        with open(storage_path, "w", encoding="utf-8") as f:
+            f.write(archive_html)
+
+        doc = Document(
+            folder_id=folder.id,
+            name=doc_name,
+            original_filename=filename,
+            mime_type="text/html",
+            file_size=len(archive_html.encode()),
+            storage_path=storage_path,
+            status=DocStatus.PUBLISHED,
+            author_id=report.author_id,
+            validated_by_id=member.id,
+            validated_at=report.approved_at,
+        )
+        db.add(doc)
+        await db.flush()
+        report.archived_doc_id = doc.id
+
+    except Exception as e:
+        logger.warning("Archivage GED du tracé échoué : %s", e, exc_info=True)
+
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/trace?approved=1", status_code=303)
+
+
+@router.post("/{meeting_id}/trace/reject")
+async def trace_reject(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not _can_approve_trace(user, member):
+        raise HTTPException(status_code=403)
+
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if not report or report.status != ReportStatus.SOUMIS:
+        raise HTTPException(status_code=400)
+
+    report.status = ReportStatus.BROUILLON
+    report.submitted_at = None
+    await db.commit()
+
+    return RedirectResponse(url=f"/meetings/{meeting_id}/trace?rejected=1", status_code=303)
 
 
 # ── Page Banquet (Maître des banquets) ───────────────────────────────────────

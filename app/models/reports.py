@@ -14,14 +14,15 @@ class ReportStatus(str, enum.Enum):
 
 
 class MeetingReport(Base):
-    """Procès-verbal d'une tenue."""
+    """Statut d'approbation/archivage du tracé d'une tenue (le contenu narratif
+    vit désormais sur Meeting.compte_rendu_html — tracé et PV sont un seul document)."""
     __tablename__ = "meeting_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     meeting_id: Mapped[int] = mapped_column(
         ForeignKey("meetings.id", ondelete="CASCADE"), unique=True, index=True
     )
-    content: Mapped[Optional[str]] = mapped_column(Text)
+    content: Mapped[Optional[str]] = mapped_column(Text)  # legacy, non utilisé
     status: Mapped[ReportStatus] = mapped_column(
         Enum(ReportStatus), default=ReportStatus.BROUILLON
     )
