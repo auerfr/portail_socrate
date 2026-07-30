@@ -209,19 +209,11 @@
             </svg>
             Enregistrer
           </button>
-          <div class="relative" x-data="{ masonicOpen: false }">
-            <button type="button" @click="masonicOpen = !masonicOpen" @click.outside="masonicOpen = false"
-                    title="Insérer un caractère maçonnique"
-                    class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-2 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
-              ∴ Car.
-            </button>
-            <div x-show="masonicOpen" x-cloak x-transition
-                 class="absolute bottom-9 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-44 grid grid-cols-3 gap-1 max-h-44 overflow-y-auto">
-              {% for tok in ['∴','F∴','S∴','V∴M∴','1er S∴','2nd S∴','Sec∴','Or∴','Trés∴','Exp∴','R∴','T∴'] %}
-              <button type="button" class="text-xs font-medium hover:bg-gray-100 rounded px-1.5 py-1.5 whitespace-nowrap" @click="insertMasonicTrace('{{ tok }}'); masonicOpen = false">{{ tok }}</button>
-              {% endfor %}
-            </div>
-          </div>
+          <button type="button" @click="insertMasonicTrace('∴')"
+                  title="Insérer le caractère ∴"
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-2 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+            ∴
+          </button>
           <button onclick="toggleEdit()"
                   class="border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
             Annuler

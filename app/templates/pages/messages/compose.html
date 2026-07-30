@@ -73,7 +73,7 @@
                value="{% if reply_msg %}Re : {{ reply_msg.subject }}{% endif %}"
                class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
-      <div x-data="{ emojiOpen: false, masonicOpen: false }">
+      <div x-data="{ emojiOpen: false }">
         <label class="block text-sm font-semibold text-gray-700 mb-1.5">Corps du message</label>
 
         <div id="compose-quill-toolbar" class="border border-gray-200 rounded-t-lg bg-gray-50">
@@ -116,19 +116,11 @@
               {% endfor %}
             </div>
           </div>
-          <div class="relative shrink-0">
-            <button type="button" @click="masonicOpen = !masonicOpen" @click.outside="masonicOpen = false"
-                    title="Insérer un caractère maçonnique"
-                    class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
-              ∴ Car.
-            </button>
-            <div x-show="masonicOpen" x-cloak x-transition
-                 class="absolute bottom-9 right-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-44 grid grid-cols-3 gap-1 max-h-44 overflow-y-auto">
-              {% for tok in ['∴','F∴','S∴','V∴M∴','1er S∴','2nd S∴','Sec∴','Or∴','Trés∴','Exp∴','R∴','T∴'] %}
-              <button type="button" class="text-xs font-medium hover:bg-gray-100 rounded px-1.5 py-1.5 whitespace-nowrap" @click="insertMasonicCompose('{{ tok }}'); masonicOpen = false">{{ tok }}</button>
-              {% endfor %}
-            </div>
-          </div>
+          <button type="button" @click="insertMasonicCompose('∴')"
+                  title="Insérer le caractère ∴"
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors shrink-0">
+            ∴
+          </button>
           <button type="button" onclick="openDocPicker('compose')"
                   class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors shrink-0">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

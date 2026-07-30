@@ -138,19 +138,11 @@
           </div>
           <div id="agenda-quill-editor" class="border border-gray-200 border-t-0 rounded-b-lg bg-white text-sm"
                style="min-height:130px;"></div>
-          <div class="relative inline-block mt-1.5" x-data="{ masonicOpen: false }">
-            <button type="button" @click="masonicOpen = !masonicOpen" @click.outside="masonicOpen = false"
-                    title="Insérer un caractère maçonnique"
-                    class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
-              ∴ Car.
-            </button>
-            <div x-show="masonicOpen" x-cloak x-transition
-                 class="absolute bottom-9 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-44 grid grid-cols-3 gap-1 max-h-44 overflow-y-auto">
-              {% for tok in ['∴','F∴','S∴','V∴M∴','1er S∴','2nd S∴','Sec∴','Or∴','Trés∴','Exp∴','R∴','T∴'] %}
-              <button type="button" class="text-xs font-medium hover:bg-gray-100 rounded px-1.5 py-1.5 whitespace-nowrap" @click="insertMasonicAgenda('{{ tok }}'); masonicOpen = false">{{ tok }}</button>
-              {% endfor %}
-            </div>
-          </div>
+          <button type="button" @click="insertMasonicAgenda('∴')"
+                  title="Insérer le caractère ∴"
+                  class="mt-1.5 flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+            ∴
+          </button>
           <input type="hidden" name="agenda_html" id="agenda-html-input"
                  value="{{ meeting.agenda_html if meeting and meeting.agenda_html else '' }}">
           <p class="text-xs text-gray-400 mt-1">Ce contenu apparaîtra dans le bloc tenue du programme mensuel.</p>
