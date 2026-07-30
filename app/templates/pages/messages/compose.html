@@ -39,7 +39,7 @@
 
   <form method="post" action="/messages/send" enctype="multipart/form-data"
         x-data="{
-          targetType: 'ALL',
+          targetType: '{{ 'MANUAL' if preselect_member_id else 'ALL' }}',
           files: [],
           visioUrl: '',
           addFiles(e) {
@@ -291,12 +291,14 @@
                      const ids = [...document.querySelectorAll('.manual-cb:checked')].map(c=>c.value).join(',');
                      document.getElementById('manual_ids').value = ids;
                    }
-                 }">
+                 }"
+                 x-init="updateIds()">
               <div class="space-y-0.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
                 {% for m in all_members %}
                 <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-purple-50 px-1.5 py-1 rounded">
                   <input type="checkbox" class="manual-cb rounded border-gray-300 text-purple-500"
-                         value="{{ m.id }}" @change="updateIds()">
+                         value="{{ m.id }}" @change="updateIds()"
+                         {% if preselect_member_id and m.id == preselect_member_id %}checked{% endif %}>
                   <span class="font-medium text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
                   <span class="text-gray-400 ml-auto">{{ m.masonic_grade.value }}</span>
                 </label>

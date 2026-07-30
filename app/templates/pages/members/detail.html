@@ -262,6 +262,19 @@
 
   <!-- Actions -->
   <div class="flex flex-wrap gap-3">
+    {% if not is_own_profile %}
+    <a href="/messages/compose?to={{ target.id }}"
+       class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
+      <i class="ti ti-mail"></i> Envoyer un message
+    </a>
+    <form method="post" action="/chat/dm">
+      <input type="hidden" name="target_id" value="{{ target.id }}">
+      <button type="submit"
+              class="inline-flex items-center gap-2 border border-loge-200 text-loge-700 px-4 py-2 rounded-lg text-sm hover:bg-loge-50">
+        <i class="ti ti-messages"></i> Discuter
+      </button>
+    </form>
+    {% endif %}
     {% if can_manage or is_own_profile %}
     <a href="/members/{{ target.id }}/edit"
        class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">

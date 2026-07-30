@@ -377,6 +377,7 @@ async def compose(
     group_id: Optional[int] = None,
     reply_to: Optional[int] = None,
     reply_all: bool = False,
+    to: Optional[int] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -389,6 +390,11 @@ async def compose(
     # Charger tous les groupes pour le ciblage
     r_groups = await db.execute(select(Group).order_by(Group.is_system.desc(), Group.name))
     all_groups = r_groups.scalars().all()
+
+    # Pré-sélection d'un destinataire unique (ex : depuis la fiche membre)
+    preselect_member_id = None
+    if to and to != member.id and any(m.id == to for m in all_members):
+        preselect_member_id = to
 
     # Pré-remplissage si réponse à un message
     reply_msg = None
@@ -428,6 +434,7 @@ async def compose(
         "reply_member_ids": reply_member_ids,
         "reply_all": bool(reply_all and reply_msg),
         "preselect_group": preselect_group,
+        "preselect_member_id": preselect_member_id,
         "visio_server": visio_server,
         "visio_prefix": visio_prefix,
     })
