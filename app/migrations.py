@@ -510,3 +510,15 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
               )
         """)
 
+    # ── lodge_events.recurrence_* : récurrence des événements de l'agenda ──
+    async with engine.begin() as conn:
+        r_ev = await conn.exec_driver_sql("PRAGMA table_info(lodge_events)")
+        cols_ev = [row[1] for row in r_ev.fetchall()]
+        if cols_ev and "recurrence_group_id" not in cols_ev:
+            await conn.exec_driver_sql("ALTER TABLE lodge_events ADD COLUMN recurrence_group_id VARCHAR(32)")
+            await conn.exec_driver_sql(
+                "CREATE INDEX IF NOT EXISTS ix_lodge_events_recurrence_group_id ON lodge_events(recurrence_group_id)"
+            )
+        if cols_ev and "recurrence_label" not in cols_ev:
+            await conn.exec_driver_sql("ALTER TABLE lodge_events ADD COLUMN recurrence_label VARCHAR(200)")
+

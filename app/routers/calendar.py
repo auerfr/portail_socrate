@@ -1,5 +1,6 @@
 """Router — Agenda / Calendrier global (Domaine 7)"""
 import calendar as cal
+import uuid
 from datetime import date, datetime, timedelta
 from typing import Annotated, Optional
 
@@ -172,6 +173,57 @@ def _format_ics_datetime(dt: datetime) -> str:
 
 def _format_ics_date(d: date) -> str:
     return d.strftime("%Y%m%d")
+
+
+# ── Récurrence ──────────────────────────────────────────────────────────────
+
+_WEEKDAY_NAMES = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+_NTH_NAMES = {1: "1er", 2: "2ème", 3: "3ème", 4: "4ème", 5: "5ème"}
+MAX_RECURRENCE_OCCURRENCES = 156  # ~3 ans en hebdomadaire, garde-fou anti-emballement
+
+def _nth_weekday_of_month(year: int, month: int, weekday: int, nth: int) -> Optional[date]:
+    """Renvoie la date du n-ième jour de semaine `weekday` (0=lundi) du mois, ou None si absent."""
+    first = date(year, month, 1)
+    offset = (weekday - first.weekday()) % 7
+    day = 1 + offset + (nth - 1) * 7
+    last_day = cal.monthrange(year, month)[1]
+    if day > last_day:
+        return None
+    return date(year, month, day)
+
+def _compute_recurrence_dates(start: date, until: date, freq: str, interval: int) -> list[date]:
+    """Calcule les dates d'occurrence entre start et until (inclus) selon la fréquence."""
+    dates: list[date] = []
+    if freq == "WEEKLY":
+        interval = max(1, interval or 1)
+        cur = start
+        while cur <= until and len(dates) < MAX_RECURRENCE_OCCURRENCES:
+            dates.append(cur)
+            cur = cur + timedelta(weeks=interval)
+    elif freq == "MONTHLY_NTH_WEEKDAY":
+        weekday = start.weekday()
+        nth = (start.day - 1) // 7 + 1
+        y, m = start.year, start.month
+        while date(y, m, 1) <= until and len(dates) < MAX_RECURRENCE_OCCURRENCES:
+            occ = _nth_weekday_of_month(y, m, weekday, nth)
+            if occ and start <= occ <= until:
+                dates.append(occ)
+            m += 1
+            if m > 12:
+                m = 1
+                y += 1
+    return dates
+
+def _recurrence_label(freq: str, interval: int, start: date) -> str:
+    if freq == "WEEKLY":
+        interval = max(1, interval or 1)
+        if interval == 1:
+            return f"Chaque semaine, le {_WEEKDAY_NAMES[start.weekday()]}"
+        return f"Toutes les {interval} semaines, le {_WEEKDAY_NAMES[start.weekday()]}"
+    if freq == "MONTHLY_NTH_WEEKDAY":
+        nth = (start.day - 1) // 7 + 1
+        return f"Chaque mois, le {_NTH_NAMES.get(nth, f'{nth}ème')} {_WEEKDAY_NAMES[start.weekday()]}"
+    return "Récurrent"
 
 
 # ── Vue principale : grille mensuelle ─────────────────────────────────────
@@ -419,6 +471,10 @@ async def calendar_create_event(
     visibility_group_id: Optional[int] = Form(None),
     meeting_url: Optional[str] = Form(None),
     is_personal: Optional[str] = Form(None),
+    recurring: Optional[str] = Form(None),
+    recurrence_freq: Optional[str] = Form(None),
+    recurrence_interval: Optional[int] = Form(1),
+    recurrence_until: Optional[str] = Form(None),
 ):
     user, member = ctx
     personal = is_personal in ("on", "1", "true")
@@ -469,21 +525,66 @@ async def calendar_create_event(
             room = f"{prefix}-{d.strftime('%Y%m%d')}"
             url = f"{lodge_cfg.visio_server_url.rstrip('/')}/{room}"
 
-    event = LodgeEvent(
-        title=title,
-        description=description or None,
-        location=location or None,
-        meeting_url=url,
-        start_datetime=start_dt,
-        end_datetime=end_dt,
-        all_day=is_all_day,
-        event_type=EventType(event_type),
-        visibility=vis,
-        visibility_group_id=grp_id,
-        is_personal=personal,
-        created_by_id=member.id,
-    )
-    db.add(event)
+    is_recurring = recurring in ("on", "1", "true") and recurrence_freq
+
+    if not is_recurring:
+        event = LodgeEvent(
+            title=title,
+            description=description or None,
+            location=location or None,
+            meeting_url=url,
+            start_datetime=start_dt,
+            end_datetime=end_dt,
+            all_day=is_all_day,
+            event_type=EventType(event_type),
+            visibility=vis,
+            visibility_group_id=grp_id,
+            is_personal=personal,
+            created_by_id=member.id,
+        )
+        db.add(event)
+        await db.flush()
+        return RedirectResponse(url="/calendar/", status_code=302)
+
+    # ── Série récurrente ─────────────────────────────────────────────────
+    start_day = start_dt.date()
+    if not recurrence_until:
+        raise HTTPException(status_code=400, detail="Une date de fin de récurrence est requise.")
+    until_day = datetime.strptime(recurrence_until, "%Y-%m-%d").date()
+    if until_day < start_day:
+        raise HTTPException(status_code=400, detail="La date de fin de récurrence doit être après la date de début.")
+
+    occurrence_dates = _compute_recurrence_dates(start_day, until_day, recurrence_freq, recurrence_interval or 1)
+    if not occurrence_dates:
+        raise HTTPException(status_code=400, detail="Aucune occurrence ne correspond à cette récurrence sur la période choisie.")
+
+    end_offset_days = (end_dt.date() - start_day).days if end_dt else None
+    group_id = uuid.uuid4().hex
+    label = _recurrence_label(recurrence_freq, recurrence_interval or 1, start_day)
+
+    for occ_date in occurrence_dates:
+        occ_start = datetime.combine(occ_date, start_dt.time())
+        occ_end = None
+        if end_dt is not None:
+            occ_end_date = occ_date + timedelta(days=end_offset_days)
+            occ_end = datetime.combine(occ_end_date, end_dt.time())
+
+        db.add(LodgeEvent(
+            title=title,
+            description=description or None,
+            location=location or None,
+            meeting_url=url,
+            start_datetime=occ_start,
+            end_datetime=occ_end,
+            all_day=is_all_day,
+            event_type=EventType(event_type),
+            visibility=vis,
+            visibility_group_id=grp_id,
+            is_personal=personal,
+            created_by_id=member.id,
+            recurrence_group_id=group_id,
+            recurrence_label=label,
+        ))
     await db.flush()
 
     return RedirectResponse(url="/calendar/", status_code=302)
@@ -637,6 +738,35 @@ async def calendar_delete_event(
         raise HTTPException(status_code=403, detail="Accès refusé")
 
     await db.delete(event)
+    return RedirectResponse(url="/calendar/", status_code=302)
+
+
+# ── Suppression d'une série récurrente entière ──────────────────────────────
+
+@router.post("/events/{event_id}/delete-series")
+async def calendar_delete_series(
+    event_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+
+    result = await db.execute(select(LodgeEvent).where(LodgeEvent.id == event_id))
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Événement introuvable")
+    if not event.recurrence_group_id:
+        raise HTTPException(status_code=400, detail="Cet événement ne fait pas partie d'une série")
+
+    if not user.is_admin and event.created_by_id != member.id:
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    series_r = await db.execute(
+        select(LodgeEvent).where(LodgeEvent.recurrence_group_id == event.recurrence_group_id)
+    )
+    for e in series_r.scalars().all():
+        await db.delete(e)
+
     return RedirectResponse(url="/calendar/", status_code=302)
 
 
