@@ -276,6 +276,19 @@
             {% endfor %}
           </div>
         </div>
+        <div class="relative shrink-0" x-data="{ masonicOpen: false }">
+          <button type="button" @click="masonicOpen = !masonicOpen" @click.outside="masonicOpen = false"
+                  title="Insérer un caractère maçonnique"
+                  class="w-10 h-10 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-sm font-medium flex items-center justify-center transition-colors">
+            ∴
+          </button>
+          <div x-show="masonicOpen" x-cloak x-transition
+               class="absolute bottom-12 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-44 grid grid-cols-3 gap-1 max-h-44 overflow-y-auto">
+            {% for tok in ['∴','F∴','S∴','V∴M∴','1er S∴','2nd S∴','Sec∴','Or∴','Trés∴','Exp∴','R∴','T∴'] %}
+            <button type="button" class="text-xs font-medium hover:bg-gray-100 rounded px-1.5 py-1.5 whitespace-nowrap" @click="insertMasonicChat('{{ tok }}'); masonicOpen = false">{{ tok }}</button>
+            {% endfor %}
+          </div>
+        </div>
         <textarea id="chat-textarea-{{ active_channel.id }}" name="content" rows="1" placeholder="Écrire un message…"
                   class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm
                          focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none
@@ -809,6 +822,17 @@ function insertEmojiChat(emoji) {
   var start = ta.selectionStart || 0, end = ta.selectionEnd || 0;
   ta.value = ta.value.slice(0, start) + emoji + ta.value.slice(end);
   ta.selectionStart = ta.selectionEnd = start + emoji.length;
+  ta.style.height = 'auto';
+  ta.style.height = ta.scrollHeight + 'px';
+  ta.focus();
+}
+
+function insertMasonicChat(token) {
+  var ta = document.querySelector('textarea[name="content"]');
+  if (!ta) return;
+  var start = ta.selectionStart || 0, end = ta.selectionEnd || 0;
+  ta.value = ta.value.slice(0, start) + token + ta.value.slice(end);
+  ta.selectionStart = ta.selectionEnd = start + token.length;
   ta.style.height = 'auto';
   ta.style.height = ta.scrollHeight + 'px';
   ta.focus();

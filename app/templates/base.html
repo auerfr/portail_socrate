@@ -770,6 +770,22 @@
 
   {% block scripts %}{% endblock %}
 
+  <!-- Insertion d'un caractère maçonnique dans un <textarea> simple (id stable) -->
+  <script>
+  function insertMasonicTextarea(elementId, token) {
+    var ta = document.getElementById(elementId);
+    if (!ta) return;
+    var start = ta.selectionStart || 0, end = ta.selectionEnd || 0;
+    ta.value = ta.value.slice(0, start) + token + ta.value.slice(end);
+    ta.selectionStart = ta.selectionEnd = start + token.length;
+    if (ta.tagName === 'TEXTAREA') {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+    ta.focus();
+  }
+  </script>
+
   <!-- Polling pastilles messages & chat non lus -->
   <script>
   (function() {

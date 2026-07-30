@@ -134,6 +134,17 @@
             <button type="button" class="toolbar-btn" @click="execBlock('h2')">Titre</button>
             <button type="button" class="toolbar-btn" @click="execBlock('p')">¶ Texte</button>
             <button type="button" class="toolbar-btn" @click="exec('insertUnorderedList')">• Liste</button>
+            <div class="w-px bg-gray-200 mx-0.5"></div>
+            <div class="relative" x-data="{ masonicOpen: false }">
+              <button type="button" class="toolbar-btn" title="Insérer un caractère maçonnique"
+                      @click="masonicOpen = !masonicOpen" @click.outside="masonicOpen = false">∴ Car.</button>
+              <div x-show="masonicOpen" x-cloak x-transition
+                   class="absolute top-9 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-44 grid grid-cols-3 gap-1 max-h-44 overflow-y-auto">
+                {% for tok in ['∴','F∴','S∴','V∴M∴','1er S∴','2nd S∴','Sec∴','Or∴','Trés∴','Exp∴','R∴','T∴'] %}
+                <button type="button" class="text-xs font-medium hover:bg-gray-100 rounded px-1.5 py-1.5 whitespace-nowrap" @click="insertMasonic('{{ tok }}'); masonicOpen = false">{{ tok }}</button>
+                {% endfor %}
+              </div>
+            </div>
           </div>
           <div id="planche-editor"
                contenteditable="true"
@@ -194,6 +205,11 @@ function plancheEditor() {
     editorContent: {{ (planche.content if planche and planche.content else '') | tojson }},
     exec(cmd) { document.execCommand(cmd, false, null); this.syncContent(); },
     execBlock(tag) { document.execCommand('formatBlock', false, tag); this.syncContent(); },
+    insertMasonic(token) {
+      this.$refs.editor.focus();
+      document.execCommand('insertText', false, token);
+      this.syncContent();
+    },
     syncContent() { this.editorContent = this.$refs.editor.innerHTML; },
   }
 }
