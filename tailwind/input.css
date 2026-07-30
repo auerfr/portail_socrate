@@ -16,3 +16,66 @@
 
   --font-sans: "DM Sans", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
+
+/* ────────────────────────────────────────────────────────────────────────
+   Mode sombre — surcouche ciblée sur les classes Tailwind réellement
+   utilisées dans l'app (neutres, teinte loge, badges de statut), plutôt
+   que d'ajouter des variantes dark: sur des centaines de templates.
+   Activé en posant data-theme="dark" sur <html> (cf. base.html).
+   ──────────────────────────────────────────────────────────────────────── */
+[data-theme="dark"] { color-scheme: dark; }
+
+/* Neutres */
+[data-theme="dark"] .bg-white { background-color: #1a202c; }
+[data-theme="dark"] .bg-gray-50 { background-color: #161d29; }
+[data-theme="dark"] .bg-gray-100 { background-color: #2d3748; }
+[data-theme="dark"] .hover\:bg-gray-50:hover { background-color: #232c3b; }
+[data-theme="dark"] .hover\:bg-gray-100:hover { background-color: #2d3748; }
+[data-theme="dark"] .hover\:bg-loge-50:hover { background-color: #163333; }
+
+[data-theme="dark"] .text-gray-900 { color: #f1f5f9; }
+[data-theme="dark"] .text-gray-800 { color: #e2e8f0; }
+[data-theme="dark"] .text-gray-700 { color: #cbd5e1; }
+[data-theme="dark"] .text-gray-600 { color: #a0aec0; }
+[data-theme="dark"] .text-gray-500 { color: #94a3b8; }
+[data-theme="dark"] .text-gray-400 { color: #718096; }
+[data-theme="dark"] .hover\:text-gray-700:hover { color: #e2e8f0; }
+[data-theme="dark"] .hover\:text-gray-900:hover { color: #f7fafc; }
+
+[data-theme="dark"] .border-gray-100 { border-color: #2d3748; }
+[data-theme="dark"] .border-gray-200 { border-color: #364152; }
+[data-theme="dark"] .border-gray-300 { border-color: #47536b; }
+[data-theme="dark"] .divide-gray-50 > :not([hidden]) ~ :not([hidden]) { border-color: #2d3748; }
+[data-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: #364152; }
+
+/* Teinte loge (accents, encarts) */
+[data-theme="dark"] .bg-loge-50 { background-color: #163333; }
+[data-theme="dark"] .bg-loge-100 { background-color: #1c3d3d; }
+[data-theme="dark"] .text-loge-700 { color: #4fd1c5; }
+[data-theme="dark"] .text-loge-900 { color: #99f6e4; }
+[data-theme="dark"] .border-loge-100 { border-color: #1c3d3d; }
+[data-theme="dark"] .border-loge-200 { border-color: #235050; }
+
+/* Badges de statut (fond clair + texte foncé → fond sombre + texte clair) */
+[data-theme="dark"] .bg-green-50  { background-color: #10261b; }
+[data-theme="dark"] .bg-red-50    { background-color: #2e1215; }
+[data-theme="dark"] .bg-rose-50   { background-color: #2e1119; }
+[data-theme="dark"] .bg-amber-50  { background-color: #2c220b; }
+[data-theme="dark"] .bg-yellow-50 { background-color: #2c290b; }
+[data-theme="dark"] .bg-blue-50   { background-color: #0f2138; }
+[data-theme="dark"] .bg-purple-50 { background-color: #23103b; }
+[data-theme="dark"] .text-green-700  { color: #6ee7b7; }
+[data-theme="dark"] .text-red-600    { color: #fca5a5; }
+[data-theme="dark"] .text-rose-600   { color: #fda4af; }
+[data-theme="dark"] .text-amber-700  { color: #fcd34d; }
+[data-theme="dark"] .text-blue-700   { color: #93c5fd; }
+[data-theme="dark"] .text-purple-700 { color: #d8b4fe; }
+
+/* Champs de formulaire */
+[data-theme="dark"] input, [data-theme="dark"] select, [data-theme="dark"] textarea {
+  background-color: #1a202c;
+  color: #e2e8f0;
+}
+[data-theme="dark"] input::placeholder, [data-theme="dark"] textarea::placeholder {
+  color: #718096;
+}

@@ -18,6 +18,16 @@
   <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css" rel="stylesheet">
   <link href="/static/css/app.css" rel="stylesheet">
 
+  <script>
+    // Applique le thème mémorisé avant le premier rendu (évite le flash clair/sombre)
+    (function() {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
+  </script>
+
   <style>
     /* ── Alpine.js : masquer les éléments x-cloak avant init ── */
     [x-cloak] { display: none !important; }
@@ -152,6 +162,7 @@
         </div>
       </form>
       {% include "partials/_notif_bell.html" %}
+      {% include "partials/_theme_toggle.html" %}
     </div>
 
     <!-- Navigation -->
@@ -667,7 +678,8 @@
   {% endif %}
 
   {% if not on_auth %}
-  <div class="lg:hidden sticky top-0 z-40 flex items-center justify-end px-3 py-1.5 safe-top border-b border-white/10" style="background:#2d3748;">
+  <div class="lg:hidden sticky top-0 z-40 flex items-center justify-end gap-1 px-3 py-1.5 safe-top border-b border-white/10" style="background:#2d3748;">
+    {% include "partials/_theme_toggle.html" %}
     {% include "partials/_notif_bell.html" %}
   </div>
   {% endif %}
