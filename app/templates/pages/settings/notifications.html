@@ -216,6 +216,40 @@
 
     </div>
 
+    <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 space-y-4 mt-5">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+        <i class="ti ti-bell text-base"></i> Cloche de notifications
+      </h2>
+      <p class="text-sm text-gray-600">
+        Choisissez les catégories d'événements à afficher dans la cloche en haut de l'écran.
+      </p>
+
+      <label class="flex items-center gap-3 cursor-pointer group">
+        <input type="checkbox" name="notif_messages" value="on"
+               {% if current_member.notif_messages %}checked{% endif %}
+               class="w-5 h-5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
+        <span class="text-sm text-gray-800 group-hover:text-loge-700 transition-colors">Messages non lus</span>
+      </label>
+      <label class="flex items-center gap-3 cursor-pointer group">
+        <input type="checkbox" name="notif_planches" value="on"
+               {% if current_member.notif_planches %}checked{% endif %}
+               class="w-5 h-5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
+        <span class="text-sm text-gray-800 group-hover:text-loge-700 transition-colors">Nouvelles planches</span>
+      </label>
+      <label class="flex items-center gap-3 cursor-pointer group">
+        <input type="checkbox" name="notif_polls" value="on"
+               {% if current_member.notif_polls %}checked{% endif %}
+               class="w-5 h-5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
+        <span class="text-sm text-gray-800 group-hover:text-loge-700 transition-colors">Sondages ouverts</span>
+      </label>
+      <label class="flex items-center gap-3 cursor-pointer group">
+        <input type="checkbox" name="notif_forum" value="on"
+               {% if current_member.notif_forum %}checked{% endif %}
+               class="w-5 h-5 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
+        <span class="text-sm text-gray-800 group-hover:text-loge-700 transition-colors">Activité du forum</span>
+      </label>
+    </div>
+
     <div class="mt-5 flex items-center gap-3">
       <button type="submit"
               class="px-6 py-2.5 bg-loge-700 text-white text-sm font-semibold rounded-xl hover:bg-loge-800 transition-colors">

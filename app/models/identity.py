@@ -151,6 +151,11 @@ class Member(Base):
     last_activity_at: Mapped[Optional[datetime]] = mapped_column(DateTime, index=True)
     # Centre de notifications — dernière ouverture de la cloche (cf. app/services/notifications.py)
     notifications_seen_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    # Préférences par catégorie pour la cloche de notifications (True = affiché)
+    notif_messages: Mapped[bool] = mapped_column(Boolean, default=True)
+    notif_planches: Mapped[bool] = mapped_column(Boolean, default=True)
+    notif_polls: Mapped[bool]    = mapped_column(Boolean, default=True)
+    notif_forum: Mapped[bool]    = mapped_column(Boolean, default=True)
 
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

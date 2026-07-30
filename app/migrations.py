@@ -485,4 +485,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE members ADD COLUMN notifications_seen_at DATETIME"
             )
+        if cols_notif:
+            for col in ("notif_messages", "notif_planches", "notif_polls", "notif_forum"):
+                if col not in cols_notif:
+                    await conn.exec_driver_sql(
+                        f"ALTER TABLE members ADD COLUMN {col} BOOLEAN NOT NULL DEFAULT 1"
+                    )
 

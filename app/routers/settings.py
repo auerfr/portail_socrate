@@ -722,9 +722,17 @@ async def notifications_prefs_save(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     email_notifications: Optional[str] = Form(None),
+    notif_messages: Optional[str] = Form(None),
+    notif_planches: Optional[str] = Form(None),
+    notif_polls: Optional[str] = Form(None),
+    notif_forum: Optional[str] = Form(None),
 ):
     user, member = ctx
     member.email_notifications = email_notifications == "on"
+    member.notif_messages = notif_messages == "on"
+    member.notif_planches = notif_planches == "on"
+    member.notif_polls = notif_polls == "on"
+    member.notif_forum = notif_forum == "on"
     await db.commit()
     return RedirectResponse(url="/settings/notifications?saved=1", status_code=303)
 
