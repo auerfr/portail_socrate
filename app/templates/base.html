@@ -161,6 +161,7 @@
                  style="background:rgba(255,255,255,0.08);">
         </div>
       </form>
+      {% set notif_align = 'left' %}
       {% include "partials/_notif_bell.html" %}
       {% include "partials/_theme_toggle.html" %}
     </div>
@@ -680,6 +681,7 @@
   {% if not on_auth %}
   <div class="lg:hidden sticky top-0 z-40 flex items-center justify-end gap-1 px-3 py-1.5 safe-top border-b border-white/10" style="background:#2d3748;">
     {% include "partials/_theme_toggle.html" %}
+    {% set notif_align = 'right' %}
     {% include "partials/_notif_bell.html" %}
   </div>
   {% endif %}
