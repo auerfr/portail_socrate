@@ -183,7 +183,7 @@
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium text-gray-900 truncate">
             {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+            {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}
           </div>
           <div class="text-xs text-gray-400 truncate">
             {{ mv.visitor.lodge_name or '?' }}
@@ -225,7 +225,7 @@
         <!-- Bouton retirer -->
         <form method="post"
               action="/attendance/meeting/{{ meeting.id }}/remove-visitor/{{ mv.id }}"
-              onsubmit="return confirm('Retirer {{ mv.visitor.first_name }} {{ mv.visitor.last_name }} de cette tenue ?')"
+              onsubmit="return confirm('Retirer {{ mv.visitor.last_name }} {{ mv.visitor.first_name }} de cette tenue ?')"
               class="flex-shrink-0">
           <button type="submit" title="Retirer de cette tenue"
                   class="w-7 h-7 flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
@@ -385,7 +385,7 @@
               </div>
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-semibold text-gray-900">
-                  <span x-text="(v.civility === 'S' ? 'S∴' : 'F∴') + ' ' + v.first_name + ' ' + v.last_name"></span>
+                  <span x-text="(v.civility === 'S' ? 'S∴' : 'F∴') + ' ' + v.last_name + ' ' + v.first_name"></span>
                   <span x-show="v.is_vm" class="ml-1 text-xs bg-loge-50 text-loge-600 rounded-full px-1.5 py-0.5">V∴M∴</span>
                 </div>
                 <div class="text-xs text-gray-400 truncate">
@@ -562,7 +562,7 @@ const INITIAL_MEMBERS = [
   {% for m in active_members %}
   {
     id: {{ m.id }},
-    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name | anon_nom }}",
+    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | anon_nom }} {{ m.first_name }}",
     initials: "{{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}",
     status: "{{ att_by_member[m.id].status.value if m.id in att_by_member else '' }}",
     excuse: "{{ (att_by_member[m.id].excuse_reason or '') if m.id in att_by_member else '' }}",
@@ -644,7 +644,7 @@ function emargement() {
 
     selectVisitor(v) {
       this.selectedVisitor = v;
-      const parts = [v.first_name, v.last_name, v.lodge_name ? '— ' + v.lodge_name : ''].filter(Boolean);
+      const parts = [v.last_name, v.first_name, v.lodge_name ? '— ' + v.lodge_name : ''].filter(Boolean);
       this.visitorSearch = parts.join(' ');
       this.visitorResults = [];
       this.newVisitor = {

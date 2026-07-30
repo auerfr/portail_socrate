@@ -91,14 +91,14 @@
             {% for i in range(0, present|length, 2) %}
             <tr>
               <td class="border border-gray-300 px-3 py-1.5 w-1/3">
-                {{ present_list[i].member.first_name }} {{ present_list[i].member.last_name | upper }}
+                {{ present_list[i].member.last_name | upper }} {{ present_list[i].member.first_name }}
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-1/6 text-gray-500 italic text-xs">
                 {{ member_office.get(present_list[i].member_id, '') }}
               </td>
               {% if i + 1 < present|length %}
               <td class="border border-gray-300 px-3 py-1.5 w-1/3">
-                {{ present_list[i+1].member.first_name }} {{ present_list[i+1].member.last_name | upper }}
+                {{ present_list[i+1].member.last_name | upper }} {{ present_list[i+1].member.first_name }}
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-1/6 text-gray-500 italic text-xs">
                 {{ member_office.get(present_list[i+1].member_id, '') }}
@@ -118,7 +118,7 @@
       {% if excused %}
       <p class="text-justify">
         Étaient excusés, les FF∴ et les SS∴ :
-        {% for att in excused %}{{ att.member.first_name }} {{ att.member.last_name | upper }}{% if not loop.last %}, {% endif %}{% endfor %}.
+        {% for att in excused %}{{ att.member.last_name | upper }} {{ att.member.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
       </p>
       {% endif %}
 
@@ -131,7 +131,7 @@
             {% for mv in visitors %}
             <tr>
               <td class="border border-gray-300 px-3 py-1.5 w-1/4">
-                {{ mv.visitor.first_name }} {{ mv.visitor.last_name | upper }}
+                {{ mv.visitor.last_name | upper }} {{ mv.visitor.first_name }}
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-2/5 text-gray-600">
                 R∴L∴ {{ mv.visitor.lodge_name or '—' }}

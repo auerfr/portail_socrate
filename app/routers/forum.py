@@ -919,7 +919,7 @@ async def forum_export_pdf(
         a = authors.get(mid)
         if not a:
             return "—"
-        return f"{a.first_name or ''} {a.last_name or ''}".strip() or "—"
+        return f"{a.last_name or ''} {a.first_name or ''}".strip() or "—"
 
     def _strip(html: str) -> str:
         if not html:

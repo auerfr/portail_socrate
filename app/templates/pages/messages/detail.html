@@ -27,7 +27,7 @@
         <div class="flex items-center justify-between">
           <div>
             <span class="font-semibold text-gray-900">
-              {{ (sender.first_name ~ ' ' ~ (sender.last_name | anon_nom)) if sender else 'Inconnu' }}
+              {{ ((sender.last_name | anon_nom) ~ ' ' ~ sender.first_name) if sender else 'Inconnu' }}
             </span>
             {% if sender and sender.lodge_function and sender.lodge_function.value != 'FRERE' %}
             <span class="ml-2 text-xs bg-loge-100 text-loge-700 px-2 py-0.5 rounded-full font-medium">
@@ -225,7 +225,7 @@
             {{ m.first_name[0] if m else '?' }}{{ m.last_name | anon_nom | first if m else '' }}
             {{ presence.dot(m, size='xs') }}
           </div>
-          <span class="text-sm text-gray-800">{{ (m.first_name ~ ' ' ~ (m.last_name | anon_nom)) if m else 'Membre #' ~ rec.member_id }}</span>
+          <span class="text-sm text-gray-800">{{ ((m.last_name | anon_nom) ~ ' ' ~ m.first_name) if m else 'Membre #' ~ rec.member_id }}</span>
         </div>
         <div class="flex items-center gap-2">
           {% if rec.read_at %}

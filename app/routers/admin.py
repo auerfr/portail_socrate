@@ -583,7 +583,7 @@ async def admin_rgpd_export(
         raise HTTPException(404)
 
     buf = await build_member_export_zip(
-        db, m, requested_by=f"{actor_member.first_name} {actor_member.last_name} (admin)"
+        db, m, requested_by=f"{actor_member.last_name} {actor_member.first_name} (admin)"
     )
 
     await log_audit(

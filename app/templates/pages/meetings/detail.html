@@ -241,7 +241,7 @@
             </div>
             <div class="flex-1 min-w-0">
               <div class="text-sm font-medium text-gray-900">
-                {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
+                {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}
               </div>
               {% if att.excuse_reason %}
               <div class="text-xs text-gray-400">{{ att.excuse_reason }}</div>
@@ -274,7 +274,7 @@
           <div class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-2">Maçons passants</div>
           {% for mv in meeting.meeting_visitors %}
           <div class="flex items-center gap-2 py-1.5 text-sm">
-            <span class="text-gray-600">{% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}</span>
+            <span class="text-gray-600">{% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}</span>
             <span class="text-gray-400">—</span>
             <span class="text-gray-400 text-xs">{{ mv.visitor.lodge_name or '?' }} · {{ mv.visitor.orient_city or '' }}</span>
             {% if mv.agape %}<span class="text-xs text-gray-400">🍽</span>{% endif %}
@@ -404,7 +404,7 @@
             <div class="flex-1 min-w-0">
               <span class="text-gray-800">
                 {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
+                {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}
               </span>
               {% if att.agape_guests %}
               <span class="text-xs text-gray-400 ml-1">+{{ att.agape_guests }} invité{{ 's' if att.agape_guests > 1 else '' }}</span>
@@ -423,7 +423,7 @@
             <div class="flex-1 min-w-0">
               <span class="text-gray-700">
                 {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+                {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}
               </span>
               <span class="text-gray-400 text-xs ml-1">— {{ mv.visitor.lodge_name or 'Passant' }}</span>
               {% if mv.agape_guests %}
@@ -448,7 +448,7 @@
               {{ g.first_name[0] }}
             </div>
             <div class="flex-1 min-w-0">
-              <span class="text-gray-700">{{ g.first_name }} {{ g.last_name }}</span>
+              <span class="text-gray-700">{{ g.last_name }} {{ g.first_name }}</span>
               {% if g.dietary_restrictions and g.dietary_restrictions.value != 'NONE' %}
               <span class="text-xs text-amber-600 ml-1">{{ diet_labels[g.dietary_restrictions.value] }}</span>
               {% endif %}

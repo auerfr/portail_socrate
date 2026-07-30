@@ -163,7 +163,7 @@ const MEETING_DATA = {
   presents: [
     {% for a in presents %}{% if a.member %}
     {
-      name: {{ (a.member.first_name + ' ' + a.member.last_name) | tojson }},
+      name: {{ (a.member.last_name + ' ' + a.member.first_name) | tojson }},
       fn: {{ ((a.member.lodge_function | label(default=(a.member.lodge_function.value | replace('_',' ') | title))) if a.member.lodge_function and a.member.lodge_function.value != 'FRERE' else '') | tojson }}
     },
     {% endif %}{% endfor %}
@@ -171,14 +171,14 @@ const MEETING_DATA = {
 
   excuses: [
     {% for a in excuses %}{% if a.member %}
-    {{ (a.member.first_name + ' ' + a.member.last_name) | tojson }},
+    {{ (a.member.last_name + ' ' + a.member.first_name) | tojson }},
     {% endif %}{% endfor %}
   ],
 
   passants: [
     {% for mv in passants %}{% if mv.visitor %}
     {
-      name: {{ (mv.visitor.first_name + ' ' + mv.visitor.last_name) | tojson }},
+      name: {{ (mv.visitor.last_name + ' ' + mv.visitor.first_name) | tojson }},
       loge: {{ (mv.visitor.lodge_name or '') | tojson }},
       obedience: {{ (mv.visitor.obedience or 'G∴O∴D∴F∴') | tojson }},
       orient: {{ (mv.visitor.orient_city or '') | tojson }}

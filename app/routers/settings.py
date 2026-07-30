@@ -555,7 +555,7 @@ async def external_contacts_import_csv(
             contact_type = "EXTERNAL"
         first_name = (row.get("prenom") or "").strip()
         last_name = (row.get("nom") or "").strip()
-        name = f"{first_name} {last_name}".strip() or email
+        name = f"{last_name} {first_name}".strip() or email
         db.add(ExternalContact(
             name=name,
             first_name=first_name or None,

@@ -158,7 +158,7 @@ def _build_html_report(data: dict, member: Member, requested_by: str) -> str:
 
     profil_rows = [
         ("Civilité", m.get("civility")),
-        ("Nom", f"{m.get('first_name', '')} {m.get('last_name', '')}"),
+        ("Nom", f"{m.get('last_name', '')} {m.get('first_name', '')}"),
         ("Email", m.get("email")),
         ("Téléphone", m.get("phone")),
         ("Grade maçonnique", m.get("masonic_grade")),
@@ -241,7 +241,7 @@ def _build_html_report(data: dict, member: Member, requested_by: str) -> str:
 <html lang="fr">
 <head>
 <meta charset="utf-8">
-<title>Mes données — {escape(m.get('first_name', ''))} {escape(m.get('last_name', ''))}</title>
+<title>Mes données — {escape(m.get('last_name', ''))} {escape(m.get('first_name', ''))}</title>
 <style>
   body {{ font-family: -apple-system, "Segoe UI", Arial, sans-serif; max-width: 900px; margin: 2rem auto; padding: 0 1.5rem; color: #1a202c; line-height: 1.5; }}
   h1 {{ font-size: 1.4rem; margin-bottom: 0.25rem; }}

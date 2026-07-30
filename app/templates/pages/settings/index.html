@@ -165,7 +165,7 @@
               {% for m in members %}
               <option value="{{ m.id }}"
                 {% if lodge and lodge.vm_member_id == m.id %}selected{% endif %}>
-                {{ m.first_name }} {{ m.last_name }} — {{ m.masonic_grade.value }}
+                {{ m.last_name }} {{ m.first_name }} — {{ m.masonic_grade.value }}
               </option>
               {% endfor %}
             </select>
@@ -218,7 +218,7 @@
               {% for m in members %}
               <option value="{{ m.id }}"
                 {% if lodge and lodge.secretary_member_id == m.id %}selected{% endif %}>
-                {{ m.first_name }} {{ m.last_name }} — {{ m.masonic_grade.value }}
+                {{ m.last_name }} {{ m.first_name }} — {{ m.masonic_grade.value }}
               </option>
               {% endfor %}
             </select>
@@ -373,7 +373,7 @@
               <option value="">— Aucun —</option>
               {% for m in members %}
               <option value="{{ m.id }}" {% if o.member_id == m.id %}selected{% endif %}>
-                {{ m.first_name }} {{ m.last_name }}
+                {{ m.last_name }} {{ m.first_name }}
               </option>
               {% endfor %}
             </select>
@@ -398,7 +398,7 @@
                     class="flex-1 border border-loge-300 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
               <option value="">— Aucun —</option>
               {% for m in members %}
-              <option value="{{ m.id }}">{{ m.first_name }} {{ m.last_name }}</option>
+              <option value="{{ m.id }}">{{ m.last_name }} {{ m.first_name }}</option>
               {% endfor %}
             </select>
             <button type="button" @click="removeNew(i)"
@@ -525,7 +525,7 @@
           </span>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-gray-900">
-              {{ (c.first_name + ' ' + (c.last_name or '')).strip() if (c.first_name or c.last_name) else c.name }}
+              {{ ((c.last_name or '') + ' ' + (c.first_name or '')).strip() if (c.first_name or c.last_name) else c.name }}
             </div>
             <div class="text-xs text-gray-500">
               {{ c.email }}
@@ -862,7 +862,7 @@
             <div class="font-mono text-sm text-gray-800 truncate">{{ u.login }}</div>
             <div class="text-xs text-gray-500 mt-0.5 flex items-center gap-2 flex-wrap">
               {% if u.member_id and u.member_id in all_member_map %}
-              {{ all_member_map[u.member_id].first_name }} {{ all_member_map[u.member_id].last_name }}
+              {{ all_member_map[u.member_id].last_name }} {{ all_member_map[u.member_id].first_name }}
               {% else %}
               <span class="italic">— compte système —</span>
               {% endif %}

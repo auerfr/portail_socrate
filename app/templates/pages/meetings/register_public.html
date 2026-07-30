@@ -101,7 +101,7 @@
           {% for m in active_members %}
           <option value="{{ m.id }}"
             {% if prefill_member_id and prefill_member_id == m.id|string %}selected{% endif %}>
-            {% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.first_name }} {{ m.last_name }}
+            {% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name }} {{ m.first_name }}
             — {{ m.masonic_grade.value | capitalize }}
           </option>
           {% endfor %}

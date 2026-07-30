@@ -55,7 +55,7 @@
         <td><strong>{{ r.office.label }}</strong></td>
         <td>
           {% if r.holder %}
-            {{ r.holder.first_name }} {{ r.holder.last_name }}<br>
+            {{ r.holder.last_name }} {{ r.holder.first_name }}<br>
             {% if r.holder_status == 'PRESENT' %}<span class="pres">✓ Présent</span>
             {% elif r.holder_status == 'EXCUSED' %}<span class="exc">⚠ Excusé</span>
             {% elif r.holder_status == 'ABSENT' %}<span class="abs">✗ Absent</span>
@@ -66,7 +66,7 @@
         </td>
         <td>
           {% if r.substitute %}
-            <span class="sub">{{ r.substitute.first_name }} {{ r.substitute.last_name }}</span>
+            <span class="sub">{{ r.substitute.last_name }} {{ r.substitute.first_name }}</span>
           {% else %}
             <span class="none">—</span>
           {% endif %}

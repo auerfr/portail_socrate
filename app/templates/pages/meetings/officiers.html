@@ -84,7 +84,7 @@
               {# Titulaire + statut présence #}
               <td class="px-4 py-3">
                 {% if r.holder %}
-                  <div class="text-gray-900">{{ r.holder.first_name }} {{ r.holder.last_name }}</div>
+                  <div class="text-gray-900">{{ r.holder.last_name }} {{ r.holder.first_name }}</div>
                   <div class="inline-flex items-center gap-1.5 text-[11px] font-medium mt-1
                               {% if st == 'PRESENT' %}text-emerald-700
                               {% elif st == 'EXCUSED' %}text-amber-700

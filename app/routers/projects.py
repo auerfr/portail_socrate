@@ -1006,7 +1006,7 @@ async def project_export_csv(
         assignee = ""
         if t.assigned_to_id and t.assigned_to_id in mcache:
             m = mcache[t.assigned_to_id]
-            assignee = f"{m.first_name} {m.last_name}"
+            assignee = f"{m.last_name} {m.first_name}"
         w.writerow([
             t.id, t.title, t.status.value, t.priority.value,
             assignee,
@@ -1100,7 +1100,7 @@ async def project_export_pdf(
             assignee = "—"
             if t.assigned_to_id and t.assigned_to_id in mcache:
                 m = mcache[t.assigned_to_id]
-                assignee = f"{m.first_name} {m.last_name}"
+                assignee = f"{m.last_name} {m.first_name}"
             elif t.assigned_to_group_id and t.assigned_to_group_id in gcache:
                 assignee = gcache[t.assigned_to_group_id].name
             rows.append([

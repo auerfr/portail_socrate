@@ -89,7 +89,7 @@
     {% if report.status.value == 'SOUMIS' and can_approve %}
     <div class="bg-amber-50 border-b border-amber-200 px-6 py-3 flex items-center gap-4 flex-wrap">
       <p class="text-sm text-amber-700 flex-1">
-        ⏳ Ce PV a été soumis par <strong>{{ report.author.first_name }} {{ report.author.last_name }}</strong>
+        ⏳ Ce PV a été soumis par <strong>{{ report.author.last_name }} {{ report.author.first_name }}</strong>
         le {{ report.submitted_at.strftime('%d/%m/%Y à %H:%M') }} — en attente de votre approbation.
       </p>
       <div class="flex gap-2">
@@ -137,7 +137,7 @@
       <div class="flex flex-wrap justify-between gap-4 text-xs text-gray-400">
         <div>
           Rédigé par <span class="font-medium text-gray-600">
-            {{ report.author.first_name ~ ' ' ~ report.author.last_name if report.author else '—' }}
+            {{ report.author.last_name ~ ' ' ~ report.author.first_name if report.author else '—' }}
           </span>
           {% if report.updated_at %}· mis à jour le {{ report.updated_at.strftime('%d/%m/%Y') }}{% endif %}
         </div>
@@ -145,7 +145,7 @@
         <div class="flex items-center gap-1.5">
           <span class="w-4 h-4 bg-green-100 rounded-full flex items-center justify-center text-green-600 text-[10px]">✓</span>
           Approuvé par <span class="font-medium text-gray-600 ml-1">
-            {{ report.approved_by.first_name ~ ' ' ~ report.approved_by.last_name }}
+            {{ report.approved_by.last_name ~ ' ' ~ report.approved_by.first_name }}
           </span>
           le {{ report.approved_at.strftime('%d/%m/%Y') }}
         </div>

@@ -412,7 +412,7 @@
           <div class="flex-1 min-w-0">
             <div class="text-sm font-semibold text-gray-900">
               {% if v.civility == 'S' %}S∴{% else %}F∴{% endif %}
-              {{ v.first_name }} {{ v.last_name }}
+              {{ v.last_name }} {{ v.first_name }}
               {% if v.is_vm %}<span class="text-xs text-loge-600 bg-loge-50 rounded-full px-1.5 py-0.5 ml-1">V∴M∴</span>{% endif %}
             </div>
             <div class="text-xs text-gray-400">

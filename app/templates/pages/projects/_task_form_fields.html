@@ -34,7 +34,7 @@
     <option value="none" selected>— Non assigné —</option>
     <optgroup label="Membres">
       {% for m in all_active %}
-      <option value="m:{{ m.id }}">{{ m.first_name }} {{ m.last_name }}</option>
+      <option value="m:{{ m.id }}">{{ m.last_name }} {{ m.first_name }}</option>
       {% endfor %}
     </optgroup>
     <optgroup label="Groupes">

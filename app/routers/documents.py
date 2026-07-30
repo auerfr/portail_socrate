@@ -171,7 +171,7 @@ async def documents_perso(
     if not folder:
         folder = DocFolder(
             space_id=space.id,
-            name=f"{member.first_name} {member.last_name}",
+            name=f"{member.last_name} {member.first_name}",
             min_grade=MinGrade.ALL,
             personal_owner_id=member.id,
             created_by_id=member.id,

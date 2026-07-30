@@ -48,7 +48,7 @@ async def global_search(
         if members_hits:
             categories.append({
                 "key": "members", "label": "Membres", "icon": "ti-users",
-                "entries": [{"label": f"{m.first_name} {m.last_name}", "sub": m.email, "url": f"/members/{m.id}"} for m in members_hits],
+                "entries": [{"label": f"{m.last_name} {m.first_name}", "sub": m.email, "url": f"/members/{m.id}"} for m in members_hits],
             })
 
         # ── Documents (recherche full-text existante) ───────────────────
@@ -151,7 +151,7 @@ async def global_search(
         if planche_hits:
             categories.append({
                 "key": "planches", "label": "Planches", "icon": "ti-feather",
-                "entries": [{"label": p.title, "sub": p.author.first_name + " " + p.author.last_name if p.author else "", "url": f"/planches/{p.id}"} for p in planche_hits],
+                "entries": [{"label": p.title, "sub": p.author.last_name + " " + p.author.first_name if p.author else "", "url": f"/planches/{p.id}"} for p in planche_hits],
             })
 
     return templates.TemplateResponse(request, "pages/search/results.html", {

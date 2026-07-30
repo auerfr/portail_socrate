@@ -364,7 +364,7 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-xs font-medium text-gray-200 truncate">
-            {{ current_member.first_name ~ ' ' ~ current_member.last_name if current_member else '—' }}
+            {{ current_member.last_name ~ ' ' ~ current_member.first_name if current_member else '—' }}
           </div>
           <div class="text-gray-500 truncate" style="font-size:10px;">
             {{ current_member.masonic_grade | label if current_member else '' }}{% if current_member and current_member.lodge_function and current_member.lodge_function.value != 'FRERE' %} · {{ current_member.lodge_function | label(default=current_member.lodge_function.value | replace('_', ' ') | title) }}{% endif %}
@@ -656,7 +656,7 @@
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
       </svg>
       Mode impersonation — vous naviguez en tant que
-      <strong>{% if current_member %}{{ current_member.first_name }} {{ current_member.last_name }}{% endif %}</strong>
+      <strong>{% if current_member %}{{ current_member.last_name }} {{ current_member.first_name }}{% endif %}</strong>
     </span>
     <form method="post" action="/auth/stop-impersonate">
       <button type="submit" class="bg-amber-900 text-amber-50 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-amber-800 transition-colors whitespace-nowrap">

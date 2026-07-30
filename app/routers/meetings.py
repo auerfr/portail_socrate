@@ -583,7 +583,7 @@ async def meeting_trace(
     if vm_office and vm_office.member_id:
         for att in present:
             if att.member_id == vm_office.member_id:
-                vm_name = f"{att.member.first_name} {att.member.last_name}"
+                vm_name = f"{att.member.last_name} {att.member.first_name}"
                 break
 
     can_edit = can_manage_meeting(member) or user.is_admin
@@ -1170,8 +1170,8 @@ async def meeting_officiers_pdf(
         st = presence.get(o.member_id, "") if o.member_id else ""
         sub_record = sub_map.get(o.label)
         sub = holders.get(sub_record.substitute_member_id) if sub_record and sub_record.substitute_member_id else None
-        holder_name = f"{holder.first_name} {holder.last_name}" if holder else "Vacant"
-        sub_name = f"{sub.first_name} {sub.last_name}" if sub else "—"
+        holder_name = f"{holder.last_name} {holder.first_name}" if holder else "Vacant"
+        sub_name = f"{sub.last_name} {sub.first_name}" if sub else "—"
         st_label = STATUS_LABEL.get(st, "—")
         st_color = STATUS_COLOR.get(st, colors.HexColor("#6b7280"))
         data.append([
@@ -1814,7 +1814,7 @@ async def public_register_submit(
             position = (pos_r.scalar() or 0) + 1
             db.add(MeetingWaitlist(
                 meeting_id=meeting.id,
-                external_name=f"{first_name} {last_name}".strip() or f"Membre #{member_id}",
+                external_name=f"{last_name} {first_name}".strip() or f"Membre #{member_id}",
                 external_email=email or None,
                 position=position,
             ))

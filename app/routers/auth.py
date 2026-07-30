@@ -513,7 +513,7 @@ async def export_my_data(
 
     user, member = ctx
     buf = await build_member_export_zip(
-        db, member, requested_by=f"{member.first_name} {member.last_name} (lui-même)"
+        db, member, requested_by=f"{member.last_name} {member.first_name} (lui-même)"
     )
 
     try:

@@ -111,7 +111,7 @@
         <div class="flex-1 min-w-0">
           <div class="text-sm font-medium text-gray-900 flex items-center gap-2 flex-wrap">
             {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+            {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}
             {% if mv.visitor.is_vm %}
             <span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-2 py-0.5">V∴M∴</span>
             {% endif %}
@@ -149,7 +149,7 @@
         <!-- Retirer de la tenue -->
         <form method="post"
               action="/attendance/meeting/{{ meeting.id }}/remove-visitor/{{ mv.id }}"
-              onsubmit="return confirm('Retirer {{ mv.visitor.first_name }} {{ mv.visitor.last_name }} de cette tenue ?')"
+              onsubmit="return confirm('Retirer {{ mv.visitor.last_name }} {{ mv.visitor.first_name }} de cette tenue ?')"
               class="flex-shrink-0 ml-1">
           <button type="submit" title="Retirer de cette tenue"
                   class="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
@@ -226,7 +226,7 @@
           </div>
           <div class="flex-1 text-sm font-medium text-gray-800">
             {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-            {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
+            {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}
           </div>
           {% if att.agape %}<span class="text-xs text-gray-400">🍽</span>{% endif %}
         </div>
@@ -249,7 +249,7 @@
           <div class="flex-1">
             <div class="text-sm font-medium text-gray-800">
               {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-              {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
+              {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}
             </div>
             {% if att.excuse_reason %}
             <div class="text-xs text-gray-400">{{ att.excuse_reason }}</div>
@@ -274,7 +274,7 @@
           </div>
           <div class="flex-1 text-sm text-gray-600">
             {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-            {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
+            {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}
           </div>
           <a href="/attendance/member/{{ att.member_id }}"
              class="text-xs text-gray-400 hover:text-loge-600 transition-colors">Historique →</a>

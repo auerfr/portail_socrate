@@ -682,7 +682,7 @@ async def config_update(
     snapshot_before = {
         "ts": datetime.utcnow().isoformat(),
         "actor_id": member.id if member else None,
-        "actor_name": (f"{member.first_name} {member.last_name}" if member else "—"),
+        "actor_name": (f"{member.last_name} {member.first_name}" if member else "—"),
         "reference_amount": float(cfg.reference_amount or 0),
         "national_capitation_rate": float(cfg.national_capitation_rate or 0),
         "regional_capitation_rate": float(cfg.regional_capitation_rate or 0),

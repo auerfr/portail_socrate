@@ -320,7 +320,7 @@ async def report_approve(
 {report.content or ''}
 <hr style="border-color:#e5e7eb;margin:2rem 0;">
 <p style="font-size:0.8rem;color:#6b7280;">
-Approuvé par {member.first_name} {member.last_name} le {report.approved_at.strftime('%d/%m/%Y')}</p>
+Approuvé par {member.last_name} {member.first_name} le {report.approved_at.strftime('%d/%m/%Y')}</p>
 </body></html>"""
 
         with open(storage_path, "w", encoding="utf-8") as f:

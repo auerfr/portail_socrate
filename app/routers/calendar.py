@@ -89,9 +89,9 @@ def _meeting_to_event(m: Meeting) -> dict:
 def _anniv_to_event(a) -> dict:
     """Convertit un Anniversaire en dict pseudo-event pour le calendrier."""
     if a.event_label == "Naissance":
-        title = f"🎂 {a.first_name} {a.last_name} — {a.years} ans"
+        title = f"🎂 {a.last_name} {a.first_name} — {a.years} ans"
     else:
-        title = f"🎖 {a.first_name} {a.last_name} — {a.years} ans de {a.event_label.lower()}"
+        title = f"🎖 {a.last_name} {a.first_name} — {a.years} ans de {a.event_label.lower()}"
     return {
         "id": f"anniv_{a.member_id}_{a.event_label}",
         "title": title,

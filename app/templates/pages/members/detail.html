@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/_presence.html" as presence %}
-{% block title %}{{ target.first_name }} {{ target.last_name | anon_nom }} — Portail Socrate{% endblock %}
+{% block title %}{{ target.last_name | anon_nom }} {{ target.first_name }} — Portail Socrate{% endblock %}
 
 {% block content %}
 <div class="p-4 lg:p-8 max-w-4xl mx-auto">
@@ -11,7 +11,7 @@
     <div class="flex items-center gap-1.5">
       <a href="/members/" class="hover:text-loge-700">Membres</a>
       <span>›</span>
-      <span class="text-gray-800">{{ target.first_name }} {{ target.last_name | anon_nom }}</span>
+      <span class="text-gray-800">{{ target.last_name | anon_nom }} {{ target.first_name }}</span>
     </div>
     {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
     <a href="/attendance/member/{{ target.id }}"
@@ -35,7 +35,7 @@
           {{ presence.dot(target, size='md') }}
         </div>
         <div>
-          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.first_name }} {{ target.last_name | anon_nom }}</h1>
+          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.last_name | anon_nom }} {{ target.first_name }}</h1>
           <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade, target.civility) }} · {{ office_label or function_label(target.lodge_function, target.civility) }}</p>
           <p class="text-loge-200 text-xs mt-1">{{ target | presence_label }}</p>
           <div class="mt-2">

@@ -19,7 +19,7 @@
   <select name="actor_id" class="border border-gray-200 rounded-xl px-2 py-2 text-xs">
     <option value="">Tous acteurs</option>
     {% for m in actors_pick %}
-    <option value="{{ m.id }}" {% if actor_id == (m.id | string) %}selected{% endif %}>{{ m.first_name }} {{ m.last_name }}</option>
+    <option value="{{ m.id }}" {% if actor_id == (m.id | string) %}selected{% endif %}>{{ m.last_name }} {{ m.first_name }}</option>
     {% endfor %}
   </select>
   <select name="days" class="border border-gray-200 rounded-xl px-2 py-2 text-xs">
@@ -53,7 +53,7 @@
         <tr class="hover:bg-gray-50 align-top">
           <td class="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{{ e.created_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
           <td class="px-4 py-2.5 text-sm">
-            {% if au %}<span class="font-medium text-gray-900">{{ au.first_name }} {{ au.last_name }}</span>
+            {% if au %}<span class="font-medium text-gray-900">{{ au.last_name }} {{ au.first_name }}</span>
             {% else %}<span class="text-gray-400">système</span>{% endif %}
           </td>
           <td class="px-4 py-2.5"><span class="font-mono text-[11px] bg-gray-100 text-gray-700 px-1.5 py-0.5 rounded">{{ e.action }}</span></td>

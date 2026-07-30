@@ -470,7 +470,7 @@ async def list_external_quick_add(
     fname = first_name.strip()
     lname = last_name.strip()
     email = email.strip().lower()
-    full_name = f"{fname} {lname}".strip()
+    full_name = f"{lname} {fname}".strip()
     if not full_name or "@" not in email:
         raise HTTPException(400, "Au moins nom (ou prénom) + email valides requis")
 
@@ -594,7 +594,7 @@ async def list_external_import_csv(
             else:
                 lname = name_blob
 
-        full_name = f"{fname} {lname}".strip()
+        full_name = f"{lname} {fname}".strip()
         if not full_name or "@" not in email:
             skipped += 1
             continue
@@ -1044,7 +1044,7 @@ async def unsubscribe_form(
             return templates.TemplateResponse(request, "pages/mailing/unsubscribe.html", {
                 "error": "Membre introuvable.", "token": token,
             }, status_code=404)
-        target_name = f"{m.first_name} {m.last_name}"
+        target_name = f"{m.last_name} {m.first_name}"
         target_civility = m.civility or ""
         r = await db.execute(
             select(MailingListMember).where(

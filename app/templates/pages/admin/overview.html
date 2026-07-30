@@ -142,7 +142,7 @@
       {% set au = actors.get(a.actor_id) %}
       <li class="px-5 py-2.5">
         <div class="flex items-center justify-between gap-2">
-          <span class="font-semibold text-gray-800">{% if au %}{{ au.first_name }} {{ au.last_name }}{% else %}<span class="text-gray-400">système</span>{% endif %}</span>
+          <span class="font-semibold text-gray-800">{% if au %}{{ au.last_name }} {{ au.first_name }}{% else %}<span class="text-gray-400">système</span>{% endif %}</span>
           <span class="text-[10px] text-gray-400">{{ a.created_at.strftime('%d/%m %H:%M') }}</span>
         </div>
         <div class="text-xs text-gray-500">

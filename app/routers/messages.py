@@ -546,7 +546,7 @@ async def send_message(
     await db.commit()
 
     # ── Notifications email ───────────────────────────────────────────────
-    sender_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.first_name} {member.last_name}"
+    sender_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.last_name} {member.first_name}"
     settings = get_settings()
     portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
 
@@ -701,7 +701,7 @@ async def save_attachment_to_library(
     if not folder:
         folder = DocFolder(
             space_id=space.id,
-            name=f"{member.first_name} {member.last_name}",
+            name=f"{member.last_name} {member.first_name}",
             min_grade=MinGrade.ALL,
             personal_owner_id=member.id,
             created_by_id=member.id,
