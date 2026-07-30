@@ -290,6 +290,9 @@ def _access_email_content(
 Un accès au portail de la loge {lodge_name} a été créé (ou renouvelé) pour vous.
 
 Identifiant : {user.login}
+(Attention, ce n'est PAS votre adresse email — c'est un identifiant du type
+"prenom.nom" propre au portail. Vous pouvez aussi vous connecter directement
+avec votre adresse email {member.email}, les deux fonctionnent.)
 
 Définissez votre mot de passe ici (lien valable 7 jours) :
 {reset_url}
@@ -310,6 +313,9 @@ L'administration du Portail {lodge_name}"""
 <table style="border:1px solid #ddd;padding:12px;border-radius:8px;background:#f9f9f9">
   <tr><td><strong>Identifiant</strong></td><td>{user.login}</td></tr>
 </table>
+<p style="color:#6b7280;font-size:13px;">⚠ Ceci n'est <strong>pas votre adresse email</strong> : c'est un identifiant
+propre au portail, du type « prenom.nom ». Vous pouvez aussi vous connecter directement avec votre adresse email
+<strong>{member.email}</strong> — les deux fonctionnent.</p>
 <p><a href="{reset_url}" style="background:#2c7a7b;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:12px 0">
   Définir mon mot de passe →
 </a></p>

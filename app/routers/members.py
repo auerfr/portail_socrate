@@ -803,6 +803,10 @@ Vos identifiants de connexion :
   Identifiant : {target_user.login}
   Mot de passe temporaire : {temp_password}
 
+(Attention, l'identifiant n'est PAS votre adresse email — c'est un identifiant du
+type "prenom.nom" propre au portail. Vous pouvez aussi vous connecter directement
+avec votre adresse email {target.email}, les deux fonctionnent.)
+
 Connectez-vous ici : {portal_url}
 
 ⚠ Pour votre sécurité, changez votre mot de passe dès votre première connexion :
@@ -818,6 +822,9 @@ L'administration du Portail"""
   <tr><td><strong>Identifiant</strong></td><td>{target_user.login}</td></tr>
   <tr><td><strong>Mot de passe temporaire</strong></td><td>{temp_password}</td></tr>
 </table>
+<p style="color:#6b7280;font-size:13px;">⚠ L'identifiant ci-dessus n'est <strong>pas votre adresse email</strong> : c'est un
+identifiant propre au portail, du type « prenom.nom ». Vous pouvez aussi vous connecter directement avec votre adresse email
+<strong>{target.email}</strong> — les deux fonctionnent.</p>
 <p><a href="{portal_url}" style="background:#2c7a7b;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:12px 0">
   Se connecter au portail →
 </a></p>
