@@ -155,7 +155,21 @@
           <select id="recurrence_freq" name="recurrence_freq" x-model="recurrenceFreq"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
             <option value="WEEKLY">Chaque semaine</option>
-            <option value="MONTHLY_NTH_WEEKDAY">Chaque mois (même position, ex : 1er lundi)</option>
+            <option value="MONTHLY_NTH_WEEKDAY">Chaque mois (à une position fixe, ex : 1er lundi)</option>
+          </select>
+        </div>
+
+        {% set weekday_options = [(0,'Lundi'),(1,'Mardi'),(2,'Mercredi'),(3,'Jeudi'),(4,'Vendredi'),(5,'Samedi'),(6,'Dimanche')] %}
+
+        <div>
+          <label for="recurrence_weekday" class="block text-sm font-medium text-gray-700 mb-1">
+            Jour de la semaine
+          </label>
+          <select id="recurrence_weekday" name="recurrence_weekday"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            {% for v, label in weekday_options %}
+            <option value="{{ v }}" {% if v == today_weekday %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
           </select>
         </div>
 
@@ -167,13 +181,23 @@
             <span class="text-sm text-gray-500">Toutes les</span>
             <input type="number" id="recurrence_interval" name="recurrence_interval" min="1" max="52" value="1"
                    class="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            <span class="text-sm text-gray-500">semaine(s), le même jour que la date de début</span>
+            <span class="text-sm text-gray-500">semaine(s)</span>
           </div>
         </div>
 
-        <p x-show="recurrenceFreq === 'MONTHLY_NTH_WEEKDAY'" x-cloak class="text-xs text-gray-400">
-          Se répétera chaque mois, sur la même position (ex : 1er lundi, 3ème mardi…) que la date de début choisie ci-dessus.
-        </p>
+        <div x-show="recurrenceFreq === 'MONTHLY_NTH_WEEKDAY'" x-cloak>
+          <label for="recurrence_position" class="block text-sm font-medium text-gray-700 mb-1">
+            Position dans le mois
+          </label>
+          <select id="recurrence_position" name="recurrence_position"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            <option value="1">1er</option>
+            <option value="2">2ème</option>
+            <option value="3">3ème</option>
+            <option value="4">4ème</option>
+            <option value="LAST">Dernier (quand il y en a 5)</option>
+          </select>
+        </div>
 
         <div>
           <label for="recurrence_until" class="block text-sm font-medium text-gray-700 mb-1">

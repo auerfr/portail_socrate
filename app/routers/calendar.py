@@ -178,7 +178,7 @@ def _format_ics_date(d: date) -> str:
 # ── Récurrence ──────────────────────────────────────────────────────────────
 
 _WEEKDAY_NAMES = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
-_NTH_NAMES = {1: "1er", 2: "2ème", 3: "3ème", 4: "4ème", 5: "5ème"}
+_NTH_NAMES = {1: "1er", 2: "2ème", 3: "3ème", 4: "4ème"}
 MAX_RECURRENCE_OCCURRENCES = 156  # ~3 ans en hebdomadaire, garde-fou anti-emballement
 
 def _nth_weekday_of_month(year: int, month: int, weekday: int, nth: int) -> Optional[date]:
@@ -191,21 +191,35 @@ def _nth_weekday_of_month(year: int, month: int, weekday: int, nth: int) -> Opti
         return None
     return date(year, month, day)
 
-def _compute_recurrence_dates(start: date, until: date, freq: str, interval: int) -> list[date]:
-    """Calcule les dates d'occurrence entre start et until (inclus) selon la fréquence."""
+def _last_weekday_of_month(year: int, month: int, weekday: int) -> date:
+    """Renvoie la date du dernier jour de semaine `weekday` (0=lundi) du mois."""
+    last_day_num = cal.monthrange(year, month)[1]
+    last_date = date(year, month, last_day_num)
+    offset = (last_date.weekday() - weekday) % 7
+    return last_date - timedelta(days=offset)
+
+def _compute_recurrence_dates(
+    start: date, until: date, freq: str, interval: int,
+    weekday: Optional[int] = None, position: Optional[str] = None,
+) -> list[date]:
+    """Calcule les dates d'occurrence entre start et until (inclus) selon la fréquence.
+    `weekday` (0=lundi..6=dimanche) est requis pour WEEKLY et MONTHLY_NTH_WEEKDAY.
+    `position` ("1","2","3","4","LAST") est requis pour MONTHLY_NTH_WEEKDAY."""
     dates: list[date] = []
     if freq == "WEEKLY":
         interval = max(1, interval or 1)
-        cur = start
+        wd = weekday if weekday is not None else start.weekday()
+        days_ahead = (wd - start.weekday()) % 7
+        cur = start + timedelta(days=days_ahead)
         while cur <= until and len(dates) < MAX_RECURRENCE_OCCURRENCES:
             dates.append(cur)
             cur = cur + timedelta(weeks=interval)
     elif freq == "MONTHLY_NTH_WEEKDAY":
-        weekday = start.weekday()
-        nth = (start.day - 1) // 7 + 1
+        wd = weekday if weekday is not None else start.weekday()
+        pos = position or "1"
         y, m = start.year, start.month
         while date(y, m, 1) <= until and len(dates) < MAX_RECURRENCE_OCCURRENCES:
-            occ = _nth_weekday_of_month(y, m, weekday, nth)
+            occ = _last_weekday_of_month(y, m, wd) if pos == "LAST" else _nth_weekday_of_month(y, m, wd, int(pos))
             if occ and start <= occ <= until:
                 dates.append(occ)
             m += 1
@@ -214,15 +228,15 @@ def _compute_recurrence_dates(start: date, until: date, freq: str, interval: int
                 y += 1
     return dates
 
-def _recurrence_label(freq: str, interval: int, start: date) -> str:
+def _recurrence_label(freq: str, interval: int, weekday: int, position: Optional[str] = None) -> str:
     if freq == "WEEKLY":
         interval = max(1, interval or 1)
         if interval == 1:
-            return f"Chaque semaine, le {_WEEKDAY_NAMES[start.weekday()]}"
-        return f"Toutes les {interval} semaines, le {_WEEKDAY_NAMES[start.weekday()]}"
+            return f"Chaque semaine, le {_WEEKDAY_NAMES[weekday]}"
+        return f"Toutes les {interval} semaines, le {_WEEKDAY_NAMES[weekday]}"
     if freq == "MONTHLY_NTH_WEEKDAY":
-        nth = (start.day - 1) // 7 + 1
-        return f"Chaque mois, le {_NTH_NAMES.get(nth, f'{nth}ème')} {_WEEKDAY_NAMES[start.weekday()]}"
+        pos_label = "dernier" if position == "LAST" else _NTH_NAMES.get(int(position or 1), f"{position}ème")
+        return f"Chaque mois, le {pos_label} {_WEEKDAY_NAMES[weekday]}"
     return "Récurrent"
 
 
@@ -446,6 +460,7 @@ async def calendar_compose(
         "member_groups": member_groups,
         "can_manage_calendar": can_manage,
         "today_str": date.today().isoformat(),
+        "today_weekday": date.today().weekday(),
         "visio_server": visio_server,
         "visio_prefix": visio_prefix,
     })
@@ -474,6 +489,8 @@ async def calendar_create_event(
     recurring: Optional[str] = Form(None),
     recurrence_freq: Optional[str] = Form(None),
     recurrence_interval: Optional[int] = Form(1),
+    recurrence_weekday: Optional[int] = Form(None),
+    recurrence_position: Optional[str] = Form(None),
     recurrence_until: Optional[str] = Form(None),
 ):
     user, member = ctx
@@ -554,13 +571,17 @@ async def calendar_create_event(
     if until_day < start_day:
         raise HTTPException(status_code=400, detail="La date de fin de récurrence doit être après la date de début.")
 
-    occurrence_dates = _compute_recurrence_dates(start_day, until_day, recurrence_freq, recurrence_interval or 1)
+    weekday = recurrence_weekday if recurrence_weekday is not None else start_day.weekday()
+    occurrence_dates = _compute_recurrence_dates(
+        start_day, until_day, recurrence_freq, recurrence_interval or 1,
+        weekday=weekday, position=recurrence_position,
+    )
     if not occurrence_dates:
         raise HTTPException(status_code=400, detail="Aucune occurrence ne correspond à cette récurrence sur la période choisie.")
 
     end_offset_days = (end_dt.date() - start_day).days if end_dt else None
     group_id = uuid.uuid4().hex
-    label = _recurrence_label(recurrence_freq, recurrence_interval or 1, start_day)
+    label = _recurrence_label(recurrence_freq, recurrence_interval or 1, weekday, recurrence_position)
 
     for occ_date in occurrence_dates:
         occ_start = datetime.combine(occ_date, start_dt.time())
