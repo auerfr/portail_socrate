@@ -1,5 +1,7 @@
 """Service d'envoi d'emails via SMTP (aiosmtplib)."""
+import asyncio
 import logging
+import re
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -122,28 +124,50 @@ async def _send_raw(
     msg["To"]      = to
     msg["X-Mailer"] = "Portail Socrate"
 
-    try:
-        use_ssl  = settings.smtp_secure == "ssl"
-        use_tls  = settings.smtp_secure == "tls"
+    use_ssl  = settings.smtp_secure == "ssl"
+    use_tls  = settings.smtp_secure == "tls"
 
-        await aiosmtplib.send(
-            msg,
-            hostname=settings.smtp_host,
-            port=settings.smtp_port,
-            username=settings.smtp_user,
-            password=settings.smtp_pass,
-            use_tls=use_ssl,       # SSL direct (port 465)
-            start_tls=use_tls,     # STARTTLS (port 587)
-            timeout=15,            # 15 secondes max
-        )
-        logger.info("Email envoyé → %s [%s]", to, subject)
-        await _journal(True, None)
-        return True, None
+    # Nouvelle(s) tentative(s) sur erreur SMTP transitoire (4xx, ex : "421
+    # Temporary System Problem") — fréquent sur les relais mutualisés en cas
+    # de pic d'envois. Les erreurs 5xx (permanentes) ne sont jamais rejouées.
+    max_attempts = 3
+    backoff = 3.0
+    for attempt in range(1, max_attempts + 1):
+        try:
+            await aiosmtplib.send(
+                msg,
+                hostname=settings.smtp_host,
+                port=settings.smtp_port,
+                username=settings.smtp_user,
+                password=settings.smtp_pass,
+                use_tls=use_ssl,       # SSL direct (port 465)
+                start_tls=use_tls,     # STARTTLS (port 587)
+                timeout=15,            # 15 secondes max
+            )
+            logger.info("Email envoyé → %s [%s]", to, subject)
+            await _journal(True, None)
+            return True, None
 
-    except Exception as exc:
-        logger.error("Échec envoi email → %s : %s", to, exc)
-        await _journal(False, str(exc))
-        return False, str(exc)
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if code is None:
+                m = re.match(r"^\(?(\d{3})[,)]", str(exc))
+                if m:
+                    code = int(m.group(1))
+            is_transient = code is not None and 400 <= code < 500
+
+            if is_transient and attempt < max_attempts:
+                logger.warning(
+                    "Erreur SMTP transitoire (%s) → %s, nouvelle tentative %s/%s dans %.0fs",
+                    code, to, attempt + 1, max_attempts, backoff,
+                )
+                await asyncio.sleep(backoff)
+                backoff *= 2
+                continue
+
+            logger.error("Échec envoi email → %s : %s", to, exc)
+            await _journal(False, str(exc))
+            return False, str(exc)
 
 
 # ── Templates email ────────────────────────────────────────────────────────

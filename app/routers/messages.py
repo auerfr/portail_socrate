@@ -22,6 +22,37 @@ from app.services.email import notify_new_message
 from app.models.groups import LodgeGroup as Group, SYSTEM_GROUPS
 from app.routers.groups import resolve_group_member_ids, ensure_system_groups
 
+# Délai entre deux envois — évite de saturer le relais SMTP (mêmes conventions
+# que app/services/mailing.py::EMAIL_DELAY_MS et member_access.py::ACCESS_EMAIL_DELAY_MS).
+# Sans ce délai, un message envoyé à un grand groupe ouvrait autant de
+# connexions SMTP simultanées que de destinataires, ce que les relais
+# mutualisés (LWS/cPanel) rejettent en rafale avec un "421 4.3.0 Temporary
+# System Problem" — la plupart des envois échouaient alors silencieusement.
+NOTIFY_EMAIL_DELAY_MS = 300
+
+
+async def _notify_recipients_paced(
+    recipient_emails: list[str], sender_name: str, subject: str, body: str,
+    message_id: int, portal_base_url: str,
+) -> None:
+    """Envoie les notifications de nouveau message une par une, avec une
+    pause entre chaque, plutôt que toutes en parallèle (cf. NOTIFY_EMAIL_DELAY_MS)."""
+    import asyncio
+    for email in recipient_emails:
+        try:
+            await notify_new_message(
+                recipient_email=email,
+                sender_name=sender_name,
+                subject=subject,
+                body=body,
+                message_id=message_id,
+                portal_base_url=portal_base_url,
+            )
+        except Exception:
+            pass
+        await asyncio.sleep(NOTIFY_EMAIL_DELAY_MS / 1000.0)
+
+
 def _normalize_message_links(html: Optional[str]) -> Optional[str]:
     """Corrige les liens mal formés dans un corps de message : si l'utilisateur
     a collé une URL au format Markdown (`[texte](https://...)`) directement
@@ -566,17 +597,20 @@ async def send_message(
             select(Member).where(Member.id.in_(recipient_ids))
         )
         dest_members = rm.scalars().all()
-        for dest in dest_members:
-            if dest.email and getattr(dest, "email_notifications", True):
-                import asyncio
-                asyncio.create_task(notify_new_message(  # noqa — fire & forget
-                    recipient_email=dest.email,
-                    sender_name=sender_name,
-                    subject=msg.subject,
-                    body=msg.body,
-                    message_id=msg.id,
-                    portal_base_url=portal_url,
-                ))
+        dest_emails = [
+            dest.email for dest in dest_members
+            if dest.email and getattr(dest, "email_notifications", True)
+        ]
+        if dest_emails:
+            import asyncio
+            asyncio.create_task(_notify_recipients_paced(  # noqa — fire & forget
+                recipient_emails=dest_emails,
+                sender_name=sender_name,
+                subject=msg.subject,
+                body=msg.body,
+                message_id=msg.id,
+                portal_base_url=portal_url,
+            ))
 
     # ── Push notifications aux destinataires ─────────────────────────────
     try:
