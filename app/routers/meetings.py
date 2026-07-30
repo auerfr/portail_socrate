@@ -536,6 +536,10 @@ async def meeting_trace(
     if not meeting:
         raise HTTPException(status_code=404)
 
+    # État des offices pour cette tenue (titulaire/statut/remplaçant), pour le
+    # bloc "Suppléances" du tracé — ne garder que les offices vacants/remplacés.
+    officer_rows = [r for r in await _build_officer_rows(db, meeting) if r["needs_substitute"] or r["substitute"]]
+
     # Offices pour afficher les fonctions des membres
     offices_r = await db.execute(
         select(LodgeOffice).where(LodgeOffice.member_id.isnot(None))
@@ -610,6 +614,7 @@ async def meeting_trace(
         "absent": absent,
         "visitors": visitors,
         "member_office": member_office,
+        "officer_rows": officer_rows,
         "type_label": _type_label,
         "grade_label": _grade_label,
         "masonic_year": masonic_year,
@@ -1002,27 +1007,10 @@ async def my_officiers(
     return RedirectResponse(url=f"/meetings/{m.id}/officiers", status_code=303)
 
 
-@router.get("/{meeting_id}/officiers", response_class=HTMLResponse)
-async def meeting_officiers(
-    request: Request,
-    meeting_id: int,
-    ctx: Annotated[tuple, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Vue VM : statut de chaque office pour cette tenue + sélecteur de remplaçants."""
-    user, member = ctx
-    if not _can_manage_officiers(user, member):
-        raise HTTPException(403, "Accès réservé au VM, aux Surveillants et au Secrétaire")
-
-    meeting = (await db.execute(
-        select(Meeting)
-        .options(selectinload(Meeting.attendances).selectinload(Attendance.member))
-        .where(Meeting.id == meeting_id)
-    )).scalar_one_or_none()
-    if not meeting:
-        raise HTTPException(404)
-
-    # Tous les offices configurés
+async def _build_officer_rows(db: AsyncSession, meeting: "Meeting") -> list[dict]:
+    """Construit, pour une tenue donnée, l'état de chaque office (titulaire,
+    statut de présence, remplaçant éventuel). Partagé entre la vue de gestion
+    des officiers et le tracé/PV (qui affiche qui occupe chaque office vacant)."""
     offices = (await db.execute(
         select(LodgeOffice).order_by(LodgeOffice.sort_order, LodgeOffice.label)
     )).scalars().all()
@@ -1042,7 +1030,7 @@ async def meeting_officiers(
 
     # Remplaçants déjà désignés (table meeting_offices)
     subs = (await db.execute(
-        select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
+        select(MeetingOffice).where(MeetingOffice.meeting_id == meeting.id)
     )).scalars().all()
     sub_by_label: dict[str, MeetingOffice] = {s.office_label: s for s in subs}
 
@@ -1053,21 +1041,6 @@ async def meeting_officiers(
         for m in sr.scalars().all():
             holders[m.id] = m
 
-    # Membres présents/excusés/confirmés (pour le sélecteur de remplaçants)
-    present_members = sorted(
-        [att.member for att in meeting.attendances
-         if att.status == AttendanceStatus.PRESENT and att.member],
-        key=lambda x: (x.last_name or "", x.first_name or ""),
-    )
-
-    # Tous les membres actifs (pour permettre de désigner même un non-inscrit)
-    from app.models.identity import MemberStatus
-    all_active = (await db.execute(
-        select(Member).where(Member.status == MemberStatus.ACTIVE)
-        .order_by(Member.last_name, Member.first_name)
-    )).scalars().all()
-
-    # Construction des rangées pour le template
     rows = []
     for o in offices:
         holder = holders.get(o.member_id) if o.member_id else None
@@ -1089,6 +1062,44 @@ async def meeting_officiers(
             "substitute_id": (sub_record.substitute_member_id if sub_record else None),
             "notes": (sub_record.notes if sub_record else ""),
         })
+    return rows
+
+
+@router.get("/{meeting_id}/officiers", response_class=HTMLResponse)
+async def meeting_officiers(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Vue VM : statut de chaque office pour cette tenue + sélecteur de remplaçants."""
+    user, member = ctx
+    if not _can_manage_officiers(user, member):
+        raise HTTPException(403, "Accès réservé au VM, aux Surveillants et au Secrétaire")
+
+    meeting = (await db.execute(
+        select(Meeting)
+        .options(selectinload(Meeting.attendances).selectinload(Attendance.member))
+        .where(Meeting.id == meeting_id)
+    )).scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(404)
+
+    rows = await _build_officer_rows(db, meeting)
+
+    # Membres présents/excusés/confirmés (pour le sélecteur de remplaçants)
+    present_members = sorted(
+        [att.member for att in meeting.attendances
+         if att.status == AttendanceStatus.PRESENT and att.member],
+        key=lambda x: (x.last_name or "", x.first_name or ""),
+    )
+
+    # Tous les membres actifs (pour permettre de désigner même un non-inscrit)
+    from app.models.identity import MemberStatus
+    all_active = (await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
+        .order_by(Member.last_name, Member.first_name)
+    )).scalars().all()
 
     return templates.TemplateResponse(request, "pages/meetings/officiers.html", {
         "current_user": user,
