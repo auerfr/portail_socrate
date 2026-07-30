@@ -1308,3 +1308,137 @@ async def admin_audit_purge(
     )
     await db.commit()
     return RedirectResponse(url="/admin/audit", status_code=303)
+
+
+# ── Analytics interne (pages vues, provenance, appareil, durée) ────────────
+
+@router.get("/analytics", response_class=HTMLResponse)
+async def admin_analytics(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    days: int = 30,
+):
+    """Analytique interne (équivalent maison, léger, sans JS ni cookie
+    tiers) : pages les plus vues, provenance, appareil, durée de session
+    estimée. Alimenté par le middleware analytics_middleware (app/main.py)."""
+    from app.models.analytics import PageView
+
+    days = days if days in (7, 30, 90) else 30
+    since = datetime.utcnow() - timedelta(days=days)
+
+    base_filter = PageView.created_at >= since
+
+    total_views = (await db.execute(
+        select(func.count(PageView.id)).where(base_filter)
+    )).scalar() or 0
+
+    unique_sessions = (await db.execute(
+        select(func.count(func.distinct(PageView.session_id))).where(base_filter, PageView.session_id.isnot(None))
+    )).scalar() or 0
+
+    unique_members = (await db.execute(
+        select(func.count(func.distinct(PageView.member_id))).where(base_filter, PageView.member_id.isnot(None))
+    )).scalar() or 0
+
+    # ── Pages les plus vues (chemin exact) ──────────────────────────────────
+    top_pages_r = await db.execute(
+        select(PageView.path, func.count(PageView.id).label("n"))
+        .where(base_filter)
+        .group_by(PageView.path)
+        .order_by(desc("n"))
+        .limit(15)
+    )
+    top_pages = [{"path": p, "count": n} for p, n in top_pages_r.all()]
+    max_page_count = max((r["count"] for r in top_pages), default=1)
+
+    # ── Sections (premier segment du chemin) ────────────────────────────────
+    rows_by_path = (await db.execute(
+        select(PageView.path, func.count(PageView.id)).where(base_filter).group_by(PageView.path)
+    )).all()
+    section_counts: dict[str, int] = {}
+    for path, n in rows_by_path:
+        seg = path.strip("/").split("/")[0] if path.strip("/") else "accueil"
+        section_counts[seg] = section_counts.get(seg, 0) + n
+    top_sections = sorted(
+        [{"section": s, "count": c} for s, c in section_counts.items()],
+        key=lambda r: r["count"], reverse=True,
+    )[:10]
+    max_section_count = max((r["count"] for r in top_sections), default=1)
+
+    # ── Appareils ────────────────────────────────────────────────────────────
+    device_r = await db.execute(
+        select(PageView.device, func.count(PageView.id)).where(base_filter).group_by(PageView.device)
+    )
+    device_rows = device_r.all()
+    device_total = sum(n for _, n in device_rows) or 1
+    devices = sorted(
+        [{"device": d, "count": n, "pct": round(n * 100 / device_total)} for d, n in device_rows],
+        key=lambda r: r["count"], reverse=True,
+    )
+
+    # ── Provenance ───────────────────────────────────────────────────────────
+    ref_r = await db.execute(
+        select(PageView.referrer_host, func.count(PageView.id)).where(base_filter).group_by(PageView.referrer_host)
+    )
+    ref_rows = ref_r.all()
+    ref_total = sum(n for _, n in ref_rows) or 1
+    referrers = sorted(
+        [{"host": h, "count": n, "pct": round(n * 100 / ref_total)} for h, n in ref_rows],
+        key=lambda r: r["count"], reverse=True,
+    )[:10]
+
+    # ── Durée de session estimée (écart 1ère/dernière vue par session) ───────
+    session_r = await db.execute(
+        select(
+            PageView.session_id,
+            func.min(PageView.created_at), func.max(PageView.created_at), func.count(PageView.id),
+        )
+        .where(base_filter, PageView.session_id.isnot(None))
+        .group_by(PageView.session_id)
+    )
+    durations_sec: list[float] = []
+    single_page_sessions = 0
+    for _sid, first_ts, last_ts, n in session_r.all():
+        if n <= 1:
+            single_page_sessions += 1
+            continue
+        durations_sec.append((last_ts - first_ts).total_seconds())
+    avg_duration_min = round(sum(durations_sec) / len(durations_sec) / 60, 1) if durations_sec else None
+    multi_page_sessions = len(durations_sec)
+
+    # ── Timeline (vues par jour) ──────────────────────────────────────────────
+    # func.date() (fonction SQLite) plutôt que cast(..., Date) : un CAST SQL
+    # standard sur une colonne DATETIME stockée en texte ne la retronque pas
+    # en date, et le processeur Date de SQLAlchemy plante ensuite en tentant
+    # de parser une valeur qui n'est pas une chaîne ISO simple.
+    day_col = func.date(PageView.created_at)
+    day_r = await db.execute(
+        select(day_col, func.count(PageView.id))
+        .where(base_filter)
+        .group_by(day_col)
+        .order_by(day_col)
+    )
+    daily = [{"day": d, "count": n} for d, n in day_r.all()]
+    max_daily = max((r["count"] for r in daily), default=1)
+
+    return templates.TemplateResponse(request, "pages/admin/analytics.html", {
+        "current_user": ctx[0],
+        "current_member": ctx[1],
+        "active_tab": "analytics",
+        "days": days,
+        "total_views": total_views,
+        "unique_sessions": unique_sessions,
+        "unique_members": unique_members,
+        "top_pages": top_pages,
+        "max_page_count": max_page_count,
+        "top_sections": top_sections,
+        "max_section_count": max_section_count,
+        "devices": devices,
+        "referrers": referrers,
+        "avg_duration_min": avg_duration_min,
+        "multi_page_sessions": multi_page_sessions,
+        "single_page_sessions": single_page_sessions,
+        "daily": daily,
+        "max_daily": max_daily,
+    })

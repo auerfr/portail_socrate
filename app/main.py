@@ -60,6 +60,7 @@ import app.models.system        # noqa: F401  # PushSubscription, Notification, 
 import app.models.forum         # noqa: F401  # ForumTheme/Subject/Message/Subscription
 import app.models.mailing       # noqa: F401  # MailingList/Campaign/Delivery
 import app.models.bookmarks     # noqa: F401  # Bookmark
+import app.models.analytics     # noqa: F401  # PageView
 from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -343,6 +344,91 @@ async def two_factor_gate_middleware(request: Request, call_next):
             except Exception:
                 pass
     return await call_next(request)
+
+
+def _detect_device(user_agent: str) -> str:
+    ua = (user_agent or "").lower()
+    if not ua:
+        return "inconnu"
+    if any(b in ua for b in ("bot", "spider", "crawler", "slurp", "facebookexternalhit", "preview")):
+        return "bot"
+    if "ipad" in ua or "tablet" in ua or ("android" in ua and "mobile" not in ua):
+        return "tablette"
+    if "mobile" in ua or "iphone" in ua or "android" in ua:
+        return "mobile"
+    return "ordinateur"
+
+
+async def _record_pageview(request: Request) -> None:
+    """Enregistre une page vue (analytique interne, sans JS). Best-effort :
+    ne doit jamais faire échouer la requête qui l'a déclenché."""
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models.analytics import PageView
+        from app.models.identity import User
+        from app.dependencies import decode_token
+        from urllib.parse import urlparse
+
+        referrer = request.headers.get("referer", "")
+        referrer_host = "direct"
+        if referrer:
+            try:
+                host = urlparse(referrer).netloc
+                if host:
+                    referrer_host = "interne" if host == request.url.netloc else host
+            except Exception:
+                pass
+
+        device = _detect_device(request.headers.get("user-agent", ""))
+
+        member_id = None
+        session_id = None
+        token = request.cookies.get("access_token")
+        if token:
+            try:
+                payload = decode_token(token)
+                session_id = payload.get("jti") or None
+                user_id = int(payload.get("sub"))
+            except Exception:
+                user_id = None
+        else:
+            user_id = None
+
+        async with AsyncSessionLocal() as db:
+            if user_id:
+                r = await db.execute(select(User.member_id).where(User.id == user_id))
+                member_id = r.scalar_one_or_none()
+            db.add(PageView(
+                path=request.url.path,
+                referrer_host=referrer_host,
+                device=device,
+                member_id=member_id,
+                session_id=session_id,
+            ))
+            await db.commit()
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning("Échec enregistrement page vue", exc_info=True)
+
+
+@app.middleware("http")
+async def analytics_middleware(request: Request, call_next):
+    """Analytique interne légère, côté serveur uniquement (pas de JS, pas de
+    cookie tiers) : chemin, provenance (hôte seulement), appareil déduit du
+    user-agent, membre si connecté. Ne ralentit jamais la réponse : l'écriture
+    se fait en tâche de fond après le retour de la page."""
+    response = await call_next(request)
+    try:
+        if (
+            request.method == "GET"
+            and response.status_code == 200
+            and response.headers.get("content-type", "").startswith("text/html")
+        ):
+            asyncio.create_task(_record_pageview(request))  # noqa — fire & forget
+    except Exception:
+        pass
+    return response
+
 
 # Instance Jinja2 partagée (filtres datefr + label déjà enregistrés)
 from app.template_engine import templates

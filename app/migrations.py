@@ -522,3 +522,22 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if cols_ev and "recurrence_label" not in cols_ev:
             await conn.exec_driver_sql("ALTER TABLE lodge_events ADD COLUMN recurrence_label VARCHAR(200)")
 
+    # ── page_views : analytique interne (pages vues, provenance, appareil) ──
+    async with engine.begin() as conn:
+        await conn.exec_driver_sql("""
+            CREATE TABLE IF NOT EXISTS page_views (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                path VARCHAR(300) NOT NULL,
+                referrer_host VARCHAR(200) NOT NULL DEFAULT 'direct',
+                device VARCHAR(20) NOT NULL DEFAULT 'inconnu',
+                member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
+                session_id VARCHAR(64),
+                created_at DATETIME DEFAULT (datetime('now'))
+            )
+        """)
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_page_views_path ON page_views(path)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_page_views_referrer_host ON page_views(referrer_host)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_page_views_member_id ON page_views(member_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_page_views_session_id ON page_views(session_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_page_views_created_at ON page_views(created_at)")
+
