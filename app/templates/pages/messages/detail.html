@@ -52,7 +52,7 @@
                 [&_ul]:list-disc [&_ul]:pl-5 [&_ol]:list-decimal [&_ol]:pl-5
                 [&_a]:text-loge-700 [&_a]:underline">{{ body_html_display | safe }}</div>
     {% else %}
-    <div class="py-5 text-sm text-gray-800 leading-relaxed whitespace-pre-line">{{ msg.body }}</div>
+    <div class="py-5 text-sm text-gray-800 leading-relaxed whitespace-pre-line">{{ msg.body | linkify | safe }}</div>
     {% endif %}
 
     <!-- Lien visio -->

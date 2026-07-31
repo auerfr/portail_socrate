@@ -475,6 +475,30 @@ def _render_chat(text: str) -> Markup:
 
 templates.env.filters["render_chat"] = _render_chat
 
+
+def _linkify(text: str) -> Markup:
+    """Échappe le texte puis rend les URLs cliquables — pour les corps de
+    message en texte brut (notifications système : sondages, actualités,
+    documents partagés) qui n'ont pas de version body_html."""
+    if not text:
+        return Markup("")
+    url_pat = re.compile(r"(https?://[^\s]+)")
+    parts = []
+    last = 0
+    for m in url_pat.finditer(text):
+        parts.append(str(_escape(text[last:m.start()])))
+        url = m.group(1)
+        eu = str(_escape(url))
+        parts.append(
+            f'<a href="{eu}" target="_blank" rel="noopener" '
+            f'class="text-loge-700 underline hover:text-loge-900 break-all">{eu}</a>'
+        )
+        last = m.end()
+    parts.append(str(_escape(text[last:])))
+    return Markup("".join(parts))
+
+templates.env.filters["linkify"] = _linkify
+
 # ── Static files ───────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
