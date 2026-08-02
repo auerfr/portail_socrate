@@ -1,7 +1,7 @@
 """Router — Messagerie interne ciblée"""
 import json
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 from typing import Annotated, Optional, List
 
@@ -294,9 +294,15 @@ async def sent_messages(
     per_page = 20
     offset = (page - 1) * per_page
 
+    sent_where = (
+        Message.sender_id == member.id,
+        Message.sent_at.isnot(None),
+        Message.sender_deleted_at.is_(None),
+    )
+
     r = await db.execute(
         select(Message)
-        .where(Message.sender_id == member.id, Message.sent_at.isnot(None))
+        .where(*sent_where)
         .options(selectinload(Message.recipients))
         .order_by(Message.sent_at.desc())
         .offset(offset).limit(per_page)
@@ -304,8 +310,7 @@ async def sent_messages(
     sent = r.scalars().all()
 
     r_total = await db.execute(
-        select(func.count(Message.id))
-        .where(Message.sender_id == member.id, Message.sent_at.isnot(None))
+        select(func.count(Message.id)).where(*sent_where)
     )
     total = r_total.scalar_one() or 0
     unread = await _unread_count(db, member.id)
@@ -434,6 +439,20 @@ async def send_message(
     if not recipient_ids:
         raise HTTPException(400, "Aucun destinataire trouvé pour ce ciblage")
 
+    # Garde-fou anti double-soumission (double-clic, retour arrière + renvoi,
+    # requête réseau relancée) : même expéditeur, même contenu, < 15s.
+    dup_check = await db.execute(
+        select(Message.id).where(
+            Message.sender_id == member.id,
+            Message.subject == subject.strip(),
+            Message.body == body.strip(),
+            Message.sent_at.isnot(None),
+            Message.sent_at >= datetime.now() - timedelta(seconds=15),
+        ).limit(1)
+    )
+    if dup_check.scalar_one_or_none():
+        return RedirectResponse(url="/messages/sent", status_code=303)
+
     final_visio = (visio_url or "").strip() or None
     if final_visio and not final_visio.startswith(("http://", "https://")):
         final_visio = "https://" + final_visio
@@ -557,6 +576,15 @@ async def download_attachment(
     )
 
 
+def _unlink_message_files(msg: Message) -> None:
+    """Supprime du disque les pièces jointes d'un message (avant suppression DB)."""
+    for att in msg.attachments:
+        try:
+            (UPLOAD_DIR / att.stored_name).unlink(missing_ok=True)
+        except OSError:
+            pass
+
+
 @router.post("/trash/empty-trash")
 async def empty_trash_2(
     ctx: Annotated[object, Depends(require_auth)],
@@ -568,11 +596,16 @@ async def empty_trash_2(
         MessageRecipient.member_id == member.id,
         MessageRecipient.deleted_at.isnot(None),
     ))
-    deleted_sent = await db.execute(select(Message).where(
-        Message.sender_id == member.id,
-        Message.sender_deleted_at.isnot(None),
-    ))
+    deleted_sent = await db.execute(
+        select(Message)
+        .where(
+            Message.sender_id == member.id,
+            Message.sender_deleted_at.isnot(None),
+        )
+        .options(selectinload(Message.attachments))
+    )
     for msg in deleted_sent.scalars().all():
+        _unlink_message_files(msg)
         await db.delete(msg)
     await db.commit()
     return RedirectResponse(url="/messages/trash", status_code=303)
@@ -598,10 +631,13 @@ async def trash_view(
     )
     trashed_received = r1.scalars().all()
     r2 = await db.execute(
-        select(Message).where(
+        select(Message)
+        .where(
             Message.sender_id == member.id,
             Message.sender_deleted_at.isnot(None),
-        ).order_by(Message.sender_deleted_at.desc())
+        )
+        .options(selectinload(Message.recipients))
+        .order_by(Message.sender_deleted_at.desc())
     )
     trashed_sent = r2.scalars().all()
     sender_ids = {rec.message.sender_id for rec in trashed_received}
@@ -755,6 +791,46 @@ async def delete_message(
     return RedirectResponse(url="/messages/", status_code=303)
 
 
+@router.post("/bulk-delete")
+async def bulk_delete_messages(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    message_ids: Annotated[str, Form()] = "",
+    origin: Annotated[str, Form()] = "inbox",
+):
+    """Déplace plusieurs messages vers la corbeille en une seule action (sélection par cases)."""
+    user, member = ctx
+    try:
+        ids = {int(x) for x in message_ids.split(",") if x.strip()}
+    except ValueError:
+        ids = set()
+
+    now = datetime.now()
+    for mid in ids:
+        msg = await db.get(Message, mid)
+        if not msg:
+            continue
+        is_sender = msg.sender_id == member.id
+        if is_sender or user.is_admin:
+            msg.sender_deleted_at = now
+        else:
+            r = await db.execute(
+                select(MessageRecipient).where(
+                    MessageRecipient.message_id == mid,
+                    MessageRecipient.member_id == member.id,
+                )
+            )
+            rec = r.scalar_one_or_none()
+            if rec:
+                rec.deleted_at = now
+
+    await db.commit()
+    return RedirectResponse(
+        url="/messages/sent" if origin == "sent" else "/messages/",
+        status_code=303,
+    )
+
+
 @router.post("/{message_id}/restore")
 async def restore_message(
     message_id: int,
@@ -802,12 +878,15 @@ async def empty_trash(
     )
     # Messages envoyés en corbeille (si plus personne ne les a reçus → supprimer)
     deleted_sent = await db.execute(
-        select(Message).where(
+        select(Message)
+        .where(
             Message.sender_id == member.id,
             Message.sender_deleted_at.isnot(None),
         )
+        .options(selectinload(Message.attachments))
     )
     for msg in deleted_sent.scalars().all():
+        _unlink_message_files(msg)
         await db.delete(msg)
 
     await db.commit()
@@ -838,10 +917,12 @@ async def trash(
 
     # Messages envoyés en corbeille
     r2 = await db.execute(
-        select(Message).where(
+        select(Message)
+        .where(
             Message.sender_id == member.id,
             Message.sender_deleted_at.isnot(None),
         )
+        .options(selectinload(Message.recipients))
         .order_by(Message.sender_deleted_at.desc())
     )
     trashed_sent = r2.scalars().all()
