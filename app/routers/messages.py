@@ -979,7 +979,12 @@ async def delete_message(
     now = datetime.now()
     is_sender = msg.sender_id == member.id
 
-    if is_sender or user.is_admin:
+    # Supprime toujours SA PROPRE copie (expéditeur → sender_deleted_at,
+    # destinataire → sa ligne recipient) — être admin ne change pas de quel
+    # côté on se trouve, sinon un admin qui supprime un message reçu efface
+    # à tort la copie de l'expéditeur au lieu de la sienne (le message reste
+    # visible dans ses Reçus).
+    if is_sender:
         msg.sender_deleted_at = now
     else:
         # Destinataire → soft delete sur son enregistrement recipient
@@ -992,6 +997,10 @@ async def delete_message(
         rec = r.scalar_one_or_none()
         if rec:
             rec.deleted_at = now
+        elif user.is_admin:
+            # Admin ni expéditeur ni destinataire (modération) : masque la
+            # copie expéditeur, seul champ disponible pour ce message.
+            msg.sender_deleted_at = now
         else:
             raise HTTPException(403)
 
@@ -1021,8 +1030,10 @@ async def bulk_delete_messages(
         msg = await db.get(Message, mid)
         if not msg:
             continue
+        # Supprime toujours SA PROPRE copie — cf. delete_message() pour le
+        # détail du bug que ça corrige (admin destinataire non pris en compte).
         is_sender = msg.sender_id == member.id
-        if is_sender or user.is_admin:
+        if is_sender:
             msg.sender_deleted_at = now
         else:
             r = await db.execute(
@@ -1034,6 +1045,8 @@ async def bulk_delete_messages(
             rec = r.scalar_one_or_none()
             if rec:
                 rec.deleted_at = now
+            elif user.is_admin:
+                msg.sender_deleted_at = now
 
     await db.commit()
     return RedirectResponse(
