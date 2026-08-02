@@ -305,14 +305,18 @@
             <li>Cliquez sur un sondage, choisissez votre réponse (choix unique ou multiple selon le paramétrage).</li>
             <li>Cliquez sur <strong>« Voter »</strong> pour valider.</li>
           </ol>
-          <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 mt-2">
-            <div class="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-800">
-              <strong>Résultats en temps réel</strong> — si le créateur a activé cette option, vous voyez les résultats dès votre vote (et même avant si vous parcourez le sondage).
-            </div>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
             <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
-              <strong>Résultats à la clôture</strong> — si les résultats sont masqués, vous les verrez une fois le sondage fermé par le créateur.
+              <strong>Avant de voter</strong> — seul le formulaire est affiché, les résultats ne sont pas visibles.
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-800">
+              <strong>Après avoir voté</strong> — les résultats (nombres et pourcentages) s'affichent immédiatement.
+            </div>
+            <div class="bg-loge-50 border border-loge-200 rounded-lg p-2 text-xs text-loge-800">
+              <strong>Sondage clôturé</strong> — tout le monde voit les résultats sans avoir à voter.
             </div>
           </div>
+          <p class="text-xs text-gray-500 mt-1">Options configurables par le créateur du sondage : <strong>vote anonyme</strong> (aucun nom enregistré) ou <strong>vote public</strong> (les noms des votants sont visibles sous chaque option).</p>
         </div>
       </details>
     </div>
