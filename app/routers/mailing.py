@@ -210,6 +210,7 @@ async def list_detail(
         .order_by(ExternalContact.name)
     )).scalars().all()
     available_externals = [e for e in all_ext if e.id not in sub_ext_ids]
+    available_lodges = sorted({e.lodge_name for e in available_externals if e.lodge_name})
 
     # Historique campagnes
     cr = await db.execute(
@@ -227,6 +228,7 @@ async def list_detail(
         "all_active": all_active,
         "subscribed_externals": subscribed_externals,
         "available_externals": available_externals,
+        "available_lodges": available_lodges,
         "campaigns": campaigns,
         "CampaignStatus": CampaignStatus,
         "MailingListType": MailingListType,
@@ -381,6 +383,45 @@ async def list_external_add(
     return RedirectResponse(url=f"/mailing/lists/{list_id}", status_code=303)
 
 
+@router.post("/lists/{list_id}/externals/add-by-filter")
+async def list_external_add_by_filter(
+    list_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    contact_type: str = Form(""),
+    lodge_name_q: str = Form(""),
+):
+    """Ajoute en une fois tous les contacts externes actifs correspondant au
+    filtre (type et/ou loge), pas encore inscrits à cette liste."""
+    user, member = ctx
+    if not _can_send(user, member):
+        raise HTTPException(403)
+    ml = await db.get(MailingList, list_id)
+    if not ml:
+        raise HTTPException(404)
+
+    stmt = select(ExternalContact).where(ExternalContact.is_active == True)  # noqa: E712
+    if contact_type in ("EXTERNAL", "VISITOR"):
+        stmt = stmt.where(ExternalContact.contact_type == contact_type)
+    if lodge_name_q.strip():
+        stmt = stmt.where(ExternalContact.lodge_name == lodge_name_q.strip())
+    matching = (await db.execute(stmt)).scalars().all()
+
+    existing_r = await db.execute(
+        select(MailingListExternal.external_id).where(MailingListExternal.list_id == list_id)
+    )
+    existing_ids = {row[0] for row in existing_r.all()}
+
+    added = 0
+    for contact in matching:
+        if contact.id in existing_ids:
+            continue
+        db.add(MailingListExternal(list_id=list_id, external_id=contact.id))
+        added += 1
+    await db.commit()
+    return RedirectResponse(url=f"/mailing/lists/{list_id}?added_by_filter={added}", status_code=303)
+
+
 @router.post("/lists/{list_id}/externals/{external_id}/remove")
 async def list_external_remove(
     list_id: int, external_id: int,
@@ -429,7 +470,7 @@ async def list_external_quick_add(
     fname = first_name.strip()
     lname = last_name.strip()
     email = email.strip().lower()
-    full_name = f"{fname} {lname}".strip()
+    full_name = f"{lname} {fname}".strip()
     if not full_name or "@" not in email:
         raise HTTPException(400, "Au moins nom (ou prénom) + email valides requis")
 
@@ -446,6 +487,7 @@ async def list_external_quick_add(
             orient=orient.strip() or None,
             contact_type="EXTERNAL",
             is_active=True,
+            last_confirmed_at=datetime.utcnow(),
         )
         db.add(ext)
         await db.flush()
@@ -552,7 +594,7 @@ async def list_external_import_csv(
             else:
                 lname = name_blob
 
-        full_name = f"{fname} {lname}".strip()
+        full_name = f"{lname} {fname}".strip()
         if not full_name or "@" not in email:
             skipped += 1
             continue
@@ -568,6 +610,7 @@ async def list_external_import_csv(
                 lodge_name=lodge_n or None,
                 orient=orient_n or None,
                 contact_type="EXTERNAL", is_active=True,
+                last_confirmed_at=datetime.utcnow(),
             )
             db.add(ext)
             await db.flush()
@@ -1001,7 +1044,7 @@ async def unsubscribe_form(
             return templates.TemplateResponse(request, "pages/mailing/unsubscribe.html", {
                 "error": "Membre introuvable.", "token": token,
             }, status_code=404)
-        target_name = f"{m.first_name} {m.last_name}"
+        target_name = f"{m.last_name} {m.first_name}"
         target_civility = m.civility or ""
         r = await db.execute(
             select(MailingListMember).where(

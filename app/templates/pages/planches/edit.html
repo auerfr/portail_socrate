@@ -134,6 +134,9 @@
             <button type="button" class="toolbar-btn" @click="execBlock('h2')">Titre</button>
             <button type="button" class="toolbar-btn" @click="execBlock('p')">¶ Texte</button>
             <button type="button" class="toolbar-btn" @click="exec('insertUnorderedList')">• Liste</button>
+            <div class="w-px bg-gray-200 mx-0.5"></div>
+            <button type="button" class="toolbar-btn" title="Insérer le caractère ∴"
+                    @click="insertMasonic('∴')">∴</button>
           </div>
           <div id="planche-editor"
                contenteditable="true"
@@ -194,6 +197,11 @@ function plancheEditor() {
     editorContent: {{ (planche.content if planche and planche.content else '') | tojson }},
     exec(cmd) { document.execCommand(cmd, false, null); this.syncContent(); },
     execBlock(tag) { document.execCommand('formatBlock', false, tag); this.syncContent(); },
+    insertMasonic(token) {
+      this.$refs.editor.focus();
+      document.execCommand('insertText', false, token);
+      this.syncContent();
+    },
     syncContent() { this.editorContent = this.$refs.editor.innerHTML; },
   }
 }

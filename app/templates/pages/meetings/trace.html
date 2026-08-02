@@ -3,13 +3,30 @@
 
 {% block content %}
 <!-- Quill CSS -->
-<link href="https://cdn.quilljs.com/1.3.7/quill.snow.css" rel="stylesheet">
+<link href="/static/css/quill.snow.css" rel="stylesheet">
 
 <div class="p-4 lg:p-8 max-w-4xl mx-auto">
   <div class="print:hidden">{% include "partials/_conf_banner.html" %}</div>
 
+  <!-- Flashs workflow (cachés à l'impression) -->
+  {% if request.query_params.get('submitted') %}
+  <div class="print:hidden mb-4 bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-xl px-4 py-3">
+    ✉ Tracé soumis au V∴M∴ pour approbation.
+  </div>
+  {% endif %}
+  {% if request.query_params.get('approved') %}
+  <div class="print:hidden mb-4 bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
+    ✓ Tracé approuvé et archivé en bibliothèque.
+  </div>
+  {% endif %}
+  {% if request.query_params.get('rejected') %}
+  <div class="print:hidden mb-4 bg-red-50 border border-red-200 text-red-700 text-sm rounded-xl px-4 py-3">
+    ↩ Tracé renvoyé en brouillon pour correction.
+  </div>
+  {% endif %}
+
   <!-- Barre d'actions (cachée à l'impression) -->
-  <div class="flex items-center justify-between mb-6 print:hidden">
+  <div class="flex items-center justify-between mb-3 print:hidden flex-wrap gap-3">
     <nav class="text-sm text-gray-500">
       <a href="/meetings/" class="hover:text-loge-700">Tenues</a>
       <span class="mx-2">›</span>
@@ -37,6 +54,49 @@
     </div>
   </div>
 
+  <!-- Statut du workflow d'approbation (caché à l'impression) -->
+  <div class="print:hidden mb-6 flex items-center justify-between gap-3 flex-wrap bg-white border border-gray-100 rounded-xl px-4 py-3">
+    <div class="flex items-center gap-2 text-sm">
+      <span class="text-gray-500">Statut :</span>
+      {% if not report or report.status.value == 'BROUILLON' %}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-gray-100 text-gray-600">✎ Brouillon</span>
+      {% elif report.status.value == 'SOUMIS' %}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-amber-100 text-amber-700">⏳ En attente d'approbation V∴M∴</span>
+      {% else %}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-green-100 text-green-700">✓ Approuvé — {{ report.approved_at.strftime('%d/%m/%Y') if report.approved_at }}</span>
+        {% if report.archived_doc_id %}
+        <a href="/documents/file/{{ report.archived_doc_id }}/view" class="text-loge-600 hover:text-loge-800 text-xs flex items-center gap-1">
+          <i class="ti ti-books"></i> Voir l'archive
+        </a>
+        {% endif %}
+      {% endif %}
+    </div>
+    <div class="flex items-center gap-2">
+      {% if (can_edit or can_approve) and (not report or report.status.value == 'BROUILLON') %}
+      <form method="post" action="/meetings/{{ meeting.id }}/trace/submit"
+            onsubmit="return confirm('Soumettre ce tracé au V∴M∴ pour approbation ?')">
+        <button type="submit" class="bg-loge-700 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-loge-800 transition-colors">
+          Soumettre pour approbation
+        </button>
+      </form>
+      {% endif %}
+      {% if can_approve and report and report.status.value == 'SOUMIS' %}
+      <form method="post" action="/meetings/{{ meeting.id }}/trace/approve"
+            onsubmit="return confirm('Approuver ce tracé et l\'archiver en bibliothèque ?')">
+        <button type="submit" class="bg-green-600 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-green-700 transition-colors">
+          ✓ Approuver
+        </button>
+      </form>
+      <form method="post" action="/meetings/{{ meeting.id }}/trace/reject"
+            onsubmit="return confirm('Renvoyer ce tracé en brouillon pour correction ?')">
+        <button type="submit" class="bg-white border border-red-300 text-red-600 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors">
+          ↩ Renvoyer
+        </button>
+      </form>
+      {% endif %}
+    </div>
+  </div>
+
   <!-- ═══════════════════════════════════════════════════════
        DOCUMENT TRACÉ — Format officiel
   ═══════════════════════════════════════════════════════ -->
@@ -44,26 +104,28 @@
        print:shadow-none print:border-none print:rounded-none" style="font-family: 'Times New Roman', serif;">
 
     <!-- ── En-tête officiel ── -->
-    <div class="text-center px-10 pt-8 pb-4 border-b border-gray-200 print:pt-6">
-      {% if lodge %}
-      <p class="text-xs text-gray-400 uppercase tracking-widest mb-1 print:text-gray-500">
-        Au nom et sous les auspices du Grand Orient de France
-      </p>
-      <p class="text-xs text-gray-500 mb-3 print:text-gray-600">
-        {{ lodge.name }} · À l'Or∴ de {{ lodge.orient_city }}
-        {% if lodge.rl_number %} · R∴L∴ {{ lodge.rl_number }}{% endif %}
-      </p>
-      {% endif %}
-      <h1 class="text-2xl font-bold text-gray-900 uppercase tracking-wide">
-        {{ lodge.name if lodge else 'Socrate Raison et Progrès' }}
-      </h1>
-      <p class="mt-3 text-base font-semibold text-gray-700">
-        Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
-        en Loge d'{{ grade_label(meeting.grade) }}
-      </p>
-      {% if meeting.meeting_number %}
-      <p class="text-xs text-gray-400 mt-1">{{ meeting.meeting_number }}ème tenue</p>
-      {% endif %}
+    <div class="grid items-center gap-3 px-10 pt-8 pb-4 border-b border-gray-200 print:pt-6"
+         style="grid-template-columns: 70px 1fr 56px;">
+      <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau" class="w-full h-auto">
+      <div class="text-center">
+        {% if lodge %}
+        <p class="text-xs text-gray-400 uppercase tracking-widest mb-1 print:text-gray-500">
+          Au nom et sous les auspices du Grand Orient de France
+        </p>
+        <p class="text-xs text-gray-500 mb-3 print:text-gray-600">
+          {{ lodge.name }} · À l'Or∴ de {{ lodge.orient_city }}
+          {% if lodge.rl_number %} · R∴L∴ {{ lodge.rl_number }}{% endif %}
+        </p>
+        {% endif %}
+        <h1 class="text-2xl font-bold text-gray-900 uppercase tracking-wide">
+          {{ lodge.name if lodge else 'Socrate Raison et Progrès' }}
+        </h1>
+        <p class="mt-3 text-base font-semibold text-gray-700">
+          {% if meeting.meeting_number %}{{ meeting.meeting_number }}ème {% endif %}Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
+          en Loge d'{{ grade_label(meeting.grade) }}
+        </p>
+      </div>
+      <img src="/static/img/rosace-godf.jpg" alt="Rosace" class="w-full h-auto">
     </div>
 
     <div class="px-10 py-6 space-y-5 text-sm leading-relaxed text-gray-800">
@@ -91,14 +153,14 @@
             {% for i in range(0, present|length, 2) %}
             <tr>
               <td class="border border-gray-300 px-3 py-1.5 w-1/3">
-                {{ present_list[i].member.first_name }} {{ present_list[i].member.last_name | upper }}
+                {{ present_list[i].member.last_name | upper }} {{ present_list[i].member.first_name }}
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-1/6 text-gray-500 italic text-xs">
                 {{ member_office.get(present_list[i].member_id, '') }}
               </td>
               {% if i + 1 < present|length %}
               <td class="border border-gray-300 px-3 py-1.5 w-1/3">
-                {{ present_list[i+1].member.first_name }} {{ present_list[i+1].member.last_name | upper }}
+                {{ present_list[i+1].member.last_name | upper }} {{ present_list[i+1].member.first_name }}
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-1/6 text-gray-500 italic text-xs">
                 {{ member_office.get(present_list[i+1].member_id, '') }}
@@ -114,11 +176,32 @@
       </div>
       {% endif %}
 
+      <!-- ── Suppléances / offices vacants ── -->
+      {% if officer_rows %}
+      <p class="text-justify">
+        {% for r in officer_rows %}
+          {% if r.substitute %}Le F∴ {{ r.substitute.last_name | upper }} {{ r.substitute.first_name }} supplée à l'office de {{ r.office.label }}{% if r.holder %} en l'absence du F∴ {{ r.holder.last_name | upper }} {{ r.holder.first_name }}{% endif %}.
+          {% else %}L'office de {{ r.office.label }} est resté vacant lors de cette tenue.
+          {% endif %}
+        {% endfor %}
+      </p>
+      {% endif %}
+
       <!-- ── Excusés ── -->
       {% if excused %}
       <p class="text-justify">
         Étaient excusés, les FF∴ et les SS∴ :
-        {% for att in excused %}{{ att.member.first_name }} {{ att.member.last_name | upper }}{% if not loop.last %}, {% endif %}{% endfor %}.
+        {% for att in excused %}{{ att.member.last_name | upper }} {{ att.member.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+      </p>
+      {% endif %}
+
+      <!-- ── Absents non excusés ── -->
+      {% if absent %}
+      <p class="text-justify">
+        {% if absent|length == 1 %}Était absent le {% if absent[0].member.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ absent[0].member.last_name | upper }} {{ absent[0].member.first_name }}.
+        {% else %}Étaient absent(e)s les FF∴ et les SS∴ :
+        {% for att in absent %}{{ att.member.last_name | upper }} {{ att.member.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+        {% endif %}
       </p>
       {% endif %}
 
@@ -131,7 +214,7 @@
             {% for mv in visitors %}
             <tr>
               <td class="border border-gray-300 px-3 py-1.5 w-1/4">
-                {{ mv.visitor.first_name }} {{ mv.visitor.last_name | upper }}
+                {{ mv.visitor.last_name | upper }} {{ mv.visitor.first_name }}
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-2/5 text-gray-600">
                 R∴L∴ {{ mv.visitor.lodge_name or '—' }}
@@ -209,6 +292,16 @@
             </svg>
             Enregistrer
           </button>
+          <button type="button" @click="insertMasonicTrace('∴')"
+                  title="Insérer le caractère ∴"
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-2 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+            ∴
+          </button>
+          <button type="button" onclick="insertClosingFormula()"
+                  title="Insérer la formule de clôture standard"
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-2 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+            Formule de clôture
+          </button>
           <button onclick="toggleEdit()"
                   class="border border-gray-200 text-gray-600 text-sm px-4 py-2 rounded-lg hover:bg-gray-50">
             Annuler
@@ -250,7 +343,7 @@
 
 {% if can_edit %}
 <!-- Quill JS -->
-<script src="https://cdn.quilljs.com/1.3.7/quill.min.js"></script>
+<script src="/static/js/quill.min.js"></script>
 <script>
 let quill = null;
 let editMode = false;
@@ -271,6 +364,21 @@ function toggleEdit() {
     const existing = {{ (meeting.compte_rendu_html or '') | tojson }};
     if (existing) quill.clipboard.dangerouslyPasteHTML(existing);
   }
+}
+
+function insertClosingFormula() {
+  if (!quill) return;
+  const formula = "Le plan parfait étant épuisé, le V∴M∴ clôt les travaux en la forme accoutumée, invitant les FF∴ et les SS∴ à se retirer en paix, sous la loi du silence, pour partager de fraternelles agapes.";
+  const range = quill.getSelection(true);
+  quill.insertText(range.index, formula, 'user');
+  quill.setSelection(range.index + formula.length);
+}
+
+function insertMasonicTrace(token) {
+  if (!quill) return;
+  const range = quill.getSelection(true);
+  quill.insertText(range.index, token, 'user');
+  quill.setSelection(range.index + token.length);
 }
 
 async function saveTrace() {

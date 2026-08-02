@@ -16,29 +16,16 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600;700&display=swap" rel="stylesheet">
   <link href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@3/dist/tabler-icons.min.css" rel="stylesheet">
-  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="/static/css/app.css" rel="stylesheet">
+
   <script>
-    tailwind.config = {
-      theme: {
-        extend: {
-          colors: {
-            loge: {
-              50:  '#e6f4f1',
-              100: '#d0ede9',
-              300: '#8eccc6',
-              500: '#4a9d8f',
-              600: '#3d8a7c',
-              700: '#2c7a7b',
-              800: '#236b6b',
-              900: '#1a5252',
-            }
-          },
-          fontFamily: {
-            sans: ['DM Sans', '-apple-system', 'BlinkMacSystemFont', 'Segoe UI', 'sans-serif'],
-          }
-        }
-      }
-    }
+    // Applique le thème mémorisé avant le premier rendu (évite le flash clair/sombre)
+    (function() {
+      try {
+        var t = localStorage.getItem('theme');
+        if (t === 'dark') document.documentElement.setAttribute('data-theme', 'dark');
+      } catch (e) {}
+    })();
   </script>
 
   <style>
@@ -132,8 +119,7 @@
     .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
   </style>
 
-  <script defer src="https://unpkg.com/alpinejs@3.x.x/dist/cdn.min.js"></script>
-  <script src="https://unpkg.com/htmx.org@1.9.12"></script>
+  <script defer src="/static/js/alpine.min.js"></script>
 
   {% block head %}{% endblock %}
 </head>
@@ -163,6 +149,22 @@
         <div style="font-size:11px; color:#a0aec0; margin-top:1px;">Raison &amp; Progrès</div>
       </div>
     </a>
+
+    <!-- Recherche globale + cloche de notifications -->
+    <div class="px-3 pt-3 flex items-center gap-1.5">
+      <form method="get" action="/search" class="flex-1">
+        <div class="relative">
+          <i class="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+          <input type="text" name="q" placeholder="Rechercher…"
+                 value="{{ request.query_params.get('q', '') if '/search' in request.url.path else '' }}"
+                 class="w-full pl-8 pr-2 py-1.5 rounded-lg text-xs text-gray-200 placeholder-gray-500 border-0 focus:ring-1 focus:ring-loge-500"
+                 style="background:rgba(255,255,255,0.08);">
+        </div>
+      </form>
+      {% set notif_align = 'left' %}
+      {% include "partials/_notif_bell.html" %}
+      {% include "partials/_theme_toggle.html" %}
+    </div>
 
     <!-- Navigation -->
     <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
@@ -275,6 +277,14 @@
       </a>
       {% endif %}
 
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
+      <a href="/engagement/"
+         class="nav-item {% if '/engagement' in request.url.path %}active{% endif %}">
+        <i class="ti ti-chart-line"></i>
+        Engagement
+      </a>
+      {% endif %}
+
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'PREMIER_S', 'SECOND_S', 'SECRETAIRE'])) %}
       <a href="/meetings/me/officiers"
          class="nav-item {% if '/officiers' in request.url.path %}active{% endif %}">
@@ -366,17 +376,32 @@
         </div>
         <div class="flex-1 min-w-0">
           <div class="text-xs font-medium text-gray-200 truncate">
-            {{ current_member.first_name ~ ' ' ~ current_member.last_name if current_member else '—' }}
+            {{ current_member.last_name ~ ' ' ~ current_member.first_name if current_member else '—' }}
           </div>
           <div class="text-gray-500 truncate" style="font-size:10px;">
             {{ current_member.masonic_grade | label if current_member else '' }}{% if current_member and current_member.lodge_function and current_member.lodge_function.value != 'FRERE' %} · {{ current_member.lodge_function | label(default=current_member.lodge_function.value | replace('_', ' ') | title) }}{% endif %}
           </div>
         </div>
       </a>
+      <a href="/settings/notifications"
+         class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
+        <i class="ti ti-bell" style="font-size:15px;"></i>
+        Notifications
+      </a>
       <a href="/auth/password"
          class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
         <i class="ti ti-key" style="font-size:15px;"></i>
         Changer mon mot de passe
+      </a>
+      <a href="/guide" target="_blank"
+         class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
+        <i class="ti ti-help-circle" style="font-size:15px;"></i>
+        Guide d'utilisation
+      </a>
+      <a href="/faq"
+         class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
+        <i class="ti ti-message-question" style="font-size:15px;"></i>
+        FAQ
       </a>
       <a href="/auth/logout"
          class="flex items-center gap-2 px-2 py-1.5 mt-0.5 rounded-md text-gray-500 hover:text-gray-300 text-xs transition-colors">
@@ -450,6 +475,16 @@
     </div>
 
     <div class="px-3 pb-4">
+
+      <!-- Recherche globale -->
+      <form method="get" action="/search" class="px-3 pt-3 pb-2">
+        <div class="relative">
+          <i class="ti ti-search absolute left-2.5 top-1/2 -translate-y-1/2 text-gray-500 text-sm"></i>
+          <input type="text" name="q" placeholder="Rechercher…"
+                 class="w-full pl-8 pr-2 py-2 rounded-xl text-sm text-gray-200 placeholder-gray-500 border-0 focus:ring-1 focus:ring-loge-500"
+                 style="background:rgba(255,255,255,0.08);">
+        </div>
+      </form>
 
       <!-- ── Communication ── -->
       <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-3 pb-1">Communication</p>
@@ -536,6 +571,14 @@
         <i class="ti ti-clipboard-check text-lg opacity-70"></i>
         Présences
       </a>
+
+      {% if current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE']) %}
+      <a href="/engagement/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/engagement' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-chart-line text-lg opacity-70"></i>
+        Engagement
+      </a>
+      {% endif %}
       {% endif %}
 
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'PREMIER_S', 'SECOND_S', 'SECRETAIRE'])) %}
@@ -628,6 +671,12 @@
         Mon profil
       </a>
 
+      <a href="/settings/notifications" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
+        <i class="ti ti-bell text-lg opacity-70"></i>
+        Notifications
+      </a>
+
       <a href="/auth/password" @click="moreOpen=false"
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:bg-white/5 transition-colors">
         <i class="ti ti-key text-lg opacity-70"></i>
@@ -654,13 +703,13 @@
        CONTENU PRINCIPAL
   ════════════════════════════════════════════════════════ -->
   {% if request.cookies.get('impersonate_origin_token') %}
-  <div class="{% if not on_auth %}lg:ml-52{% endif %} sticky top-0 z-50 bg-amber-400 text-amber-900 px-4 py-2 flex items-center justify-between gap-3 text-sm font-medium shadow-md">
+  <div class="{% if not on_auth %}lg:ml-52{% endif %} sticky top-0 z-50 bg-amber-400 text-amber-900 px-4 py-2 flex items-center justify-between gap-3 text-sm font-medium shadow-md safe-top">
     <span class="flex items-center gap-2">
       <svg class="w-4 h-4 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
         <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 6a3.75 3.75 0 11-7.5 0 3.75 3.75 0 017.5 0zM4.501 20.118a7.5 7.5 0 0114.998 0A17.933 17.933 0 0112 21.75c-2.676 0-5.216-.584-7.499-1.632z"/>
       </svg>
       Mode impersonation — vous naviguez en tant que
-      <strong>{% if current_member %}{{ current_member.first_name }} {{ current_member.last_name }}{% endif %}</strong>
+      <strong>{% if current_member %}{{ current_member.last_name }} {{ current_member.first_name }}{% endif %}</strong>
     </span>
     <form method="post" action="/auth/stop-impersonate">
       <button type="submit" class="bg-amber-900 text-amber-50 text-xs font-semibold px-3 py-1.5 rounded-lg hover:bg-amber-800 transition-colors whitespace-nowrap">
@@ -670,7 +719,15 @@
   </div>
   {% endif %}
 
-  <main class="{% if not on_auth %}lg:ml-52 pb-20 lg:pb-0{% endif %} min-h-full">
+  {% if not on_auth %}
+  <div class="lg:hidden sticky top-0 z-40 flex items-center justify-end gap-1 px-3 py-1.5 safe-top border-b border-white/10" style="background:#2d3748;">
+    {% include "partials/_theme_toggle.html" %}
+    {% set notif_align = 'right' %}
+    {% include "partials/_notif_bell.html" %}
+  </div>
+  {% endif %}
+
+  <main class="{% if not on_auth %}lg:ml-52 pb-20 lg:pb-0{% endif %} min-h-full safe-top">
     {# ── Bannière de maintenance globale ─────────────────────────────────── #}
     {% set _banner = request.state.banner if request.state and request.state.banner else None %}
     {% if _banner and _banner.enabled and _banner.message %}
@@ -768,9 +825,28 @@
 
   {% block scripts %}{% endblock %}
 
+  <!-- Insertion d'un caractère maçonnique dans un <textarea> simple (id stable) -->
+  <script>
+  function insertMasonicTextarea(elementId, token) {
+    var ta = document.getElementById(elementId);
+    if (!ta) return;
+    var start = ta.selectionStart || 0, end = ta.selectionEnd || 0;
+    ta.value = ta.value.slice(0, start) + token + ta.value.slice(end);
+    ta.selectionStart = ta.selectionEnd = start + token.length;
+    if (ta.tagName === 'TEXTAREA') {
+      ta.style.height = 'auto';
+      ta.style.height = ta.scrollHeight + 'px';
+    }
+    ta.focus();
+  }
+  </script>
+
   <!-- Polling pastilles messages & chat non lus -->
   <script>
   (function() {
+    var lastChatTotal = 0;
+    var lastMsgTotal = 0;
+
     function updateBadge(ids, count) {
       ids.forEach(function(id) {
         var el = document.getElementById(id);
@@ -779,18 +855,59 @@
         else { el.classList.add('hidden'); }
       });
     }
+
+    // Pastille sur l'icône de l'app (PWA installée — Android/Chrome, pas iOS Safari)
+    function updateAppBadge() {
+      if (!('setAppBadge' in navigator)) return;
+      var total = lastChatTotal + lastMsgTotal;
+      if (total > 0) navigator.setAppBadge(total).catch(function() {});
+      else navigator.clearAppBadge().catch(function() {});
+    }
+
     function poll() {
       fetch('/chat/api/unread', {credentials: 'same-origin'})
         .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(d) { if (d) updateBadge(['chat-badge-sidebar','chat-badge-mobile'], d.total || 0); })
+        .then(function(d) {
+          if (!d) return;
+          lastChatTotal = d.total || 0;
+          updateBadge(['chat-badge-sidebar','chat-badge-mobile'], lastChatTotal);
+          updateAppBadge();
+        })
         .catch(function() {});
       fetch('/messages/api/unread', {credentials: 'same-origin'})
         .then(function(r) { return r.ok ? r.json() : null; })
-        .then(function(d) { if (d) updateBadge(['msg-badge-sidebar','msg-badge-mobile'], d.total || 0); })
+        .then(function(d) {
+          if (!d) return;
+          lastMsgTotal = d.total || 0;
+          updateBadge(['msg-badge-sidebar','msg-badge-mobile'], lastMsgTotal);
+          updateAppBadge();
+        })
+        .catch(function() {});
+      fetch('/notifications/api/count', {credentials: 'same-origin'})
+        .then(function(r) { return r.ok ? r.json() : null; })
+        .then(function(d) {
+          if (!d) return;
+          var count = d.total || 0;
+          document.querySelectorAll('.notif-badge').forEach(function(el) {
+            if (count > 0) { el.textContent = count > 9 ? '9+' : count; el.classList.remove('hidden'); }
+            else { el.classList.add('hidden'); }
+          });
+        })
         .catch(function() {});
     }
     setTimeout(poll, 2000);
     setInterval(poll, 30000);
+  })();
+  </script>
+
+  <!-- Battement de présence — garde le statut "en ligne" pendant qu'un onglet reste ouvert -->
+  <script>
+  (function() {
+    function ping() {
+      fetch('/presence/ping', {method: 'POST', credentials: 'same-origin', keepalive: true}).catch(function() {});
+    }
+    ping();
+    setInterval(ping, 45000);
   })();
   </script>
 </body>

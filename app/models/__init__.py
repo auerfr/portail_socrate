@@ -18,6 +18,7 @@ from app.models.forum import (
     ForumTheme, ForumSubject, ForumMessage, ForumSubscription
 )
 from app.models.chat import ChatChannel, ChatChannelMember, ChatMessage, ChatRead
+from app.models.communication import EmailTemplate, EmailCampaign, EmailRecipient
 from app.models.projects import Project, ProjectMember, Task
 from app.models.associative import (
     Candidate, Enquiry, OfficerAssignment, MoralReport, LodgeVisit
@@ -45,6 +46,7 @@ __all__ = [
     "CalendarCategory", "Event", "EventAttendee",
     "ForumTheme", "ForumSubject", "ForumMessage", "ForumSubscription",
     "ChatChannel", "ChatChannelMember", "ChatMessage", "ChatRead",
+    "EmailTemplate", "EmailCampaign", "EmailRecipient",
     "Project", "ProjectMember", "Task",
     "Candidate", "Enquiry", "OfficerAssignment", "MoralReport", "LodgeVisit",
     "NewsArticle", "Poll", "PollOption", "PollVote",

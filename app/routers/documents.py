@@ -2,7 +2,7 @@
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, List, Optional
+from typing import Annotated, List, Optional, Union
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -171,7 +171,7 @@ async def documents_perso(
     if not folder:
         folder = DocFolder(
             space_id=space.id,
-            name=f"{member.first_name} {member.last_name}",
+            name=f"{member.last_name} {member.first_name}",
             min_grade=MinGrade.ALL,
             personal_owner_id=member.id,
             created_by_id=member.id,
@@ -418,12 +418,19 @@ async def documents_upload(
     folder_id: int,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    files: List[UploadFile] = File(...),
+    files: Union[List[UploadFile], UploadFile, None] = File(None),
     doc_name: str = Form(""),
     notify_members: str = Form(""),
     notify_target: str = Form(""),
 ):
     user, member = ctx
+
+    # <input type="file" multiple> soumis sans fichier envoie une seule partie
+    # vide — Starlette la remonte comme un UploadFile isolé, pas une liste.
+    if files is None:
+        files = []
+    elif not isinstance(files, list):
+        files = [files]
 
     folder = await db.get(DocFolder, folder_id)
     if not folder or not await _can_access(

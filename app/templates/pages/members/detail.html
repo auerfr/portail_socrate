@@ -1,5 +1,6 @@
 {% extends "base.html" %}
-{% block title %}{{ target.first_name }} {{ target.last_name | anon_nom }} — Portail Socrate{% endblock %}
+{% import "partials/_presence.html" as presence %}
+{% block title %}{{ target.last_name | anon_nom }} {{ target.first_name }} — Portail Socrate{% endblock %}
 
 {% block content %}
 <div class="p-4 lg:p-8 max-w-4xl mx-auto">
@@ -10,7 +11,7 @@
     <div class="flex items-center gap-1.5">
       <a href="/members/" class="hover:text-loge-700">Membres</a>
       <span>›</span>
-      <span class="text-gray-800">{{ target.first_name }} {{ target.last_name | anon_nom }}</span>
+      <span class="text-gray-800">{{ target.last_name | anon_nom }} {{ target.first_name }}</span>
     </div>
     {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
     <a href="/attendance/member/{{ target.id }}"
@@ -29,12 +30,14 @@
     <!-- En-tête -->
     <div class="bg-gradient-to-r from-loge-800 to-loge-700 px-6 py-8 text-white">
       <div class="flex items-center gap-5">
-        <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
+        <div class="relative w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
           {{ target.first_name[0] }}{{ target.last_name | anon_nom | first }}
+          {{ presence.dot(target, size='md') }}
         </div>
         <div>
-          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.first_name }} {{ target.last_name | anon_nom }}</h1>
+          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.last_name | anon_nom }} {{ target.first_name }}</h1>
           <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade, target.civility) }} · {{ office_label or function_label(target.lodge_function, target.civility) }}</p>
+          <p class="text-loge-200 text-xs mt-1">{{ target | presence_label }}</p>
           <div class="mt-2">
             {% if target.status.value == 'ACTIVE' %}
             <span class="inline-flex items-center gap-1 text-xs font-medium text-green-200 bg-green-800/40 rounded-full px-2.5 py-1">
@@ -150,14 +153,30 @@
           {% endif %}
         </div>
         {% if current_user.is_admin %}
-        <form method="post" action="/members/{{ target.id }}/toggle-user">
-          <button type="submit"
-                  class="text-xs border border-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-50">
-            {{ 'Désactiver' if target_user.is_active else 'Activer' }}
-          </button>
-        </form>
+        <div class="flex items-center gap-2">
+          {% if target_user.totp_enabled %}
+          <form method="post" action="/members/{{ target.id }}/reset-2fa"
+                onsubmit="return confirm('Désactiver la 2FA de ce membre ? À utiliser uniquement s\'il a perdu l\'accès à son application d\'authentification.')">
+            <button type="submit"
+                    class="text-xs border border-amber-200 text-amber-700 px-3 py-1 rounded-lg hover:bg-amber-50">
+              Réinitialiser la 2FA
+            </button>
+          </form>
+          {% endif %}
+          <form method="post" action="/members/{{ target.id }}/toggle-user">
+            <button type="submit"
+                    class="text-xs border border-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-50">
+              {{ 'Désactiver' if target_user.is_active else 'Activer' }}
+            </button>
+          </form>
+        </div>
         {% endif %}
       </div>
+      {% if request.query_params.get('_msg') == '2fa_reset' %}
+      <p class="text-xs text-green-700 bg-green-50 border border-green-200 rounded-lg px-3 py-2 mt-2">
+        ✓ La 2FA de ce membre a été désactivée. Il peut désormais se reconnecter sans code, et réactiver la 2FA depuis son propre compte s'il le souhaite.
+      </p>
+      {% endif %}
       {% else %}
       <p class="text-sm text-gray-500">Pas encore de compte. <a href="/members/{{ target.id }}/edit" class="text-loge-700 hover:underline">Créer un accès</a></p>
       {% endif %}
@@ -259,6 +278,19 @@
 
   <!-- Actions -->
   <div class="flex flex-wrap gap-3">
+    {% if not is_own_profile %}
+    <a href="/messages/compose?to={{ target.id }}"
+       class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
+      <i class="ti ti-mail"></i> Envoyer un message
+    </a>
+    <form method="post" action="/chat/dm">
+      <input type="hidden" name="target_id" value="{{ target.id }}">
+      <button type="submit"
+              class="inline-flex items-center gap-2 border border-loge-200 text-loge-700 px-4 py-2 rounded-lg text-sm hover:bg-loge-50">
+        <i class="ti ti-messages"></i> Discuter
+      </button>
+    </form>
+    {% endif %}
     {% if can_manage or is_own_profile %}
     <a href="/members/{{ target.id }}/edit"
        class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">

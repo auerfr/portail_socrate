@@ -2,6 +2,9 @@
 {% block title %}Nouveau message — Portail Socrate{% endblock %}
 
 {% block content %}
+<!-- Quill CSS (éditeur corps du message) -->
+<link href="/static/css/quill.snow.css" rel="stylesheet">
+
 <div class="p-4 lg:p-8 max-w-2xl mx-auto">
 
   <nav class="text-sm text-gray-500 mb-4">
@@ -17,20 +20,27 @@
   </nav>
 
   <h1 class="text-2xl font-bold text-gray-900 mb-6">
-    {% if reply_msg %}Répondre au message{% else %}Nouveau message{% endif %}
+    {% if reply_msg %}{% if reply_all %}Répondre à tous{% else %}Répondre au message{% endif %}{% else %}Nouveau message{% endif %}
   </h1>
 
   {% if reply_msg %}
   <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 mb-4 text-sm text-gray-600">
     <div class="font-semibold text-gray-700 mb-1">En réponse à : {{ reply_msg.subject }}</div>
     <div class="text-xs text-gray-400 line-clamp-2">{{ reply_msg.body[:200] }}{% if reply_msg.body|length > 200 %}…{% endif %}</div>
+    <div class="text-xs text-loge-700 mt-2 font-medium">
+      {% if reply_all %}
+      <i class="ti ti-users"></i> À {{ reply_member_ids | length }} destinataire{{ 's' if reply_member_ids|length != 1 else '' }} (expéditeur + autres destinataires)
+      {% else %}
+      <i class="ti ti-user"></i> À l'expéditeur uniquement
+      {% endif %}
+    </div>
   </div>
   {% endif %}
 
   <form method="post" action="/messages/send" enctype="multipart/form-data"
         @submit="sending = true"
         x-data="{
-          targetType: 'ALL',
+          targetType: '{{ 'MANUAL' if preselect_member_id else 'ALL' }}',
           files: [],
           visioUrl: '',
           sending: false,
@@ -65,13 +75,54 @@
                value="{% if reply_msg %}Re : {{ reply_msg.subject }}{% endif %}"
                class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
-      <div>
+      <div x-data="{ emojiOpen: false }">
         <label class="block text-sm font-semibold text-gray-700 mb-1.5">Corps du message</label>
-        <textarea id="compose-body" name="body" required rows="8"
-                  placeholder="Saisissez votre message ici…"
-                  class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y"></textarea>
-        <div class="flex items-center gap-3 mt-1.5">
-          <p class="text-xs text-gray-400 flex-1">Les retours à la ligne sont respectés à l'affichage.</p>
+
+        <div id="compose-quill-toolbar" class="border border-gray-200 rounded-t-lg bg-gray-50">
+          <span class="ql-formats">
+            <button class="ql-bold" title="Gras"></button>
+            <button class="ql-italic" title="Italique"></button>
+            <button class="ql-underline" title="Souligné"></button>
+          </span>
+          <span class="ql-formats">
+            <select class="ql-header" title="Taille">
+              <option selected></option>
+              <option value="2">Titre</option>
+              <option value="3">Sous-titre</option>
+            </select>
+          </span>
+          <span class="ql-formats">
+            <button class="ql-list" value="ordered" title="Liste numérotée"></button>
+            <button class="ql-list" value="bullet" title="Liste à puces"></button>
+          </span>
+          <span class="ql-formats">
+            <button class="ql-link" title="Lien"></button>
+            <button class="ql-clean" title="Effacer la mise en forme"></button>
+          </span>
+        </div>
+        <div id="compose-quill-editor" class="border border-gray-200 border-t-0 rounded-b-lg bg-white text-sm"
+             style="min-height:180px;"></div>
+        <input type="hidden" name="body" id="compose-body-input">
+
+        <div class="flex items-center gap-2 mt-1.5">
+          <div class="relative flex-1">
+            <button type="button" @click="emojiOpen = !emojiOpen" @click.outside="emojiOpen = false"
+                    title="Insérer un emoji"
+                    class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+              😀 Emoji
+            </button>
+            <div x-show="emojiOpen" x-cloak x-transition
+                 class="absolute bottom-9 left-0 z-50 bg-white border border-gray-200 rounded-xl shadow-lg p-2 w-64 grid grid-cols-8 gap-0.5 max-h-44 overflow-y-auto">
+              {% for e in ['😀','😂','😊','😉','😍','🥳','😎','🤔','😅','😢','😮','😡','🙌','👍','👎','👏','🙏','🤝','💪','✌️','❤️','💛','💚','💙','🎉','✨','⭐','🔥','💡','✅','❌','⚠️','📌','📎','📅','📖','🕯️','📐','🧭','⚖️','🏛️','🔨','🗝️','☀️','🌙','🌈','☕','🍷','🎂'] %}
+              <button type="button" class="text-lg hover:bg-gray-100 rounded p-1" @click="insertEmojiCompose('{{ e }}')">{{ e }}</button>
+              {% endfor %}
+            </div>
+          </div>
+          <button type="button" @click="insertMasonicCompose('∴')"
+                  title="Insérer le caractère ∴"
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors shrink-0">
+            ∴
+          </button>
           <button type="button" onclick="openDocPicker('compose')"
                   class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors shrink-0">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -155,7 +206,7 @@
     <!-- Réponse : destinataire fixe, ciblage masqué -->
     <input type="hidden" name="parent_id" value="{{ reply_msg.id }}">
     <input type="hidden" name="target_type" value="MANUAL">
-    <input type="hidden" name="target_member_ids" value="{{ reply_msg.sender_id }}">
+    <input type="hidden" name="target_member_ids" value="{{ reply_member_ids | join(',') }}">
     {% else %}
 
     <!-- Ciblage -->
@@ -242,12 +293,14 @@
                      const ids = [...document.querySelectorAll('.manual-cb:checked')].map(c=>c.value).join(',');
                      document.getElementById('manual_ids').value = ids;
                    }
-                 }">
+                 }"
+                 x-init="updateIds()">
               <div class="space-y-0.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
                 {% for m in all_members %}
                 <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-purple-50 px-1.5 py-1 rounded">
                   <input type="checkbox" class="manual-cb rounded border-gray-300 text-purple-500"
-                         value="{{ m.id }}" @change="updateIds()">
+                         value="{{ m.id }}" @change="updateIds()"
+                         {% if preselect_member_id and m.id == preselect_member_id %}checked{% endif %}>
                   <span class="font-medium text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
                   <span class="text-gray-400 ml-auto">{{ m.masonic_grade.value }}</span>
                 </label>
@@ -491,14 +544,64 @@ function pickDoc(doc) {
       ta.style.height = ta.scrollHeight + 'px';
       ta.focus();
     }
-  } else {
-    var bodyEl = document.getElementById('compose-body');
-    if (bodyEl) {
-      var prefix = bodyEl.value.trim() ? bodyEl.value + '\n\n' : '';
-      bodyEl.value = prefix + '📄 ' + doc.name + '\n' + url;
-      bodyEl.focus();
-    }
+  } else if (window.composeQuill) {
+    var idx = composeQuill.getLength();
+    composeQuill.insertText(idx, '📄 ' + doc.name + '\n', 'user');
+    composeQuill.insertText(composeQuill.getLength(), url + '\n', 'link', url);
+    composeQuill.setSelection(composeQuill.getLength());
+    composeQuill.focus();
   }
 }
+</script>
+
+<!-- Quill JS (éditeur corps du message) -->
+<script src="/static/js/quill.min.js"></script>
+<script>
+  // Corrige les URL mal formées (ex: lien Markdown collé tel quel, ou URL
+  // sans schéma) avant que Quill ne les stocke comme href — sans ce garde-fou,
+  // un href du type "[texte](https://...)" est traité comme un chemin relatif
+  // par le navigateur et casse la navigation.
+  (function () {
+    const BaseLink = Quill.import('formats/link');
+    class SafeLink extends BaseLink {
+      static sanitize(url) {
+        let clean = (url || '').trim();
+        const mdMatch = clean.match(/^\[.*?\]\((https?:\/\/[^)]+)\)$/);
+        if (mdMatch) clean = mdMatch[1];
+        else if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(clean)) clean = 'https://' + clean;
+        return BaseLink.sanitize(clean);
+      }
+    }
+    Quill.register(SafeLink, true);
+  })();
+
+  var composeQuill = new Quill('#compose-quill-editor', {
+    theme: 'snow',
+    modules: { toolbar: '#compose-quill-toolbar' },
+    placeholder: 'Saisissez votre message ici…',
+  });
+
+  function insertEmojiCompose(emoji) {
+    const range = composeQuill.getSelection(true);
+    composeQuill.insertText(range.index, emoji, 'user');
+    composeQuill.setSelection(range.index + emoji.length);
+  }
+
+  function insertMasonicCompose(token) {
+    const range = composeQuill.getSelection(true);
+    composeQuill.insertText(range.index, token, 'user');
+    composeQuill.setSelection(range.index + token.length);
+  }
+
+  document.querySelector('form[action="/messages/send"]').addEventListener('submit', function (e) {
+    const html = composeQuill.root.innerHTML;
+    const isEmpty = html === '<p><br></p>' || composeQuill.getText().trim() === '';
+    if (isEmpty) {
+      e.preventDefault();
+      alert('Le corps du message ne peut pas être vide.');
+      return;
+    }
+    document.getElementById('compose-body-input').value = html;
+  });
 </script>
 {% endblock %}

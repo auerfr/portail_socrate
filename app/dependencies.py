@@ -114,7 +114,19 @@ async def get_current_user(
         select(Member).where(Member.id == user.member_id)
     )
     member = member_result.scalar_one_or_none()
-    return (user, member) if member else None
+    if member is None:
+        return None
+
+    # Présence — battement throttlé (pas plus d'une écriture par minute par membre)
+    now = datetime.utcnow()
+    if member.last_activity_at is None or (now - member.last_activity_at) > timedelta(seconds=60):
+        member.last_activity_at = now
+        try:
+            await db.commit()
+        except Exception:
+            await db.rollback()
+
+    return (user, member)
 
 
 async def require_auth(
@@ -244,4 +256,25 @@ def can_manage_attendance(member: Member) -> bool:
         LodgeFunction.SECRETAIRE,
         LodgeFunction.PREMIER_S,
         LodgeFunction.SECOND_S,
+    )
+
+
+def can_view_engagement_stats(member: Member) -> bool:
+    """Peut consulter le tableau de bord d'engagement (VM, Secrétaire)."""
+    return member.lodge_function in (
+        LodgeFunction.VM,
+        LodgeFunction.SECRETAIRE,
+    )
+
+
+async def require_engagement_viewer(
+    ctx: Annotated[tuple, Depends(require_active_member)]
+) -> tuple:
+    """Exige admin, VM ou Secrétaire — pour le tableau de bord d'engagement."""
+    user, member = ctx
+    if user.is_admin or can_view_engagement_stats(member):
+        return ctx
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Réservé au Vénérable Maître, au Secrétaire ou à l'administrateur",
     )

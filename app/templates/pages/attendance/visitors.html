@@ -157,7 +157,7 @@
                 <div>
                   <div class="font-medium text-gray-900">
                     {% if v.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                    {{ v.first_name }} {{ v.last_name }}
+                    {{ v.last_name }} {{ v.first_name }}
                     {% if v.is_vm %}<span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-1.5 py-0.5 ml-1">V∴M∴</span>{% endif %}
                   </div>
                   {% if v.email %}<div class="text-xs text-gray-400">{{ v.email }}</div>{% endif %}
@@ -201,7 +201,7 @@
                   </svg>
                 </button>
                 <form method="post" action="/attendance/visitor/{{ v.id }}/delete"
-                      onsubmit="return confirm('Supprimer définitivement {{ v.first_name }} {{ v.last_name }} et toutes ses visites ?')">
+                      onsubmit="return confirm('Supprimer définitivement {{ v.last_name }} {{ v.first_name }} et toutes ses visites ?')">
                   <button type="submit"
                           title="Supprimer ce visiteur"
                           class="w-7 h-7 inline-flex items-center justify-center rounded-lg text-gray-300 hover:text-red-500 hover:bg-red-50 transition-colors">
@@ -315,7 +315,7 @@ function openVisitorModal(data) {
   const form = document.getElementById('visitor-form');
   const title = document.getElementById('visitor-modal-title');
   if (data && data.id) {
-    title.textContent = '✏ Modifier ' + data.first_name + ' ' + data.last_name;
+    title.textContent = '✏ Modifier ' + data.last_name + ' ' + data.first_name;
     form.action = '/attendance/visitor/' + data.id + '/edit';
     document.getElementById('v-civility').value = data.civility || 'F';
     document.getElementById('v-last-name').value = data.last_name || '';

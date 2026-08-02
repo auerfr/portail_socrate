@@ -111,7 +111,7 @@
         <div class="flex-1">
           <span class="text-sm font-medium text-gray-900">
             {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-            {{ att.member.first_name }} {{ att.member.last_name | anon_nom }}
+            {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}
           </span>
         </div>
         <span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-2 py-0.5">1 couvert</span>
@@ -138,7 +138,7 @@
         <div class="flex-1">
           <span class="text-sm text-gray-800">
             {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+            {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}
           </span>
           <span class="text-xs text-gray-400 ml-1">— {{ mv.visitor.lodge_name or 'Passant' }}</span>
           {% if mv.agape_guests %}<span class="text-xs text-gray-400 ml-1">+{{ mv.agape_guests }} invité{{ 's' if mv.agape_guests > 1 }}</span>{% endif %}
@@ -190,7 +190,7 @@
         <div class="flex-1 min-w-0">
           <span class="text-sm text-gray-800">
             {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-            {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+            {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}
           </span>
           <span class="text-xs text-gray-400 ml-1">— {{ mv.visitor.lodge_name or 'Passant' }}</span>
         </div>
@@ -309,7 +309,7 @@
       <li class="flex items-center justify-between bg-white rounded-lg px-3 py-1.5">
         <span class="text-gray-600 font-medium">{{ label }}</span>
         <span class="text-loge-800 font-semibold">
-          {% if sub_m %}{{ sub_m.first_name }} {{ sub_m.last_name | anon_nom }}{% else %}—{% endif %}
+          {% if sub_m %}{{ sub_m.last_name | anon_nom }} {{ sub_m.first_name }}{% else %}—{% endif %}
           {% if sub_record.notes %}<span class="text-xs text-gray-400 ml-1">({{ sub_record.notes }})</span>{% endif %}
         </span>
       </li>

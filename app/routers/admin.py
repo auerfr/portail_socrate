@@ -574,76 +574,17 @@ async def admin_rgpd_export(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Export RGPD : zip avec un JSON contenant toutes les données du membre."""
-    import io
-    import json
-    import zipfile
     from fastapi.responses import StreamingResponse
+    from app.services.rgpd import build_member_export_zip
 
     actor_user, actor_member = ctx
     m = (await db.execute(select(Member).where(Member.id == member_id))).scalar_one_or_none()
     if not m:
         raise HTTPException(404)
 
-    def _serialize(obj):
-        out = {}
-        for col in obj.__table__.columns:
-            val = getattr(obj, col.name)
-            if hasattr(val, "isoformat"):
-                val = val.isoformat()
-            elif hasattr(val, "value"):
-                val = val.value
-            out[col.name] = val
-        return out
-
-    data = {"member": _serialize(m)}
-
-    # User associé
-    u = (await db.execute(select(User).where(User.member_id == m.id))).scalar_one_or_none()
-    if u:
-        d = _serialize(u)
-        d.pop("password_hash", None)  # ne pas exporter le hash
-        d.pop("reset_token", None)
-        data["user_account"] = d
-
-    # Tenter de joindre quelques relations courantes
-    from sqlalchemy import text as sa_text
-    for label, sql in [
-        ("attendances",   "SELECT * FROM attendances WHERE member_id = :id"),
-        ("messages_sent", "SELECT id, subject, body, created_at FROM messages WHERE sender_id = :id"),
-        ("news_authored", "SELECT id, title, created_at FROM news_articles WHERE author_id = :id"),
-        ("poll_votes",    "SELECT * FROM poll_votes WHERE voter_id = :id"),
-        ("tasks_assigned","SELECT id, title, status, due_date FROM tasks WHERE assigned_to_id = :id"),
-        ("task_comments", "SELECT id, task_id, content, created_at FROM task_comments WHERE author_id = :id"),
-        ("audit_actions", "SELECT id, action, resource_type, target_label, created_at FROM audit_logs WHERE actor_id = :id"),
-    ]:
-        try:
-            r = await db.execute(sa_text(sql), {"id": m.id})
-            rows = [dict(row._mapping) for row in r.fetchall()]
-            for row in rows:
-                for k, v in list(row.items()):
-                    if hasattr(v, "isoformat"):
-                        row[k] = v.isoformat()
-            data[label] = rows
-        except Exception as e:
-            data[label] = {"_error": str(e)}
-
-    # Construction du ZIP en mémoire
-    buf = io.BytesIO()
-    with zipfile.ZipFile(buf, "w", zipfile.ZIP_DEFLATED) as zf:
-        zf.writestr(
-            "donnees.json",
-            json.dumps(data, indent=2, ensure_ascii=False, default=str),
-        )
-        zf.writestr(
-            "README.txt",
-            "Export RGPD - Portail Socrate\n"
-            f"Membre : {m.last_name} {m.first_name} (id={m.id})\n"
-            f"Date d'export : {datetime.utcnow().isoformat()}\n"
-            f"Demandé par : {actor_member.first_name} {actor_member.last_name}\n\n"
-            "Ce ZIP contient l'ensemble des données personnelles associées à ce membre\n"
-            "dans la base de la loge, hors fichiers uploadés.\n",
-        )
-    buf.seek(0)
+    buf = await build_member_export_zip(
+        db, m, requested_by=f"{actor_member.last_name} {actor_member.first_name} (admin)"
+    )
 
     await log_audit(
         db, actor_id=actor_member.id, action="RGPD_EXPORT",
@@ -1100,91 +1041,90 @@ async def admin_invitations(
     ctx: Annotated[tuple, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Liste des membres SANS compte utilisateur — permet de leur créer un compte
-    + lien de réinitialisation pour qu'ils définissent leur mot de passe."""
+    """Accès membres — envoie par email (compte + lien + guide utilisateur en PJ)
+    à tous les membres actifs, et permet de vérifier l'état des envois."""
+    from app.services.member_access import last_send_status
     user, member = ctx
-    # Membres actifs sans compte User
-    r = await db.execute(
-        select(Member).outerjoin(User, User.member_id == Member.id)
-        .where(User.id.is_(None), Member.status == MemberStatus.ACTIVE)
+    all_active = (await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
         .order_by(Member.last_name, Member.first_name)
-    )
-    members_no_account = r.scalars().all()
+    )).scalars().all()
+
+    accounts = {
+        u.member_id: u for u in (await db.execute(
+            select(User).where(User.member_id.in_([m.id for m in all_active]))
+        )).scalars().all()
+    } if all_active else {}
+
+    emails = [m.email for m in all_active if m.email]
+    send_status = await last_send_status(db, emails)
+
+    rows = [{
+        "member": m,
+        "has_account": m.id in accounts,
+        "never_logged": (m.id not in accounts) or accounts[m.id].last_login_at is None,
+        "last_log": send_status.get(m.email),
+    } for m in all_active]
+
     return templates.TemplateResponse(request, "pages/admin/invitations.html", {
         "current_user": user,
         "current_member": member,
-        "members_no_account": members_no_account,
+        "rows": rows,
         "active_tab": "users",
     })
 
 
-@router.post("/invitations/{member_id}/create")
-async def admin_invitation_create(
+@router.post("/invitations/{member_id}/send")
+async def admin_invitation_send(
     member_id: int,
     request: Request,
     ctx: Annotated[tuple, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Crée un compte User pour ce membre + génère un lien de reset valide 7j."""
-    import secrets
+    """Envoie (ou renvoie) l'accès à ce membre : compte + lien + guide en PJ."""
+    from app.services.member_access import send_access_email, build_guide_pdf
+    from app.config import get_settings
     actor_user, actor_member = ctx
     m = (await db.execute(select(Member).where(Member.id == member_id))).scalar_one_or_none()
     if not m:
         raise HTTPException(404)
-    # Compte déjà existant ?
-    existing = (await db.execute(select(User).where(User.member_id == m.id))).scalar_one_or_none()
-    if existing:
-        return RedirectResponse(url="/admin/invitations?_msg=exists", status_code=303)
     if not m.email:
         return RedirectResponse(url="/admin/invitations?_msg=no_email", status_code=303)
 
-    # Génère un login depuis prenom.nom (à défaut : email)
-    base_login = f"{m.first_name}.{m.last_name}".lower().replace(" ", "").replace("'", "")
-    import unicodedata
-    base_login = "".join(
-        c for c in unicodedata.normalize("NFKD", base_login)
-        if not unicodedata.combining(c)
-    )
-    # Garantit unicité
-    login = base_login
-    n = 2
-    while (await db.execute(select(User).where(User.login == login))).scalar_one_or_none():
-        login = f"{base_login}{n}"
-        n += 1
+    settings = get_settings()
+    base_url = str(request.base_url).rstrip("/")
+    guide_pdf = build_guide_pdf(settings.lodge_name, base_url)
+    ok, err = await send_access_email(db, m, base_url, guide_pdf)
 
-    # Hash d'un mot de passe placeholder (jamais utilisé puisqu'on force reset)
-    try:
-        from passlib.context import CryptContext
-        pwd_ctx = CryptContext(schemes=["bcrypt"], deprecated="auto")
-        placeholder_hash = pwd_ctx.hash(secrets.token_urlsafe(32))
-    except Exception:
-        # Fallback brut si passlib indispo
-        import hashlib
-        placeholder_hash = "x" + hashlib.sha256(secrets.token_bytes(32)).hexdigest()
-
-    token = secrets.token_urlsafe(32)
-    u = User(
-        member_id=m.id,
-        login=login,
-        password_hash=placeholder_hash,
-        is_active=True,
-        is_admin=False,
-        reset_token=token,
-        reset_token_expires=datetime.utcnow() + timedelta(days=7),
-    )
-    db.add(u)
     await log_audit(
-        db, actor_id=actor_member.id, action="INVITATION_CREATE",
+        db, actor_id=actor_member.id, action="ACCESS_SEND",
         target_type="member", target_id=m.id,
         target_label=f"{m.last_name} {m.first_name}",
-        details=f"login={login} token 7j", request=request,
+        details=("OK" if ok else f"FAIL: {err}"), request=request, commit=True,
     )
-    await db.commit()
-    await db.refresh(u)
     return RedirectResponse(
-        url=f"/admin/invitations?invited_id={u.id}&invited_token={token}",
-        status_code=303,
+        url=f"/admin/invitations?_msg={'sent' if ok else 'fail'}", status_code=303
     )
+
+
+@router.post("/invitations/send-bulk")
+async def admin_invitation_send_bulk(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    member_ids: Annotated[list[int], Form()] = [],
+):
+    """Déclenche l'envoi des accès aux membres sélectionnés, en tâche de fond."""
+    from app.services.member_access import launch_bulk_access_send
+    actor_user, actor_member = ctx
+    if not member_ids:
+        return RedirectResponse(url="/admin/invitations?_msg=none_selected", status_code=303)
+    await log_audit(
+        db, actor_id=actor_member.id, action="ACCESS_SEND_ALL",
+        details=f"{len(member_ids)} membre(s) sélectionné(s)", request=request, commit=True,
+    )
+    launch_bulk_access_send(member_ids=member_ids)
+    return RedirectResponse(url="/admin/invitations?_msg=started", status_code=303)
 
 
 @router.post("/banner")
@@ -1368,3 +1308,137 @@ async def admin_audit_purge(
     )
     await db.commit()
     return RedirectResponse(url="/admin/audit", status_code=303)
+
+
+# ── Analytics interne (pages vues, provenance, appareil, durée) ────────────
+
+@router.get("/analytics", response_class=HTMLResponse)
+async def admin_analytics(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    days: int = 30,
+):
+    """Analytique interne (équivalent maison, léger, sans JS ni cookie
+    tiers) : pages les plus vues, provenance, appareil, durée de session
+    estimée. Alimenté par le middleware analytics_middleware (app/main.py)."""
+    from app.models.analytics import PageView
+
+    days = days if days in (7, 30, 90) else 30
+    since = datetime.utcnow() - timedelta(days=days)
+
+    base_filter = PageView.created_at >= since
+
+    total_views = (await db.execute(
+        select(func.count(PageView.id)).where(base_filter)
+    )).scalar() or 0
+
+    unique_sessions = (await db.execute(
+        select(func.count(func.distinct(PageView.session_id))).where(base_filter, PageView.session_id.isnot(None))
+    )).scalar() or 0
+
+    unique_members = (await db.execute(
+        select(func.count(func.distinct(PageView.member_id))).where(base_filter, PageView.member_id.isnot(None))
+    )).scalar() or 0
+
+    # ── Pages les plus vues (chemin exact) ──────────────────────────────────
+    top_pages_r = await db.execute(
+        select(PageView.path, func.count(PageView.id).label("n"))
+        .where(base_filter)
+        .group_by(PageView.path)
+        .order_by(desc("n"))
+        .limit(15)
+    )
+    top_pages = [{"path": p, "count": n} for p, n in top_pages_r.all()]
+    max_page_count = max((r["count"] for r in top_pages), default=1)
+
+    # ── Sections (premier segment du chemin) ────────────────────────────────
+    rows_by_path = (await db.execute(
+        select(PageView.path, func.count(PageView.id)).where(base_filter).group_by(PageView.path)
+    )).all()
+    section_counts: dict[str, int] = {}
+    for path, n in rows_by_path:
+        seg = path.strip("/").split("/")[0] if path.strip("/") else "accueil"
+        section_counts[seg] = section_counts.get(seg, 0) + n
+    top_sections = sorted(
+        [{"section": s, "count": c} for s, c in section_counts.items()],
+        key=lambda r: r["count"], reverse=True,
+    )[:10]
+    max_section_count = max((r["count"] for r in top_sections), default=1)
+
+    # ── Appareils ────────────────────────────────────────────────────────────
+    device_r = await db.execute(
+        select(PageView.device, func.count(PageView.id)).where(base_filter).group_by(PageView.device)
+    )
+    device_rows = device_r.all()
+    device_total = sum(n for _, n in device_rows) or 1
+    devices = sorted(
+        [{"device": d, "count": n, "pct": round(n * 100 / device_total)} for d, n in device_rows],
+        key=lambda r: r["count"], reverse=True,
+    )
+
+    # ── Provenance ───────────────────────────────────────────────────────────
+    ref_r = await db.execute(
+        select(PageView.referrer_host, func.count(PageView.id)).where(base_filter).group_by(PageView.referrer_host)
+    )
+    ref_rows = ref_r.all()
+    ref_total = sum(n for _, n in ref_rows) or 1
+    referrers = sorted(
+        [{"host": h, "count": n, "pct": round(n * 100 / ref_total)} for h, n in ref_rows],
+        key=lambda r: r["count"], reverse=True,
+    )[:10]
+
+    # ── Durée de session estimée (écart 1ère/dernière vue par session) ───────
+    session_r = await db.execute(
+        select(
+            PageView.session_id,
+            func.min(PageView.created_at), func.max(PageView.created_at), func.count(PageView.id),
+        )
+        .where(base_filter, PageView.session_id.isnot(None))
+        .group_by(PageView.session_id)
+    )
+    durations_sec: list[float] = []
+    single_page_sessions = 0
+    for _sid, first_ts, last_ts, n in session_r.all():
+        if n <= 1:
+            single_page_sessions += 1
+            continue
+        durations_sec.append((last_ts - first_ts).total_seconds())
+    avg_duration_min = round(sum(durations_sec) / len(durations_sec) / 60, 1) if durations_sec else None
+    multi_page_sessions = len(durations_sec)
+
+    # ── Timeline (vues par jour) ──────────────────────────────────────────────
+    # func.date() (fonction SQLite) plutôt que cast(..., Date) : un CAST SQL
+    # standard sur une colonne DATETIME stockée en texte ne la retronque pas
+    # en date, et le processeur Date de SQLAlchemy plante ensuite en tentant
+    # de parser une valeur qui n'est pas une chaîne ISO simple.
+    day_col = func.date(PageView.created_at)
+    day_r = await db.execute(
+        select(day_col, func.count(PageView.id))
+        .where(base_filter)
+        .group_by(day_col)
+        .order_by(day_col)
+    )
+    daily = [{"day": d, "count": n} for d, n in day_r.all()]
+    max_daily = max((r["count"] for r in daily), default=1)
+
+    return templates.TemplateResponse(request, "pages/admin/analytics.html", {
+        "current_user": ctx[0],
+        "current_member": ctx[1],
+        "active_tab": "analytics",
+        "days": days,
+        "total_views": total_views,
+        "unique_sessions": unique_sessions,
+        "unique_members": unique_members,
+        "top_pages": top_pages,
+        "max_page_count": max_page_count,
+        "top_sections": top_sections,
+        "max_section_count": max_section_count,
+        "devices": devices,
+        "referrers": referrers,
+        "avg_duration_min": avg_duration_min,
+        "multi_page_sessions": multi_page_sessions,
+        "single_page_sessions": single_page_sessions,
+        "daily": daily,
+        "max_daily": max_daily,
+    })

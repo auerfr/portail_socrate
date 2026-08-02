@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Annuaire — {{ lodge.name if lodge else 'Loge' }}</title>
+  <style>
+    @page { size: A4 portrait; margin: 1.5cm; }
+    * { box-sizing: border-box; }
+    body { font-family: Georgia, 'Times New Roman', serif; font-size: 12pt; color: #111; margin: 0; }
+    .header { text-align: center; border-bottom: 2px solid #2c7a7b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0 0 .25rem; font-size: 18pt; color: #2c7a7b; }
+    .header h2 { margin: 0; font-size: 12pt; font-weight: normal; color: #555; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: 1rem; }
+    th { background: #e6f4f1; text-align: left; padding: .4rem .6rem; font-size: 10pt; text-transform: uppercase; letter-spacing: .04em; color: #2c7a7b; border-bottom: 1px solid #b3d4cf; }
+    td { padding: .5rem .6rem; border-bottom: 1px solid #e5e7eb; font-size: 11pt; vertical-align: top; }
+    .grade { color: #2c7a7b; font-size: 10pt; }
+    .office { color: #6b7280; font-size: 10pt; font-style: italic; }
+    .footer { margin-top: 2rem; font-size: 10pt; color: #6b7280; text-align: center; }
+    @media print { .no-print { display: none !important; } }
+    .no-print { text-align: center; margin: 1rem 0; }
+    .no-print button { background: #2c7a7b; color: white; border: none; padding: .5rem 1rem; border-radius: .5rem; cursor: pointer; font-size: 11pt; }
+  </style>
+</head>
+<body>
+
+  <div class="no-print">
+    <button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+  </div>
+
+  <div class="header">
+    <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
+    <h2>Annuaire des membres — {{ members | length }} membre{{ 's' if members | length != 1 else '' }}</h2>
+  </div>
+
+  <table>
+    <thead>
+      <tr>
+        <th style="width: 40%;">Membre</th>
+        <th style="width: 20%;">Grade</th>
+        <th style="width: 20%;">Office</th>
+        <th>Email</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m in members %}
+      <tr>
+        <td>
+          {% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name }} {{ m.first_name }}
+        </td>
+        <td class="grade">{{ grade_label(m.masonic_grade, m.civility) }}</td>
+        <td class="office">{{ office_by_member.get(m.id, '—') }}</td>
+        <td>{{ m.email }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+
+  <div class="footer">
+    Document généré le {{ generated_on }} — Portail Socrate
+  </div>
+
+</body>
+</html>

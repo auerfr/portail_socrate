@@ -114,7 +114,7 @@
             <div class="text-xs text-gray-400 mt-0.5 flex items-center gap-2 flex-wrap">
               <span>
                 {% if ann.author.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                {{ ann.author.first_name }} {{ ann.author.last_name | anon_nom }}
+                {{ ann.author.last_name | anon_nom }} {{ ann.author.first_name }}
               </span>
               <span>·</span>
               <span>{{ ann.created_at.strftime('%d/%m/%Y à %H:%M') }}</span>

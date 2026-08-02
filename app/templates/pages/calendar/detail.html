@@ -102,6 +102,16 @@
           <span>{{ vis_label }}</span>
         </div>
 
+        {# Récurrence #}
+        {% if event.recurrence_group_id %}
+        <div class="flex items-center gap-2 text-sm text-gray-500">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M16.023 9.348h4.992v-.001M2.985 19.644v-4.992m0 0h4.992m-4.993 0l3.181 3.183a8.25 8.25 0 0013.803-3.7M4.031 9.865a8.25 8.25 0 0113.803-3.7l3.181 3.182m0-4.991v4.99"/>
+          </svg>
+          <span>Fait partie d'une série récurrente{% if event.recurrence_label %} — {{ event.recurrence_label }}{% endif %}</span>
+        </div>
+        {% endif %}
+
         {# Description #}
         {% if event.description %}
         <div class="border-t border-gray-100 pt-4">
@@ -122,16 +132,27 @@
           Modifier
         </button>
 
-        <form method="post" action="/calendar/events/{{ event.id }}/delete"
-              onsubmit="return confirm('Supprimer cet événement définitivement ?')">
-          <button type="submit"
-                  class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
-            </svg>
-            Supprimer
-          </button>
-        </form>
+        <div class="flex items-center gap-2">
+          {% if event.recurrence_group_id %}
+          <form method="post" action="/calendar/events/{{ event.id }}/delete-series"
+                onsubmit="return confirm('Supprimer TOUS les événements de cette série récurrente ?')">
+            <button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+              Supprimer la série
+            </button>
+          </form>
+          {% endif %}
+          <form method="post" action="/calendar/events/{{ event.id }}/delete"
+                onsubmit="return confirm('Supprimer cet événement définitivement ?')">
+            <button type="submit"
+                    class="inline-flex items-center gap-1.5 px-4 py-2 text-sm font-medium text-red-600 border border-red-200 rounded-lg hover:bg-red-50 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M14.74 9l-.346 9m-4.788 0L9.26 9m9.968-3.21c.342.052.682.107 1.022.166m-1.022-.165L18.16 19.673a2.25 2.25 0 01-2.244 2.077H8.084a2.25 2.25 0 01-2.244-2.077L4.772 5.79m14.456 0a48.108 48.108 0 00-3.478-.397m-12 .562c.34-.059.68-.114 1.022-.165m0 0a48.11 48.11 0 013.478-.397m7.5 0v-.916c0-1.18-.91-2.164-2.09-2.201a51.964 51.964 0 00-3.32 0c-1.18.037-2.09 1.022-2.09 2.201v.916m7.5 0a48.667 48.667 0 00-7.5 0"/>
+              </svg>
+              Supprimer{% if event.recurrence_group_id %} cette occurrence{% endif %}
+            </button>
+          </form>
+        </div>
       </div>
       {% endif %}
 

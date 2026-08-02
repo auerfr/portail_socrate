@@ -200,7 +200,7 @@
                   <div>
                     <div class="text-sm font-medium text-gray-900 group-hover:text-loge-700">
                       {% if mbr.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                      {{ mbr.first_name }} {{ mbr.last_name | anon_nom }}
+                      {{ mbr.last_name | anon_nom }} {{ mbr.first_name }}
                     </div>
                     {% if is_danger %}
                     <div class="text-xs text-red-500 font-medium leading-tight">🔴 Assiduité {{ pct }}%</div>

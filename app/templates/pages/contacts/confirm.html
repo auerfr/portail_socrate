@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="fr" class="h-full">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Confirmation — Portail Socrate</title>
+  <link href="/static/css/app.css" rel="stylesheet">
+</head>
+<body class="h-full bg-gray-50 font-sans flex flex-col items-center justify-center px-4">
+
+  <div class="w-full max-w-sm text-center">
+
+    {% if ok %}
+    <div class="flex justify-center mb-6">
+      <div class="w-16 h-16 bg-emerald-50 rounded-2xl flex items-center justify-center">
+        <svg class="w-8 h-8 text-emerald-500" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+        </svg>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-8 space-y-3">
+      <h1 class="text-lg font-bold text-gray-900">Merci pour votre confirmation</h1>
+      <p class="text-sm text-gray-500">
+        Votre adresse ({{ contact.email }}) reste bien enregistrée pour recevoir les prochains programmes.
+      </p>
+    </div>
+    {% else %}
+    <div class="flex justify-center mb-6">
+      <div class="w-16 h-16 bg-red-50 rounded-2xl flex items-center justify-center">
+        <svg class="w-8 h-8 text-red-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 9v3.75m9-.75a9 9 0 11-18 0 9 9 0 0118 0zm-9 3.75h.008v.008H12v-.008z"/>
+        </svg>
+      </div>
+    </div>
+    <div class="bg-white rounded-2xl border border-gray-200 shadow-sm px-6 py-8 space-y-3">
+      <h1 class="text-lg font-bold text-gray-900">Lien invalide ou expiré</h1>
+      <p class="text-sm text-gray-500">
+        Ce lien de confirmation n'est plus valide. Contactez le secrétariat de la loge si vous souhaitez
+        continuer à recevoir les programmes.
+      </p>
+    </div>
+    {% endif %}
+
+    <p class="text-xs text-gray-400 mt-4">Portail interne de la loge</p>
+  </div>
+
+</body>
+</html>

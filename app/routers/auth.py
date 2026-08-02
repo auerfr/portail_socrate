@@ -109,7 +109,10 @@ async def login_submit(
         pass
     await db.commit()
 
-    access_token = create_access_token({"sub": str(user.id)})
+    token_data = {"sub": str(user.id)}
+    if user.totp_enabled:
+        token_data["2fa_pending"] = True
+    access_token = create_access_token(token_data)
     refresh_token = create_refresh_token({"sub": str(user.id)})
 
     # Enregistrement session pour la révocation
@@ -134,7 +137,11 @@ async def login_submit(
 
     # Rediriger vers la page d'origine si fournie (et sécurisée)
     safe_next = next if (next and next.startswith("/") and not next.startswith("//")) else "/"
-    redirect = RedirectResponse(url=safe_next, status_code=status.HTTP_302_FOUND)
+    if user.totp_enabled:
+        from urllib.parse import quote
+        redirect = RedirectResponse(url=f"/auth/2fa/verify?next={quote(safe_next, safe='')}", status_code=status.HTTP_302_FOUND)
+    else:
+        redirect = RedirectResponse(url=safe_next, status_code=status.HTTP_302_FOUND)
     redirect.set_cookie(
         "access_token", access_token,
         httponly=True, samesite="lax", secure=False,  # secure=False en prod
@@ -283,10 +290,8 @@ async def totp_setup_page(
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Page de configuration 2FA (uniquement pour les admins)."""
+    """Page de configuration 2FA (accessible à tout membre connecté)."""
     user_obj, member = ctx
-    if not user_obj.is_admin:
-        raise HTTPException(403, "Réservé aux admins")
     import pyotp, qrcode, io, base64
     # Génère un secret temporaire (pas encore activé)
     temp_secret = pyotp.random_base32()
@@ -320,8 +325,6 @@ async def totp_enable(
     """Active la 2FA après vérification du code."""
     import pyotp
     user_obj, member = ctx
-    if not user_obj.is_admin:
-        raise HTTPException(403)
     totp = pyotp.TOTP(temp_secret)
     if not totp.verify(code.strip(), valid_window=1):
         raise HTTPException(400, "Code invalide — vérifiez l'heure de votre appareil")
@@ -391,10 +394,21 @@ async def totp_verify(
             "error": "Code invalide. Réessayez.", "next": next,
         })
 
-    # Marquer la session 2FA validée dans SystemSetting temporaire
-    from app.services.settings_store import set_setting
-    await set_setting(db, f"2fa_ok_{user_id}", {"ts": str(__import__('datetime').datetime.utcnow())})
-    return RedirectResponse(url=next or "/", status_code=303)
+    # Re-signe le même token (même jti/exp) sans le claim "2fa_pending"
+    from jose import jwt as _jwt
+    from app.config import get_settings as _get_settings
+    _settings = _get_settings()
+    cleared_payload = {k: v for k, v in payload.items() if k != "2fa_pending"}
+    new_access_token = _jwt.encode(cleared_payload, _settings.secret_key, algorithm=_settings.algorithm)
+
+    safe_next = next if (next and next.startswith("/") and not next.startswith("//")) else "/"
+    redirect = RedirectResponse(url=safe_next, status_code=303)
+    redirect.set_cookie(
+        "access_token", new_access_token,
+        httponly=True, samesite="lax", secure=False,
+        max_age=60 * 60 * 8,
+    )
+    return redirect
 
 
 @router.get("/password", response_class=HTMLResponse)
@@ -483,6 +497,41 @@ async def change_username(
     user.login = new_login
     await db.commit()
     return _render(login_success=True)
+
+
+# ── Export RGPD self-service (droit à la portabilité) ─────────────────────
+
+@router.get("/my-data")
+async def export_my_data(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Permet à tout membre de télécharger ses propres données (RGPD)."""
+    from fastapi.responses import StreamingResponse
+    from app.services.rgpd import build_member_export_zip
+
+    user, member = ctx
+    buf = await build_member_export_zip(
+        db, member, requested_by=f"{member.last_name} {member.first_name} (lui-même)"
+    )
+
+    try:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=member.id, action="RGPD_SELF_EXPORT",
+            target_type="member", target_id=member.id,
+            target_label=f"{member.last_name} {member.first_name}",
+            request=request, commit=True,
+        )
+    except Exception:
+        pass
+
+    fname = f"mes-donnees-{datetime.utcnow().strftime('%Y%m%d')}.zip"
+    return StreamingResponse(
+        buf, media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{fname}"'},
+    )
 
 
 # ── Réinitialisation de mot de passe (public) ─────────────────────────────

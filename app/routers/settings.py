@@ -1,5 +1,6 @@
 """Router Paramètres — configuration loge, VM, Secrétaire, temple"""
 import uuid
+from datetime import datetime
 from pathlib import Path
 from typing import Annotated, Optional
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
@@ -8,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 LOGO_DIR = Path("app/static/uploads/logo")
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 _LOGO_ALLOWED = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-from sqlalchemy import select
+from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -96,6 +97,9 @@ async def settings_page(
     request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    contact_type_filter: str = "",
+    contact_lodge_filter: str = "",
+    contact_q: str = "",
 ):
     user, member = ctx
     from app.dependencies import can_manage_members
@@ -117,8 +121,28 @@ async def settings_page(
     r_all_members = await db.execute(select(Member).order_by(Member.last_name))
     all_member_map = {m.id: m for m in r_all_members.scalars().all()}
 
-    r_contacts = await db.execute(select(ExternalContact).order_by(ExternalContact.contact_type, ExternalContact.name))
+    contacts_stmt = select(ExternalContact).order_by(ExternalContact.contact_type, ExternalContact.name)
+    if contact_type_filter in ("EXTERNAL", "VISITOR"):
+        contacts_stmt = contacts_stmt.where(ExternalContact.contact_type == contact_type_filter)
+    if contact_lodge_filter.strip():
+        contacts_stmt = contacts_stmt.where(ExternalContact.lodge_name == contact_lodge_filter.strip())
+    if contact_q.strip():
+        like = f"%{contact_q.strip()}%"
+        contacts_stmt = contacts_stmt.where(or_(
+            ExternalContact.name.ilike(like),
+            ExternalContact.email.ilike(like),
+            ExternalContact.organization.ilike(like),
+            ExternalContact.lodge_name.ilike(like),
+        ))
+    r_contacts = await db.execute(contacts_stmt)
     external_contacts = r_contacts.scalars().all()
+
+    # Toutes les loges distinctes déjà enregistrées, pour le filtre déroulant
+    r_lodges = await db.execute(
+        select(ExternalContact.lodge_name).where(ExternalContact.lodge_name.isnot(None))
+        .distinct().order_by(ExternalContact.lodge_name)
+    )
+    contact_lodges = [row[0] for row in r_lodges.all()]
 
     from app.dependencies import can_manage_members
     can_manage_contacts = user.is_admin or can_manage_members(member)
@@ -143,6 +167,10 @@ async def settings_page(
         "can_manage_contacts": can_manage_contacts,
         "all_users": all_users,
         "all_member_map": all_member_map,
+        "contact_lodges": contact_lodges,
+        "contact_type_filter": contact_type_filter,
+        "contact_lodge_filter": contact_lodge_filter,
+        "contact_q": contact_q,
         "external_contacts": external_contacts,
         "backups": backups,
         "saved": request.query_params.get("saved"),
@@ -480,6 +508,7 @@ async def external_contact_add(
         contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL",
         notes=notes.strip() or None,
         is_active=True,
+        last_confirmed_at=datetime.utcnow(),
     ))
     await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
@@ -526,7 +555,7 @@ async def external_contacts_import_csv(
             contact_type = "EXTERNAL"
         first_name = (row.get("prenom") or "").strip()
         last_name = (row.get("nom") or "").strip()
-        name = f"{first_name} {last_name}".strip() or email
+        name = f"{last_name} {first_name}".strip() or email
         db.add(ExternalContact(
             name=name,
             first_name=first_name or None,
@@ -538,6 +567,7 @@ async def external_contacts_import_csv(
             notes=(row.get("notes") or "").strip() or None,
             contact_type=contact_type,
             is_active=True,
+            last_confirmed_at=datetime.utcnow(),
         ))
         imported += 1
 
@@ -560,6 +590,61 @@ async def external_contact_delete(
         await db.delete(contact)
         await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
+
+
+@router.post("/external-contacts/send-confirmation")
+async def external_contacts_send_confirmation(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Déclenche l'envoi de l'email de confirmation annuelle à tous les
+    correspondants externes actifs, en tâche de fond."""
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+
+    from sqlalchemy import func
+    from app.services.contact_confirmation import launch_confirmation_campaign
+    from app.services.audit import log_audit
+
+    n = (await db.execute(
+        select(func.count(ExternalContact.id)).where(ExternalContact.is_active == True)  # noqa: E712
+    )).scalar() or 0
+    base_url = str(request.base_url).rstrip("/")
+    await log_audit(
+        db, actor_id=member.id, action="CONTACTS_CONFIRMATION_SEND",
+        details=f"{n} correspondant(s) actif(s) ciblé(s)", request=request, commit=True,
+    )
+    launch_confirmation_campaign(base_url)
+    return RedirectResponse(url="/settings/?saved=contacts&confirmation_started=1", status_code=303)
+
+
+@router.post("/external-contacts/deactivate-stale")
+async def external_contacts_deactivate_stale(
+    request: Request,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    older_than_days: int = Form(60),
+):
+    """Désactive (jamais supprime) les correspondants n'ayant pas confirmé
+    depuis `older_than_days` jours."""
+    user, member = ctx
+    from app.dependencies import can_manage_members
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+
+    from app.services.contact_confirmation import deactivate_unconfirmed
+    from app.services.audit import log_audit
+
+    count = await deactivate_unconfirmed(db, older_than_days=older_than_days)
+    await log_audit(
+        db, actor_id=member.id, action="CONTACTS_DEACTIVATE_STALE",
+        details=f"{count} contact(s) désactivé(s) (> {older_than_days}j sans confirmation)",
+        request=request, commit=True,
+    )
+    return RedirectResponse(url=f"/settings/?saved=contacts&deactivated={count}", status_code=303)
 
 
 @router.post("/external-contacts/{contact_id}/edit")
@@ -637,9 +722,17 @@ async def notifications_prefs_save(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     email_notifications: Optional[str] = Form(None),
+    notif_messages: Optional[str] = Form(None),
+    notif_planches: Optional[str] = Form(None),
+    notif_polls: Optional[str] = Form(None),
+    notif_forum: Optional[str] = Form(None),
 ):
     user, member = ctx
     member.email_notifications = email_notifications == "on"
+    member.notif_messages = notif_messages == "on"
+    member.notif_planches = notif_planches == "on"
+    member.notif_polls = notif_polls == "on"
+    member.notif_forum = notif_forum == "on"
     await db.commit()
     return RedirectResponse(url="/settings/notifications?saved=1", status_code=303)
 

@@ -62,6 +62,11 @@ class LodgeEvent(Base):
 
     is_personal: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Série récurrente : toutes les occurrences générées ensemble partagent
+    # le même recurrence_group_id (permet la suppression groupée).
+    recurrence_group_id: Mapped[Optional[str]] = mapped_column(String(32), index=True)
+    recurrence_label: Mapped[Optional[str]] = mapped_column(String(200))
+
     created_by_id: Mapped[int] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

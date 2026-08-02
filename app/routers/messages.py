@@ -1,9 +1,10 @@
 """Router — Messagerie interne ciblée"""
 import json
+import re
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Optional, List
+from typing import Annotated, Optional, List, Union
 
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -20,6 +21,72 @@ from app.models.messaging import Message, MessageAttachment, MessageRecipient, M
 from app.services.email import notify_new_message
 from app.models.groups import LodgeGroup as Group, SYSTEM_GROUPS
 from app.routers.groups import resolve_group_member_ids, ensure_system_groups
+
+# Délai entre deux envois — évite de saturer le relais SMTP (mêmes conventions
+# que app/services/mailing.py::EMAIL_DELAY_MS et member_access.py::ACCESS_EMAIL_DELAY_MS).
+# Sans ce délai, un message envoyé à un grand groupe ouvrait autant de
+# connexions SMTP simultanées que de destinataires, ce que les relais
+# mutualisés (LWS/cPanel) rejettent en rafale avec un "421 4.3.0 Temporary
+# System Problem" — la plupart des envois échouaient alors silencieusement.
+NOTIFY_EMAIL_DELAY_MS = 300
+
+
+async def _notify_recipients_paced(
+    recipient_emails: list[str], sender_name: str, subject: str, body: str,
+    message_id: int, portal_base_url: str,
+) -> None:
+    """Envoie les notifications de nouveau message une par une, avec une
+    pause entre chaque, plutôt que toutes en parallèle (cf. NOTIFY_EMAIL_DELAY_MS)."""
+    import asyncio
+    for email in recipient_emails:
+        try:
+            await notify_new_message(
+                recipient_email=email,
+                sender_name=sender_name,
+                subject=subject,
+                body=body,
+                message_id=message_id,
+                portal_base_url=portal_base_url,
+            )
+        except Exception:
+            pass
+        await asyncio.sleep(NOTIFY_EMAIL_DELAY_MS / 1000.0)
+
+
+def _normalize_message_links(html: Optional[str]) -> Optional[str]:
+    """Corrige les liens mal formés dans un corps de message : si l'utilisateur
+    a collé une URL au format Markdown (`[texte](https://...)`) directement
+    dans le champ URL de l'éditeur, ou une URL sans schéma, le href stocké
+    n'est pas une URL absolue valide — le navigateur la traite alors comme un
+    chemin relatif (ex: /messages/[texte](https://...)), ce qui casse le lien
+    et peut même faire planter la page de destination."""
+    if not html:
+        return html
+
+    def _fix(m: re.Match) -> str:
+        href = m.group(1)
+        md_match = re.match(r"^\[.*?\]\((https?://[^)]+)\)$", href)
+        if md_match:
+            href = md_match.group(1)
+        elif not re.match(r"^[a-zA-Z][a-zA-Z0-9+.\-]*:", href):
+            href = "https://" + href
+        return f'href="{href}"'
+
+    return re.sub(r'href="([^"]*)"', _fix, html)
+
+
+def _strip_html_tags(html: str) -> str:
+    """Version texte brut d'un corps HTML (éditeur riche) — pour les aperçus,
+    notifications email/push, qui n'ont pas besoin de la mise en forme."""
+    if not html:
+        return ""
+    text = re.sub(r"</(p|div|li)>", "\n", html)
+    text = re.sub(r"<br\s*/?>", "\n", text)
+    text = re.sub(r"<[^>]+>", "", text)
+    import html as _html_mod
+    text = _html_mod.unescape(text)
+    return "\n".join(line.strip() for line in text.splitlines() if line.strip())
+
 
 # ── Constantes upload ─────────────────────────────────────────────────────────
 UPLOAD_DIR = Path("app/static/uploads/messages")
@@ -337,6 +404,8 @@ async def compose(
     db: Annotated[AsyncSession, Depends(get_db)],
     group_id: Optional[int] = None,
     reply_to: Optional[int] = None,
+    reply_all: bool = False,
+    to: Optional[int] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -350,10 +419,23 @@ async def compose(
     r_groups = await db.execute(select(Group).order_by(Group.is_system.desc(), Group.name))
     all_groups = r_groups.scalars().all()
 
+    # Pré-sélection d'un destinataire unique (ex : depuis la fiche membre)
+    preselect_member_id = None
+    if to and to != member.id and any(m.id == to for m in all_members):
+        preselect_member_id = to
+
     # Pré-remplissage si réponse à un message
     reply_msg = None
+    reply_member_ids: List[int] = []
     if reply_to:
-        reply_msg = await db.get(Message, reply_to)
+        reply_msg = await db.get(Message, reply_to, options=[selectinload(Message.recipients)])
+        if reply_msg:
+            if reply_all:
+                reply_member_ids = list(
+                    {reply_msg.sender_id} | {r.member_id for r in reply_msg.recipients} - {member.id}
+                )
+            else:
+                reply_member_ids = [reply_msg.sender_id]
 
     # Pré-sélection d'un groupe
     preselect_group = None
@@ -377,7 +459,10 @@ async def compose(
         "unread_count": unread,
         "can_send": True,
         "reply_msg": reply_msg,
+        "reply_member_ids": reply_member_ids,
+        "reply_all": bool(reply_all and reply_msg),
         "preselect_group": preselect_group,
+        "preselect_member_id": preselect_member_id,
         "visio_server": visio_server,
         "visio_prefix": visio_prefix,
     })
@@ -397,11 +482,21 @@ async def send_message(
     target_member_ids: Annotated[Optional[str], Form()] = None,
     parent_id: Annotated[Optional[int], Form()] = None,
     visio_url: Annotated[Optional[str], Form()] = None,
-    attachments: Annotated[Optional[List[UploadFile]], File()] = None,
+    attachments: Annotated[Optional[Union[List[UploadFile], UploadFile]], File()] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
         raise HTTPException(403)
+
+    # Un <input type="file" multiple> soumis sans fichier envoie une seule
+    # partie vide — Starlette la remonte alors comme un UploadFile isolé au
+    # lieu d'une liste, d'où la normalisation ci-dessous.
+    if attachments is None:
+        attachment_list: List[UploadFile] = []
+    elif isinstance(attachments, list):
+        attachment_list = attachments
+    else:
+        attachment_list = [attachments]
 
     # Construire le filtre JSON
     tf: dict = {}
@@ -420,21 +515,13 @@ async def send_message(
 
     target_filter_json = json.dumps(tf) if tf else None
 
-    # Pour une réponse : les destinataires = expéditeur + destinataires du message parent
-    if parent_id:
-        parent = await db.get(Message, parent_id, options=[selectinload(Message.recipients)])
-        if parent:
-            # Répondre à l'expéditeur du message original + inclure le membre courant comme expéditeur
-            reply_ids = list({parent.sender_id} | {rec.member_id for rec in parent.recipients} - {member.id})
-            target_type = MessageTargetType.MANUAL
-            tf = {"member_ids": reply_ids}
-            target_filter_json = json.dumps(tf)
-            recipient_ids = reply_ids
-        else:
-            parent_id = None
-            recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
-    else:
-        recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
+    # Pour une réponse : on garde le lien parent_id pour le fil de discussion,
+    # mais les destinataires suivent le ciblage réellement soumis (le compose
+    # pré-remplit target_member_ids avec l'expéditeur seul pour "Répondre",
+    # ou expéditeur + autres destinataires pour "Répondre à tous").
+    if parent_id and not await db.get(Message, parent_id):
+        parent_id = None
+    recipient_ids = await _resolve_recipients(db, target_type, target_filter_json, member.id)
 
     if not recipient_ids:
         raise HTTPException(400, "Aucun destinataire trouvé pour ce ciblage")
@@ -457,10 +544,18 @@ async def send_message(
     if final_visio and not final_visio.startswith(("http://", "https://")):
         final_visio = "https://" + final_visio
 
+    # Le corps vient de l'éditeur riche (Quill) : on garde le HTML pour l'affichage
+    # et une version texte brut pour les aperçus / notifications email & push.
+    body_html_clean = body.strip()
+    if body_html_clean == "<p><br></p>":
+        body_html_clean = ""
+    body_plain = _strip_html_tags(body_html_clean)
+
     # Créer le message
     msg = Message(
         subject=subject.strip(),
-        body=body.strip(),
+        body=body_plain,
+        body_html=body_html_clean or None,
         sender_id=member.id,
         target_type=MessageTargetType(target_type),
         target_filter=target_filter_json,
@@ -481,7 +576,7 @@ async def send_message(
         ))
 
     # ── Pièces jointes ────────────────────────────────────────────────────
-    for upload in (attachments or []):
+    for upload in attachment_list:
         if not upload.filename:
             continue
         ext = Path(upload.filename).suffix.lower()
@@ -503,7 +598,7 @@ async def send_message(
     await db.commit()
 
     # ── Notifications email ───────────────────────────────────────────────
-    sender_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.first_name} {member.last_name}"
+    sender_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.last_name} {member.first_name}"
     settings = get_settings()
     portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
 
@@ -513,17 +608,20 @@ async def send_message(
             select(Member).where(Member.id.in_(recipient_ids))
         )
         dest_members = rm.scalars().all()
-        for dest in dest_members:
-            if dest.email and getattr(dest, "email_notifications", True):
-                import asyncio
-                asyncio.create_task(notify_new_message(  # noqa — fire & forget
-                    recipient_email=dest.email,
-                    sender_name=sender_name,
-                    subject=msg.subject,
-                    body=msg.body,
-                    message_id=msg.id,
-                    portal_base_url=portal_url,
-                ))
+        dest_emails = [
+            dest.email for dest in dest_members
+            if dest.email and getattr(dest, "email_notifications", True)
+        ]
+        if dest_emails:
+            import asyncio
+            asyncio.create_task(_notify_recipients_paced(  # noqa — fire & forget
+                recipient_emails=dest_emails,
+                sender_name=sender_name,
+                subject=msg.subject,
+                body=msg.body,
+                message_id=msg.id,
+                portal_base_url=portal_url,
+            ))
 
     # ── Push notifications aux destinataires ─────────────────────────────
     try:
@@ -583,6 +681,117 @@ def _unlink_message_files(msg: Message) -> None:
             (UPLOAD_DIR / att.stored_name).unlink(missing_ok=True)
         except OSError:
             pass
+
+
+@router.get("/{message_id}/attachment/{attachment_id}/preview")
+async def preview_attachment(
+    message_id: int,
+    attachment_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Aperçu inline (Content-Disposition: inline) — pour les vignettes image."""
+    from fastapi.responses import Response as _Response
+
+    user, member = ctx
+
+    att = await db.get(MessageAttachment, attachment_id)
+    if not att or att.message_id != message_id:
+        raise HTTPException(404)
+
+    msg = await db.get(Message, message_id, options=[selectinload(Message.recipients)])
+    if not msg:
+        raise HTTPException(404)
+
+    is_sender = msg.sender_id == member.id
+    is_recipient = any(r.member_id == member.id for r in msg.recipients)
+    if not (user.is_admin or is_sender or is_recipient):
+        raise HTTPException(403)
+
+    file_path = UPLOAD_DIR / att.stored_name
+    if not file_path.exists():
+        raise HTTPException(404, "Fichier introuvable sur le serveur")
+
+    return _Response(
+        content=file_path.read_bytes(),
+        media_type=att.mime_type or "application/octet-stream",
+        headers={
+            "Content-Disposition": f'inline; filename="{att.filename}"',
+            "Cache-Control": "private, max-age=3600",
+        },
+    )
+
+
+@router.post("/{message_id}/attachment/{attachment_id}/save-to-library")
+async def save_attachment_to_library(
+    message_id: int,
+    attachment_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Copie une pièce jointe reçue vers l'espace personnel du membre dans la
+    Bibliothèque documentaire (Documents), sans toucher au fichier original."""
+    user, member = ctx
+
+    att = await db.get(MessageAttachment, attachment_id)
+    if not att or att.message_id != message_id:
+        raise HTTPException(404)
+
+    msg = await db.get(Message, message_id, options=[selectinload(Message.recipients)])
+    if not msg:
+        raise HTTPException(404)
+
+    is_sender = msg.sender_id == member.id
+    is_recipient = any(r.member_id == member.id for r in msg.recipients)
+    if not (user.is_admin or is_sender or is_recipient):
+        raise HTTPException(403)
+
+    src_path = UPLOAD_DIR / att.stored_name
+    if not src_path.exists():
+        raise HTTPException(404, "Fichier introuvable sur le serveur")
+
+    from app.models.documents import DocFolder, Document, DocStatus, MinGrade
+    from app.routers.documents import _get_or_create_personal_space, UPLOAD_DIR as DOCS_UPLOAD_DIR
+
+    space = await _get_or_create_personal_space(db)
+    r = await db.execute(
+        select(DocFolder).where(
+            DocFolder.space_id == space.id,
+            DocFolder.personal_owner_id == member.id,
+            DocFolder.parent_id == None,  # noqa: E711
+        )
+    )
+    folder = r.scalar_one_or_none()
+    if not folder:
+        folder = DocFolder(
+            space_id=space.id,
+            name=f"{member.last_name} {member.first_name}",
+            min_grade=MinGrade.ALL,
+            personal_owner_id=member.id,
+            created_by_id=member.id,
+        )
+        db.add(folder)
+        await db.flush()
+
+    ext = Path(att.filename).suffix.lower()
+    stored_name = f"{uuid.uuid4().hex}{ext}"
+    dest_path = DOCS_UPLOAD_DIR / stored_name
+    dest_path.write_bytes(src_path.read_bytes())
+
+    doc = Document(
+        folder_id=folder.id,
+        name=att.filename,
+        original_filename=att.filename,
+        mime_type=att.mime_type,
+        file_size=att.size_bytes,
+        storage_path=str(dest_path),
+        status=DocStatus.PUBLISHED,
+        author_id=member.id,
+    )
+    db.add(doc)
+    await db.commit()
+
+    return RedirectResponse(url=f"/messages/{message_id}?saved_to_library=1", status_code=303)
 
 
 @router.post("/trash/empty-trash")
@@ -730,6 +939,7 @@ async def message_detail(
         "current_member": member,
         "current_user": user,
         "msg": msg,
+        "body_html_display": _normalize_message_links(msg.body_html),
         "sender": sender,
         "recipients_detail": recipients_detail,
         "is_sender": msg.sender_id == member.id,
@@ -739,6 +949,7 @@ async def message_detail(
         "attachments": msg.attachments,
         "recipient_label": recipient_label,
         "all_labels": [],  # labels existants (chargés si besoin)
+        "saved_to_library": request.query_params.get("saved_to_library"),
     })
 
 
@@ -858,96 +1069,6 @@ async def restore_message(
 
     await db.commit()
     return RedirectResponse(url="/messages/trash", status_code=303)
-
-
-@router.post("/trash/empty")
-async def empty_trash(
-    ctx: Annotated[object, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Vide définitivement la corbeille de l'utilisateur."""
-    user, member = ctx
-    from sqlalchemy import delete as sql_delete
-
-    # Supprimer les enregistrements recipient en corbeille
-    await db.execute(
-        sql_delete(MessageRecipient).where(
-            MessageRecipient.member_id == member.id,
-            MessageRecipient.deleted_at.isnot(None),
-        )
-    )
-    # Messages envoyés en corbeille (si plus personne ne les a reçus → supprimer)
-    deleted_sent = await db.execute(
-        select(Message)
-        .where(
-            Message.sender_id == member.id,
-            Message.sender_deleted_at.isnot(None),
-        )
-        .options(selectinload(Message.attachments))
-    )
-    for msg in deleted_sent.scalars().all():
-        _unlink_message_files(msg)
-        await db.delete(msg)
-
-    await db.commit()
-    return RedirectResponse(url="/messages/trash", status_code=303)
-
-
-@router.get("/trash", response_class=HTMLResponse)
-async def trash(
-    request: Request,
-    ctx: Annotated[object, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    user, member = ctx
-
-    # Messages reçus en corbeille
-    r1 = await db.execute(
-        select(MessageRecipient)
-        .join(Message, Message.id == MessageRecipient.message_id)
-        .where(
-            MessageRecipient.member_id == member.id,
-            MessageRecipient.deleted_at.isnot(None),
-            Message.sent_at.isnot(None),
-        )
-        .options(selectinload(MessageRecipient.message))
-        .order_by(MessageRecipient.deleted_at.desc())
-    )
-    trashed_received = r1.scalars().all()
-
-    # Messages envoyés en corbeille
-    r2 = await db.execute(
-        select(Message)
-        .where(
-            Message.sender_id == member.id,
-            Message.sender_deleted_at.isnot(None),
-        )
-        .options(selectinload(Message.recipients))
-        .order_by(Message.sender_deleted_at.desc())
-    )
-    trashed_sent = r2.scalars().all()
-
-    sender_ids = {rec.message.sender_id for rec in trashed_received}
-    senders_map: dict[int, "Member"] = {}
-    if sender_ids:
-        from app.models.identity import Member as _Member
-        sr = await db.execute(
-            select(_Member).where(_Member.id.in_(sender_ids))
-        )
-        senders_map = {m.id: m for m in sr.scalars().all()}
-
-    unread = await _unread_count(db, member.id)
-
-    return templates.TemplateResponse(request, "pages/messages/trash.html", {
-        "current_member": member,
-        "current_user": user,
-        "trashed_received": trashed_received,
-        "trashed_sent": trashed_sent,
-        "senders_map": senders_map,
-        "unread_count": unread,
-        "can_send": _can_send(user, member),
-        "tab": "trash",
-    })
 
 
 @router.post("/{message_id}/label")

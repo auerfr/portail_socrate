@@ -163,18 +163,9 @@ def _status_label(s: MemberStatus) -> str:
 
 # ── Liste des membres ─────────────────────────────────────────────────────────
 
-@router.get("/", response_class=HTMLResponse)
-async def members_list(
-    request: Request,
-    ctx: Annotated[tuple, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-    search: str = "",
-    grade: str = "",
-    status_filter: str = "",
-):
-    user, member = ctx
-
-    # Exclure les super-admins (comptes techniques) de la liste
+def _filtered_members_query(search: str = "", grade: str = "", status_filter: str = ""):
+    """Construit la requête Membre filtrée, partagée par la liste, l'export CSV
+    et la vue imprimable (mêmes critères : recherche/grade/statut)."""
     admin_member_ids = select(User.member_id).where(
         User.is_admin == True, User.member_id.isnot(None)
     )
@@ -192,8 +183,21 @@ async def members_list(
         query = query.where(Member.masonic_grade == grade)
     if status_filter:
         query = query.where(Member.status == status_filter)
+    return query
 
-    result = await db.execute(query)
+
+@router.get("/", response_class=HTMLResponse)
+async def members_list(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    search: str = "",
+    grade: str = "",
+    status_filter: str = "",
+):
+    user, member = ctx
+
+    result = await db.execute(_filtered_members_query(search, grade, status_filter))
     members = result.scalars().all()
 
     # Construire un dict member_id → label d'office
@@ -214,6 +218,71 @@ async def members_list(
         "MembershipType": MembershipType,
         "MemberStatus": MemberStatus,
         "can_manage": can_manage_members(member) or user.is_admin,
+    })
+
+
+@router.get("/export/csv")
+async def members_export_csv(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    search: str = "",
+    grade: str = "",
+    status_filter: str = "",
+):
+    """Export CSV de l'annuaire, avec les mêmes filtres que la liste affichée."""
+    import csv
+    import io
+    from fastapi.responses import StreamingResponse
+
+    result = await db.execute(_filtered_members_query(search, grade, status_filter))
+    members = result.scalars().all()
+
+    offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
+    office_by_member = {o.member_id: o.label for o in offices_r.scalars().all()}
+
+    output = io.StringIO()
+    writer = csv.writer(output, delimiter=";")
+    writer.writerow(["Nom", "Prénom", "Grade", "Office", "Email", "Téléphone", "Statut"])
+    for m in members:
+        writer.writerow([
+            m.last_name, m.first_name, _grade_label(m.masonic_grade, m.civility),
+            office_by_member.get(m.id, ""), m.email, m.phone or "", _status_label(m.status),
+        ])
+    output.seek(0)
+    return StreamingResponse(
+        io.BytesIO(output.read().encode("utf-8-sig")),
+        media_type="text/csv",
+        headers={"Content-Disposition": 'attachment; filename="annuaire.csv"'},
+    )
+
+
+@router.get("/print", response_class=HTMLResponse)
+async def members_print(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    search: str = "",
+    grade: str = "",
+    status_filter: str = "",
+):
+    """Vue imprimable de l'annuaire (Ctrl+P / enregistrer en PDF), mêmes filtres."""
+    from app.models.lodge import LodgeSettings
+
+    result = await db.execute(_filtered_members_query(search, grade, status_filter))
+    members = result.scalars().all()
+
+    offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
+    office_by_member = {o.member_id: o.label for o in offices_r.scalars().all()}
+
+    ls_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = ls_r.scalar_one_or_none()
+
+    return templates.TemplateResponse(request, "pages/members/print.html", {
+        "members": members,
+        "office_by_member": office_by_member,
+        "grade_label": _grade_label,
+        "lodge": lodge,
+        "generated_on": date.today().strftime("%d/%m/%Y"),
     })
 
 
@@ -656,6 +725,38 @@ async def toggle_user_account(
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
 
 
+# ── Récupération 2FA (membre bloqué ayant perdu son authenticator) ────────────
+
+@router.post("/{member_id}/reset-2fa", response_class=HTMLResponse)
+async def reset_member_2fa(
+    request: Request,
+    member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, current_member = ctx
+    if not user.is_admin:
+        raise HTTPException(status_code=403)
+
+    user_result = await db.execute(select(User).where(User.member_id == member_id))
+    target_user = user_result.scalar_one_or_none()
+    if target_user and target_user.totp_enabled:
+        target_user.totp_enabled = False
+        target_user.totp_secret = None
+        await db.commit()
+        try:
+            from app.services.audit import log_audit
+            await log_audit(
+                db, actor_id=current_member.id, action="RESET_2FA",
+                target_type="member", target_id=member_id,
+                request=request, commit=True,
+            )
+        except Exception:
+            pass
+
+    return RedirectResponse(url=f"/members/{member_id}?_msg=2fa_reset", status_code=302)
+
+
 # ── Envoi des identifiants par email (superadmin) ─────────────────────────────
 
 @router.post("/{member_id}/send-credentials")
@@ -702,6 +803,10 @@ Vos identifiants de connexion :
   Identifiant : {target_user.login}
   Mot de passe temporaire : {temp_password}
 
+(Attention, l'identifiant n'est PAS votre adresse email — c'est un identifiant du
+type "prenom.nom" propre au portail. Vous pouvez aussi vous connecter directement
+avec votre adresse email {target.email}, les deux fonctionnent.)
+
 Connectez-vous ici : {portal_url}
 
 ⚠ Pour votre sécurité, changez votre mot de passe dès votre première connexion :
@@ -717,6 +822,9 @@ L'administration du Portail"""
   <tr><td><strong>Identifiant</strong></td><td>{target_user.login}</td></tr>
   <tr><td><strong>Mot de passe temporaire</strong></td><td>{temp_password}</td></tr>
 </table>
+<p style="color:#6b7280;font-size:13px;">⚠ L'identifiant ci-dessus n'est <strong>pas votre adresse email</strong> : c'est un
+identifiant propre au portail, du type « prenom.nom ». Vous pouvez aussi vous connecter directement avec votre adresse email
+<strong>{target.email}</strong> — les deux fonctionnent.</p>
 <p><a href="{portal_url}" style="background:#2c7a7b;color:white;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:12px 0">
   Se connecter au portail →
 </a></p>

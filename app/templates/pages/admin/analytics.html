@@ -1,0 +1,168 @@
+{% extends "pages/admin/_layout.html" %}
+{% block title %}Analytics — Administration{% endblock %}
+
+{% block admin_content %}
+
+<div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4 mb-5">
+  <div>
+    <h2 class="text-lg font-bold text-gray-900">Analytics interne</h2>
+    <p class="text-sm text-gray-500 mt-0.5">Pages vues, provenance, appareils — mesuré côté serveur, sans script ni cookie tiers.</p>
+  </div>
+  <div class="flex items-center gap-2">
+    <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Période :</label>
+    <select onchange="window.location='/admin/analytics?days='+this.value"
+            class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <option value="7" {% if days == 7 %}selected{% endif %}>7 jours</option>
+      <option value="30" {% if days == 30 %}selected{% endif %}>30 jours</option>
+      <option value="90" {% if days == 90 %}selected{% endif %}>90 jours</option>
+    </select>
+  </div>
+</div>
+
+{% if total_views == 0 %}
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-10 text-center text-gray-400 text-sm">
+  Aucune page vue enregistrée sur cette période.
+</div>
+{% else %}
+
+<!-- ── KPIs ──────────────────────────────────────────────────────────── -->
+<div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Pages vues</div>
+    <div class="text-3xl font-bold text-gray-800">{{ total_views }}</div>
+    <div class="text-xs text-gray-400 mt-1">sur {{ days }} jours</div>
+  </div>
+  <div class="bg-white rounded-xl border border-loge-100 shadow-sm px-5 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Sessions</div>
+    <div class="text-3xl font-bold text-loge-700">{{ unique_sessions }}</div>
+    <div class="text-xs text-loge-600 mt-1">{{ single_page_sessions }} d'une seule page</div>
+  </div>
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Membres actifs</div>
+    <div class="text-3xl font-bold text-gray-800">{{ unique_members }}</div>
+    <div class="text-xs text-gray-400 mt-1">ont consulté le portail</div>
+  </div>
+  <div class="bg-white rounded-xl border border-amber-100 shadow-sm px-5 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Durée moy. session</div>
+    <div class="text-3xl font-bold text-amber-600">{{ (avg_duration_min ~ ' min') if avg_duration_min is not none else '—' }}</div>
+    <div class="text-xs text-amber-500 mt-1">{{ multi_page_sessions }} session(s) ≥ 2 pages</div>
+  </div>
+</div>
+
+<!-- ── Timeline ──────────────────────────────────────────────────────── -->
+{% if daily|length > 1 %}
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-8">
+  <h3 class="text-sm font-semibold text-gray-700 mb-4">Pages vues par jour</h3>
+  <div class="flex items-end gap-1 h-32">
+    {% for row in daily %}
+    <div class="flex-1 flex flex-col items-center justify-end h-full group relative">
+      <div class="w-full bg-loge-200 hover:bg-loge-400 rounded-t transition-colors"
+           style="height: {{ (row.count * 100 / max_daily) | round | int }}%; min-height: 2px;"
+           title="{{ row.day }} — {{ row.count }} vue(s)"></div>
+    </div>
+    {% endfor %}
+  </div>
+  <div class="flex justify-between text-[10px] text-gray-400 mt-1.5">
+    <span>{{ daily[0].day }}</span>
+    <span>{{ daily[-1].day }}</span>
+  </div>
+</div>
+{% endif %}
+
+<div class="grid lg:grid-cols-2 gap-6 mb-8">
+  <!-- ── Pages les plus vues ──────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+      <i class="ti ti-file-text"></i> Pages les plus vues
+    </h3>
+    <div class="space-y-2.5">
+      {% for row in top_pages %}
+      <div>
+        <div class="flex items-center justify-between text-xs mb-0.5">
+          <span class="text-gray-700 font-mono truncate pr-2">{{ row.path }}</span>
+          <span class="text-gray-500 font-semibold flex-shrink-0">{{ row.count }}</span>
+        </div>
+        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-loge-500 rounded-full" style="width: {{ (row.count * 100 / max_page_count) | round | int }}%;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── Sections ─────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+      <i class="ti ti-layout-grid"></i> Sections les plus consultées
+    </h3>
+    <div class="space-y-2.5">
+      {% for row in top_sections %}
+      <div>
+        <div class="flex items-center justify-between text-xs mb-0.5">
+          <span class="text-gray-700 capitalize truncate pr-2">{{ row.section }}</span>
+          <span class="text-gray-500 font-semibold flex-shrink-0">{{ row.count }}</span>
+        </div>
+        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-teal-500 rounded-full" style="width: {{ (row.count * 100 / max_section_count) | round | int }}%;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<div class="grid lg:grid-cols-2 gap-6">
+  <!-- ── Appareils ────────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+      <i class="ti ti-device-desktop"></i> Appareils
+    </h3>
+    <div class="space-y-2.5">
+      {% for row in devices %}
+      <div>
+        <div class="flex items-center justify-between text-xs mb-0.5">
+          <span class="text-gray-700 capitalize">{{ row.device }}</span>
+          <span class="text-gray-500 font-semibold">{{ row.count }} · {{ row.pct }}%</span>
+        </div>
+        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-indigo-500 rounded-full" style="width: {{ row.pct }}%;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- ── Provenance ───────────────────────────────────────────────────── -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+    <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+      <i class="ti ti-link"></i> Provenance
+    </h3>
+    <div class="space-y-2.5">
+      {% for row in referrers %}
+      <div>
+        <div class="flex items-center justify-between text-xs mb-0.5">
+          <span class="text-gray-700 truncate pr-2">
+            {% if row.host == 'direct' %}Accès direct / favori
+            {% elif row.host == 'interne' %}Navigation interne
+            {% else %}{{ row.host }}{% endif %}
+          </span>
+          <span class="text-gray-500 font-semibold flex-shrink-0">{{ row.count }} · {{ row.pct }}%</span>
+        </div>
+        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-orange-500 rounded-full" style="width: {{ row.pct }}%;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+
+<p class="text-xs text-gray-400 mt-6">
+  Données collectées côté serveur uniquement (chemin, hôte de provenance, appareil déduit du user-agent, membre si connecté) —
+  aucun script tiers, aucun cookie de suivi. La durée de session est estimée par l'écart entre la première et la dernière page
+  vue d'une même session ; les sessions d'une seule page ne sont pas comptées dans la moyenne.
+</p>
+
+{% endif %}
+
+{% endblock %}

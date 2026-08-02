@@ -117,7 +117,7 @@ function gedPicker() {
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm font-semibold text-gray-900">
-            {% if author %}{{ author.first_name }} {{ author.last_name | anon_nom }}{% else %}—{% endif %}
+            {% if author %}{{ author.last_name | anon_nom }} {{ author.first_name }}{% else %}—{% endif %}
           </div>
           <div class="text-xs text-gray-400">{{ msg.created_at.strftime('%d/%m/%Y à %H:%M') }}</div>
         </div>
@@ -173,7 +173,7 @@ function gedPicker() {
         {% endif %}
       </div>
       <div class="text-xs text-gray-400">
-        proposé par {% if author %}{{ author.first_name }} {{ author.last_name | anon_nom }}{% else %}—{% endif %}
+        proposé par {% if author %}{{ author.last_name | anon_nom }} {{ author.first_name }}{% else %}—{% endif %}
       </div>
     </div>
 
@@ -260,7 +260,7 @@ function gedPicker() {
               {% if p == 'AGREE' %}✓{% elif p == 'DISAGREE' %}✗{% elif p == 'ABSTAIN' %}⊘{% else %}⛔{% endif %}
             </span>
             <div class="flex-1">
-              <span class="font-medium text-gray-700">{% if sa %}{{ sa.first_name }} {{ sa.last_name | anon_nom }}{% else %}—{% endif %}</span>
+              <span class="font-medium text-gray-700">{% if sa %}{{ sa.last_name | anon_nom }} {{ sa.first_name }}{% else %}—{% endif %}</span>
               {% if st.reason %}<span class="text-gray-500"> — {{ st.reason }}</span>{% endif %}
             </div>
           </li>
@@ -327,9 +327,15 @@ function gedPicker() {
         enctype="multipart/form-data"
         class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
     <h3 class="text-sm font-semibold text-gray-700">Votre réponse</h3>
-    <textarea name="content" required rows="6"
+    <textarea id="forum-reply-textarea" name="content" required rows="6"
               placeholder="Écrivez votre message…"
               class="w-full border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+
+    <button type="button" @click="insertMasonicTextarea('forum-reply-textarea', '∴')"
+            title="Insérer le caractère ∴"
+            class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+      ∴
+    </button>
 
     <button type="button" @click="showAtt = !showAtt"
             class="text-xs font-semibold text-loge-700 hover:text-loge-900 inline-flex items-center gap-1">

@@ -95,8 +95,9 @@ class UserSession(Base):
 
 
 class EmailStatus(str, enum.Enum):
-    SENT   = "SENT"
-    FAILED = "FAILED"
+    PENDING = "PENDING"
+    SENT    = "SENT"
+    FAILED  = "FAILED"
 
 
 class EmailLog(Base):
@@ -108,6 +109,8 @@ class EmailLog(Base):
     subject: Mapped[str]    = mapped_column(String(500))
     status: Mapped[EmailStatus] = mapped_column(Enum(EmailStatus), index=True)
     error: Mapped[Optional[str]] = mapped_column(Text)
+    opened_at: Mapped[Optional[datetime]]  = mapped_column(DateTime)
+    clicked_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     has_attachment: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
 

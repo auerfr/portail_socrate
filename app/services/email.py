@@ -1,5 +1,7 @@
 """Service d'envoi d'emails via SMTP (aiosmtplib)."""
+import asyncio
 import logging
+import re
 from email import encoders
 from email.mime.base import MIMEBase
 from email.mime.multipart import MIMEMultipart
@@ -36,28 +38,64 @@ async def open_smtp_client() -> Optional[aiosmtplib.SMTP]:
     return client
 
 
+async def create_pending_log(to: str, subject: str, has_attachment: bool = False) -> Optional[int]:
+    """Pré-crée un EmailLog en statut PENDING et retourne son id — utile quand
+    le corps de l'email a besoin de connaître l'id avant l'envoi (liens de
+    suivi ouverture/clic). Best-effort : retourne None si l'insertion échoue."""
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models.system import EmailLog, EmailStatus
+        async with AsyncSessionLocal() as s:
+            log = EmailLog(
+                recipient=to[:300],
+                subject=subject[:500],
+                status=EmailStatus.PENDING,
+                has_attachment=has_attachment,
+            )
+            s.add(log)
+            await s.commit()
+            await s.refresh(log)
+            return log.id
+    except Exception:
+        return None
+
+
 async def _send_raw(
     to: str,
     subject: str,
     html: str,
     text: str,
     attachments: Optional[list[tuple[str, bytes, str]]] = None,
+    inline_images: Optional[list[tuple[str, bytes, str]]] = None,
+    log_id: Optional[int] = None,
     client: Optional[aiosmtplib.SMTP] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     Envoie un email brut. Retourne (True, None) si succès.
-    attachments : liste de (filename, content_bytes, mime_type)
+    attachments : liste de (filename, content_bytes, mime_type) — pièces jointes téléchargeables
+    inline_images : liste de (content_id, content_bytes, mime_type) — images référencées
+                    dans le HTML via <img src="cid:{content_id}">
+    log_id : si fourni (cf. create_pending_log), met à jour cette ligne
+             EmailLog existante au lieu d'en créer une nouvelle.
     client : connexion SMTP déjà ouverte (via `open_smtp_client`) à réutiliser
-             pour plusieurs envois ; si absent, ouvre/ferme une connexion dédiée.
+             pour plusieurs envois (ex : campagne) ; si absent, ouvre/ferme une
+             connexion dédiée avec nouvelles tentatives sur erreur transitoire.
     """
     settings = get_settings()
 
     async def _journal(ok: bool, err: Optional[str]):
-        """Insert un EmailLog (best-effort, ne lève jamais)."""
+        """Met à jour ou insère un EmailLog (best-effort, ne lève jamais)."""
         try:
             from app.database import AsyncSessionLocal
             from app.models.system import EmailLog, EmailStatus
             async with AsyncSessionLocal() as s:
+                if log_id is not None:
+                    log = await s.get(EmailLog, log_id)
+                    if log:
+                        log.status = EmailStatus.SENT if ok else EmailStatus.FAILED
+                        log.error = err[:2000] if err else None
+                        await s.commit()
+                        return
                 s.add(EmailLog(
                     recipient=to[:300],
                     subject=subject[:500],
@@ -79,9 +117,25 @@ async def _send_raw(
     alt.attach(MIMEText(text, "plain", "utf-8"))
     alt.attach(MIMEText(html, "html",  "utf-8"))
 
+    # Images inline (référencées via cid: dans le HTML) — enveloppent le corps alternatif
+    if inline_images:
+        related = MIMEMultipart("related")
+        related.attach(alt)
+        for content_id, content, mime_type in inline_images:
+            main_type, sub_type = (mime_type or "image/png").split("/", 1)
+            img_part = MIMEBase(main_type, sub_type)
+            img_part.set_payload(content)
+            encoders.encode_base64(img_part)
+            img_part.add_header("Content-ID", f"<{content_id}>")
+            img_part.add_header("Content-Disposition", "inline", filename=f"{content_id}.png")
+            related.attach(img_part)
+        body_part = related
+    else:
+        body_part = alt
+
     if attachments:
         msg = MIMEMultipart("mixed")
-        msg.attach(alt)
+        msg.attach(body_part)
         for filename, content, mime_type in attachments:
             main_type, sub_type = (mime_type or "application/octet-stream").split("/", 1)
             part = MIMEBase(main_type, sub_type)
@@ -90,17 +144,36 @@ async def _send_raw(
             part.add_header("Content-Disposition", "attachment", filename=filename)
             msg.attach(part)
     else:
-        msg = alt
+        msg = body_part
 
     msg["Subject"] = subject
     msg["From"]    = f"{settings.lodge_name} <{settings.smtp_from}>"
     msg["To"]      = to
     msg["X-Mailer"] = "Portail Socrate"
 
-    try:
-        if client is not None:
+    # Connexion persistante fournie (ex : boucle de campagne) : un seul envoi,
+    # pas de nouvelle tentative ici — c'est l'appelant qui gère la reconnexion
+    # (cf. app/services/mailing.py) puisqu'une connexion cassée doit être
+    # rouverte, pas juste réessayée sur la même socket.
+    if client is not None:
+        try:
             await client.send_message(msg)
-        else:
+            logger.info("Email envoyé → %s [%s]", to, subject)
+            await _journal(True, None)
+            return True, None
+        except Exception as exc:
+            logger.error("Échec envoi email → %s : %s", to, exc)
+            await _journal(False, str(exc))
+            return False, str(exc)
+
+    # Pas de connexion partagée : connexion dédiée avec nouvelles tentatives
+    # sur erreur SMTP transitoire (4xx, ex : "421 Temporary System Problem")
+    # — fréquent sur les relais mutualisés en cas de pic d'envois. Les
+    # erreurs 5xx (permanentes) ne sont jamais rejouées.
+    max_attempts = 3
+    backoff = 3.0
+    for attempt in range(1, max_attempts + 1):
+        try:
             await aiosmtplib.send(
                 msg,
                 hostname=settings.smtp_host,
@@ -111,14 +184,30 @@ async def _send_raw(
                 start_tls=settings.smtp_secure == "tls",   # STARTTLS (port 587)
                 timeout=15,            # 15 secondes max
             )
-        logger.info("Email envoyé → %s [%s]", to, subject)
-        await _journal(True, None)
-        return True, None
+            logger.info("Email envoyé → %s [%s]", to, subject)
+            await _journal(True, None)
+            return True, None
 
-    except Exception as exc:
-        logger.error("Échec envoi email → %s : %s", to, exc)
-        await _journal(False, str(exc))
-        return False, str(exc)
+        except Exception as exc:
+            code = getattr(exc, "code", None)
+            if code is None:
+                m = re.match(r"^\(?(\d{3})[,)]", str(exc))
+                if m:
+                    code = int(m.group(1))
+            is_transient = code is not None and 400 <= code < 500
+
+            if is_transient and attempt < max_attempts:
+                logger.warning(
+                    "Erreur SMTP transitoire (%s) → %s, nouvelle tentative %s/%s dans %.0fs",
+                    code, to, attempt + 1, max_attempts, backoff,
+                )
+                await asyncio.sleep(backoff)
+                backoff *= 2
+                continue
+
+            logger.error("Échec envoi email → %s : %s", to, exc)
+            await _journal(False, str(exc))
+            return False, str(exc)
 
 
 # ── Templates email ────────────────────────────────────────────────────────

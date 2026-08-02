@@ -20,6 +20,7 @@ import app.services.labels  # noqa: F401
 from typing import Annotated
 from app.config import get_settings
 from app.database import engine, Base, get_db
+from app.migrations import run_lightweight_migrations, ensure_wal_mode
 from app.dependencies import get_current_user, can_manage_attendance
 from app.routers import auth, members, meetings, finance, programs, attendance, announcements
 from app.routers import settings as settings_router
@@ -31,7 +32,6 @@ from app.routers import chat as chat_router
 from app.routers import sharing as sharing_router
 from app.routers import news as news_router
 from app.routers import polls as polls_router
-from app.routers import reports as reports_router
 from app.routers import planches as planches_router
 from app.routers import anniversaires as anniv_router
 from app.routers import push as push_router
@@ -40,6 +40,13 @@ from app.routers import projects as projects_router
 from app.routers import admin as admin_router
 from app.routers import mailing as mailing_router
 from app.routers import bookmarks as bookmarks_router
+from app.routers import guide as guide_router
+from app.routers import faq as faq_router
+from app.routers import presence as presence_router
+from app.routers import contact_confirmation as contact_confirmation_router
+from app.routers import search as search_router
+from app.routers import notifications as notifications_router
+from app.routers import engagement as engagement_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -53,6 +60,7 @@ import app.models.system        # noqa: F401  # PushSubscription, Notification, 
 import app.models.forum         # noqa: F401  # ForumTheme/Subject/Message/Subscription
 import app.models.mailing       # noqa: F401  # MailingList/Campaign/Delivery
 import app.models.bookmarks     # noqa: F401  # Bookmark
+import app.models.analytics     # noqa: F401  # PageView
 from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -77,420 +85,13 @@ async def lifespan(app: FastAPI):
     # ── WAL mode : lectures simultanées même pendant une écriture ────────────
     # Indispensable pour éviter "database is locked" quand la ré-indexation
     # ou une sauvegarde tourne en parallèle d'une requête utilisateur.
-    async with engine.begin() as conn:
-        await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
-        await conn.exec_driver_sql("PRAGMA busy_timeout=30000")  # 30s
+    await ensure_wal_mode(engine)
 
     # Démarrage : créer les tables si elles n'existent pas
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
 
-    # ── Migrations légères (ajout de colonnes manquantes) ──────────────────
-    async with engine.begin() as conn:
-        # members.email_notifications
-        r_mem = await conn.exec_driver_sql("PRAGMA table_info(members)")
-        cols_mem = [row[1] for row in r_mem.fetchall()]
-        if "email_notifications" not in cols_mem:
-            await conn.exec_driver_sql(
-                "ALTER TABLE members ADD COLUMN email_notifications BOOLEAN NOT NULL DEFAULT 1"
-            )
-        if "membership_type" not in cols_mem:
-            await conn.exec_driver_sql(
-                "ALTER TABLE members ADD COLUMN membership_type VARCHAR(20) NOT NULL DEFAULT 'APPARTENANCE'"
-            )
-        if "membership_start_date" not in cols_mem:
-            await conn.exec_driver_sql(
-                "ALTER TABLE members ADD COLUMN membership_start_date DATE"
-            )
-
-        # budget_lines.category_label
-        r = await conn.exec_driver_sql("PRAGMA table_info(budget_lines)")
-        cols = [row[1] for row in r.fetchall()]
-        if "category_label" not in cols:
-            await conn.exec_driver_sql(
-                "ALTER TABLE budget_lines ADD COLUMN category_label VARCHAR(200)"
-            )
-
-        # contribution_configs.initial_treasury
-        r2 = await conn.exec_driver_sql("PRAGMA table_info(contribution_configs)")
-        cols2 = [row[1] for row in r2.fetchall()]
-        if "initial_treasury" not in cols2:
-            await conn.exec_driver_sql(
-                "ALTER TABLE contribution_configs ADD COLUMN initial_treasury NUMERIC(10,2) DEFAULT 0"
-            )
-        if "tier_selection_open" not in cols2:
-            await conn.exec_driver_sql(
-                "ALTER TABLE contribution_configs ADD COLUMN tier_selection_open BOOLEAN DEFAULT 0"
-            )
-        if "fiscal_year_label" not in cols2:
-            await conn.exec_driver_sql(
-                "ALTER TABLE contribution_configs ADD COLUMN fiscal_year_label VARCHAR(20)"
-            )
-        if "capitations_published_at" not in cols2:
-            await conn.exec_driver_sql(
-                "ALTER TABLE contribution_configs ADD COLUMN capitations_published_at DATE"
-            )
-        if "tier_selection_opens_at" not in cols2:
-            await conn.exec_driver_sql(
-                "ALTER TABLE contribution_configs ADD COLUMN tier_selection_opens_at DATE"
-            )
-        if "tier_selection_closes_at" not in cols2:
-            await conn.exec_driver_sql(
-                "ALTER TABLE contribution_configs ADD COLUMN tier_selection_closes_at DATE"
-            )
-        if "tier_selection_closed_at" not in cols2:
-            await conn.exec_driver_sql(
-                "ALTER TABLE contribution_configs ADD COLUMN tier_selection_closed_at DATETIME"
-            )
-
-        # ── Messagerie interne ──────────────────────────────────────────────
-        r_msg = await conn.exec_driver_sql("PRAGMA table_info(messages)")
-        cols_msg = [row[1] for row in r_msg.fetchall()]
-        if "parent_id" not in cols_msg:
-            await conn.exec_driver_sql(
-                "ALTER TABLE messages ADD COLUMN parent_id INTEGER REFERENCES messages(id)"
-            )
-        if "visio_url" not in cols_msg:
-            await conn.exec_driver_sql(
-                "ALTER TABLE messages ADD COLUMN visio_url VARCHAR(500)"
-            )
-        # message_attachments : créée par Base.metadata.create_all (nouveau modèle)
-
-        # ── Agenda ─────────────────────────────────────────────────────────
-        # La table lodge_events est créée par Base.metadata.create_all
-        r_ev = await conn.exec_driver_sql("PRAGMA table_info(lodge_events)")
-        cols_ev = [row[1] for row in r_ev.fetchall()]
-        if "visibility_group_id" not in cols_ev:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_events ADD COLUMN visibility_group_id INTEGER REFERENCES lodge_groups(id)"
-            )
-        if "meeting_url" not in cols_ev:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_events ADD COLUMN meeting_url VARCHAR(500)"
-            )
-        if "is_personal" not in cols_ev:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_events ADD COLUMN is_personal BOOLEAN DEFAULT 0"
-            )
-
-        # ── Tracé de tenue — corps narratif ────────────────────────────────
-        r_mtg = await conn.exec_driver_sql("PRAGMA table_info(meetings)")
-        cols_mtg = [row[1] for row in r_mtg.fetchall()]
-        if "compte_rendu_html" not in cols_mtg:
-            await conn.exec_driver_sql(
-                "ALTER TABLE meetings ADD COLUMN compte_rendu_html TEXT"
-            )
-
-        # ── GED — group_id sur doc_spaces et doc_folders ───────────────────
-        r_ds = await conn.exec_driver_sql("PRAGMA table_info(doc_spaces)")
-        cols_ds = [row[1] for row in r_ds.fetchall()]
-        if "group_id" not in cols_ds:
-            await conn.exec_driver_sql(
-                "ALTER TABLE doc_spaces ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id)"
-            )
-
-        r_df = await conn.exec_driver_sql("PRAGMA table_info(doc_folders)")
-        cols_df = [row[1] for row in r_df.fetchall()]
-        if "group_id" not in cols_df:
-            await conn.exec_driver_sql(
-                "ALTER TABLE doc_folders ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id)"
-            )
-        if "personal_owner_id" not in cols_df:
-            await conn.exec_driver_sql(
-                "ALTER TABLE doc_folders ADD COLUMN personal_owner_id INTEGER REFERENCES members(id) ON DELETE CASCADE"
-            )
-        # Permissions granulaires (téléchargement + écriture)
-        if "allow_download" not in cols_df:
-            await conn.exec_driver_sql(
-                "ALTER TABLE doc_folders ADD COLUMN allow_download BOOLEAN NOT NULL DEFAULT 1"
-            )
-        if "download_group_id" not in cols_df:
-            await conn.exec_driver_sql(
-                "ALTER TABLE doc_folders ADD COLUMN download_group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
-            )
-        if "write_group_id" not in cols_df:
-            await conn.exec_driver_sql(
-                "ALTER TABLE doc_folders ADD COLUMN write_group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
-            )
-        if "write_min_grade" not in cols_df:
-            await conn.exec_driver_sql(
-                "ALTER TABLE doc_folders ADD COLUMN write_min_grade VARCHAR(20) NOT NULL DEFAULT 'ALL'"
-            )
-
-        # ── GED — table doc_shares (partage externe) ──────────────────────────
-        r_ds2 = await conn.exec_driver_sql("PRAGMA table_info(doc_shares)")
-        cols_ds2 = [row[1] for row in r_ds2.fetchall()]
-        if not cols_ds2:
-            # La table sera créée par Base.metadata.create_all au prochain démarrage
-            # mais on la crée immédiatement si elle manque
-            await conn.exec_driver_sql("""
-                CREATE TABLE IF NOT EXISTS doc_shares (
-                    id INTEGER PRIMARY KEY,
-                    document_id INTEGER NOT NULL REFERENCES documents(id) ON DELETE CASCADE,
-                    token VARCHAR(64) NOT NULL UNIQUE,
-                    label VARCHAR(200),
-                    expires_at DATETIME,
-                    max_uses INTEGER,
-                    use_count INTEGER NOT NULL DEFAULT 0,
-                    password_hash VARCHAR(200),
-                    is_active BOOLEAN NOT NULL DEFAULT 1,
-                    created_by_id INTEGER REFERENCES members(id),
-                    created_at DATETIME DEFAULT (datetime('now'))
-                )
-            """)
-            await conn.exec_driver_sql(
-                "CREATE INDEX IF NOT EXISTS ix_doc_shares_token ON doc_shares(token)"
-            )
-
-        # ── GED — link_url sur documents + original_filename nullable ───────
-        r_doc = await conn.exec_driver_sql("PRAGMA table_info(documents)")
-        cols_doc_info = r_doc.fetchall()
-        cols_doc = [row[1] for row in cols_doc_info]
-
-        if "link_url" not in cols_doc:
-            await conn.exec_driver_sql(
-                "ALTER TABLE documents ADD COLUMN link_url VARCHAR(2000)"
-            )
-
-        # Rendre original_filename nullable (NOT NULL → NULL) via recréation SQLite
-        orig_col = next((row for row in cols_doc_info if row[1] == "original_filename"), None)
-        if orig_col and orig_col[3] == 1:  # notnull == 1
-            await conn.exec_driver_sql("""
-                CREATE TABLE IF NOT EXISTS documents_new (
-                    id INTEGER PRIMARY KEY,
-                    folder_id INTEGER NOT NULL REFERENCES doc_folders(id) ON DELETE CASCADE,
-                    name VARCHAR(300) NOT NULL,
-                    description TEXT,
-                    original_filename VARCHAR(300),
-                    mime_type VARCHAR(100),
-                    file_size INTEGER,
-                    storage_path VARCHAR(500),
-                    link_url VARCHAR(2000),
-                    download_count INTEGER NOT NULL DEFAULT 0,
-                    status VARCHAR(20) NOT NULL,
-                    author_id INTEGER REFERENCES members(id),
-                    validated_by_id INTEGER REFERENCES members(id),
-                    validated_at DATETIME,
-                    created_at DATETIME,
-                    updated_at DATETIME
-                )
-            """)
-            await conn.exec_driver_sql(
-                "INSERT OR IGNORE INTO documents_new SELECT * FROM documents"
-            )
-            await conn.exec_driver_sql("DROP TABLE documents")
-            await conn.exec_driver_sql("ALTER TABLE documents_new RENAME TO documents")
-
-        # ── Correction logo blanc → transparent dans lodge_settings ──────────
-        await conn.exec_driver_sql(
-            "UPDATE lodge_settings SET logo_url = '/static/img/sceau-socrate-transparent.png' "
-            "WHERE logo_url = '/static/img/sceau-socrate-blanc.png'"
-        )
-
-        # ── Seuils assiduité dans lodge_settings ──────────────────────────────
-        r_ls = await conn.exec_driver_sql("PRAGMA table_info(lodge_settings)")
-        ls_cols = {row[1] for row in r_ls.fetchall()}
-        if "attendance_threshold_warn" not in ls_cols:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_settings ADD COLUMN attendance_threshold_warn INTEGER DEFAULT 70"
-            )
-        if "attendance_threshold_danger" not in ls_cols:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_settings ADD COLUMN attendance_threshold_danger INTEGER DEFAULT 50"
-            )
-        if "visio_provider" not in ls_cols:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_settings ADD COLUMN visio_provider VARCHAR(50)"
-            )
-        if "visio_server_url" not in ls_cols:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_settings ADD COLUMN visio_server_url VARCHAR(500)"
-            )
-        if "visio_room_prefix" not in ls_cols:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_settings ADD COLUMN visio_room_prefix VARCHAR(100)"
-            )
-        if "admin_email" not in ls_cols:
-            await conn.exec_driver_sql(
-                "ALTER TABLE lodge_settings ADD COLUMN admin_email VARCHAR(200)"
-            )
-
-        # ── Actualités & Sondages — target_group_id ───────────────────────────
-        r_na = await conn.exec_driver_sql("PRAGMA table_info(news_articles)")
-        cols_na = [row[1] for row in r_na.fetchall()]
-        if "target_group_id" not in cols_na:
-            await conn.exec_driver_sql(
-                "ALTER TABLE news_articles ADD COLUMN target_group_id INTEGER REFERENCES lodge_groups(id)"
-            )
-
-        r_pl = await conn.exec_driver_sql("PRAGMA table_info(polls)")
-        cols_pl = [row[1] for row in r_pl.fetchall()]
-        if "target_group_id" not in cols_pl:
-            await conn.exec_driver_sql(
-                "ALTER TABLE polls ADD COLUMN target_group_id INTEGER REFERENCES lodge_groups(id)"
-            )
-
-        # Table correspondants externes
-        await conn.exec_driver_sql("""
-            CREATE TABLE IF NOT EXISTS external_contacts (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                name VARCHAR(200) NOT NULL,
-                email VARCHAR(200) NOT NULL,
-                organization VARCHAR(200),
-                contact_type VARCHAR(20) NOT NULL DEFAULT 'EXTERNAL',
-                is_active BOOLEAN NOT NULL DEFAULT 1,
-                notes TEXT,
-                created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-            )
-        """)
-
-        # ── PV de tenues ──────────────────────────────────────────────────────
-        await conn.exec_driver_sql("""
-            CREATE TABLE IF NOT EXISTS meeting_reports (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                meeting_id INTEGER NOT NULL UNIQUE REFERENCES meetings(id) ON DELETE CASCADE,
-                content TEXT,
-                status VARCHAR(20) NOT NULL DEFAULT 'BROUILLON',
-                author_id INTEGER REFERENCES members(id),
-                created_at DATETIME DEFAULT (datetime('now')),
-                updated_at DATETIME,
-                submitted_at DATETIME,
-                approved_by_id INTEGER REFERENCES members(id),
-                approved_at DATETIME,
-                archived_doc_id INTEGER REFERENCES documents(id) ON DELETE SET NULL
-            )
-        """)
-        await conn.exec_driver_sql(
-            "CREATE INDEX IF NOT EXISTS ix_meeting_reports_meeting_id ON meeting_reports(meeting_id)"
-        )
-
-        # ── Planches & travaux ────────────────────────────────────────────────
-        await conn.exec_driver_sql("""
-            CREATE TABLE IF NOT EXISTS planches (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                title VARCHAR(300) NOT NULL,
-                content TEXT,
-                file_path VARCHAR(500),
-                original_filename VARCHAR(300),
-                mime_type VARCHAR(100),
-                file_size INTEGER,
-                status VARCHAR(20) NOT NULL DEFAULT 'BROUILLON',
-                grade VARCHAR(20) NOT NULL DEFAULT 'TOUS',
-                author_id INTEGER REFERENCES members(id),
-                meeting_id INTEGER REFERENCES meetings(id) ON DELETE SET NULL,
-                created_at DATETIME DEFAULT (datetime('now')),
-                updated_at DATETIME,
-                published_at DATETIME
-            )
-        """)
-        await conn.exec_driver_sql("""
-            CREATE TABLE IF NOT EXISTS planche_comments (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                planche_id INTEGER NOT NULL REFERENCES planches(id) ON DELETE CASCADE,
-                author_id INTEGER REFERENCES members(id),
-                content TEXT NOT NULL,
-                created_at DATETIME DEFAULT (datetime('now'))
-            )
-        """)
-        # archived_doc_id ajouté après coup
-        r_pl = await conn.exec_driver_sql("PRAGMA table_info(planches)")
-        cols_pl = [row[1] for row in r_pl.fetchall()]
-        if "archived_doc_id" not in cols_pl:
-            await conn.exec_driver_sql(
-                "ALTER TABLE planches ADD COLUMN archived_doc_id INTEGER REFERENCES documents(id) ON DELETE SET NULL"
-            )
-
-        r_us = await conn.exec_driver_sql("PRAGMA table_info(users)")
-        cols_us = [row[1] for row in r_us.fetchall()]
-        if "reset_token" not in cols_us:
-            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token VARCHAR(100)")
-        if "reset_token_expires" not in cols_us:
-            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN reset_token_expires DATETIME")
-        if "totp_secret" not in cols_us:
-            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN totp_secret VARCHAR(64)")
-        if "totp_enabled" not in cols_us:
-            await conn.exec_driver_sql("ALTER TABLE users ADD COLUMN totp_enabled BOOLEAN NOT NULL DEFAULT 0")
-
-        # ── Projets & Tâches — ajout colonnes (couleur projet, groupe, gantt) ──
-        r_pr = await conn.exec_driver_sql("PRAGMA table_info(projects)")
-        cols_pr = [row[1] for row in r_pr.fetchall()]
-        if cols_pr and "color" not in cols_pr:
-            await conn.exec_driver_sql("ALTER TABLE projects ADD COLUMN color VARCHAR(10)")
-
-        r_tk = await conn.exec_driver_sql("PRAGMA table_info(tasks)")
-        cols_tk = [row[1] for row in r_tk.fetchall()]
-        if cols_tk:
-            if "assigned_to_group_id" not in cols_tk:
-                await conn.exec_driver_sql(
-                    "ALTER TABLE tasks ADD COLUMN assigned_to_group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
-                )
-            if "progress" not in cols_tk:
-                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN progress INTEGER NOT NULL DEFAULT 0")
-            if "start_date" not in cols_tk:
-                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN start_date DATE")
-            if "order_position" not in cols_tk:
-                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN order_position INTEGER NOT NULL DEFAULT 0")
-            if "forum_subject_id" not in cols_tk:
-                await conn.exec_driver_sql(
-                    "ALTER TABLE tasks ADD COLUMN forum_subject_id INTEGER REFERENCES forum_subjects(id) ON DELETE SET NULL"
-                )
-            if "is_milestone" not in cols_tk:
-                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN is_milestone INTEGER NOT NULL DEFAULT 0")
-            if "reminded_at" not in cols_tk:
-                await conn.exec_driver_sql("ALTER TABLE tasks ADD COLUMN reminded_at DATETIME")
-            if "parent_task_id" not in cols_tk:
-                await conn.exec_driver_sql(
-                    "ALTER TABLE tasks ADD COLUMN parent_task_id INTEGER REFERENCES tasks(id) ON DELETE CASCADE"
-                )
-
-    # ── external_contacts : colonnes first_name, last_name, lodge_name, orient
-    async with engine.begin() as conn:
-        r_ec = await conn.exec_driver_sql("PRAGMA table_info(external_contacts)")
-        cols_ec = [row[1] for row in r_ec.fetchall()]
-        if cols_ec:
-            for col, ddl in [
-                ("first_name", "VARCHAR(100)"),
-                ("last_name",  "VARCHAR(100)"),
-                ("lodge_name", "VARCHAR(200)"),
-                ("orient",     "VARCHAR(100)"),
-            ]:
-                if col not in cols_ec:
-                    await conn.exec_driver_sql(
-                        f"ALTER TABLE external_contacts ADD COLUMN {col} {ddl}"
-                    )
-
-    # ── mailing : colonnes tracking ────────────────────────────────────────
-    async with engine.begin() as conn:
-        r_mc = await conn.exec_driver_sql("PRAGMA table_info(mailing_campaigns)")
-        cols_mc = [row[1] for row in r_mc.fetchall()]
-        for col, ddl in [
-            ("opened_count",  "INTEGER NOT NULL DEFAULT 0"),
-            ("clicked_count", "INTEGER NOT NULL DEFAULT 0"),
-            ("scheduled_at",  "DATETIME"),
-        ]:
-            if col not in cols_mc:
-                await conn.exec_driver_sql(f"ALTER TABLE mailing_campaigns ADD COLUMN {col} {ddl}")
-
-        r_md2 = await conn.exec_driver_sql("PRAGMA table_info(mailing_deliveries)")
-        cols_md2 = [row[1] for row in r_md2.fetchall()]
-        for col, ddl in [
-            ("opened_at",   "DATETIME"),
-            ("clicked_at",  "DATETIME"),
-            ("click_count", "INTEGER NOT NULL DEFAULT 0"),
-            ("external_id", "INTEGER REFERENCES external_contacts(id) ON DELETE SET NULL"),
-        ]:
-            if col not in cols_md2:
-                await conn.exec_driver_sql(f"ALTER TABLE mailing_deliveries ADD COLUMN {col} {ddl}")
-
-    # ── audit_logs : nouvelles colonnes (target_label, user_agent) ─────────
-    async with engine.begin() as conn:
-        r_al = await conn.exec_driver_sql("PRAGMA table_info(audit_logs)")
-        cols_al = [row[1] for row in r_al.fetchall()]
-        if cols_al:
-            if "target_label" not in cols_al:
-                await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN target_label VARCHAR(300)")
-            if "user_agent" not in cols_al:
-                await conn.exec_driver_sql("ALTER TABLE audit_logs ADD COLUMN user_agent VARCHAR(300)")
+    await run_lightweight_migrations(engine)
 
     # ── Canal "Général" par défaut ─────────────────────────────────────────
     async with engine.begin() as conn:
@@ -716,6 +317,119 @@ async def maintenance_banner_middleware(request: Request, call_next):
 
     return await call_next(request)
 
+
+@app.middleware("http")
+async def two_factor_gate_middleware(request: Request, call_next):
+    """Bloque l'accès aux pages tant que le code 2FA n'a pas été vérifié après
+    un login (claim "2fa_pending" présent dans le token d'accès)."""
+    path = request.url.path
+    bypass = (
+        path.startswith("/static")
+        or path.startswith("/auth/")
+        or path in {"/manifest.json", "/sw.js", "/favicon.ico"}
+    )
+    if not bypass:
+        token = request.cookies.get("access_token")
+        if token:
+            try:
+                from app.dependencies import decode_token
+                payload = decode_token(token)
+                if payload.get("2fa_pending"):
+                    from urllib.parse import quote
+                    next_path = path + (f"?{request.url.query}" if request.url.query else "")
+                    return RedirectResponse(
+                        url=f"/auth/2fa/verify?next={quote(next_path, safe='')}",
+                        status_code=303,
+                    )
+            except Exception:
+                pass
+    return await call_next(request)
+
+
+def _detect_device(user_agent: str) -> str:
+    ua = (user_agent or "").lower()
+    if not ua:
+        return "inconnu"
+    if any(b in ua for b in ("bot", "spider", "crawler", "slurp", "facebookexternalhit", "preview")):
+        return "bot"
+    if "ipad" in ua or "tablet" in ua or ("android" in ua and "mobile" not in ua):
+        return "tablette"
+    if "mobile" in ua or "iphone" in ua or "android" in ua:
+        return "mobile"
+    return "ordinateur"
+
+
+async def _record_pageview(request: Request) -> None:
+    """Enregistre une page vue (analytique interne, sans JS). Best-effort :
+    ne doit jamais faire échouer la requête qui l'a déclenché."""
+    try:
+        from app.database import AsyncSessionLocal
+        from app.models.analytics import PageView
+        from app.models.identity import User
+        from app.dependencies import decode_token
+        from urllib.parse import urlparse
+
+        referrer = request.headers.get("referer", "")
+        referrer_host = "direct"
+        if referrer:
+            try:
+                host = urlparse(referrer).netloc
+                if host:
+                    referrer_host = "interne" if host == request.url.netloc else host
+            except Exception:
+                pass
+
+        device = _detect_device(request.headers.get("user-agent", ""))
+
+        member_id = None
+        session_id = None
+        token = request.cookies.get("access_token")
+        if token:
+            try:
+                payload = decode_token(token)
+                session_id = payload.get("jti") or None
+                user_id = int(payload.get("sub"))
+            except Exception:
+                user_id = None
+        else:
+            user_id = None
+
+        async with AsyncSessionLocal() as db:
+            if user_id:
+                r = await db.execute(select(User.member_id).where(User.id == user_id))
+                member_id = r.scalar_one_or_none()
+            db.add(PageView(
+                path=request.url.path,
+                referrer_host=referrer_host,
+                device=device,
+                member_id=member_id,
+                session_id=session_id,
+            ))
+            await db.commit()
+    except Exception:
+        import logging as _logging
+        _logging.getLogger(__name__).warning("Échec enregistrement page vue", exc_info=True)
+
+
+@app.middleware("http")
+async def analytics_middleware(request: Request, call_next):
+    """Analytique interne légère, côté serveur uniquement (pas de JS, pas de
+    cookie tiers) : chemin, provenance (hôte seulement), appareil déduit du
+    user-agent, membre si connecté. Ne ralentit jamais la réponse : l'écriture
+    se fait en tâche de fond après le retour de la page."""
+    response = await call_next(request)
+    try:
+        if (
+            request.method == "GET"
+            and response.status_code == 200
+            and response.headers.get("content-type", "").startswith("text/html")
+        ):
+            asyncio.create_task(_record_pageview(request))  # noqa — fire & forget
+    except Exception:
+        pass
+    return response
+
+
 # Instance Jinja2 partagée (filtres datefr + label déjà enregistrés)
 from app.template_engine import templates
 
@@ -726,6 +440,10 @@ templates.env.globals["global_unread_chat"] = 0
 # Filtre `| label` pour personnaliser l'affichage des enums depuis l'admin
 from app.services.labels import register_jinja as _register_label_filter
 _register_label_filter(templates.env)
+
+# Filtres `| presence_status` / `| presence_label` — présence en ligne
+from app.services.presence import register_jinja as _register_presence_filters
+_register_presence_filters(templates.env)
 
 # ── Filtre Jinja2 : rendu des messages chat (bold, liens cliquables) ──────────
 import re
@@ -757,6 +475,30 @@ def _render_chat(text: str) -> Markup:
 
 templates.env.filters["render_chat"] = _render_chat
 
+
+def _linkify(text: str) -> Markup:
+    """Échappe le texte puis rend les URLs cliquables — pour les corps de
+    message en texte brut (notifications système : sondages, actualités,
+    documents partagés) qui n'ont pas de version body_html."""
+    if not text:
+        return Markup("")
+    url_pat = re.compile(r"(https?://[^\s]+)")
+    parts = []
+    last = 0
+    for m in url_pat.finditer(text):
+        parts.append(str(_escape(text[last:m.start()])))
+        url = m.group(1)
+        eu = str(_escape(url))
+        parts.append(
+            f'<a href="{eu}" target="_blank" rel="noopener" '
+            f'class="text-loge-700 underline hover:text-loge-900 break-all">{eu}</a>'
+        )
+        last = m.end()
+    parts.append(str(_escape(text[last:])))
+    return Markup("".join(parts))
+
+templates.env.filters["linkify"] = _linkify
+
 # ── Static files ───────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
 
@@ -778,7 +520,6 @@ app.include_router(sharing_router.router)          # /documents/file/{id}/share/
 app.include_router(sharing_router.public_router)   # /share/{token} — accès public sans auth
 app.include_router(news_router.router)
 app.include_router(polls_router.router)
-app.include_router(reports_router.router)
 app.include_router(planches_router.router)
 app.include_router(anniv_router.router)
 app.include_router(push_router.router)
@@ -787,6 +528,13 @@ app.include_router(projects_router.router)
 app.include_router(admin_router.router)
 app.include_router(mailing_router.router)
 app.include_router(bookmarks_router.router)
+app.include_router(guide_router.router)
+app.include_router(faq_router.router)
+app.include_router(presence_router.router)
+app.include_router(contact_confirmation_router.router)
+app.include_router(search_router.router)
+app.include_router(notifications_router.router)
+app.include_router(engagement_router.router)
 # app.include_router(admin.router)
 
 

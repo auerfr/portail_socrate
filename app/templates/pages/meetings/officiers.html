@@ -35,6 +35,10 @@
            class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl">
           <i class="ti ti-printer"></i> Imprimer
         </a>
+        <a href="/faq#secretaire"
+           class="inline-flex items-center gap-1.5 px-3 py-2 text-xs font-medium text-gray-500 bg-gray-50 hover:bg-gray-100 rounded-xl">
+          <i class="ti ti-help-circle"></i> Aide
+        </a>
       </div>
     </div>
   </div>
@@ -80,7 +84,7 @@
               {# Titulaire + statut présence #}
               <td class="px-4 py-3">
                 {% if r.holder %}
-                  <div class="text-gray-900">{{ r.holder.first_name }} {{ r.holder.last_name }}</div>
+                  <div class="text-gray-900">{{ r.holder.last_name }} {{ r.holder.first_name }}</div>
                   <div class="inline-flex items-center gap-1.5 text-[11px] font-medium mt-1
                               {% if st == 'PRESENT' %}text-emerald-700
                               {% elif st == 'EXCUSED' %}text-amber-700

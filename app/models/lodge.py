@@ -146,3 +146,6 @@ class ExternalContact(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    # Dernière confirmation (campagne annuelle) que ce contact souhaite toujours
+    # recevoir les programmes — cf. app/services/contact_confirmation.py
+    last_confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

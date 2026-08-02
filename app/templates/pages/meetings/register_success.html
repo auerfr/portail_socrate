@@ -4,12 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Inscription confirmée — Portail Socrate</title>
-  <script src="https://cdn.tailwindcss.com"></script>
-  <script>
-    tailwind.config = { theme: { extend: { colors: {
-      loge: { 700:'#2c7a7b', 800:'#236b6b', 900:'#1a5252' }
-    }}}}
-  </script>
+  <link href="/static/css/app.css" rel="stylesheet">
 </head>
 <body class="min-h-full flex items-center justify-center py-8 px-4">
   <div class="max-w-md w-full text-center">
@@ -17,7 +12,7 @@
       <div class="text-5xl mb-4">✅</div>
       <h1 class="text-xl font-bold text-gray-900">Inscription confirmée !</h1>
       <p class="text-gray-600 mt-2">
-        F∴ {{ first_name }} {{ last_name }}, votre inscription à la tenue du
+        {% if civility == 'S' %}S∴{% else %}F∴{% endif %} {{ last_name }} {{ first_name }}, votre inscription à la tenue du
         <strong>{{ meeting.meeting_date.strftime('%d/%m/%Y') }}</strong>
         a bien été enregistrée.
       </p>

@@ -17,6 +17,8 @@
         x-data="{
           allDay: true,
           visibility: 'ALL',
+          recurring: false,
+          recurrenceFreq: 'WEEKLY',
           generateVisio() {
             const server = '{{ visio_server }}';
             const prefix = '{{ visio_prefix }}';
@@ -130,6 +132,81 @@
           </label>
           <input type="time" id="end_time" name="end_time" value="22:00"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+    </div>
+
+    {# ── Récurrence ─────────────────────────────────────────────────────── #}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6 space-y-4">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Récurrence</h2>
+
+      <label class="inline-flex items-center gap-3 cursor-pointer select-none">
+        <input type="checkbox" name="recurring" value="on"
+               x-model="recurring"
+               class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500 cursor-pointer">
+        <span class="text-sm font-medium text-gray-700">Événement récurrent</span>
+      </label>
+
+      <div x-show="recurring" x-cloak x-transition class="space-y-4 pt-1">
+        <div>
+          <label for="recurrence_freq" class="block text-sm font-medium text-gray-700 mb-1">
+            Fréquence
+          </label>
+          <select id="recurrence_freq" name="recurrence_freq" x-model="recurrenceFreq"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            <option value="WEEKLY">Chaque semaine</option>
+            <option value="MONTHLY_NTH_WEEKDAY">Chaque mois (à une position fixe, ex : 1er lundi)</option>
+          </select>
+        </div>
+
+        {% set weekday_options = [(0,'Lundi'),(1,'Mardi'),(2,'Mercredi'),(3,'Jeudi'),(4,'Vendredi'),(5,'Samedi'),(6,'Dimanche')] %}
+
+        <div>
+          <label for="recurrence_weekday" class="block text-sm font-medium text-gray-700 mb-1">
+            Jour de la semaine
+          </label>
+          <select id="recurrence_weekday" name="recurrence_weekday"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            {% for v, label in weekday_options %}
+            <option value="{{ v }}" {% if v == today_weekday %}selected{% endif %}>{{ label }}</option>
+            {% endfor %}
+          </select>
+        </div>
+
+        <div x-show="recurrenceFreq === 'WEEKLY'" x-cloak>
+          <label for="recurrence_interval" class="block text-sm font-medium text-gray-700 mb-1">
+            Tous les combien de semaines
+          </label>
+          <div class="flex items-center gap-2">
+            <span class="text-sm text-gray-500">Toutes les</span>
+            <input type="number" id="recurrence_interval" name="recurrence_interval" min="1" max="52" value="1"
+                   class="w-20 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <span class="text-sm text-gray-500">semaine(s)</span>
+          </div>
+        </div>
+
+        <div x-show="recurrenceFreq === 'MONTHLY_NTH_WEEKDAY'" x-cloak>
+          <label for="recurrence_position" class="block text-sm font-medium text-gray-700 mb-1">
+            Position dans le mois
+          </label>
+          <select id="recurrence_position" name="recurrence_position"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+            <option value="1">1er</option>
+            <option value="2">2ème</option>
+            <option value="3">3ème</option>
+            <option value="4">4ème</option>
+            <option value="LAST">Dernier (quand il y en a 5)</option>
+          </select>
+        </div>
+
+        <div>
+          <label for="recurrence_until" class="block text-sm font-medium text-gray-700 mb-1">
+            Jusqu'au <span class="text-red-500">*</span>
+          </label>
+          <input type="date" id="recurrence_until" name="recurrence_until"
+                 :required="recurring"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <p class="text-xs text-gray-400 mt-1">Une occurrence sera créée pour chaque date correspondant à la récurrence, entre la date de début et cette date.</p>
         </div>
       </div>
     </div>

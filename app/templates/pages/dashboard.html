@@ -234,7 +234,7 @@
               <a href="/attendance/member/{{ item.member.id }}"
                  class="flex-1 text-xs font-medium text-gray-800 hover:text-loge-700 truncate">
                 {% if item.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                {{ item.member.first_name }} {{ item.member.last_name | anon_nom }}
+                {{ item.member.last_name | anon_nom }} {{ item.member.first_name }}
               </a>
               <span class="text-[10px] font-bold text-red-600 bg-red-50 rounded-full px-2 py-0.5 shrink-0">{{ item.absences }} abs.</span>
             </div>
@@ -264,7 +264,7 @@
               <div class="flex-1 min-w-0">
                 <div class="text-xs font-medium text-gray-800 truncate">
                   {% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %}
-                  {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
+                  {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}
                   {% if mv.visitor.is_vm %}<span class="text-[10px] text-loge-600 font-semibold ml-0.5">V∴M∴</span>{% endif %}
                 </div>
                 <div class="text-[10px] text-gray-400 truncate">{{ mv.visitor.lodge_name or '—' }}{% if mv.visitor.orient_city %} · {{ mv.visitor.orient_city }}{% endif %}</div>
@@ -300,7 +300,7 @@
               <p class="text-[9px] uppercase text-gray-400 mt-0.5">{{ MOIS_AB[a.anniv_date.month] }}</p>
             </div>
             <div class="flex-1 min-w-0">
-              <p class="text-sm text-gray-800 truncate">{{ a.first_name }} {{ a.last_name | anon_nom }}</p>
+              <p class="text-sm text-gray-800 truncate">{{ a.last_name | anon_nom }} {{ a.first_name }}</p>
               <p class="text-xs text-gray-500">{{ a.years }} ans · {{ a.event_label }}</p>
             </div>
             {% if days_until == 0 %}
@@ -471,7 +471,7 @@
               {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name | anon_nom | first }}{% else %}?{% endif %}
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-[10px] text-gray-500">{{ (sender.first_name ~ ' ' ~ (sender.last_name | anon_nom)) if sender else '?' }}</div>
+              <div class="text-[10px] text-gray-500">{{ ((sender.last_name | anon_nom) ~ ' ' ~ sender.first_name) if sender else '?' }}</div>
               <div class="text-xs font-medium text-gray-900 truncate group-hover:text-loge-700">{{ rec.message.subject }}</div>
             </div>
             <div class="w-1.5 h-1.5 rounded-full bg-loge-500 flex-shrink-0 mt-2"></div>

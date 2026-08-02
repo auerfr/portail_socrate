@@ -24,7 +24,8 @@ class Message(Base):
 
     id: Mapped[int]         = mapped_column(primary_key=True)
     subject: Mapped[str]    = mapped_column(String(300))
-    body: Mapped[str]       = mapped_column(Text)
+    body: Mapped[str]       = mapped_column(Text)  # version texte brut (aperçus, notifications)
+    body_html: Mapped[Optional[str]] = mapped_column(Text, nullable=True)  # version mise en forme (éditeur riche)
 
     sender_id: Mapped[int]  = mapped_column(ForeignKey("members.id"))
     target_type: Mapped[MessageTargetType] = mapped_column(Enum(MessageTargetType))

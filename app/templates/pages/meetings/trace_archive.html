@@ -1,0 +1,126 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Tracé — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}</title>
+  <style>
+    @page { size: A4 portrait; margin: 2cm; }
+    * { box-sizing: border-box; }
+    body { font-family: 'Times New Roman', Georgia, serif; font-size: 11pt; color: #111; margin: 0; max-width: 800px; }
+    .header { display: grid; grid-template-columns: 70px 1fr 56px; align-items: center; gap: 10px;
+              border-bottom: 2px solid #2c7a7b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header img { display: block; margin: 0 auto; width: 100%; height: auto; }
+    .header h1 { margin: 0 0 .25rem; font-size: 16pt; color: #1a5252; text-align: center; text-transform: uppercase; letter-spacing: .05em; }
+    .header p { margin: 0; font-size: 11pt; font-weight: bold; text-align: center; color: #333; }
+    table { width: 100%; border-collapse: collapse; margin: 1rem 0; }
+    td { padding: 3px 8px; border: 1px solid #ccc; font-size: 10.5pt; vertical-align: middle; }
+    p.body-text { text-align: justify; margin: 0 0 10pt; line-height: 1.6; }
+    .prose p { margin-bottom: 8pt; }
+    .signatures { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 2rem; margin-top: 2.5rem; padding-top: 1.5rem;
+                  border-top: 1px solid #ccc; text-align: center; font-size: 9pt; color: #555; }
+    .footer { margin-top: 2rem; padding-top: 1rem; border-top: 1px solid #e5e7eb; font-size: 8.5pt; color: #6b7280; text-align: center; }
+  </style>
+</head>
+<body>
+
+  <div class="header">
+    <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau">
+    <div>
+      <h1>{{ lodge.name if lodge else 'Socrate Raison et Progrès' }}</h1>
+      <p>
+        {% if meeting.meeting_number %}{{ meeting.meeting_number }}ème {% endif %}Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
+        en Loge d'{{ grade_label(meeting.grade) }}
+      </p>
+    </div>
+    <img src="/static/img/rosace-godf.jpg" alt="Rosace">
+  </div>
+
+  <p class="body-text">
+    Le <strong>{{ meeting.meeting_date.day }}{{ day_suffix }}</strong> jour du
+    <strong>{{ masonic_month }}{{ month_suffix }}</strong> mois de l'an
+    <strong>{{ masonic_year }}</strong> de la V∴L∴,
+    les SS∴ et les FF∴ de la R∴L∴
+    « {{ lodge.name if lodge else 'Socrate Raison et Progrès' }} »
+    se sont réunis
+    {% if lodge and lodge.orient_city %}à l'O∴ de {{ lodge.orient_city }}{% endif %}
+    sous la présidence du V∴M∴{% if vm_name %} {{ vm_name }}{% endif %}.
+  </p>
+
+  {% if present %}
+  <p>Étaient présents, les FF∴ et les SS∴ :</p>
+  <table>
+    <tbody>
+      {% for i in range(0, present|length, 2) %}
+      <tr>
+        <td style="width:33%;">{{ present[i].member.last_name | upper }} {{ present[i].member.first_name }}</td>
+        <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i].member_id, '') }}</td>
+        {% if i + 1 < present|length %}
+        <td style="width:33%;">{{ present[i+1].member.last_name | upper }} {{ present[i+1].member.first_name }}</td>
+        <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i+1].member_id, '') }}</td>
+        {% else %}
+        <td></td><td></td>
+        {% endif %}
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  {% if officer_rows %}
+  <p class="body-text">
+    {% for r in officer_rows %}
+      {% if r.substitute %}Le F∴ {{ r.substitute.last_name | upper }} {{ r.substitute.first_name }} supplée à l'office de {{ r.office.label }}{% if r.holder %} en l'absence du F∴ {{ r.holder.last_name | upper }} {{ r.holder.first_name }}{% endif %}.
+      {% else %}L'office de {{ r.office.label }} est resté vacant lors de cette tenue.
+      {% endif %}
+    {% endfor %}
+  </p>
+  {% endif %}
+
+  {% if excused %}
+  <p class="body-text">
+    Étaient excusés, les FF∴ et les SS∴ :
+    {% for att in excused %}{{ att.member.last_name | upper }} {{ att.member.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+  </p>
+  {% endif %}
+
+  {% if absent %}
+  <p class="body-text">
+    {% if absent|length == 1 %}Était absent le {% if absent[0].member.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ absent[0].member.last_name | upper }} {{ absent[0].member.first_name }}.
+    {% else %}Étaient absent(e)s les FF∴ et les SS∴ :
+    {% for att in absent %}{{ att.member.last_name | upper }} {{ att.member.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}.
+    {% endif %}
+  </p>
+  {% endif %}
+
+  {% if visitors %}
+  <p>Se sont joints à nos travaux les maçons passants :</p>
+  <table>
+    <tbody>
+      {% for mv in visitors %}
+      <tr>
+        <td style="width:25%;">{{ mv.visitor.last_name | upper }} {{ mv.visitor.first_name }}</td>
+        <td style="width:40%; color:#555;">R∴L∴ {{ mv.visitor.lodge_name or '—' }}</td>
+        <td style="width:15%; color:#666; font-size:9.5pt;">{{ mv.visitor.obedience or '' }}</td>
+        <td style="color:#666; font-size:9.5pt;">{% if mv.visitor.orient_city %}Or∴ de {{ mv.visitor.orient_city }}{% endif %}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
+
+  <div class="prose">
+    {{ meeting.compte_rendu_html | safe }}
+  </div>
+
+  <div class="signatures">
+    <div>Le V∴M∴</div>
+    <div>L'Or∴</div>
+    <div>Le Sec∴</div>
+  </div>
+
+  <div class="footer">
+    Tracé approuvé par {{ approved_by.last_name }} {{ approved_by.first_name }} le {{ approved_at.strftime('%d/%m/%Y') }} — Portail Socrate
+  </div>
+
+</body>
+</html>

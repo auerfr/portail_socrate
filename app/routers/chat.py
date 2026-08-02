@@ -267,13 +267,14 @@ async def chat_messages_poll(
         if m.reply_to:
             reply = {
                 "id": m.reply_to.id,
-                "sender": f"{m.reply_to.sender.first_name} {m.reply_to.sender.last_name}",
+                "sender": f"{m.reply_to.sender.last_name} {m.reply_to.sender.first_name}",
                 "preview": (m.reply_to.content or "")[:80],
             }
+        from app.services.presence import presence_status
         return {
             "id": m.id,
             "sender_id": m.sender_id,
-            "sender_name": f"{m.sender.first_name} {m.sender.last_name}",
+            "sender_name": f"{m.sender.last_name} {m.sender.first_name}",
             "sender_initials": f"{m.sender.first_name[0]}{m.sender.last_name[0]}",
             "is_mine": m.sender_id == member.id,
             "content": m.content or "",
@@ -281,6 +282,7 @@ async def chat_messages_poll(
             "created_at": m.created_at.strftime("%H:%M"),
             "created_date": m.created_at.strftime("%d/%m/%Y"),
             "reply": reply,
+            "presence": presence_status(m.sender),
         }
 
     return JSONResponse({
@@ -331,7 +333,7 @@ async def chat_send(
         )
         member_ids = [row[0] for row in members_r.all() if row[0] != member.id]
         if member_ids:
-            sender_name = f"{member.first_name} {member.last_name}"
+            sender_name = f"{member.last_name} {member.first_name}"
             push_body = " ".join(content.split())[:140]
             await send_push_broadcast(
                 db, member_ids,

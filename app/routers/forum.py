@@ -11,7 +11,7 @@ import os
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, Optional
+from typing import Annotated, Optional, Union
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -356,11 +356,18 @@ async def forum_create_subject(
     theme_id: int = Form(...),
     title: str = Form(...),
     content: str = Form(...),
-    files: list[UploadFile] = File(default_factory=list),
+    files: Union[list[UploadFile], UploadFile, None] = File(default_factory=list),
     links: str = Form(""),
     document_ids: str = Form(""),
 ):
     user, member = ctx
+
+    # <input type="file" multiple> soumis sans fichier envoie une seule partie
+    # vide — Starlette la remonte comme un UploadFile isolé, pas une liste.
+    if files is None:
+        files = []
+    elif not isinstance(files, list):
+        files = [files]
 
     th = (await db.execute(
         select(ForumTheme).where(ForumTheme.id == theme_id)
@@ -408,11 +415,19 @@ async def forum_post(
     db: Annotated[AsyncSession, Depends(get_db)],
     content: str = Form(...),
     parent_id: Optional[int] = Form(None),
-    files: list[UploadFile] = File(default_factory=list),
+    files: Union[list[UploadFile], UploadFile, None] = File(default_factory=list),
     links: str = Form(""),
     document_ids: str = Form(""),
 ):
     user, member = ctx
+
+    # <input type="file" multiple> soumis sans fichier envoie une seule partie
+    # vide — Starlette la remonte comme un UploadFile isolé, pas une liste.
+    if files is None:
+        files = []
+    elif not isinstance(files, list):
+        files = [files]
+
     s = (await db.execute(
         select(ForumSubject).where(ForumSubject.id == subject_id)
     )).scalar_one_or_none()
@@ -904,7 +919,7 @@ async def forum_export_pdf(
         a = authors.get(mid)
         if not a:
             return "—"
-        return f"{a.first_name or ''} {a.last_name or ''}".strip() or "—"
+        return f"{a.last_name or ''} {a.first_name or ''}".strip() or "—"
 
     def _strip(html: str) -> str:
         if not html:

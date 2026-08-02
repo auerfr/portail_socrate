@@ -1,0 +1,131 @@
+{% extends "base.html" %}
+{% block title %}Engagement — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-4xl mx-auto space-y-8">
+
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Tableau de bord d'engagement</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Ouverture des emails et assiduité aux tenues</p>
+    </div>
+    <div class="flex items-center gap-2">
+      <label class="text-xs text-gray-500 font-medium whitespace-nowrap">Période emails :</label>
+      <select onchange="window.location='/engagement/?days='+this.value"
+              class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="30" {% if days == 30 %}selected{% endif %}>30 jours</option>
+        <option value="90" {% if days == 90 %}selected{% endif %}>90 jours</option>
+        <option value="365" {% if days == 365 %}selected{% endif %}>1 an</option>
+      </select>
+    </div>
+  </div>
+
+  <!-- ── Engagement email ─────────────────────────────────────────── -->
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+      <i class="ti ti-mail"></i> Emails envoyés par le portail
+    </h2>
+
+    {% if email_sent == 0 %}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-8 text-center text-gray-400 text-sm">
+      Aucun email envoyé sur cette période.
+    </div>
+    {% else %}
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Envoyés</div>
+        <div class="text-3xl font-bold text-gray-800">{{ email_sent }}</div>
+        <div class="text-xs text-gray-400 mt-1">sur {{ days }} jours</div>
+      </div>
+      <div class="bg-white rounded-xl border border-loge-100 shadow-sm px-5 py-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux d'ouverture</div>
+        <div class="text-3xl font-bold text-loge-700">{{ open_rate }}%</div>
+        <div class="text-xs text-loge-600 mt-1">{{ email_opened }} ouverts</div>
+      </div>
+      <div class="bg-white rounded-xl border border-amber-100 shadow-sm px-5 py-4">
+        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux de clic</div>
+        <div class="text-3xl font-bold text-amber-600">{{ click_rate }}%</div>
+        <div class="text-xs text-amber-500 mt-1">{{ email_clicked }} clics</div>
+      </div>
+    </div>
+    {% endif %}
+
+    {% if email_trend %}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm mt-4 overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+            <th class="px-4 py-2 font-medium">Mois</th>
+            <th class="px-4 py-2 font-medium text-right">Envoyés</th>
+            <th class="px-4 py-2 font-medium text-right">Ouverts</th>
+            <th class="px-4 py-2 font-medium text-right">Taux</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in email_trend %}
+          <tr class="border-b border-gray-50 last:border-0">
+            <td class="px-4 py-2 text-gray-700">{{ row.month }}</td>
+            <td class="px-4 py-2 text-right text-gray-600">{{ row.sent }}</td>
+            <td class="px-4 py-2 text-right text-gray-600">{{ row.opened }}</td>
+            <td class="px-4 py-2 text-right font-semibold text-loge-700">
+              {{ (row.opened * 100 / row.sent) | round | int if row.sent else 0 }}%
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% endif %}
+    <p class="text-xs text-gray-400 mt-2">
+      <a href="/admin/comm" class="text-loge-700 hover:underline">Voir le journal détaillé des emails →</a>
+    </p>
+  </div>
+
+  <!-- ── Assiduité ────────────────────────────────────────────────── -->
+  <div>
+    <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
+      <i class="ti ti-clipboard-check"></i> Assiduité aux tenues par année
+    </h2>
+
+    {% if attendance_trend %}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+            <th class="px-4 py-2 font-medium">Année maçonnique</th>
+            <th class="px-4 py-2 font-medium text-right">Présents</th>
+            <th class="px-4 py-2 font-medium text-right">Émargements</th>
+            <th class="px-4 py-2 font-medium text-right">Taux</th>
+          </tr>
+        </thead>
+        <tbody>
+          {% for row in attendance_trend %}
+          <tr class="border-b border-gray-50 last:border-0">
+            <td class="px-4 py-2 text-gray-700">{{ row.year }}</td>
+            <td class="px-4 py-2 text-right text-gray-600">{{ row.present }}</td>
+            <td class="px-4 py-2 text-right text-gray-600">{{ row.total }}</td>
+            <td class="px-4 py-2 text-right font-semibold
+              {% if row.pct is none %}text-gray-300
+              {% elif row.pct >= 70 %}text-green-600
+              {% elif row.pct >= 50 %}text-amber-600
+              {% else %}text-red-600{% endif %}">
+              {{ row.pct ~ '%' if row.pct is not none else '—' }}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+    </div>
+    {% else %}
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-8 text-center text-gray-400 text-sm">
+      Aucune tenue passée enregistrée.
+    </div>
+    {% endif %}
+    <p class="text-xs text-gray-400 mt-2">
+      Taux de présence parmi les émargements enregistrés.
+      <a href="/attendance/" class="text-loge-700 hover:underline">Voir le détail par membre →</a>
+    </p>
+  </div>
+
+</div>
+{% endblock %}

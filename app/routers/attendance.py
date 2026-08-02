@@ -283,6 +283,77 @@ async def emargement_page(
     })
 
 
+@router.get("/meeting/{meeting_id}/print", response_class=HTMLResponse)
+async def emargement_print(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Feuille d'émargement papier (Ctrl+P) : liste des membres attendus pour
+    cette tenue, avec statut déjà connu (ex : excusé à l'avance) et une case
+    de signature — indépendante de l'émargement numérique, qui reste la
+    référence pour le suivi de présence."""
+    user, member = ctx
+    _require_attendance_mgr(user, member)
+
+    result = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+        )
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = result.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    from app.models.identity import User as _User3
+    _admin_ids3_r = await db.execute(
+        select(_User3.member_id).where(_User3.is_admin == True, _User3.member_id.isnot(None))
+    )
+    _admin_ids3 = {row[0] for row in _admin_ids3_r}
+
+    members_r = await db.execute(
+        select(Member)
+        .where(Member.status == MemberStatus.ACTIVE, Member.id.notin_(_admin_ids3))
+        .order_by(Member.last_name, Member.first_name)
+    )
+    all_active = members_r.scalars().all()
+
+    _grade_order_p = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
+    mtg_grade_val = meeting.grade.value if hasattr(meeting.grade, "value") else str(meeting.grade)
+    if mtg_grade_val == "ALL":
+        active_members = all_active
+    else:
+        active_members = [
+            m for m in all_active
+            if _grade_order_p.get(
+                m.masonic_grade.value if hasattr(m.masonic_grade, "value") else str(m.masonic_grade), 0
+            ) >= _grade_order_p.get(mtg_grade_val, 0)
+        ]
+
+    att_by_member = {a.member_id: a for a in meeting.attendances}
+    visitors = sorted(
+        [mv for mv in meeting.meeting_visitors if mv.status.value == "CONFIRMED"],
+        key=lambda mv: mv.visitor.last_name,
+    )
+
+    ls_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = ls_r.scalar_one_or_none()
+
+    return templates.TemplateResponse(request, "pages/attendance/emargement_print.html", {
+        "meeting": meeting,
+        "lodge": lodge,
+        "active_members": active_members,
+        "att_by_member": att_by_member,
+        "AttendanceStatus": AttendanceStatus,
+        "visitors": visitors,
+        "generated_on": date.today().strftime("%d/%m/%Y"),
+    })
+
+
 @router.post("/meeting/{meeting_id}", response_class=HTMLResponse)
 async def emargement_save(
     request: Request,

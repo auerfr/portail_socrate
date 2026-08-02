@@ -1,0 +1,56 @@
+<div class="relative" x-data="notifBell()" @click.away="open = false">
+  <button type="button" @click="toggle()"
+          class="relative w-8 h-8 flex items-center justify-center rounded-lg text-gray-300 hover:text-white hover:bg-white/10 transition-colors flex-shrink-0">
+    <i class="ti ti-bell text-lg"></i>
+    <span class="notif-badge absolute -top-1 -right-1 bg-red-500 text-white text-xs font-bold rounded-full px-1.5 py-0.5 min-w-[18px] text-center leading-none hidden"></span>
+  </button>
+
+  <div x-show="open" x-cloak
+       x-transition:enter="transition ease-out duration-150"
+       x-transition:enter-start="opacity-0 -translate-y-2"
+       x-transition:enter-end="opacity-100 translate-y-0"
+       class="absolute {{ 'left-0' if notif_align == 'left' else 'right-0' }} mt-2 w-80 max-h-[70vh] overflow-y-auto rounded-2xl shadow-2xl z-50 bg-white border border-gray-100"
+       style="max-width: calc(100vw - 2rem);">
+    <div class="px-4 py-3 border-b border-gray-100 text-sm font-semibold text-gray-800">
+      Notifications
+    </div>
+    <div x-show="loading" class="px-4 py-6 text-center text-xs text-gray-400">Chargement…</div>
+    <div x-show="!loading && events.length === 0" class="px-4 py-8 text-center text-gray-400">
+      <i class="ti ti-bell-off text-3xl opacity-30"></i>
+      <p class="text-xs mt-2">Rien de nouveau pour le moment.</p>
+    </div>
+    <template x-for="e in events" :key="e.url + e.ts">
+      <a :href="e.url" class="flex items-start gap-3 px-4 py-3 hover:bg-loge-50 transition-colors border-b border-gray-50 last:border-0">
+        <i class="ti flex-shrink-0 mt-0.5" :class="[e.icon, e.is_new ? 'text-loge-600' : 'text-gray-300']"></i>
+        <div class="min-w-0 flex-1">
+          <div class="text-sm text-gray-900 truncate" :class="e.is_new ? 'font-semibold' : ''" x-text="e.label"></div>
+          <div class="text-xs text-gray-400 mt-0.5" x-text="e.sub + ' · ' + e.ts"></div>
+        </div>
+        <span x-show="e.is_new" class="w-2 h-2 rounded-full bg-loge-600 flex-shrink-0 mt-1.5"></span>
+      </a>
+    </template>
+  </div>
+</div>
+
+<script>
+function notifBell() {
+  return {
+    open: false,
+    loading: false,
+    events: [],
+    async toggle() {
+      this.open = !this.open;
+      if (!this.open) return;
+      this.loading = true;
+      try {
+        const r = await fetch('/notifications/api/list', {credentials: 'same-origin'});
+        const d = r.ok ? await r.json() : null;
+        this.events = (d && d.events) || [];
+      } catch (e) { this.events = []; }
+      this.loading = false;
+      fetch('/notifications/api/mark-seen', {method: 'POST', credentials: 'same-origin'}).catch(function() {});
+      document.querySelectorAll('.notif-badge').forEach(function(el) { el.classList.add('hidden'); });
+    },
+  };
+}
+</script>

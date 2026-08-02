@@ -9,7 +9,7 @@
     <i class="ti ti-megaphone"></i> Bannière globale
   </a>
   <a href="/admin/invitations" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-loge-800 bg-loge-50 hover:bg-loge-100 rounded-xl">
-    <i class="ti ti-user-plus"></i> Inviter un membre
+    <i class="ti ti-mail-forward"></i> Envoyer les accès
   </a>
   <a href="/admin/sessions" class="inline-flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-xl">
     <i class="ti ti-wifi"></i> Sessions actives
@@ -142,7 +142,7 @@
       {% set au = actors.get(a.actor_id) %}
       <li class="px-5 py-2.5">
         <div class="flex items-center justify-between gap-2">
-          <span class="font-semibold text-gray-800">{% if au %}{{ au.first_name }} {{ au.last_name }}{% else %}<span class="text-gray-400">système</span>{% endif %}</span>
+          <span class="font-semibold text-gray-800">{% if au %}{{ au.last_name }} {{ au.first_name }}{% else %}<span class="text-gray-400">système</span>{% endif %}</span>
           <span class="text-[10px] text-gray-400">{{ a.created_at.strftime('%d/%m %H:%M') }}</span>
         </div>
         <div class="text-xs text-gray-500">
