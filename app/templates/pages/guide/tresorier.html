@@ -1,0 +1,447 @@
+{% extends "base.html" %}
+{% block title %}Guide Trésorier{% endblock %}
+
+{% block content %}
+<style>
+  @media print {
+    nav, aside, header, .no-print { display: none !important; }
+    .print-content { padding: 0 !important; }
+    details > * { display: block !important; }
+    details summary { list-style: none; }
+  }
+</style>
+<div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 print-content">
+
+  <div class="flex items-start justify-between gap-4 mb-6">
+    <div>
+      <nav class="text-xs text-gray-500 mb-1 no-print">
+        <a href="/faq" class="text-loge-700 hover:underline">FAQ</a>
+        <span class="mx-1">›</span>
+        <span>Guide Trésorier</span>
+      </nav>
+      <h1 class="text-2xl font-bold text-gray-900"><i class="ti ti-coins text-loge-700"></i> Guide du Trésorier</h1>
+      <p class="text-sm text-gray-500 mt-1">Workflow annuel complet : budget, capitations, calcul T3, appel à tranche, encaissement, bilan.</p>
+    </div>
+    <button onclick="window.print()"
+            class="no-print flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl">
+      <i class="ti ti-printer"></i> Imprimer / PDF
+    </button>
+  </div>
+
+  {# Sommaire #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6 no-print">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Sommaire</p>
+    <div class="flex flex-wrap gap-2 text-sm">
+      <a href="#calendrier"   class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Calendrier annuel</a>
+      <a href="#budget"       class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">1 · Budget</a>
+      <a href="#capitations"  class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">2 · Capitations</a>
+      <a href="#t3"           class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">3 · Calcul T3</a>
+      <a href="#tranches"     class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">4 · Les 5 tranches</a>
+      <a href="#appel"        class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">5 · Appel à tranche</a>
+      <a href="#cloture"      class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">6 · Clôture</a>
+      <a href="#paiements"    class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Paiements</a>
+      <a href="#transactions" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Transactions</a>
+      <a href="#bilan"        class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Bilan</a>
+      <a href="#ref"          class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Référence rapide</a>
+    </div>
+  </div>
+
+  {# Avertissement admin #}
+  <div class="bg-amber-50 border border-amber-200 rounded-2xl p-4 mb-6 text-sm text-amber-800">
+    <p class="font-semibold mb-1">⚠ Actions réservées à l'administrateur technique</p>
+    <p>L'ouverture d'une <strong>nouvelle année maçonnique</strong> (reprise de budget, reset des cotisations) est réservée au compte administrateur du site. Prévenez-le en septembre avant tout démarrage d'exercice.</p>
+  </div>
+
+  {# ── Calendrier annuel ── #}
+  <section id="calendrier" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-4"><i class="ti ti-calendar-time"></i> Calendrier annuel du Trésorier</h2>
+    <p class="text-xs text-gray-500 mb-4">L'année maçonnique commence en septembre. Par convention, on lui ajoute 4 000 : l'année civile 2025-2026 correspond à l'année maçonnique <strong>6025-6026 E∴L∴</strong></p>
+    <div class="space-y-3 text-sm">
+
+      <div class="flex gap-3">
+        <div class="w-20 flex-shrink-0 text-center">
+          <span class="inline-block px-2 py-0.5 bg-loge-700 text-white rounded text-xs font-bold">Sept.</span>
+        </div>
+        <div class="flex-1 border-l-2 border-loge-200 pl-4 pb-3">
+          <p class="font-semibold text-gray-800">Vote du budget en tenue</p>
+          <p class="text-gray-500 text-xs mt-0.5">L'assemblée vote le budget prévisionnel de l'année. C'est la base du calcul T3. Sans budget voté, aucun calcul automatique n'est possible.</p>
+          <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-loge-50 text-loge-800 rounded">Trésorier + VM</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <div class="w-20 flex-shrink-0 text-center">
+          <span class="inline-block px-2 py-0.5 bg-loge-700 text-white rounded text-xs font-bold">Oct.–Nov.</span>
+        </div>
+        <div class="flex-1 border-l-2 border-loge-200 pl-4 pb-3">
+          <p class="font-semibold text-gray-800">Saisie budget, capitations, calcul T3</p>
+          <p class="text-gray-500 text-xs mt-0.5">Saisir les lignes budgétaires, les taux de capitation communiqués par l'obédience, puis recalculer le T3 et les 5 tranches.</p>
+          <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-loge-50 text-loge-800 rounded">Trésorier</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <div class="w-20 flex-shrink-0 text-center">
+          <span class="inline-block px-2 py-0.5 bg-loge-600 text-white rounded text-xs font-bold">Mi-Nov.</span>
+        </div>
+        <div class="flex-1 border-l-2 border-loge-300 pl-4 pb-3">
+          <p class="font-semibold text-gray-800">Ouverture de l'appel à tranche</p>
+          <p class="text-gray-500 text-xs mt-0.5">Les membres reçoivent une notification et peuvent choisir leur tranche (T1–T5) jusqu'à fin décembre.</p>
+          <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-loge-50 text-loge-800 rounded">Trésorier</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <div class="w-20 flex-shrink-0 text-center">
+          <span class="inline-block px-2 py-0.5 bg-loge-600 text-white rounded text-xs font-bold">Fin déc.</span>
+        </div>
+        <div class="flex-1 border-l-2 border-loge-200 pl-4 pb-3">
+          <p class="font-semibold text-gray-800">Clôture de l'appel</p>
+          <p class="text-gray-500 text-xs mt-0.5">Les membres sans réponse sont automatiquement reconduits sur leur tranche précédente (ou T3 par défaut). Le T3 est recalculé sur la distribution réelle. Toutes les cotisations sont finalisées.</p>
+          <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-loge-50 text-loge-800 rounded">Trésorier (ou automatique)</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <div class="w-20 flex-shrink-0 text-center">
+          <span class="inline-block px-2 py-0.5 bg-gray-600 text-white rounded text-xs font-bold">Jan.→Juin</span>
+        </div>
+        <div class="flex-1 border-l-2 border-gray-200 pl-4 pb-3">
+          <p class="font-semibold text-gray-800">Encaissement des cotisations</p>
+          <p class="text-gray-500 text-xs mt-0.5">Enregistrement des paiements au fil des encaissements, émission des quitus. Suivi des retardataires.</p>
+          <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">Trésorier</span>
+        </div>
+      </div>
+
+      <div class="flex gap-3">
+        <div class="w-20 flex-shrink-0 text-center">
+          <span class="inline-block px-2 py-0.5 bg-gray-600 text-white rounded text-xs font-bold">Juin</span>
+        </div>
+        <div class="flex-1 border-l-2 border-gray-200 pl-4">
+          <p class="font-semibold text-gray-800">Bilan annuel</p>
+          <p class="text-gray-500 text-xs mt-0.5">Bilan de l'exercice (charges, produits, résultat net). Présenté à l'assemblée générale de clôture. Export PDF et CSV disponibles.</p>
+          <span class="inline-block mt-1 text-xs px-2 py-0.5 bg-gray-100 text-gray-700 rounded">Trésorier + Assemblée</span>
+        </div>
+      </div>
+
+    </div>
+  </section>
+
+  {# ── Budget ── #}
+  <section id="budget" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-file-description"></i> Étape 1 — Saisir le budget voté</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Finance → Budget</p>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Ajouter des lignes budgétaires
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li><strong>Finance → Budget → « Ajouter une ligne »</strong> ou importez un CSV si vous avez votre tableau Excel.</li>
+            <li>Renseignez chaque charge prévisionnelle : libellé, type, montant (agapes, fêtes, loyer, frais divers…).</li>
+            <li>Les catégories créées sont disponibles immédiatement dans le journal des transactions.</li>
+          </ol>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-800">
+            ℹ️ Types disponibles : Charge fixe, Projet, Réserve, Autre. N'incluez pas les capitations dans le budget — elles sont collectées pour l'obédience et reversées directement.
+          </div>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Import CSV
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Si vous préparez le budget sous Excel/LibreOffice, exportez-le en CSV et importez-le via <span class="font-mono text-loge-700 text-xs">/finance/budget/import-csv</span>. Vérifiez le résultat ligne par ligne avant de valider.</p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Capitations ── #}
+  <section id="capitations" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-building-community"></i> Étape 2 — Saisir les taux de capitation</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Finance → Budget → Configuration</p>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Deux taux à saisir chaque année
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>La capitation est une contribution obligatoire versée à l'obédience pour chaque membre. Elle s'ajoute à la cotisation propre de la loge et est communiquée chaque année (généralement en octobre-novembre).</p>
+          <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p class="font-semibold text-gray-800 text-xs mb-1">Taux national</p>
+              <p class="text-xs text-gray-500">Fixé par l'obédience nationale.</p>
+            </div>
+            <div class="bg-gray-50 rounded-lg p-3 border border-gray-100">
+              <p class="font-semibold text-gray-800 text-xs mb-1">Taux régional</p>
+              <p class="text-xs text-gray-500">Fixé par la province / groupement régional.</p>
+            </div>
+          </div>
+          <div class="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-800">
+            ✅ Membres <strong>en appartenance</strong> : capitation complète. Membres <strong>affiliés</strong> : capitation = 0 € (le portail applique automatiquement la règle selon le type de membership).
+          </div>
+          <ol class="list-decimal list-inside space-y-1 mt-1">
+            <li>Finance → Budget → section "Configuration" — zone de saisie des taux.</li>
+            <li>Saisissez les deux montants en €.</li>
+            <li>Renseignez ou vérifiez le nombre de membres actifs.</li>
+            <li>Cliquez <strong>« Recalculer »</strong> — le T3 est immédiatement mis à jour.</li>
+          </ol>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── T3 ── #}
+  <section id="t3" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-calculator"></i> Étape 3 — Le montant de référence T3</h2>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment est calculé le T3 ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-3">
+          <p>Le T3 est le montant de cotisation que paierait un membre "de référence". Il est calculé de façon à ce que la somme de toutes les cotisations pondérées couvre exactement les charges de l'exercice.</p>
+          <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 font-mono text-xs text-loge-900">
+            <p>T3 = Total charges budget</p>
+            <p class="pl-5">÷ Σ(coefficient_tranche × nb_membres_tranche)</p>
+            <p class="mt-2 text-loge-600 not-italic font-sans text-xs">— Les capitations ne sont pas dans les charges (reversées 1:1 à l'obédience)</p>
+            <p class="text-loge-600 not-italic font-sans text-xs">— Les membres sans tranche assignée comptent comme T3 dans le dénominateur</p>
+          </div>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-800">
+            ℹ️ Le portail calcule T3 automatiquement depuis le budget. Vous pouvez aussi le saisir manuellement si la loge préfère fixer le T3 indépendamment du budget (ex : T3 voté en assemblée directement).
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Tranches ── #}
+  <section id="tranches" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-adjustments"></i> Les 5 tranches de cotisation</h2>
+    <p class="text-sm text-gray-600 mb-3">Chaque tranche est un <strong>coefficient fixe</strong> appliqué au T3. Les coefficients ne changent pas d'une année sur l'autre ; seul le T3 varie. Exemple pour un T3 à 200 €&nbsp;:</p>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm border border-gray-100 rounded-xl overflow-hidden">
+        <thead><tr class="bg-gray-50"><th class="text-left px-3 py-2 text-xs font-semibold text-gray-500">Tranche</th><th class="text-left px-3 py-2 text-xs font-semibold text-gray-500">Label</th><th class="text-left px-3 py-2 text-xs font-semibold text-gray-500">Coeff.</th><th class="text-left px-3 py-2 text-xs font-semibold text-gray-500">Exemple (T3 = 200 €)</th><th class="text-left px-3 py-2 text-xs font-semibold text-gray-500">+ Capitation</th></tr></thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-3 py-2 font-semibold text-gray-700">T1</td><td class="px-3 py-2">Très aménagée</td><td class="px-3 py-2 font-mono">× 0,4</td><td class="px-3 py-2">80,00 €</td><td class="px-3 py-2 text-gray-500 text-xs">80 + cap.</td></tr>
+          <tr><td class="px-3 py-2 font-semibold text-gray-700">T2</td><td class="px-3 py-2">Aménagée</td><td class="px-3 py-2 font-mono">× 0,7</td><td class="px-3 py-2">140,00 €</td><td class="px-3 py-2 text-gray-500 text-xs">140 + cap.</td></tr>
+          <tr class="bg-loge-50"><td class="px-3 py-2 font-bold text-loge-800">T3</td><td class="px-3 py-2 font-bold">Référence</td><td class="px-3 py-2 font-mono font-bold">× 1,0</td><td class="px-3 py-2 font-bold">200,00 €</td><td class="px-3 py-2 text-loge-700 text-xs font-semibold">200 + cap.</td></tr>
+          <tr><td class="px-3 py-2 font-semibold text-gray-700">T4</td><td class="px-3 py-2">Confortable</td><td class="px-3 py-2 font-mono">× 1,3</td><td class="px-3 py-2">260,00 €</td><td class="px-3 py-2 text-gray-500 text-xs">260 + cap.</td></tr>
+          <tr><td class="px-3 py-2 font-semibold text-gray-700">T5</td><td class="px-3 py-2">Très confortable</td><td class="px-3 py-2 font-mono">× 1,6</td><td class="px-3 py-2">320,00 €</td><td class="px-3 py-2 text-gray-500 text-xs">320 + cap.</td></tr>
+        </tbody>
+      </table>
+    </div>
+    <p class="text-xs text-gray-500 mt-2">Le montant total payé par le membre = tranche + capitation. Un membre affilié ne paie pas de capitation.</p>
+  </section>
+
+  {# ── Appel à tranche ── #}
+  <section id="appel" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-bell-ringing"></i> Étape 5 — L'appel à tranche</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Finance → Budget → Appel à tranche · Finance → Cotisations</p>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Ouvrir l'appel à tranche
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>L'appel à tranche est la période pendant laquelle chaque membre choisit librement sa tranche (T1–T5). Ce choix est anonyme vis-à-vis des autres membres, mais visible du Trésorier et du VM.</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Finance → Budget → section "Appel à tranche" — renseignez la date d'ouverture et de clôture (typiquement 15 nov. → 31 déc.).</li>
+            <li>Cliquez <strong>« Ouvrir l'appel »</strong> — le statut passe à <span class="bg-green-100 text-green-800 rounded px-1 text-xs">Ouvert</span>.</li>
+            <li>Les membres reçoivent une notification et peuvent choisir via <span class="font-mono text-loge-700 text-xs">/finance/cotisations/choisir</span>.</li>
+          </ol>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-800">
+            ℹ️ Des rappels automatiques sont envoyés aux membres sans réponse à J-3, J-2 et J-1 avant la clôture.
+          </div>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Assigner manuellement une tranche
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1">
+          <p>Si un membre vous communique son choix hors portail : Finance → Cotisations → ligne du membre → <strong>« Assigner »</strong>. Choisissez la tranche et validez — la cotisation est créée immédiatement.</p>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-800">
+            ⚠ Le bouton <strong>« Assigner T3 à tous »</strong> assigne T3 à tous les membres sans cotisation. À utiliser après la clôture pour les membres silencieux.
+          </div>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          États de l'appel
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="mt-2 overflow-x-auto">
+          <table class="w-full text-xs border border-gray-100 rounded-lg overflow-hidden">
+            <tbody class="divide-y divide-gray-100">
+              <tr><td class="px-3 py-1.5"><span class="bg-green-100 text-green-800 rounded px-1.5 py-0.5 text-xs font-semibold">Ouvert</span></td><td class="px-3 py-1.5 text-gray-600">Dans la fenêtre de dates ET bouton activé — les membres peuvent choisir</td></tr>
+              <tr><td class="px-3 py-1.5"><span class="bg-amber-100 text-amber-800 rounded px-1.5 py-0.5 text-xs font-semibold">À venir</span></td><td class="px-3 py-1.5 text-gray-600">Date d'ouverture pas encore atteinte</td></tr>
+              <tr><td class="px-3 py-1.5"><span class="bg-amber-100 text-amber-800 rounded px-1.5 py-0.5 text-xs font-semibold">Désactivé</span></td><td class="px-3 py-1.5 text-gray-600">Dans la fenêtre mais bouton manuellement éteint (pause)</td></tr>
+              <tr><td class="px-3 py-1.5"><span class="bg-gray-100 text-gray-700 rounded px-1.5 py-0.5 text-xs font-semibold">Clos</span></td><td class="px-3 py-1.5 text-gray-600">Date de clôture dépassée, ou clôture manuelle effectuée</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Clôture ── #}
+  <section id="cloture" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-lock"></i> Étape 6 — Clôture de l'appel</h2>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Ce qui se passe à la clôture
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li><strong>Finance → Cotisations → « Fermer l'appel »</strong> (ou clôture automatique à la date configurée).</li>
+            <li>Les membres sans réponse sont reconduits sur leur tranche précédente (ou T3 par défaut).</li>
+            <li>Le T3 est recalculé sur la distribution <em>réelle</em> — maintenant que toutes les tranches sont connues.</li>
+            <li>Les montants des cotisations en attente sont resynchronisés. Chaque membre a désormais une cotisation finalisée.</li>
+          </ol>
+          <div class="bg-red-50 border border-red-200 rounded-lg p-2 text-xs text-red-800">
+            🔒 La réouverture d'un appel fermé est possible mais demande une double confirmation. À éviter une fois les avis de cotisation envoyés.
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Paiements ── #}
+  <section id="paiements" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-credit-card"></i> Gestion des paiements et quitus</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Finance → Cotisations · Finance → Membres/{id}</p>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Enregistrer un paiement
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Finance → Cotisations → ligne du membre → <strong>« Paiement »</strong>.</li>
+            <li>Saisissez : montant, date, mode (espèces / virement / chèque / autre), référence.</li>
+            <li>Le statut se met à jour automatiquement : <span class="text-xs bg-gray-100 px-1 rounded">En attente</span> → <span class="text-xs bg-amber-100 text-amber-800 px-1 rounded">Partielle</span> → <span class="text-xs bg-green-100 text-green-800 px-1 rounded">À jour</span>.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Statuts de cotisation
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="mt-2 grid grid-cols-2 gap-2 text-xs">
+          <div class="bg-gray-50 rounded-lg p-2 border border-gray-100"><span class="font-semibold">En attente</span><br><span class="text-gray-500">0 € encaissé</span></div>
+          <div class="bg-amber-50 rounded-lg p-2 border border-amber-100"><span class="font-semibold text-amber-800">Partielle</span><br><span class="text-amber-700">Paiement partiel reçu</span></div>
+          <div class="bg-green-50 rounded-lg p-2 border border-green-100"><span class="font-semibold text-green-800">À jour</span><br><span class="text-green-700">Soldée (100 %)</span></div>
+          <div class="bg-blue-50 rounded-lg p-2 border border-blue-100"><span class="font-semibold text-blue-800">Exonéré</span><br><span class="text-blue-700">Exonération accordée</span></div>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Émettre un quitus
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Un quitus est émis automatiquement quand le statut passe à <em>À jour</em> ou <em>Exonéré</em>. Vous pouvez aussi l'émettre manuellement depuis la fiche financière du membre. Il est téléchargeable en PDF.</p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Exonérer un membre
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Sur décision du VM ou sur situation avérée : Fiche membre → Cotisations → <strong>« Exonérer »</strong>. Saisissez la raison (conservée dans le dossier). Le membre est considéré "à jour" dans les statistiques et le quitus est émis.</p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Transactions ── #}
+  <section id="transactions" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-receipt"></i> Journal des transactions</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Finance → Transactions</p>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Saisir un mouvement (recette ou dépense)
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Cliquez sur <strong>« Nouveau mouvement »</strong> — choisissez type Recette ou Dépense.</li>
+            <li>Renseignez : date, catégorie (issue des lignes budgétaires), montant, description.</li>
+            <li>Joignez un justificatif si besoin (PDF ou image).</li>
+          </ol>
+          <p class="text-xs text-gray-500">Un export CSV des mouvements de l'exercice est disponible.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Bilan ── #}
+  <section id="bilan" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-report-analytics"></i> Bilan et tableau de bord financier</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Finance → Bilan · Finance → Tableau de bord</p>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Consulter le bilan et les statistiques
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Le tableau de bord financier affiche l'état par membre (dû / payé / reste / avance), les statistiques globales (total dû, encaissé) et le top des retardataires.</p>
+          <p>Le <strong>bilan</strong> calcule le résultat par catégorie (charges, produits, résultat net hors capitation, résultat brut). Il est exportable en CSV et PDF.</p>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-800">
+            ⚠ L'ouverture d'une <strong>nouvelle année comptable</strong> (avec reprise optionnelle du budget) est réservée à l'administrateur technique. Prévenez-le en septembre.
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Référence rapide ── #}
+  <section id="ref" class="bg-loge-50 border border-loge-200 rounded-2xl p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-bookmark"></i> Référence rapide — Trésorier</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs border border-loge-100 rounded-lg overflow-hidden bg-white">
+        <thead><tr class="bg-loge-100"><th class="text-left px-3 py-2 font-semibold text-loge-800">Action</th><th class="text-left px-3 py-2 font-semibold text-loge-800">Chemin</th></tr></thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-3 py-1.5">Saisir le budget</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/budget</td></tr>
+          <tr><td class="px-3 py-1.5">Configurer les capitations &amp; T3</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/budget → Configuration</td></tr>
+          <tr><td class="px-3 py-1.5">Ouvrir / fermer l'appel à tranche</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/cotisations/toggle-appel</td></tr>
+          <tr><td class="px-3 py-1.5">Assigner une tranche manuellement</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/cotisations → Assigner</td></tr>
+          <tr><td class="px-3 py-1.5">Enregistrer un paiement</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/cotisations → Paiement</td></tr>
+          <tr><td class="px-3 py-1.5">Émettre un quitus</td><td class="px-3 py-1.5 font-mono text-loge-700">Fiche membre → Cotisations → Quitus</td></tr>
+          <tr><td class="px-3 py-1.5">Exonérer un membre</td><td class="px-3 py-1.5 font-mono text-loge-700">Fiche membre → Exonérer</td></tr>
+          <tr><td class="px-3 py-1.5">Saisir un mouvement financier</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/transactions</td></tr>
+          <tr><td class="px-3 py-1.5">Tableau de bord financier</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/</td></tr>
+          <tr><td class="px-3 py-1.5">Bilan et export CSV/PDF</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/bilan</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="text-xs text-gray-400 text-center pt-2 no-print">
+    Une question ? Consultez la <a href="/faq#tresorier" class="text-loge-700 underline">FAQ Trésorier</a> ou contactez le webmestre.
+  </p>
+
+</div>
+{% endblock %}

@@ -1,0 +1,187 @@
+{% extends "base.html" %}
+{% block title %}Guide Maître des Banquets{% endblock %}
+
+{% block content %}
+<style>
+  @media print {
+    nav, aside, header, .no-print { display: none !important; }
+    .print-content { padding: 0 !important; }
+    details > * { display: block !important; }
+    details summary { list-style: none; }
+  }
+</style>
+<div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 print-content">
+
+  <div class="flex items-start justify-between gap-4 mb-6">
+    <div>
+      <nav class="text-xs text-gray-500 mb-1 no-print">
+        <a href="/faq" class="text-loge-700 hover:underline">FAQ</a>
+        <span class="mx-1">›</span>
+        <span>Guide Maître des Banquets</span>
+      </nav>
+      <h1 class="text-2xl font-bold text-gray-900">🍽 Guide du Maître des Banquets</h1>
+      <p class="text-sm text-gray-500 mt-1">Gestion des agapes, couverts, régimes alimentaires et exports.</p>
+    </div>
+    <button onclick="window.print()"
+            class="no-print flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl">
+      <i class="ti ti-printer"></i> Imprimer / PDF
+    </button>
+  </div>
+
+  {# Sommaire #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6 no-print">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Sommaire</p>
+    <div class="flex flex-wrap gap-2 text-sm">
+      <a href="#agapes"   class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Mes agapes</a>
+      <a href="#gestion"  class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Gérer les couverts</a>
+      <a href="#regimes"  class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Régimes alimentaires</a>
+      <a href="#export"   class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Export Excel</a>
+      <a href="#ref"      class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Référence rapide</a>
+    </div>
+  </div>
+
+  {# ── Vue d'ensemble ── #}
+  <section id="agapes" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-list-check"></i> Vue d'ensemble — Mes agapes</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Mes agapes (menu principal)</p>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Voir les agapes à venir
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>La page <strong>« Mes agapes »</strong> liste toutes les tenues à venir pour lesquelles les agapes sont activées, avec pour chacune :</p>
+          <ul class="list-disc list-inside space-y-0.5">
+            <li>Le nombre de couverts actuel (membres + invités + passants + profanes)</li>
+            <li>La date limite d'inscription</li>
+            <li>Un bouton rapide pour accéder à la gestion de cette tenue</li>
+          </ul>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Gestion des couverts ── #}
+  <section id="gestion" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-users-group"></i> Gérer les couverts d'une tenue</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Mes agapes → [tenue] · Tenues → [tenue] → Agapes</p>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Modifier la participation d'un membre
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1">
+          <p>Depuis la page agapes de la tenue, vous voyez la liste de tous les membres actifs avec leur statut de participation :</p>
+          <ul class="list-disc list-inside space-y-0.5 mt-1">
+            <li>Activez ou désactivez la participation d'un membre d'un clic.</li>
+            <li>Ajustez le nombre d'invités (+1, +2…).</li>
+            <li>Modifiez le régime alimentaire si le membre vous l'a communiqué.</li>
+          </ul>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Ajouter un passant ou un invité profane
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1">
+          <p>Les passants (frères visiteurs d'une autre loge) et les invités profanes sont saisis séparément des membres :</p>
+          <ol class="list-decimal list-inside space-y-1 mt-1">
+            <li>Cliquez sur <strong>« Ajouter un passant »</strong> ou <strong>« Ajouter un invité profane »</strong>.</li>
+            <li>Renseignez le nom, prénom, et le régime alimentaire si nécessaire.</li>
+            <li>Confirmez — le couvert est ajouté au total de la tenue.</li>
+          </ol>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Régimes ── #}
+  <section id="regimes" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-leaf"></i> Régimes alimentaires</h2>
+    <p class="text-sm text-gray-600 mb-3">Le portail centralise les régimes déclarés par les membres, ce qui vous permet d'anticiper les besoins sans avoir à solliciter chacun individuellement.</p>
+    <div class="grid grid-cols-2 sm:grid-cols-4 gap-3">
+      <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-center text-xs">
+        <p class="text-lg mb-1">🥗</p>
+        <p class="font-semibold text-green-800">Végétarien</p>
+        <p class="text-green-700 text-xs">Pas de viande ni poisson</p>
+      </div>
+      <div class="bg-green-50 border border-green-200 rounded-xl p-3 text-center text-xs">
+        <p class="text-lg mb-1">🌱</p>
+        <p class="font-semibold text-green-800">Végan</p>
+        <p class="text-green-700 text-xs">Aucun produit animal</p>
+      </div>
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-3 text-center text-xs">
+        <p class="text-lg mb-1">🚫</p>
+        <p class="font-semibold text-amber-800">Sans porc</p>
+        <p class="text-amber-700 text-xs">Pas de porc ni charcuterie</p>
+      </div>
+      <div class="bg-gray-50 border border-gray-200 rounded-xl p-3 text-center text-xs">
+        <p class="text-lg mb-1">⚠️</p>
+        <p class="font-semibold text-gray-700">Autre</p>
+        <p class="text-gray-500 text-xs">Allergie, intolérance…</p>
+      </div>
+    </div>
+    <p class="text-xs text-gray-500 mt-3">Le récapitulatif des régimes alimentaires est visible sur la page agapes de chaque tenue, et est inclus dans l'export Excel.</p>
+  </section>
+
+  {# ── Export ── #}
+  <section id="export" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-1"><i class="ti ti-file-spreadsheet"></i> Export Excel de la liste finale</h2>
+    <p class="text-xs text-gray-400 font-mono mb-3">Tenues → [tenue] → Agapes → Exporter</p>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Obtenir la liste complète pour le traiteur
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>L'export Excel inclut toutes les informations nécessaires, organisées en sections :</p>
+          <ul class="list-disc list-inside space-y-0.5">
+            <li><strong>Frères et Sœurs membres</strong> : nom, invités, régime alimentaire</li>
+            <li><strong>Passants</strong> : nom, loge d'origine, régime</li>
+            <li><strong>Invités profanes</strong> : nom, régime</li>
+            <li><strong>Totaux</strong> : nombre de couverts par catégorie et par régime</li>
+          </ul>
+          <ol class="list-decimal list-inside space-y-1 mt-2">
+            <li>Ouvrez la page agapes de la tenue.</li>
+            <li>Cliquez sur <strong>« Exporter Excel »</strong>.</li>
+            <li>Le fichier se télécharge immédiatement.</li>
+          </ol>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-800">
+            ℹ️ Vous pouvez générer l'export autant de fois que nécessaire — il reflète toujours l'état actuel des inscriptions.
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Référence rapide ── #}
+  <section id="ref" class="bg-loge-50 border border-loge-200 rounded-2xl p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-bookmark"></i> Référence rapide — Maître des Banquets</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs border border-loge-100 rounded-lg overflow-hidden bg-white">
+        <thead><tr class="bg-loge-100"><th class="text-left px-3 py-2 font-semibold text-loge-800">Action</th><th class="text-left px-3 py-2 font-semibold text-loge-800">Chemin</th></tr></thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-3 py-1.5">Vue des agapes à venir + couverts</td><td class="px-3 py-1.5 font-mono text-loge-700">/banquets/ (Mes agapes)</td></tr>
+          <tr><td class="px-3 py-1.5">Gérer les couverts d'une tenue</td><td class="px-3 py-1.5 font-mono text-loge-700">/meetings/{id}/agapes</td></tr>
+          <tr><td class="px-3 py-1.5">Ajouter un passant</td><td class="px-3 py-1.5 font-mono text-loge-700">Agapes → Ajouter un passant</td></tr>
+          <tr><td class="px-3 py-1.5">Ajouter un invité profane</td><td class="px-3 py-1.5 font-mono text-loge-700">Agapes → Ajouter un invité profane</td></tr>
+          <tr><td class="px-3 py-1.5">Récapitulatif des régimes</td><td class="px-3 py-1.5 font-mono text-loge-700">Agapes → onglet Régimes</td></tr>
+          <tr><td class="px-3 py-1.5">Export Excel liste des couverts</td><td class="px-3 py-1.5 font-mono text-loge-700">Agapes → Exporter Excel</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="text-xs text-gray-400 text-center pt-2 no-print">
+    Une question ? Consultez la <a href="/faq#banquets" class="text-loge-700 underline">FAQ Maître des Banquets</a> ou contactez le webmestre.
+  </p>
+
+</div>
+{% endblock %}

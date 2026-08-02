@@ -24,6 +24,73 @@
     </div>
   </div>
 
+  {# ── Guides de formation ──────────────────────────────────────────────── #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <h2 class="text-base font-semibold text-loge-800 mb-1"><i class="ti ti-book-2"></i> Guides de formation par rôle</h2>
+    <p class="text-xs text-gray-500 mb-4">Procédures pas à pas, fiches de référence et aide à l'impression (PDF).</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+      <a href="/guides/membre" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-user text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide membre</p>
+          <p class="text-xs text-gray-500">Connexion, tenues, documents, messages, profil</p>
+        </div>
+      </a>
+
+      {% if show_guide_secretaire %}
+      <a href="/guides/secretaire" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-notebook text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Secrétaire</p>
+          <p class="text-xs text-gray-500">Membres, tenues, présences, PV, annonces</p>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if show_guide_tresorier %}
+      <a href="/guides/tresorier" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-coins text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Trésorier</p>
+          <p class="text-xs text-gray-500">Budget, T3, appel à tranche, paiements, bilan</p>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if show_guide_banquets %}
+      <a href="/guides/maitre-banquets" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <span class="text-base">🍽</span>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Maître des Banquets</p>
+          <p class="text-xs text-gray-500">Agapes, couverts, régimes alimentaires, export</p>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if show_guide_vm %}
+      <a href="/guides/vm" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-crown text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Vénérable Maître</p>
+          <p class="text-xs text-gray-500">Actions exclusives VM, verrouillage, finances, communications</p>
+        </div>
+      </a>
+      {% endif %}
+
+    </div>
+  </section>
+
   {# ── Général ─────────────────────────────────────────────────────────── #}
   <section id="general" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 scroll-mt-4">
     <h2 class="text-lg font-semibold text-loge-800 mb-3">Général — tous les membres</h2>
