@@ -52,12 +52,16 @@
         {% endfor %}
       </select>
 
+      {% if is_manager %}
       <select name="status_filter" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         <option value="">Tous les statuts</option>
         <option value="ACTIVE" {% if status_filter == 'ACTIVE' %}selected{% endif %}>Actifs</option>
         <option value="LEAVE" {% if status_filter == 'LEAVE' %}selected{% endif %}>En congé</option>
         <option value="RESIGNED" {% if status_filter == 'RESIGNED' %}selected{% endif %}>Démissionnaires</option>
+        <option value="STRUCK" {% if status_filter == 'STRUCK' %}selected{% endif %}>Radiés</option>
+        <option value="DECEASED" {% if status_filter == 'DECEASED' %}selected{% endif %}>Décédés</option>
       </select>
+      {% endif %}
 
       <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
         Filtrer
@@ -121,7 +125,7 @@
           <th class="text-left px-6 py-3 font-medium text-gray-600">Membre</th>
           <th class="text-left px-6 py-3 font-medium text-gray-600">Grade</th>
           <th class="text-left px-6 py-3 font-medium text-gray-600">Office</th>
-          <th class="text-left px-6 py-3 font-medium text-gray-600">Email</th>
+          {% if is_manager %}<th class="text-left px-6 py-3 font-medium text-gray-600">Email</th>{% endif %}
           <th class="text-left px-6 py-3 font-medium text-gray-600">Statut</th>
           <th class="text-left px-6 py-3 font-medium text-gray-600">Actions</th>
         </tr>
@@ -140,7 +144,7 @@
           </td>
           <td class="px-6 py-3 text-gray-600">{{ grade_label(m.masonic_grade, m.civility) }}</td>
           <td class="px-6 py-3 text-gray-600">{{ office_by_member.get(m.id, '—') }}</td>
-          <td class="px-6 py-3 text-gray-500">{{ m.email }}</td>
+          {% if is_manager %}<td class="px-6 py-3 text-gray-500">{{ m.email }}</td>{% endif %}
           <td class="px-6 py-3">
             {% if m.status.value == 'ACTIVE' %}
             <span class="inline-flex items-center gap-1 text-xs font-medium text-green-700 bg-green-50 rounded-full px-2 py-0.5">

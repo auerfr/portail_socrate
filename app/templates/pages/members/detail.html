@@ -56,9 +56,10 @@
     <!-- Contenu -->
     <div class="p-6 grid sm:grid-cols-2 gap-6">
 
-      <!-- Coordonnées -->
+      <!-- Coordonnées — visibles uniquement par gestionnaires ou soi-même -->
       <div>
         <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Coordonnées</h2>
+        {% if can_manage or is_own_profile %}
         <dl class="space-y-2 text-sm">
           <div class="flex gap-2">
             <dt class="text-gray-500 w-24 shrink-0">Email</dt>
@@ -77,6 +78,9 @@
           </div>
           {% endif %}
         </dl>
+        {% else %}
+        <p class="text-sm text-gray-400 italic">Coordonnées réservées aux officiers de la loge.</p>
+        {% endif %}
       </div>
 
       <!-- Parcours maçonnique -->
@@ -185,8 +189,8 @@
 
   </div>
 
-  <!-- Cotisation année en cours -->
-  {% if current_year and (can_manage or is_own_profile) %}
+  <!-- Cotisation année en cours — visible par gestionnaires finance ou soi-même -->
+  {% if current_year and (can_see_finance or is_own_profile) %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
     <div class="px-6 py-4 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-gray-700">Cotisation {{ current_year.label }}</h2>
