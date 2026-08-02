@@ -82,7 +82,7 @@
     <!-- Zone vote / résultats -->
     <div class="p-6">
 
-      {% if is_open and not has_voted %}
+      {% if is_open and not has_voted and not is_creator %}
       <!-- Formulaire de vote -->
       <form method="post" action="/polls/{{ poll.id }}/vote" class="space-y-3">
         {% for r in results %}
@@ -114,6 +114,12 @@
       <div class="flex items-center gap-2 text-sm text-green-700 bg-green-50 rounded-xl px-4 py-2.5 mb-4">
         <span>✅</span>
         <span class="font-medium">Votre vote a été enregistré</span>
+      </div>
+      {% endif %}
+      {% if is_creator and is_open and not has_voted %}
+      <div class="flex items-center gap-2 text-sm text-loge-700 bg-loge-50 rounded-xl px-4 py-2.5 mb-4">
+        <span><i class="ti ti-eye"></i></span>
+        <span class="font-medium">Vue créateur — résultats en cours (non visibles des autres votants)</span>
       </div>
       {% endif %}
 
