@@ -408,7 +408,7 @@ async def _resolve_attachments(db: AsyncSession, attachments_json) -> list[tuple
 
 async def send_campaign_async(campaign_id: int, base_url: str = "https://portail.amisdesocrate.fr"):
     """Worker d'envoi d'une campagne — boucle avec rate-limit + reuse SMTP."""
-    from app.services.email import _send_raw
+    from app.services.email import _send_raw, open_smtp_client
 
     async with AsyncSessionLocal() as db:
         campaign = await db.get(MailingCampaign, campaign_id)
@@ -453,74 +453,99 @@ async def send_campaign_async(campaign_id: int, base_url: str = "https://portail
         campaign.recipients_count = len(recipients)
         await db.commit()
 
-        for r in recipients:
-            key = (
-                r.contact_id if r.kind == "m" else None,
-                r.contact_id if r.kind == "e" else None,
-                (r.email or "").lower(),
-            )
-            if key in already_sent_keys:
-                sent += 1
-                continue
+        try:
+            smtp_client = await open_smtp_client()
+        except Exception as e:
+            logger.warning("Ouverture connexion SMTP persistante échouée, repli par email : %s", e)
+            smtp_client = None
 
-            # Crée le record delivery
-            d = MailingDelivery(
-                campaign_id=campaign.id,
-                member_id=(r.contact_id if r.kind == "m" else None),
-                external_id=(r.contact_id if r.kind == "e" else None),
-                email=r.email or "",
-                status=DeliveryStatus.PENDING,
-            )
-            db.add(d)
-            await db.flush()
-
-            if not r.email:
-                d.status = DeliveryStatus.NO_EMAIL
-                d.error = "Aucune adresse email"
-                failed += 1
-                await db.commit()
-                continue
-
-            # Rendu personnalisé
-            subj = render_subject(campaign.subject, r)
-            body_md = render_body_md(campaign.body_md, r)
-            body_html_inner = md_to_html(body_md)
-
-            # URL de désinscription
-            tok = make_unsubscribe_token(mlist.id, r.kind, r.contact_id)
-            unsub_url = f"{base_url}/mailing/unsubscribe/{tok}"
-
-            # Pixel de tracking d'ouverture (image 1×1 transparente)
-            open_token = make_tracking_token(d.id, "o")
-            pixel = f'<img src="{base_url}/mailing/track/open/{open_token}" width="1" height="1" alt="" style="display:none">'
-
-            # Réécriture des liens pour le tracking clics
-            body_html_with_links = _rewrite_links(body_html_inner, base_url, d.id)
-
-            html = make_html_email(body_html_with_links + pixel, unsub_url, mlist.name, lodge_name)
-            text = body_md + f"\n\n— Se désinscrire : {unsub_url}"
-
-            try:
-                ok, err = await _send_raw(
-                    to=r.email, subject=subj, html=html, text=text,
-                    attachments=attachments or None,
+        try:
+            for r in recipients:
+                key = (
+                    r.contact_id if r.kind == "m" else None,
+                    r.contact_id if r.kind == "e" else None,
+                    (r.email or "").lower(),
                 )
-                if ok:
-                    d.status = DeliveryStatus.SENT
-                    d.sent_at = datetime.utcnow()
+                if key in already_sent_keys:
                     sent += 1
-                else:
-                    d.status = DeliveryStatus.FAILED
-                    d.error = (err or "")[:1000]
-                    failed += 1
-            except Exception as e:
-                d.status = DeliveryStatus.FAILED
-                d.error = str(e)[:1000]
-                failed += 1
-            await db.commit()
+                    continue
 
-            # Rate limit
-            await asyncio.sleep(EMAIL_DELAY_MS / 1000.0)
+                # Crée le record delivery
+                d = MailingDelivery(
+                    campaign_id=campaign.id,
+                    member_id=(r.contact_id if r.kind == "m" else None),
+                    external_id=(r.contact_id if r.kind == "e" else None),
+                    email=r.email or "",
+                    status=DeliveryStatus.PENDING,
+                )
+                db.add(d)
+                await db.flush()
+
+                if not r.email:
+                    d.status = DeliveryStatus.NO_EMAIL
+                    d.error = "Aucune adresse email"
+                    failed += 1
+                    await db.commit()
+                    continue
+
+                # Rendu personnalisé
+                subj = render_subject(campaign.subject, r)
+                body_md = render_body_md(campaign.body_md, r)
+                body_html_inner = md_to_html(body_md)
+
+                # URL de désinscription
+                tok = make_unsubscribe_token(mlist.id, r.kind, r.contact_id)
+                unsub_url = f"{base_url}/mailing/unsubscribe/{tok}"
+
+                # Pixel de tracking d'ouverture (image 1×1 transparente)
+                open_token = make_tracking_token(d.id, "o")
+                pixel = f'<img src="{base_url}/mailing/track/open/{open_token}" width="1" height="1" alt="" style="display:none">'
+
+                # Réécriture des liens pour le tracking clics
+                body_html_with_links = _rewrite_links(body_html_inner, base_url, d.id)
+
+                html = make_html_email(body_html_with_links + pixel, unsub_url, mlist.name, lodge_name)
+                text = body_md + f"\n\n— Se désinscrire : {unsub_url}"
+
+                try:
+                    ok, err = await _send_raw(
+                        to=r.email, subject=subj, html=html, text=text,
+                        attachments=attachments or None, client=smtp_client,
+                    )
+                    if not ok and smtp_client is not None and not smtp_client.is_connected:
+                        # Connexion SMTP coupée en cours de campagne : on rouvre
+                        # et on retente une fois avant d'abandonner ce destinataire.
+                        try:
+                            await smtp_client.quit()
+                        except Exception:
+                            pass
+                        smtp_client = await open_smtp_client()
+                        ok, err = await _send_raw(
+                            to=r.email, subject=subj, html=html, text=text,
+                            attachments=attachments or None, client=smtp_client,
+                        )
+                    if ok:
+                        d.status = DeliveryStatus.SENT
+                        d.sent_at = datetime.utcnow()
+                        sent += 1
+                    else:
+                        d.status = DeliveryStatus.FAILED
+                        d.error = (err or "")[:1000]
+                        failed += 1
+                except Exception as e:
+                    d.status = DeliveryStatus.FAILED
+                    d.error = str(e)[:1000]
+                    failed += 1
+                await db.commit()
+
+                # Rate limit
+                await asyncio.sleep(EMAIL_DELAY_MS / 1000.0)
+        finally:
+            if smtp_client is not None:
+                try:
+                    await smtp_client.quit()
+                except Exception:
+                    pass
 
         # Fin de campagne
         campaign.sent_count = sent

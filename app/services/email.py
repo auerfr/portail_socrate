@@ -13,16 +13,42 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+async def open_smtp_client() -> Optional[aiosmtplib.SMTP]:
+    """
+    Ouvre une connexion SMTP persistante, à réutiliser pour plusieurs envois
+    (ex : campagne de diffusion). Retourne None si SMTP non configuré.
+    À fermer explicitement avec `await client.quit()` une fois terminé.
+    """
+    settings = get_settings()
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        return None
+
+    client = aiosmtplib.SMTP(
+        hostname=settings.smtp_host,
+        port=settings.smtp_port,
+        username=settings.smtp_user,
+        password=settings.smtp_pass,
+        use_tls=settings.smtp_secure == "ssl",     # SSL direct (port 465)
+        start_tls=settings.smtp_secure == "tls",   # STARTTLS (port 587)
+        timeout=15,
+    )
+    await client.connect()
+    return client
+
+
 async def _send_raw(
     to: str,
     subject: str,
     html: str,
     text: str,
     attachments: Optional[list[tuple[str, bytes, str]]] = None,
+    client: Optional[aiosmtplib.SMTP] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     Envoie un email brut. Retourne (True, None) si succès.
     attachments : liste de (filename, content_bytes, mime_type)
+    client : connexion SMTP déjà ouverte (via `open_smtp_client`) à réutiliser
+             pour plusieurs envois ; si absent, ouvre/ferme une connexion dédiée.
     """
     settings = get_settings()
 
@@ -72,19 +98,19 @@ async def _send_raw(
     msg["X-Mailer"] = "Portail Socrate"
 
     try:
-        use_ssl  = settings.smtp_secure == "ssl"
-        use_tls  = settings.smtp_secure == "tls"
-
-        await aiosmtplib.send(
-            msg,
-            hostname=settings.smtp_host,
-            port=settings.smtp_port,
-            username=settings.smtp_user,
-            password=settings.smtp_pass,
-            use_tls=use_ssl,       # SSL direct (port 465)
-            start_tls=use_tls,     # STARTTLS (port 587)
-            timeout=15,            # 15 secondes max
-        )
+        if client is not None:
+            await client.send_message(msg)
+        else:
+            await aiosmtplib.send(
+                msg,
+                hostname=settings.smtp_host,
+                port=settings.smtp_port,
+                username=settings.smtp_user,
+                password=settings.smtp_pass,
+                use_tls=settings.smtp_secure == "ssl",     # SSL direct (port 465)
+                start_tls=settings.smtp_secure == "tls",   # STARTTLS (port 587)
+                timeout=15,            # 15 secondes max
+            )
         logger.info("Email envoyé → %s [%s]", to, subject)
         await _journal(True, None)
         return True, None
