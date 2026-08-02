@@ -71,47 +71,78 @@
   <!-- Liste Reçus -->
   {% if tab == 'inbox' %}
   {% if received %}
-  <div class="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
-    {% for rec in received %}
-    {% set msg = rec.message %}
-    {% set is_unread = rec.read_at is none %}
-    <a href="/messages/{{ msg.id }}"
-       class="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors block
-              {% if is_unread %}bg-loge-50/50{% endif %}">
-      <!-- Avatar expéditeur -->
-      {% set sender = senders_map.get(msg.sender_id) %}
-      <div class="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
-           style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-        {{ sender.first_name[0] if sender else '?' }}{{ sender.last_name | anon_nom | first if sender else '' }}
-        {{ presence.dot(sender) }}
-      </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center justify-between gap-2">
-          <div class="flex items-center gap-2 min-w-0">
-            {% if is_unread %}
-            <span class="w-2 h-2 rounded-full bg-loge-500 flex-shrink-0"></span>
-            {% endif %}
-            <span class="text-sm {% if is_unread %}font-bold text-gray-900{% else %}font-medium text-gray-700{% endif %} truncate">
-              {{ msg.subject }}
-            </span>
-            {% if rec.label %}
-            <span class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-loge-100 text-loge-700">{{ rec.label }}</span>
-            {% endif %}
+  <div x-data="{ selected: [] }">
+
+    <!-- Barre d'action groupée -->
+    <div x-show="selected.length > 0" x-cloak
+         class="flex items-center gap-3 mb-3 bg-loge-50 border border-loge-200 rounded-lg px-4 py-2.5">
+      <span class="text-sm text-loge-800 font-medium" x-text="selected.length + ' sélectionné' + (selected.length > 1 ? 's' : '')"></span>
+      <button type="button" @click="selected = []" class="text-xs text-gray-500 hover:text-gray-700 ml-auto">Annuler</button>
+      <button type="button"
+              @click="if(confirm('Déplacer ' + selected.length + ' message(s) vers la corbeille ?')){ document.getElementById('bulk-ids-inbox').value = selected.join(','); document.getElementById('bulk-form-inbox').submit(); }"
+              class="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors">
+        🗑 Supprimer la sélection
+      </button>
+    </div>
+    <form id="bulk-form-inbox" method="post" action="/messages/bulk-delete" class="hidden">
+      <input type="hidden" name="message_ids" id="bulk-ids-inbox">
+      <input type="hidden" name="origin" value="inbox">
+    </form>
+
+    <label class="flex items-center gap-2 text-xs text-gray-400 mb-2 px-1 cursor-pointer w-fit">
+      <input type="checkbox" class="rounded border-gray-300"
+             :checked="selected.length === {{ received|length }}"
+             @change="selected = $event.target.checked ? [{{ received|map(attribute='message.id')|join(',') }}] : []">
+      Tout sélectionner
+    </label>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
+      {% for rec in received %}
+      {% set msg = rec.message %}
+      {% set is_unread = rec.read_at is none %}
+      <div class="flex items-center {% if is_unread %}bg-loge-50/50{% endif %}">
+        <input type="checkbox" class="ml-4 shrink-0 rounded border-gray-300"
+               value="{{ msg.id }}"
+               :checked="selected.includes({{ msg.id }})"
+               @change="$event.target.checked ? selected.push({{ msg.id }}) : selected = selected.filter(i => i !== {{ msg.id }})">
+        <a href="/messages/{{ msg.id }}"
+           class="flex-1 min-w-0 flex items-start gap-3 px-3 py-4 hover:bg-gray-50 transition-colors block">
+          <!-- Avatar expéditeur -->
+          {% set sender = senders_map.get(msg.sender_id) %}
+          <div class="relative w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5"
+               style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
+            {{ sender.first_name[0] if sender else '?' }}{{ sender.last_name | anon_nom | first if sender else '' }}
+            {{ presence.dot(sender) }}
           </div>
-          <span class="text-xs text-gray-400 flex-shrink-0">
-            {{ msg.sent_at.strftime('%d/%m %H:%M') if msg.sent_at else '' }}
-          </span>
-        </div>
-        <div class="text-xs text-gray-500 mt-0.5">
-          De : {{ ((sender.last_name | anon_nom) ~ ' ' ~ sender.first_name) if sender else 'Inconnu' }}
-          {% if sender and sender.lodge_function and sender.lodge_function.value != 'FRERE' %}
-          · <span class="text-gray-400">{{ sender.lodge_function | label }}</span>
-          {% endif %}
-        </div>
-        <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ msg.body[:120] }}</p>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <div class="flex items-center gap-2 min-w-0">
+                {% if is_unread %}
+                <span class="w-2 h-2 rounded-full bg-loge-500 flex-shrink-0"></span>
+                {% endif %}
+                <span class="text-sm {% if is_unread %}font-bold text-gray-900{% else %}font-medium text-gray-700{% endif %} truncate">
+                  {{ msg.subject }}
+                </span>
+                {% if rec.label %}
+                <span class="shrink-0 text-[10px] font-semibold px-1.5 py-0.5 rounded-full bg-loge-100 text-loge-700">{{ rec.label }}</span>
+                {% endif %}
+              </div>
+              <span class="text-xs text-gray-400 flex-shrink-0">
+                {{ msg.sent_at.strftime('%d/%m %H:%M') if msg.sent_at else '' }}
+              </span>
+            </div>
+            <div class="text-xs text-gray-500 mt-0.5">
+              De : {{ ((sender.last_name | anon_nom) ~ ' ' ~ sender.first_name) if sender else 'Inconnu' }}
+              {% if sender and sender.lodge_function and sender.lodge_function.value != 'FRERE' %}
+              · <span class="text-gray-400">{{ sender.lodge_function | label }}</span>
+              {% endif %}
+            </div>
+            <p class="text-xs text-gray-400 mt-1 line-clamp-1">{{ msg.body[:120] }}</p>
+          </div>
+        </a>
       </div>
-    </a>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
 
   <!-- Pagination -->
@@ -137,34 +168,66 @@
   <!-- Liste Envoyés -->
   {% elif tab == 'sent' %}
   {% if sent %}
-  <div class="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
-    {% for msg in sent %}
-    {% set read_count = msg.recipients | selectattr('read_at') | list | length %}
-    {% set total_recip = msg.recipients | length %}
-    <a href="/messages/{{ msg.id }}"
-       class="flex items-start gap-3 px-5 py-4 hover:bg-gray-50 transition-colors block">
-      <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-gray-400">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
-        </svg>
+  <div x-data="{ selected: [] }">
+
+    <!-- Barre d'action groupée -->
+    <div x-show="selected.length > 0" x-cloak
+         class="flex items-center gap-3 mb-3 bg-loge-50 border border-loge-200 rounded-lg px-4 py-2.5">
+      <span class="text-sm text-loge-800 font-medium" x-text="selected.length + ' sélectionné' + (selected.length > 1 ? 's' : '')"></span>
+      <button type="button" @click="selected = []" class="text-xs text-gray-500 hover:text-gray-700 ml-auto">Annuler</button>
+      <button type="button"
+              @click="if(confirm('Déplacer ' + selected.length + ' message(s) vers la corbeille ?')){ document.getElementById('bulk-ids-sent').value = selected.join(','); document.getElementById('bulk-form-sent').submit(); }"
+              class="text-xs font-semibold text-white bg-red-600 hover:bg-red-700 px-3 py-1.5 rounded-lg transition-colors">
+        🗑 Supprimer la sélection
+      </button>
+    </div>
+    <form id="bulk-form-sent" method="post" action="/messages/bulk-delete" class="hidden">
+      <input type="hidden" name="message_ids" id="bulk-ids-sent">
+      <input type="hidden" name="origin" value="sent">
+    </form>
+
+    <label class="flex items-center gap-2 text-xs text-gray-400 mb-2 px-1 cursor-pointer w-fit">
+      <input type="checkbox" class="rounded border-gray-300"
+             :checked="selected.length === {{ sent|length }}"
+             @change="selected = $event.target.checked ? [{{ sent|map(attribute='id')|join(',') }}] : []">
+      Tout sélectionner
+    </label>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
+      {% for msg in sent %}
+      {% set read_count = msg.recipients | selectattr('read_at') | list | length %}
+      {% set total_recip = msg.recipients | length %}
+      <div class="flex items-center">
+        <input type="checkbox" class="ml-4 shrink-0 rounded border-gray-300"
+               value="{{ msg.id }}"
+               :checked="selected.includes({{ msg.id }})"
+               @change="$event.target.checked ? selected.push({{ msg.id }}) : selected = selected.filter(i => i !== {{ msg.id }})">
+        <a href="/messages/{{ msg.id }}"
+           class="flex-1 min-w-0 flex items-start gap-3 px-3 py-4 hover:bg-gray-50 transition-colors block">
+          <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-bold text-white flex-shrink-0 mt-0.5 bg-gray-400">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M6 12L3.269 3.126A59.768 59.768 0 0121.485 12 59.77 59.77 0 013.27 20.876L5.999 12zm0 0h7.5"/>
+            </svg>
+          </div>
+          <div class="flex-1 min-w-0">
+            <div class="flex items-center justify-between gap-2">
+              <span class="text-sm font-medium text-gray-900 truncate">{{ msg.subject }}</span>
+              <span class="text-xs text-gray-400 flex-shrink-0">{{ msg.sent_at.strftime('%d/%m %H:%M') if msg.sent_at else '' }}</span>
+            </div>
+            <div class="text-xs text-gray-500 mt-0.5">
+              À : {{ target_description(msg.target_type, msg.target_filter) }}
+            </div>
+            <div class="flex items-center gap-3 mt-1">
+              <span class="text-xs text-gray-400">{{ total_recip }} destinataire{{ 's' if total_recip > 1 }}</span>
+              <span class="text-xs {% if read_count == total_recip %}text-green-600{% else %}text-amber-600{% endif %}">
+                {{ read_count }}/{{ total_recip }} lu{{ 's' if read_count > 1 }}
+              </span>
+            </div>
+          </div>
+        </a>
       </div>
-      <div class="flex-1 min-w-0">
-        <div class="flex items-center justify-between gap-2">
-          <span class="text-sm font-medium text-gray-900 truncate">{{ msg.subject }}</span>
-          <span class="text-xs text-gray-400 flex-shrink-0">{{ msg.sent_at.strftime('%d/%m %H:%M') if msg.sent_at else '' }}</span>
-        </div>
-        <div class="text-xs text-gray-500 mt-0.5">
-          À : {{ target_description(msg.target_type, msg.target_filter) }}
-        </div>
-        <div class="flex items-center gap-3 mt-1">
-          <span class="text-xs text-gray-400">{{ total_recip }} destinataire{{ 's' if total_recip > 1 }}</span>
-          <span class="text-xs {% if read_count == total_recip %}text-green-600{% else %}text-amber-600{% endif %}">
-            {{ read_count }}/{{ total_recip }} lu{{ 's' if read_count > 1 }}
-          </span>
-        </div>
-      </div>
-    </a>
-    {% endfor %}
+      {% endfor %}
+    </div>
   </div>
   {% else %}
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">

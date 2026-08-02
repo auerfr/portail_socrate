@@ -17,7 +17,7 @@ class EmailCategory(str, enum.Enum):
     GENERAL          = "GENERAL"
 
 
-class CampaignStatus(str, enum.Enum):
+class LegacyCampaignStatus(str, enum.Enum):
     DRAFT     = "DRAFT"
     SCHEDULED = "SCHEDULED"
     SENDING   = "SENDING"
@@ -53,7 +53,9 @@ class EmailTemplate(Base):
 
 
 class EmailCampaign(Base):
-    """Envoi email vers un groupe."""
+    """Envoi email vers un groupe (legacy — non utilisé par le code actuel,
+    conservé uniquement car app/models/programs.py:Program.email_campaign_id
+    référence encore cette table par une clé étrangère nullable)."""
     __tablename__ = "email_campaigns"
 
     id: Mapped[int] = mapped_column(primary_key=True)
@@ -68,8 +70,8 @@ class EmailCampaign(Base):
 
     scheduled_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     sent_at: Mapped[Optional[datetime]]      = mapped_column(DateTime)
-    status: Mapped[CampaignStatus]           = mapped_column(
-        Enum(CampaignStatus), default=CampaignStatus.DRAFT
+    status: Mapped[LegacyCampaignStatus]     = mapped_column(
+        Enum(LegacyCampaignStatus), default=LegacyCampaignStatus.DRAFT
     )
 
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
@@ -82,7 +84,7 @@ class EmailCampaign(Base):
 
 
 class EmailRecipient(Base):
-    """Destinataire individuel d'une campagne."""
+    """Destinataire individuel d'une campagne (legacy, cf. EmailCampaign)."""
     __tablename__ = "email_recipients"
 
     id: Mapped[int] = mapped_column(primary_key=True)

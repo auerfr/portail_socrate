@@ -15,6 +15,29 @@ from app.config import get_settings
 logger = logging.getLogger(__name__)
 
 
+async def open_smtp_client() -> Optional[aiosmtplib.SMTP]:
+    """
+    Ouvre une connexion SMTP persistante, à réutiliser pour plusieurs envois
+    (ex : campagne de diffusion). Retourne None si SMTP non configuré.
+    À fermer explicitement avec `await client.quit()` une fois terminé.
+    """
+    settings = get_settings()
+    if not settings.smtp_host or not settings.smtp_user or not settings.smtp_pass:
+        return None
+
+    client = aiosmtplib.SMTP(
+        hostname=settings.smtp_host,
+        port=settings.smtp_port,
+        username=settings.smtp_user,
+        password=settings.smtp_pass,
+        use_tls=settings.smtp_secure == "ssl",     # SSL direct (port 465)
+        start_tls=settings.smtp_secure == "tls",   # STARTTLS (port 587)
+        timeout=15,
+    )
+    await client.connect()
+    return client
+
+
 async def create_pending_log(to: str, subject: str, has_attachment: bool = False) -> Optional[int]:
     """Pré-crée un EmailLog en statut PENDING et retourne son id — utile quand
     le corps de l'email a besoin de connaître l'id avant l'envoi (liens de
@@ -45,6 +68,7 @@ async def _send_raw(
     attachments: Optional[list[tuple[str, bytes, str]]] = None,
     inline_images: Optional[list[tuple[str, bytes, str]]] = None,
     log_id: Optional[int] = None,
+    client: Optional[aiosmtplib.SMTP] = None,
 ) -> tuple[bool, Optional[str]]:
     """
     Envoie un email brut. Retourne (True, None) si succès.
@@ -53,6 +77,9 @@ async def _send_raw(
                     dans le HTML via <img src="cid:{content_id}">
     log_id : si fourni (cf. create_pending_log), met à jour cette ligne
              EmailLog existante au lieu d'en créer une nouvelle.
+    client : connexion SMTP déjà ouverte (via `open_smtp_client`) à réutiliser
+             pour plusieurs envois (ex : campagne) ; si absent, ouvre/ferme une
+             connexion dédiée avec nouvelles tentatives sur erreur transitoire.
     """
     settings = get_settings()
 
@@ -124,12 +151,25 @@ async def _send_raw(
     msg["To"]      = to
     msg["X-Mailer"] = "Portail Socrate"
 
-    use_ssl  = settings.smtp_secure == "ssl"
-    use_tls  = settings.smtp_secure == "tls"
+    # Connexion persistante fournie (ex : boucle de campagne) : un seul envoi,
+    # pas de nouvelle tentative ici — c'est l'appelant qui gère la reconnexion
+    # (cf. app/services/mailing.py) puisqu'une connexion cassée doit être
+    # rouverte, pas juste réessayée sur la même socket.
+    if client is not None:
+        try:
+            await client.send_message(msg)
+            logger.info("Email envoyé → %s [%s]", to, subject)
+            await _journal(True, None)
+            return True, None
+        except Exception as exc:
+            logger.error("Échec envoi email → %s : %s", to, exc)
+            await _journal(False, str(exc))
+            return False, str(exc)
 
-    # Nouvelle(s) tentative(s) sur erreur SMTP transitoire (4xx, ex : "421
-    # Temporary System Problem") — fréquent sur les relais mutualisés en cas
-    # de pic d'envois. Les erreurs 5xx (permanentes) ne sont jamais rejouées.
+    # Pas de connexion partagée : connexion dédiée avec nouvelles tentatives
+    # sur erreur SMTP transitoire (4xx, ex : "421 Temporary System Problem")
+    # — fréquent sur les relais mutualisés en cas de pic d'envois. Les
+    # erreurs 5xx (permanentes) ne sont jamais rejouées.
     max_attempts = 3
     backoff = 3.0
     for attempt in range(1, max_attempts + 1):
@@ -140,8 +180,8 @@ async def _send_raw(
                 port=settings.smtp_port,
                 username=settings.smtp_user,
                 password=settings.smtp_pass,
-                use_tls=use_ssl,       # SSL direct (port 465)
-                start_tls=use_tls,     # STARTTLS (port 587)
+                use_tls=settings.smtp_secure == "ssl",     # SSL direct (port 465)
+                start_tls=settings.smtp_secure == "tls",   # STARTTLS (port 587)
                 timeout=15,            # 15 secondes max
             )
             logger.info("Email envoyé → %s [%s]", to, subject)

@@ -529,6 +529,18 @@
         Groupes
       </a>
 
+      <a href="/forum/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/forum' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-messages text-lg opacity-70"></i>
+        Forum
+      </a>
+
+      <a href="/projects/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/projects' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-clipboard-list text-lg opacity-70"></i>
+        Projets
+      </a>
+
       <!-- ── Loge ── -->
       <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-4 pb-1">Loge</p>
 
@@ -568,6 +580,35 @@
       </a>
       {% endif %}
       {% endif %}
+
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'PREMIER_S', 'SECOND_S', 'SECRETAIRE'])) %}
+      <a href="/meetings/me/officiers" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/officiers' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-crown text-lg opacity-70"></i>
+        Officiers
+      </a>
+      {% endif %}
+
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'MAITRE_BANQUETS', 'SECRETAIRE'])) %}
+      <a href="/meetings/me/agapes" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/me/agapes' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        🍽 <span>Agapes</span>
+      </a>
+      {% endif %}
+
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S', 'TRESORIER'])) %}
+      <a href="/mailing/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/mailing' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-mailbox text-lg opacity-70"></i>
+        Diffusion
+      </a>
+      {% endif %}
+
+      <a href="/bookmarks/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/bookmarks' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-bookmarks text-lg opacity-70"></i>
+        Liens partagés
+      </a>
 
       <!-- ── Gestion ── -->
       <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-4 pb-1">Gestion</p>
