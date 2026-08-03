@@ -176,19 +176,18 @@ async def settings_page(
     )
     external_mailing_lists = [{"id": r[0], "name": r[1]} for r in r_ml.all()]
 
-    # Statistiques campagne de confirmation
+    # Statistiques campagne de confirmation (tous types confondus)
     r_conf_stats = await db.execute(
         select(
             _sqlfunc.count().label("total"),
             _sqlfunc.count(ExternalContact.last_confirmed_at).label("confirmed"),
             _sqlfunc.count(ExternalContact.removal_requested_at).label("removed"),
-        ).where(ExternalContact.contact_type == "VISITOR")
+        )
     )
     _cs = r_conf_stats.one()
-    # Contacts VISITOR désactivés sans demande explicite = retirés automatiquement
+    # Contacts désactivés sans demande explicite = retirés automatiquement
     r_auto_removed = await db.execute(
         select(_sqlfunc.count()).where(
-            ExternalContact.contact_type == "VISITOR",
             ExternalContact.is_active == False,  # noqa: E712
             ExternalContact.removal_requested_at.is_(None),
         )
