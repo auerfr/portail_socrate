@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
 from app.models.lodge import LodgeSettings, LodgeOffice, ExternalContact
+from app.models.mailing import MailingList, MailingListExternal
 from app.models.identity import Member, MemberStatus, LodgeFunction, User
 
 ENV_FILE = Path(__file__).parent.parent.parent / ".env"
@@ -144,6 +145,21 @@ async def settings_page(
     )
     contact_lodges = [row[0] for row in r_lodges.all()]
 
+    # Listes de diffusion externes (pour le sélecteur d'envoi confirmation)
+    r_ml = await db.execute(
+        select(MailingList.id, MailingList.name)
+        .join(MailingListExternal, MailingListExternal.list_id == MailingList.id)
+        .join(ExternalContact, ExternalContact.id == MailingListExternal.external_id)
+        .where(
+            ExternalContact.contact_type == "VISITOR",
+            ExternalContact.is_active == True,  # noqa: E712
+            MailingListExternal.unsubscribed_at.is_(None),
+        )
+        .group_by(MailingList.id, MailingList.name)
+        .order_by(MailingList.name)
+    )
+    external_mailing_lists = [{"id": r[0], "name": r[1]} for r in r_ml.all()]
+
     # Statistiques campagne de confirmation
     r_conf_stats = await db.execute(
         select(
@@ -199,6 +215,7 @@ async def settings_page(
         "contact_q": contact_q,
         "external_contacts": external_contacts,
         "contact_conf_stats": contact_conf_stats,
+        "external_mailing_lists": external_mailing_lists,
         "backups": backups,
         "saved": request.query_params.get("saved"),
         "smtp_saved": request.query_params.get("smtp_saved"),
@@ -624,9 +641,10 @@ async def external_contacts_send_confirmation(
     request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    list_id: Annotated[str, Form()] = "",
 ):
-    """Déclenche l'envoi de l'email de confirmation annuelle à tous les
-    correspondants externes actifs, en tâche de fond."""
+    """Déclenche l'envoi de l'email de confirmation annuelle, optionnellement
+    restreint aux membres d'une liste de diffusion donnée."""
     user, member = ctx
     from app.dependencies import can_manage_members
     if not (user.is_admin or can_manage_members(member)):
@@ -636,15 +654,36 @@ async def external_contacts_send_confirmation(
     from app.services.contact_confirmation import launch_confirmation_campaign
     from app.services.audit import log_audit
 
-    n = (await db.execute(
-        select(func.count(ExternalContact.id)).where(ExternalContact.is_active == True)  # noqa: E712
-    )).scalar() or 0
+    contact_ids: Optional[list[int]] = None
+    if list_id:
+        r_ids = await db.execute(
+            select(MailingListExternal.external_id)
+            .join(ExternalContact, ExternalContact.id == MailingListExternal.external_id)
+            .where(
+                MailingListExternal.list_id == int(list_id),
+                MailingListExternal.unsubscribed_at.is_(None),
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+            )
+        )
+        contact_ids = [r[0] for r in r_ids.all()]
+
+    n = len(contact_ids) if contact_ids is not None else (
+        (await db.execute(
+            select(func.count(ExternalContact.id))
+            .where(
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+            )
+        )).scalar() or 0
+    )
     base_url = str(request.base_url).rstrip("/")
     await log_audit(
         db, actor_id=member.id, action="CONTACTS_CONFIRMATION_SEND",
-        details=f"{n} correspondant(s) actif(s) ciblé(s)", request=request, commit=True,
+        details=f"{n} correspondant(s) ciblé(s){' (liste #' + list_id + ')' if list_id else ''}",
+        request=request, commit=True,
     )
-    launch_confirmation_campaign(base_url)
+    launch_confirmation_campaign(base_url, contact_ids=contact_ids)
     return RedirectResponse(url="/settings/?saved=contacts&confirmation_started=1", status_code=303)
 
 
