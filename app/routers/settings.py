@@ -546,6 +546,7 @@ async def external_contact_add(
     organization: str = Form(""),
     lodge_name: str = Form(""),
     orient: str = Form(""),
+    obedience: str = Form(""),
     contact_type: str = Form("EXTERNAL"),
     notes: str = Form(""),
 ):
@@ -556,6 +557,9 @@ async def external_contact_add(
     fname = first_name.strip()
     lname = last_name.strip()
     full = f"{fname} {lname}".strip()
+    ctype = contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL"
+    if ctype == "LOGE":
+        full = lodge_name.strip() or full
     if not full:
         raise HTTPException(400, "Nom requis")
     db.add(ExternalContact(
@@ -566,7 +570,8 @@ async def external_contact_add(
         organization=organization.strip() or None,
         lodge_name=lodge_name.strip() or None,
         orient=orient.strip() or None,
-        contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL",
+        obedience=obedience.strip() or None,
+        contact_type=ctype,
         notes=notes.strip() or None,
         is_active=True,
         last_confirmed_at=datetime.utcnow(),
@@ -759,6 +764,7 @@ async def external_contact_edit(
     organization: str = Form(""),
     lodge_name: str = Form(""),
     orient: str = Form(""),
+    obedience: str = Form(""),
     contact_type: str = Form("EXTERNAL"),
     notes: str = Form(""),
 ):
@@ -769,17 +775,21 @@ async def external_contact_edit(
     contact = await db.get(ExternalContact, contact_id)
     if not contact:
         raise HTTPException(404)
+    ctype = contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL"
     fname = first_name.strip()
     lname = last_name.strip()
     contact.first_name = fname or None
     contact.last_name  = lname or None
     full = f"{fname} {lname}".strip()
+    if ctype == "LOGE":
+        full = lodge_name.strip() or full
     contact.name = full or contact.name
     contact.email = email.strip().lower()
     contact.organization = organization.strip() or None
     contact.lodge_name = lodge_name.strip() or None
     contact.orient = orient.strip() or None
-    contact.contact_type = contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL"
+    contact.obedience = obedience.strip() or None
+    contact.contact_type = ctype
     contact.notes = notes.strip() or None
     await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)

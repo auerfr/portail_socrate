@@ -614,7 +614,7 @@
           </span>
           <!-- Modifier -->
           <button type="button"
-                  @click="open({ id: {{ c.id }}, name: '{{ c.name | replace("'", "\\'") }}', first_name: '{{ (c.first_name or '') | replace("'", "\\'") }}', last_name: '{{ (c.last_name or '') | replace("'", "\\'") }}', email: '{{ c.email }}', organization: '{{ (c.organization or '') | replace("'", "\\'") }}', lodge_name: '{{ (c.lodge_name or '') | replace("'", "\\'") }}', orient: '{{ (c.orient or '') | replace("'", "\\'") }}', contact_type: '{{ c.contact_type }}', notes: '{{ (c.notes or '') | replace("'", "\\'") }}' })"
+                  @click="open({ id: {{ c.id }}, name: '{{ c.name | replace("'", "\\'") }}', first_name: '{{ (c.first_name or '') | replace("'", "\\'") }}', last_name: '{{ (c.last_name or '') | replace("'", "\\'") }}', email: '{{ c.email }}', organization: '{{ (c.organization or '') | replace("'", "\\'") }}', lodge_name: '{{ (c.lodge_name or '') | replace("'", "\\'") }}', orient: '{{ (c.orient or '') | replace("'", "\\'") }}', obedience: '{{ (c.obedience or '') | replace("'", "\\'") }}', contact_type: '{{ c.contact_type }}', notes: '{{ (c.notes or '') | replace("'", "\\'") }}' })"
                   class="text-gray-400 hover:text-loge-600 p-1 rounded hover:bg-loge-50 transition-colors flex-shrink-0 self-start" title="Modifier">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
@@ -645,34 +645,70 @@
                 </svg>
               </button>
             </div>
-            <form method="post" :action="'/settings/external-contacts/' + ec.id + '/edit'" class="space-y-3">
+            <form method="post" :action="'/settings/external-contacts/' + ec.id + '/edit'" class="space-y-3"
+                  x-data="{ ctype: '' }" x-init="$watch('ec', v => ctype = v.contact_type)" @change="if($event.target.name==='contact_type') ctype=$event.target.value">
               <div class="grid sm:grid-cols-2 gap-3">
-                <div>
+
+                <!-- Nom de la loge (LOGE uniquement) -->
+                <div class="sm:col-span-2" x-show="ctype === 'LOGE'">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Nom de la loge *</label>
+                  <input type="text" name="lodge_name" :value="ec.lodge_name"
+                         placeholder="Les Amis de la Vérité"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                </div>
+                <!-- Contact (LOGE) : interlocuteur optionnel -->
+                <div class="sm:col-span-2" x-show="ctype === 'LOGE'">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Interlocuteur (VM, Secrétaire…) — optionnel</label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="first_name" :value="ec.first_name" placeholder="Prénom"
+                           class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                    <input type="text" name="last_name" :value="ec.last_name" placeholder="Nom"
+                           class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                  </div>
+                </div>
+
+                <!-- Prénom / Nom (non-LOGE) -->
+                <div x-show="ctype !== 'LOGE'">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Prénom</label>
                   <input type="text" name="first_name" :value="ec.first_name"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
-                <div>
+                <div x-show="ctype !== 'LOGE'">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
-                  <input type="text" name="last_name" :value="ec.last_name" required
+                  <input type="text" name="last_name" :value="ec.last_name"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
+
+                <!-- Email -->
                 <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Email *</label>
                   <input type="email" name="email" :value="ec.email" required
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
-                <div>
+
+                <!-- Loge (non-LOGE : champ secondaire) -->
+                <div x-show="ctype !== 'LOGE'">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Loge</label>
                   <input type="text" name="lodge_name" :value="ec.lodge_name"
                          placeholder="Les Compagnons du Devoir"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
+
+                <!-- Orient -->
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Orient</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Orient (ville)</label>
                   <input type="text" name="orient" :value="ec.orient" placeholder="Strasbourg"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
+
+                <!-- Obédience -->
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Obédience</label>
+                  <input type="text" name="obedience" :value="ec.obedience" placeholder="GODF, DH, GLNF…"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                </div>
+
+                <!-- Type -->
                 <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
                   <select name="contact_type"
@@ -682,8 +718,10 @@
                     <option value="EXTERNAL" :selected="ec.contact_type === 'EXTERNAL'">📋 Autre contact</option>
                   </select>
                 </div>
+
+                <!-- Organisation (legacy) -->
                 <div class="sm:col-span-2">
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Organisation (legacy, optionnel)</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Organisation (optionnel)</label>
                   <input type="text" name="organization" :value="ec.organization"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
