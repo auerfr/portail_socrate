@@ -459,6 +459,34 @@
         <span class="text-xs text-gray-400">F∴/S∴ passant·e·s opt-in &amp; contacts institutionnels</span>
       </div>
 
+      <!-- Statistiques campagne de confirmation (contacts VISITOR uniquement) -->
+      {% if contact_conf_stats and contact_conf_stats.total > 0 %}
+      <div class="flex flex-wrap gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-gray-400"></span>
+          <span class="text-gray-500">Réseau visiteurs :</span>
+          <strong class="text-gray-700">{{ contact_conf_stats.total }}</strong>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+          <span class="text-gray-500">Confirmés :</span>
+          <strong class="text-green-700">{{ contact_conf_stats.confirmed }}</strong>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+          <span class="text-gray-500">En attente :</span>
+          <strong class="text-amber-700">{{ contact_conf_stats.pending }}</strong>
+        </div>
+        {% if contact_conf_stats.removed > 0 %}
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-red-400"></span>
+          <span class="text-gray-500">Désinscriptions :</span>
+          <strong class="text-red-700">{{ contact_conf_stats.removed }}</strong>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <div class="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-gray-100">
         <form method="post" action="/settings/external-contacts/send-confirmation"
               onsubmit="return confirm('Envoyer l\'email de confirmation annuelle à tous les correspondants actifs ? Ceci envoie de vrais emails.')">
@@ -537,11 +565,13 @@
             {% if c.notes %}
             <div class="text-xs text-gray-400 italic mt-0.5">{{ c.notes }}</div>
             {% endif %}
-            <div class="text-xs text-gray-400 mt-0.5">
-              {% if c.last_confirmed_at %}
-              Confirmé le {{ c.last_confirmed_at.strftime('%d/%m/%Y') }}
+            <div class="text-xs mt-0.5">
+              {% if c.removal_requested_at %}
+              <span class="text-red-500">✕ Désinscription demandée le {{ c.removal_requested_at.strftime('%d/%m/%Y') }}</span>
+              {% elif c.last_confirmed_at %}
+              <span class="text-green-600">✓ Confirmé le {{ c.last_confirmed_at.strftime('%d/%m/%Y') }}</span>
               {% else %}
-              Jamais confirmé
+              <span class="text-gray-400">Jamais confirmé</span>
               {% endif %}
             </div>
           </div>

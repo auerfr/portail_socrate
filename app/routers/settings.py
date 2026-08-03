@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 LOGO_DIR = Path("app/static/uploads/logo")
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 _LOGO_ALLOWED = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func as _sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -144,6 +144,22 @@ async def settings_page(
     )
     contact_lodges = [row[0] for row in r_lodges.all()]
 
+    # Statistiques campagne de confirmation
+    r_conf_stats = await db.execute(
+        select(
+            _sqlfunc.count().label("total"),
+            _sqlfunc.count(ExternalContact.last_confirmed_at).label("confirmed"),
+            _sqlfunc.count(ExternalContact.removal_requested_at).label("removed"),
+        ).where(ExternalContact.contact_type == "VISITOR")
+    )
+    _cs = r_conf_stats.one()
+    contact_conf_stats = {
+        "total": _cs[0],
+        "confirmed": _cs[1],
+        "removed": _cs[2],
+        "pending": _cs[0] - _cs[1] - _cs[2],
+    }
+
     from app.dependencies import can_manage_members
     can_manage_contacts = user.is_admin or can_manage_members(member)
 
@@ -172,6 +188,7 @@ async def settings_page(
         "contact_lodge_filter": contact_lodge_filter,
         "contact_q": contact_q,
         "external_contacts": external_contacts,
+        "contact_conf_stats": contact_conf_stats,
         "backups": backups,
         "saved": request.query_params.get("saved"),
         "smtp_saved": request.query_params.get("smtp_saved"),

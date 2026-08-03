@@ -1,0 +1,214 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Mettre à jour mes informations — Socrate Raison et Progrès</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      color: #1f2937;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+      max-width: 520px;
+      width: 100%;
+      padding: 36px 32px;
+    }
+    .logo-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #e5e7eb;
+    }
+    .logo-bar .icon {
+      width: 44px; height: 44px;
+      background: #1a5252;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 22px; flex-shrink: 0;
+    }
+    .logo-bar h1 { font-size: 15px; font-weight: 700; color: #1a5252; line-height: 1.3; }
+    .logo-bar p  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+    h2 { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 8px; }
+    .intro { font-size: 14px; color: #6b7280; line-height: 1.6; margin-bottom: 24px; }
+
+    .field { margin-bottom: 16px; }
+    label { display: block; font-size: 13px; font-weight: 600; color: #374151; margin-bottom: 5px; }
+    input[type="text"], input[type="email"] {
+      width: 100%;
+      border: 1px solid #d1d5db;
+      border-radius: 6px;
+      padding: 9px 12px;
+      font-size: 14px;
+      color: #111827;
+      background: #fff;
+      transition: border-color .15s;
+    }
+    input:focus { outline: none; border-color: #1a5252; box-shadow: 0 0 0 3px rgba(26,82,82,.1); }
+    .hint { font-size: 12px; color: #9ca3af; margin-top: 4px; }
+    .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+
+    .btn-primary {
+      width: 100%;
+      background: #1a5252;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background .15s;
+    }
+    .btn-primary:hover { background: #154343; }
+
+    .success {
+      text-align: center;
+      padding: 16px 0;
+    }
+    .success .check {
+      font-size: 48px;
+      margin-bottom: 12px;
+    }
+    .success h2 { margin-bottom: 8px; }
+    .success p { font-size: 14px; color: #6b7280; line-height: 1.6; }
+
+    .error-box {
+      background: #fef2f2;
+      border: 1px solid #fca5a5;
+      border-radius: 6px;
+      padding: 10px 14px;
+      font-size: 13px;
+      color: #b91c1c;
+      margin-bottom: 16px;
+    }
+    .invalid {
+      text-align: center;
+      padding: 24px 0;
+      color: #6b7280;
+    }
+    .remove-link {
+      display: block;
+      text-align: center;
+      margin-top: 24px;
+      font-size: 12px;
+      color: #9ca3af;
+    }
+    .remove-link a { color: #9ca3af; text-decoration: underline; }
+    .remove-link a:hover { color: #6b7280; }
+
+    @media (max-width: 480px) {
+      .card { padding: 24px 18px; }
+      .row2 { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <div class="icon">⊕</div>
+    <div>
+      <h1>Socrate Raison et Progrès</h1>
+      <p>À l'orient de Pont à Mousson · GODF</p>
+    </div>
+  </div>
+
+  {% if not valid %}
+  <div class="invalid">
+    <p style="font-size:32px;margin-bottom:12px;">🔗</p>
+    <h2>Lien invalide ou expiré</h2>
+    <p style="margin-top:8px;font-size:14px;">
+      Ce lien ne fonctionne plus. Contactez-nous directement si vous souhaitez
+      mettre à jour vos informations ou vous désinscrire.
+    </p>
+  </div>
+
+  {% elif done %}
+  <div class="success">
+    <div class="check">✅</div>
+    <h2>Informations enregistrées</h2>
+    <p>
+      Merci {% if contact.first_name %}{{ contact.first_name }}{% endif %} !<br>
+      Vos informations ont bien été mises à jour et votre inscription est confirmée.<br>
+      Vous continuerez à recevoir nos programmes à <strong>{{ contact.email }}</strong>.
+    </p>
+  </div>
+
+  {% else %}
+  <h2>Mettre à jour mes informations</h2>
+  <p class="intro">
+    Vous figurez dans notre liste de correspondants et recevez nos programmes
+    à <strong>{{ contact.email }}</strong>.<br>
+    Remplissez ou corrigez vos informations ci-dessous — cela confirme également
+    que vous souhaitez continuer à recevoir nos communications.
+  </p>
+
+  {% if error %}
+  <div class="error-box">{{ error }}</div>
+  {% endif %}
+
+  <form method="post">
+    <div class="row2">
+      <div class="field">
+        <label for="first_name">Prénom</label>
+        <input type="text" id="first_name" name="first_name"
+               value="{{ contact.first_name or '' }}" placeholder="Votre prénom">
+      </div>
+      <div class="field">
+        <label for="last_name">Nom</label>
+        <input type="text" id="last_name" name="last_name"
+               value="{{ contact.last_name or '' }}" placeholder="Votre nom">
+      </div>
+    </div>
+
+    <div class="field">
+      <label for="email">Adresse email</label>
+      <input type="email" id="email" name="email"
+             value="{{ contact.email }}" placeholder="votre@email.fr">
+      <p class="hint">Modifiez si votre adresse a changé.</p>
+    </div>
+
+    <div class="field">
+      <label for="lodge_name">Loge</label>
+      <input type="text" id="lodge_name" name="lodge_name"
+             value="{{ contact.lodge_name or '' }}" placeholder="Nom de votre loge">
+    </div>
+
+    <div class="row2">
+      <div class="field">
+        <label for="orient">Orient (ville)</label>
+        <input type="text" id="orient" name="orient"
+               value="{{ contact.orient or '' }}" placeholder="ex: Metz">
+      </div>
+      <div class="field">
+        <label for="obedience">Obédience</label>
+        <input type="text" id="obedience" name="obedience"
+               value="{{ contact.obedience or '' }}" placeholder="ex: GODF, DH…">
+      </div>
+    </div>
+
+    <button type="submit" class="btn-primary">Enregistrer mes informations →</button>
+  </form>
+
+  <div class="remove-link">
+    Vous ne souhaitez plus recevoir nos programmes ?
+    <a href="/contacts/remove/{{ remove_token }}">Me désinscrire</a>
+  </div>
+  {% endif %}
+</div>
+</body>
+</html>

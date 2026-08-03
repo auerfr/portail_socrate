@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Se désinscrire — Socrate Raison et Progrès</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: Arial, sans-serif;
+      background: #f4f6f8;
+      min-height: 100vh;
+      display: flex;
+      align-items: flex-start;
+      justify-content: center;
+      padding: 40px 16px;
+      color: #1f2937;
+    }
+    .card {
+      background: #fff;
+      border-radius: 10px;
+      box-shadow: 0 2px 16px rgba(0,0,0,.08);
+      max-width: 480px;
+      width: 100%;
+      padding: 36px 32px;
+      text-align: center;
+    }
+    .logo-bar {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin-bottom: 28px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid #e5e7eb;
+      text-align: left;
+    }
+    .logo-bar .icon {
+      width: 44px; height: 44px;
+      background: #1a5252;
+      border-radius: 8px;
+      display: flex; align-items: center; justify-content: center;
+      color: #fff; font-size: 22px; flex-shrink: 0;
+    }
+    .logo-bar h1 { font-size: 15px; font-weight: 700; color: #1a5252; line-height: 1.3; }
+    .logo-bar p  { font-size: 12px; color: #6b7280; margin-top: 2px; }
+
+    .icon-big { font-size: 48px; margin-bottom: 16px; }
+    h2 { font-size: 18px; font-weight: 700; color: #111827; margin-bottom: 10px; }
+    p { font-size: 14px; color: #6b7280; line-height: 1.7; margin-bottom: 12px; }
+    strong { color: #111827; }
+
+    .btn-danger {
+      background: #dc2626;
+      color: #fff;
+      border: none;
+      border-radius: 6px;
+      padding: 11px 24px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      margin-top: 8px;
+      transition: background .15s;
+    }
+    .btn-danger:hover { background: #b91c1c; }
+
+    .btn-cancel {
+      display: inline-block;
+      margin-top: 12px;
+      font-size: 13px;
+      color: #9ca3af;
+      text-decoration: underline;
+      cursor: pointer;
+    }
+    .invalid { color: #6b7280; }
+
+    @media (max-width: 480px) { .card { padding: 24px 18px; } }
+  </style>
+</head>
+<body>
+<div class="card">
+  <div class="logo-bar">
+    <div class="icon">⊕</div>
+    <div>
+      <h1>Socrate Raison et Progrès</h1>
+      <p>À l'orient de Pont à Mousson · GODF</p>
+    </div>
+  </div>
+
+  {% if not valid %}
+  <div class="invalid">
+    <div class="icon-big">🔗</div>
+    <h2>Lien invalide ou expiré</h2>
+    <p>Ce lien ne fonctionne plus. Contactez-nous directement si vous souhaitez
+       être retiré·e de notre liste.</p>
+  </div>
+
+  {% elif done %}
+  <div class="icon-big">✅</div>
+  <h2>Désinscription enregistrée</h2>
+  <p>
+    Votre demande a bien été prise en compte.<br>
+    L'adresse <strong>{{ contact.email }}</strong> a été retirée de notre liste
+    et vous ne recevrez plus nos programmes.
+  </p>
+  <p style="font-size:12px;color:#9ca3af;margin-top:16px;">
+    Les frères et Sœurs de Socrate Raison et Progrès vous souhaitent
+    bonne continuation.
+  </p>
+
+  {% else %}
+  <div class="icon-big">📭</div>
+  <h2>Demande de désinscription</h2>
+  <p>
+    Vous êtes sur le point de retirer l'adresse
+    <strong>{{ contact.email }}</strong>
+    de notre liste de diffusion des programmes.
+  </p>
+  <p>Vous ne recevrez plus aucune communication de notre part.</p>
+
+  <form method="post">
+    <button type="submit" class="btn-danger">Confirmer ma désinscription</button>
+  </form>
+
+  <a class="btn-cancel" href="javascript:history.back()">Annuler</a>
+  {% endif %}
+</div>
+</body>
+</html>
