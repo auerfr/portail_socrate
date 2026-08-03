@@ -368,6 +368,7 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
           {% set visitors = external_contacts | selectattr('contact_type', 'eq', 'VISITOR') | list %}
           {% set externals = external_contacts | selectattr('contact_type', 'eq', 'EXTERNAL') | list %}
+          {% set loges = external_contacts | selectattr('contact_type', 'eq', 'LOGE') | list %}
 
           {% if visitors %}
           <div>
@@ -390,6 +391,20 @@
               <span>{{ c.name }}{% if c.organization %} <span style="color:#9ca3af;">· {{ c.organization }}</span>{% endif %}</span>
             </label>
             {% endfor %}
+          </div>
+          {% endif %}
+
+          {% if loges %}
+          <div style="grid-column:1/-1;">
+            <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">🏛 Loges partenaires</div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;">
+            {% for c in loges %}
+            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;margin-bottom:3px;cursor:pointer;">
+              <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
+              <span>{{ c.name }}{% if c.organization %} <span style="color:#9ca3af;">· {{ c.organization }}</span>{% endif %}</span>
+            </label>
+            {% endfor %}
+            </div>
           </div>
           {% endif %}
         </div>
