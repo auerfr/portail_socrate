@@ -73,8 +73,9 @@ from app.models.meetings import (
 )
 from app.models.communication import Announcement, AnnouncementRead
 from app.models.messaging import MessageRecipient as MsgRecipient, Message as Msg
-from app.models.lodge_calendar import LodgeEvent
+from app.models.lodge_calendar import LodgeEvent, EventVisibility
 from app.routers.calendar import _event_visible_to
+from app.models.groups import LodgeGroup, GroupMembership
 from app.models.chat import ChatChannel, ChatChannelMember, ChatMessage, ChatRead, ChannelType
 
 settings = get_settings()
@@ -757,9 +758,31 @@ async def home(
         .limit(20)  # on filtre côté Python après vérification visibilité
     )
     _all_upcoming_events = upcoming_events_r.scalars().all()
+
+    # Précharger les groupes des événements GROUP pour éviter 1 SELECT par événement
+    _group_event_ids = {ev.visibility_group_id for ev in _all_upcoming_events
+                       if ev.visibility == EventVisibility.GROUP and ev.visibility_group_id}
+    _group_member_sets: dict[int, set[int]] = {}
+    if _group_event_ids:
+        from app.routers.groups import resolve_group_member_ids
+        for gid in _group_event_ids:
+            grp = await db.get(LodgeGroup, gid)
+            if grp:
+                _group_member_sets[gid] = await resolve_group_member_ids(db, grp)
+
     upcoming_events = []
     for ev in _all_upcoming_events:
-        if await _event_visible_to(ev, member, db, user):
+        # Vérification sans DB pour les cas non-GROUP
+        if ev.is_personal:
+            visible = user.is_admin or ev.created_by_id == member.id
+        elif ev.visibility == EventVisibility.GROUP:
+            if ev.visibility_group_id and ev.visibility_group_id in _group_member_sets:
+                visible = member.id in _group_member_sets[ev.visibility_group_id]
+            else:
+                visible = await _event_visible_to(ev, member, db, user)
+        else:
+            visible = await _event_visible_to(ev, member, db, user)
+        if visible:
             upcoming_events.append(ev)
             if len(upcoming_events) >= 4:
                 break
