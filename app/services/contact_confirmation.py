@@ -73,6 +73,13 @@ def launch_confirmation_campaign(
 def _confirmation_email_content(contact: ExternalContact, portal_url: str) -> tuple[str, str]:
     update_url = f"{portal_url}/contacts/update/{make_cc_token(contact.id, 'update')}"
     remove_url = f"{portal_url}/contacts/remove/{make_cc_token(contact.id, 'remove')}"
+
+    if contact.contact_type == "LOGE":
+        return _confirmation_email_loge(contact, update_url, remove_url)
+    return _confirmation_email_visiteur(contact, update_url, remove_url)
+
+
+def _confirmation_email_visiteur(contact: ExternalContact, update_url: str, remove_url: str) -> tuple[str, str]:
     prenom = contact.first_name or contact.name.split()[0] if contact.name else "Chère/Cher F∴/S∴"
 
     text = f"""Bonjour {prenom},
@@ -130,6 +137,72 @@ Fraternellement,
     Vous avez le droit de demander à être retiré·e de notre liste à tout moment.<br>
     Pour cela, utilisez ce lien :
     <a href="{remove_url}" style="color:#6b7280;">Me désinscrire de la liste</a>
+  </p>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+  <p style="font-size:13px;color:#888;">Fraternellement,<br><strong>{SIGNATURE}</strong></p>
+</div>"""
+
+    return html, text
+
+
+def _confirmation_email_loge(contact: ExternalContact, update_url: str, remove_url: str) -> tuple[str, str]:
+    loge_name = contact.lodge_name or contact.name or "votre loge"
+
+    text = f"""Madame, Monsieur,
+
+L'adresse de contact de {loge_name} figure dans notre liste de correspondants de la loge {LODGE_FULL_NAME}.
+Vous recevez à ce titre nos programmes et tenues ouvertes à l'adresse {contact.email}.
+
+Afin de maintenir nos échanges fraternels, nous vous invitons à confirmer ou mettre à jour les coordonnées de votre loge (adresse email, interlocuteur…) en cliquant ici :
+{update_url}
+
+⚠ Sans retour de votre part dans les 60 jours, cette adresse sera automatiquement retirée de notre liste.
+
+🔒 Ces coordonnées sont utilisées exclusivement pour nos échanges institutionnels. Elles ne sont ni partagées ni cédées à des tiers.
+
+Si vous souhaitez que votre loge soit retirée de notre liste, utilisez ce lien :
+{remove_url}
+
+Fraternellement,
+{SIGNATURE}"""
+
+    html = f"""
+<div style="font-family:Arial,sans-serif;max-width:580px;margin:0 auto;padding:24px;color:#222;">
+  <p style="font-size:15px;line-height:1.6;">Madame, Monsieur,</p>
+  <p style="font-size:15px;line-height:1.6;">
+    L'adresse de contact de <strong>{loge_name}</strong> figure dans notre liste
+    de correspondants de la loge <strong>{LODGE_FULL_NAME}</strong>.<br>
+    Vous recevez à ce titre nos programmes et tenues ouvertes
+    à l'adresse : <strong>{contact.email}</strong>.
+  </p>
+  <p style="font-size:15px;line-height:1.6;">
+    Afin de maintenir nos échanges fraternels, nous vous invitons à confirmer
+    ou mettre à jour les coordonnées de votre loge :
+  </p>
+  <p style="margin:20px 0;">
+    <a href="{update_url}"
+       style="background:#1a5252;color:#fff;padding:12px 24px;border-radius:6px;
+              text-decoration:none;display:inline-block;font-size:14px;font-weight:600;">
+      Mettre à jour les coordonnées de la loge →
+    </a>
+  </p>
+  <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;margin:20px 0;">
+    <p style="font-size:13px;color:#92400e;line-height:1.6;margin:0;">
+      ⚠ <strong>Sans retour de votre part dans les 60 jours</strong>, cette adresse sera
+      automatiquement retirée de notre liste.
+    </p>
+  </div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;margin:20px 0;">
+    <p style="font-size:13px;color:#166534;line-height:1.6;margin:0;">
+      🔒 <strong>Confidentialité</strong> — Ces coordonnées sont utilisées exclusivement
+      pour nos échanges institutionnels entre loges.
+      Elles ne sont ni partagées ni cédées à des tiers.
+    </p>
+  </div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+  <p style="font-size:13px;color:#6b7280;line-height:1.6;">
+    Si vous souhaitez que votre loge soit retirée de notre liste :<br>
+    <a href="{remove_url}" style="color:#6b7280;">Retirer cette adresse de la liste</a>
   </p>
   <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
   <p style="font-size:13px;color:#888;">Fraternellement,<br><strong>{SIGNATURE}</strong></p>
