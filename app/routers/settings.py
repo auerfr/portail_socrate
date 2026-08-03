@@ -100,6 +100,7 @@ async def settings_page(
     db: Annotated[AsyncSession, Depends(get_db)],
     contact_type_filter: str = "",
     contact_lodge_filter: str = "",
+    contact_status_filter: str = "",
     contact_q: str = "",
 ):
     user, member = ctx
@@ -127,6 +128,21 @@ async def settings_page(
         contacts_stmt = contacts_stmt.where(ExternalContact.contact_type == contact_type_filter)
     if contact_lodge_filter.strip():
         contacts_stmt = contacts_stmt.where(ExternalContact.lodge_name == contact_lodge_filter.strip())
+    if contact_status_filter == "confirmed":
+        contacts_stmt = contacts_stmt.where(ExternalContact.last_confirmed_at.isnot(None))
+    elif contact_status_filter == "pending":
+        contacts_stmt = contacts_stmt.where(
+            ExternalContact.is_active == True,  # noqa: E712
+            ExternalContact.last_confirmed_at.is_(None),
+            ExternalContact.removal_requested_at.is_(None),
+        )
+    elif contact_status_filter == "auto_removed":
+        contacts_stmt = contacts_stmt.where(
+            ExternalContact.is_active == False,  # noqa: E712
+            ExternalContact.removal_requested_at.is_(None),
+        )
+    elif contact_status_filter == "deregistered":
+        contacts_stmt = contacts_stmt.where(ExternalContact.removal_requested_at.isnot(None))
     if contact_q.strip():
         like = f"%{contact_q.strip()}%"
         contacts_stmt = contacts_stmt.where(or_(
@@ -212,6 +228,7 @@ async def settings_page(
         "contact_lodges": contact_lodges,
         "contact_type_filter": contact_type_filter,
         "contact_lodge_filter": contact_lodge_filter,
+        "contact_status_filter": contact_status_filter,
         "contact_q": contact_q,
         "external_contacts": external_contacts,
         "contact_conf_stats": contact_conf_stats,
