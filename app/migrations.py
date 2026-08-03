@@ -681,6 +681,8 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             ("vitruve-metz@outlook.fr", "vitruve"),
             ("vm.sdAntigone@gmx.fr", "Les soeurs d'Antigone"),
             ("vm@saedar.info", "De St Antoine les amis réunis"),
+            ("triangle@triangle-strasbourg.eu", "Triangle de Strasbourg"),
+            ("triangledelest@gmail.com", "Triangle de l'Est"),
             ("w.weymeskirch@yahoo.com", "ABBE GREGOIRE - LUNEVILLE - GODF"),
             ("webmaster@theleme.eu", "Theleme.eu"),
         ]
@@ -728,5 +730,230 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                     f"INSERT INTO mailing_list_externals (list_id, external_id, subscribed_at) "
                     f"VALUES (?, ?, {now_str})",
                     (ml_id, contact_id),
+                )
+
+    # ── Import réseau visiteurs (maçons passants et réseau habituel) ──────────
+    async with engine.begin() as conn:
+        RESEAU_VISITEURS = [
+            ('alain.bisval@nordnet.fr', 'Alain Bisval', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('alain.marange@sfr.fr', 'Alain Marange', 'La rose et le sillon - Saint Malo - GODF'),
+            ('alaindelhotal@gmail.com', 'Alain Delhotal', 'Le triangle de la Voge - Mirecourt - GODF'),
+            ('alain-marchal57@orange.fr', 'Alain Marchal', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('alexandra.cardona@free.fr', 'Alexandra Cardona', ''),
+            ('alinesophie.maire@gmail.com', 'Aline-Sophie Maire', ''),
+            ('andre.forcard@sfr.fr', 'André Forcard', 'La régénération - Bar le duc - GODF'),
+            ('angers-jean-paul@wanadoo.fr', 'Jean-Paul Angers', ''),
+            ('antoine.chabidon@gmail.com', 'Antoine Chabidon', 'VITRUVE - METZ - GODF'),
+            ('antoine.lesolleuz@gmail.com', 'Antoine Lesolleuz', ''),
+            ('arnaud.vauthier@gmail.com', 'Arnaud Vauthier', 'La noble Amitié - METZ - GODF'),
+            ('ascholler@hotmail.fr', 'A. Scholler', ''),
+            ('atokofai@orange.fr', 'Anatole Tokofai', 'Amour et Liberte - Thionville - GODF'),
+            ('aurelie_foucher@hotmail.com', 'Aurélie Foucher', 'HELIOPOLIS RENAISSANTE - METZ - GODF'),
+            ('aureliealonso@yahoo.fr', 'Aurélie Alonso', ''),
+            ('balise@netc.eu', 'balise', ''),
+            ('bdru.sgi@gmail.com', 'bdru.sgi', ''),
+            ('benedicte.perrin1@hotmail.fr', 'Bénédicte Perrin', 'AGORA - METZ - DH'),
+            ('benoitdi@wanadoo.fr', 'Benoît Di...', ''),
+            ('bernard.loesel@wanadoo.fr', 'Bernard Loesel', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('brigitte.albertus@free.fr', 'Brigitte Albertus', 'LES ENFANTS DE LA DOUBLE UNION - THIONVILLE - GODF'),
+            ('bruno.deffains@gmail.com', 'Bruno Deffains', "LE CAIRN ET L'ACACIA - NANCY - GODF"),
+            ('bruno.deffains@orange.fr', 'Bruno Deffains', "LE CAIRN ET L'ACACIA - NANCY - GODF"),
+            ('bruno.martin@outlook.com', 'Bruno Martin', ''),
+            ('cahenf@wanadoo.fr', 'F. Cahen', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('candidadis@live.fr', 'Margot Bouchard', 'Les 3 Globes - BERLIN - GODF'),
+            ('cb57@orange.fr', 'Celine Bonneau', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('chacquar@gmail.com', 'Cedric Hacquard', 'GUTENBERG - STRASBOURG - GODF'),
+            ('claude.richard.fdl@gmail.com', 'Claude Richard', 'FRANCOIS DE LORRAINE - NANCY - GODF'),
+            ('claudegrauffel@yahoo.fr', 'Claude Grauffel', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('claudemekler@gmail.com', 'Claude Mekler', "L'ARBRE ET LA PIERRE - Metz - GODF"),
+            ('daniel.dann@neuf.fr', 'Daniel Dann', 'LA FLAMME de ZOROASTRE - SAINT AVOLD - GODF'),
+            ('davidlahalle@gmail.com', 'David Lahalle', ''),
+            ('dcrncrt@orange.fr', 'dcrncrt', ''),
+            ('demogorgone@free.fr', 'demogorgone', ''),
+            ('denisgentit@aol.com', 'Denis Gentit', 'AMOUR ET LIBERTE - THIONVILLE - GODF'),
+            ('dianemarchal54@gmail.com', 'Diane Marchal', 'RITE ET RAISON - NANCY - DH'),
+            ('docpgerber@aol.com', 'P. Gerber', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('dominique.valentin5@wanadoo.fr', 'Dominique Valentin', ''),
+            ('dominique.venter@wanadoo.fr', 'Dominique Venter', ''),
+            ('domrol57@gmail.com', 'Dominique Rollin', "L'ARBRE ET LA PIERRE - Metz - GODF"),
+            ('d-schmitt.perso@wanadoo.fr', 'D. Schmitt', ''),
+            ('ducfrancois3@gmail.com', 'François Duc', 'AMOUR ET LIBERTE - THIONVILLE - GODF'),
+            ('dzitella2@gmail.com', 'dzitella2', 'Le TRIANGLE DE LA VOGE - MIRECOURT - GODF'),
+            ('einius.jacky@gmail.com', 'Jacky Einius', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('elaroubi.yassir@gmail.com', 'Yassir El Aroubi', 'LES ENFANTS DE LA DOUBLE UNION - THIONVILLE - GODF'),
+            ('eltigro@club-internet.fr', 'eltigro', ''),
+            ('eric.bony@yahoo.fr', 'Eric Bony', ''),
+            ('eric.vivien@idelio.net', 'Eric Vivien', ''),
+            ('f.schillio@gmail.com', 'F. Schillio', ''),
+            ('fab.pageot@orange.fr', 'Fabrice Pageot', ''),
+            ('fabrice.chassaigne@free.fr', 'Fabrice Chassaigne', "L'ARBRE ET LA PIERRE - Metz - GODF"),
+            ('ferri@briquet.net', 'Ferri', 'FRANCOIS DE LORRAINE - NANCY - GODF'),
+            ('fflamain@yahoo.fr', 'Fabrice Flamain', 'Saint Jean au Temple de la Paix - Metz - GODF'),
+            ('framb.nums@orange.fr', 'framb.nums', ''),
+            ('francine.friederich@orange.fr', 'Francine Friederich', ''),
+            ('francine.vorms@orange.fr', 'Francine Vorms', ''),
+            ('francis.stoffel@sfr.fr', 'Francis Stoffel', 'ERASMUS - BALE - GODF'),
+            ('francis.vignola@orange.fr', 'Francis Vignola', 'LE TRAVAIL - REMIREMONT - GODF'),
+            ('franck.boffo@boffo.fr', 'Franck Boffo', 'LES ENFANTS DE LA DOUBLE UNION - THIONVILLE - GODF'),
+            ('francois.3@enius.fr', 'François Enius', 'ALMAS LES VERTUS REUNIS - VITRY LE FRANCOIS - GODF'),
+            ('francois.battle@orange.fr', 'François Battle', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('francois.felten@sfr.fr', 'François Felten', 'AGORA - Metz - DH'),
+            ('francoise@viry-babel.com', 'Françoise', ''),
+            ('francoisejeanpert@yahoo.fr', 'Françoise Jeanpert', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('fred.guidoux@live.fr', 'Frédéric Guidoux', ''),
+            ('fz57500@gmail.com', 'fz57500', 'LA FLAMME DE ZOROASTRE - SAINT AVOLD - GODF'),
+            ('gandarp@wanadoo.fr', 'Pierre Gandar', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('gerard.cazobon@laposte.net', 'Gérard Cazobon', ''),
+            ('gerard.voirin@wanadoo.fr', 'Gérard Voirin', ''),
+            ('graf.xavier@orange.fr', 'Xavier Graf', ''),
+            ('guidat2@wanadoo.fr', 'Jean Marc Guidat', 'Saint Jean au Temple de la Paix - Metz - GODF'),
+            ('guy.schoumacker@urbame.com', 'Guy Schoumacker', ''),
+            ('h.korsec@live.fr', 'H. Korsec', 'LA ROSE ET LE SILLON - SAINT MALO - GODF'),
+            ('hel.mathis@gmail.com', 'Hélène Mathis', ''),
+            ('helio3579@hotmail.com', 'helio3579', ''),
+            ('herve.cortina@gmail.com', 'Hervé Cortina', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('huttin.lucien@neuf.fr', 'Lucien Huttin', ''),
+            ('iphonedesab@yahoo.fr', 'iphonedesab', ''),
+            ('isabelledelles@gmail.com', 'Isabelle Delles', "L'ARCHE D'ALLIANCE - METZ - DH"),
+            ('iza.auburtin@gmail.com', 'Isabelle Auburtin', 'LES ENFANTS DE LA DOUBLE UNION - THIONVILLE - GODF'),
+            ('jackylimouzin@sfr.fr', 'Jacky Limouzin', 'AMOUR ET LIBERTE - THIONVILLE - GODF'),
+            ('jackyste@wanadoo.fr', 'Jacky Ste.', ''),
+            ('jacques.macarons@free.fr', 'Jacques Macarons', ''),
+            ('janine.szudra@orange.fr', 'Janine Szudra', ''),
+            ('jbthierry@gmail.com', 'J.B. Thierry', ''),
+            ('jcdebelly@gmail.com', 'J.C. Debelly', ''),
+            ('jchanesse@gmail.com', 'J. Chanesse', ''),
+            ('jcperisset@gmail.com', 'J.C. Perisset', ''),
+            ('jd.hamet@mchgestion.eu', 'J.D. Hamet', ''),
+            ('jeanjacques.gangloff@orange.fr', 'Jean-Jacques Gangloff', 'GUTENBERG - STRASBOURG - GODF'),
+            ('jean-louis.roselli@orange.fr', 'Jean-Louis Roselli', 'LA FLAMME DE ZOROASTRE - SAINT AVOLD - GODF'),
+            ('jeanlouis@piechnik.fr', 'Jean-Louis Piechnik', 'MAITRE VILLARD DE HONECOURT - METZ - GODF'),
+            ('jeanluc.burgain@orange.fr', 'Jean-Luc Burgain', 'LA NOBLE AMITIE - METZ - GODF'),
+            ('jean-michel.buchler@orange.fr', 'Jean-Michel Buchler', 'RABELAIS - SAINT AVOLD - GODF'),
+            ('jfcha24@gmail.com', 'J.F. Cha.', ''),
+            ('jlszkud@orange.fr', 'J.L. Szkud.', ''),
+            ('jmmmathieu@orange.fr', 'J.M. Mathieu', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('jp.puton@gmail.com', 'J.P. Puton', ''),
+            ('jpplouis@gmail.com', 'J.P. Plouis', ''),
+            ('juhemar88@gmail.com', 'juhemar88', ''),
+            ('julien.mk@protonmail.com', 'Julien M.K.', ''),
+            ('kahn.didier2@orange.fr', 'Didier Kahn', ''),
+            ('karine.touati@kosmo.lu', 'Karine Touati', "L'ARCHE D'ALLIANCE - METZ - DH"),
+            ('katesch86@gmail.com', 'Kate Schneider', 'UNION ET DIVERSITE - THIONVILLE - DH'),
+            ('kawka.serge@club-internet.fr', 'Serge Kawka', ''),
+            ('l.dap@wanadoo.fr', 'L. Dap', ''),
+            ('laetitia.philippon@icloud.com', 'Laetitia Philippon', 'LA TRIPLE EQUERRE - ANNECY - GODF'),
+            ('laurence.lebreton57@gmail.com', 'Laurence Lebreton', 'CONCORDIA - METZ - GLFF'),
+            ('levillain.d@gmail.com', 'D. Levillain', ''),
+            ('luc.mittelbronn@wanadoo.fr', 'Luc Mittelbronn', ''),
+            ('malik.chaalal@gmail.com', 'Malik Chaalal', ''),
+            ('marc.bouillaguet108@gmail.com', 'Marc Bouillaguet', ''),
+            ('marc1054@proton.me', 'Marc', ''),
+            ('marcotth@protonmail.com', 'Thierry Marcot', "CAIRN ET L'ACACIA - NANCY - GODF"),
+            ('marie-pierre.martin@orange.fr', 'Marie-Pierre Martin', 'STOA - METZ - DH'),
+            ('martine.berns-coquillat@orange.fr', 'Martine Berns-Coquillat', "L'ARCHE D'ALLIANCE - METZ - DH"),
+            ('martine.crane@gmail.com', 'Martine Crane', 'AGORA - METZ - DH'),
+            ('martine_reithinger@hotmail.com', 'Martine Reithinger', ''),
+            ('mbarek.irrazi@gmail.com', "M'Barek Irrazi", ''),
+            ('mcmconseil@wanadoo.fr', 'mcmconseil', ''),
+            ('mcroller@pt.lu', 'M. Croller', ''),
+            ('michel.christian.schmitt@gmail.com', 'Michel-Christian Schmitt', ''),
+            ('michel.hirschhorn@orange.fr', 'Michel Hirschhorn', 'AMIS DE LA VERITE - METZ - GODF'),
+            ('michel.zaccaria@sfr.fr', 'Michel Zaccaria', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('moraly@david.as', 'Moraly', ''),
+            ('mpb57245@gmail.com', 'mpb57245', ''),
+            ('nicolas.eschenbrenner@web.de', 'Nicolas Eschenbrenner', 'LES ENFANTS DE LA DOUBLE UNION - THIONVILLE - GODF'),
+            ('olivier.benoit.avocat@orange.fr', 'Olivier Benoit', ''),
+            ('p.salvino@groupesalvino.fr', 'P. Salvino', ''),
+            ('pascal.pellenz54@gmail.com', 'Pascal Pellenz', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('pascal.poncet.1562@wanadoo.fr', 'Pascal Poncet', ''),
+            ('pascal.rougel@free.fr', 'Pascal Rougel', ''),
+            ('pascal.wuttke@wanadoo.fr', 'Pascal Wuttke', ''),
+            ('pascalboulard@yahoo.fr', 'Pascal Boulard', 'AMOUR ET LIBERTE - THIONVILLE - GODF'),
+            ('pecheur.beatrice@orange.fr', 'Béatrice Pêcheur', 'AGORA - METZ - DH'),
+            ('pierre.frank@everclean57.fr', 'Pierre Frank', 'LA FLAMME DE ZOROASTRE - SAINT AVOLD - GODF'),
+            ('pierre.kratz@gmail.com', 'Pierre Kratz', ''),
+            ('pierre.weitzel@laposte.net', 'Pierre Weitzel', 'HELIOPOLIS RENAISSANTE - METZ - GODF'),
+            ('pierrebertinotti@yahoo.fr', 'Pierre Bertinotti', 'SAINT JEAN AU TEMPLE DE LA PAIX - METZ - GODF'),
+            ('pigni54@hotmail.com', 'Christian Berteux', ''),
+            ('pillot.jacques@gmail.com', 'Jacques Pillot', ''),
+            ('pnicolle.perso@gmail.com', 'P. Nicolle', ''),
+            ('po.carreau@softmarketing.fr', 'P.O. Carreau', 'TOLERANCE - PARIS - GODF'),
+            ('poirsonaline@yahoo.fr', 'Aline Poirson', ''),
+            ('pose_792@hotmail.com', 'pose_792', ''),
+            ('ppa.remy@hotmail.fr', 'Rémy P.P.A.', ''),
+            ('r.billaude@outlook.fr', 'R. Billaude', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('r.pierronnet@gmail.com', 'R. Pierronnet', ''),
+            ('raoulgottlich@yahoo.fr', 'Raoul Gottlich', 'LA VRAIE LUMIERE - NANCY - GODF'),
+            ('rapp.patrick@wanadoo.fr', 'Patrick Rapp', ''),
+            ('rauch.isabelle@yahoo.fr', 'Isabelle Rauch', "LA république à l'école de la fraternité - Metz - GODF"),
+            ('robin.gllm@yahoo.com', 'Robin G.', ''),
+            ('s.bernard5467@laposte.net', 'S. Bernard', ''),
+            ('sandramonneau@yahoo.fr', 'Sandra Monneau', ''),
+            ('sebastien.liarte@gmail.com', 'Sébastien Liarte', 'SAINT DE JERUSALEM - NANCY - GODF'),
+            ('secretariat.aa1455@gmail.com', "Secrétariat Arche d'Alliance", "L'ARCHE D'ALLIANCE - METZ - DH"),
+            ('secretariat@saedar.info', 'Secrétariat Saedar', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('secretariatref@gmail.com', 'Secrétariat REF', "LA République à l'Ecole de la Fraternité - Metz - GODF"),
+            ('sg57340@gmail.com', 'sg57340', ''),
+            ('skknecht@gmail.com', 'Knecht', "L'ARBRE ET LA PIERRE - METZ - GODF"),
+            ('sreteg@wanadoo.fr', 'sreteg', ''),
+            ('stephan.berard54@gmail.com', 'Stéphan Bérard', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('stephane.masse357@gmail.com', 'Stéphane Massé', 'Francois de Lorraine - Nancy - GODF'),
+            ('stephane.nassoy@wanadoo.fr', 'Stéphane Nassoy', "L'ARBRE ET LA PIERRE - METZ - GODF"),
+            ('stephanielemaitre@hotmail.fr', 'Stéphanie Lemaître', ''),
+            ('stephz750@aol.com', 'stephz750', ''),
+            ('susunierpro@gmail.com', 'susunierpro', 'LE TRAVAIL - REMIREMONT - GODF'),
+            ('thews.mathieu@gmail.com', 'Mathieu Thews', 'Saint antoine et des amis reunis - Pont à Mousson - GODF'),
+            ('thierry.delles@crea-diffusion.com', 'Thierry Delles', "PIERRE PERRAT à l'Etoile Flamboyante - METZ - GODF"),
+            ('uneviedesregards@gmail.com', 'uneviedesregards', ''),
+            ('vm.sda@gmx.fr', 'vm.sda', ''),
+            ('xophe.baudot@laposte.net', 'Christophe Baudot', 'Francois de Lorraine - Nancy - GODF'),
+        ]
+        now_str = "datetime('now')"
+        # Pour chaque email : créer le contact s'il n'existe pas déjà (peu importe le type)
+        existing_r = await conn.exec_driver_sql(
+            "SELECT LOWER(email), id FROM external_contacts"
+        )
+        existing_by_email = {r[0]: r[1] for r in existing_r.fetchall()}
+        for email, name, org in RESEAU_VISITEURS:
+            if email.lower() not in existing_by_email:
+                await conn.exec_driver_sql(
+                    "INSERT INTO external_contacts (name, email, organization, contact_type, is_active, created_at) "
+                    f"VALUES (?, ?, ?, 'VISITOR', 1, {now_str})",
+                    (name, email.lower(), org or None),
+                )
+        # Recharger le mapping email→id après les insertions
+        existing_r2 = await conn.exec_driver_sql(
+            "SELECT LOWER(email), id FROM external_contacts"
+        )
+        existing_by_email = {r[0]: r[1] for r in existing_r2.fetchall()}
+        # Créer la liste "Réseau visiteurs" si elle n'existe pas
+        rv_r = await conn.exec_driver_sql(
+            "SELECT id FROM mailing_lists WHERE name = 'Réseau visiteurs' LIMIT 1"
+        )
+        rv_row = rv_r.fetchone()
+        if not rv_row:
+            await conn.exec_driver_sql(
+                "INSERT INTO mailing_lists (name, description, list_type, is_system, created_at, updated_at) "
+                "VALUES ('Réseau visiteurs', 'Maçons passants et réseau inter-obédientiel habituel', "
+                f"'STATIC', 1, {now_str}, {now_str})"
+            )
+            rv_r2 = await conn.exec_driver_sql(
+                "SELECT id FROM mailing_lists WHERE name = 'Réseau visiteurs' LIMIT 1"
+            )
+            rv_row = rv_r2.fetchone()
+        rv_id = rv_row[0]
+        # Rattacher tous les contacts du réseau à cette liste (idempotent)
+        already_rv_r = await conn.exec_driver_sql(
+            "SELECT external_id FROM mailing_list_externals WHERE list_id = ?", (rv_id,)
+        )
+        already_rv = {r[0] for r in already_rv_r.fetchall()}
+        for email, _name, _org in RESEAU_VISITEURS:
+            contact_id = existing_by_email.get(email.lower())
+            if contact_id and contact_id not in already_rv:
+                await conn.exec_driver_sql(
+                    f"INSERT INTO mailing_list_externals (list_id, external_id, subscribed_at) "
+                    f"VALUES (?, ?, {now_str})",
+                    (rv_id, contact_id),
                 )
 
