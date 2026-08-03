@@ -568,3 +568,151 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_notifications_member_id ON notifications(member_id)")
         await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_push_subscriptions_member_id ON push_subscriptions(member_id)")
 
+    # ── Import loges partenaires (contacts externes type LOGE) ────────────────
+    async with engine.begin() as conn:
+        LOGES_PARTENAIRES = [
+            ("3p.venerable@gmail.com", "Les Trois Piliers"),
+            ("alainjm.faivre@orange.fr", "Socrate"),
+            ("alainschmidt@orange.fr", "Abbe Gregoire - Luneville - GODF"),
+            ("andre.wenner@wanadoo.fr", "François Rabelais - Agora"),
+            ("annemarie.delles@gmail.com", "STOA - Metz - DH"),
+            ("anthonykuhn@aol.com", "PAIS HUMA - NANCY DH"),
+            ("arbre.pierre@gmail.com", "L'Arbre et la Pierre"),
+            ("baudoin.luc@wanadoo.fr", "le TRAVAIL - REMIREMONT - GODF"),
+            ("Baueliane@hotmail.com", "Ouroboros VM"),
+            ("benedicte.perrin1@hotmail.fr", "AGORA - METZ - DH"),
+            ("boyer_gregory73@orange.fr", "NOBLE AMITIE - METZ - DH"),
+            ("bruno.coffion@orange.fr", "FRANCOIS RABELAIS - ST AVOLD GODF"),
+            ("bullinger@kanzlei-kb.de", "Am ROTTENBERG - STUTTGART - GODF"),
+            ("candidadis@live.fr", "3 GLOBES - BERLIN - GODF"),
+            ("catherine.wertheimer@orange.fr", "Catherine Wertheimer"),
+            ("ceckert56@me.com", "AMI DU JEUNE HENRI - BRIEY - GODF"),
+            ("cedric.esve@proton.me", "SIRIUS ET VEGA - NANCY - GODF"),
+            ("chantal.loiselot01@gmail.com", "l'ARBRE d'ESPERANCE - NANCY - DH"),
+            ("christianchalon@orange.fr", "EDLDU - THIONVILLE - GODF"),
+            ("christophe.supper@gmail.com", "GUTENBERG - STRASBOURG - GODF"),
+            ("christopheostolani@outlook.com", "Pierre PERRAT - METZ - GODF"),
+            ("claude.houssemand@uni.lu", "LA VRAIE LUMIERE - NANCY - GODF"),
+            ("concordia.venerable@gmail.com", "CONCORDIA - METZ - GLFF"),
+            ("dalstein.gilbert@wanadoo.fr", "AMOUR ET LIBERTE - THIONVILLE - GODF"),
+            ("danielenevels@gmail.com", "PORTEUR DE LUMIERE - METZ - DH"),
+            ("denis.kochems57@gmail.com", "FLAMME de ZOROA - ST AVOLD - GODF"),
+            ("denise.wender@orange.fr", "JEAN LAMOUR - NANCY - DH"),
+            ("djhouty@gmail.com", "Djhouty"),
+            ("edmondabout@hotmail.fr", "EDMONT ABOUT - NANCY - GODF"),
+            ("emilieduchatelet1706@yahoo.com", "Progrès et Diversité Émilie du Châtelet – 1706"),
+            ("enfantsdeladoubleunion@gmail.com", "Les Enfants de la Double Union"),
+            ("evelyne.nowak@sfr.fr", "L'Arbre sur le Terril - GLMU"),
+            ("f.tamalt@orange.fr", "VITRUVE - METZ - GODF"),
+            ("fab.pageot@orange.fr", "ST JEAN de JERUSALEM NANCY - GODF"),
+            ("gallcatherine@hotmail.com", "ICI et MAINTENANT - METZ DH"),
+            ("garciavali70@gmail.com", "HELIOPOLIS - METZ - GODF"),
+            ("hubert.ehlinger@gmail.com", "EDMONT ABOUT - NANCY GODF"),
+            ("jb.rousse.0@gmail.com", "AMIS DE LA VERITE - METZ - GODF"),
+            ("jc_257@hotmail.fr", "Jean-Claude Stablo"),
+            ("jcmennuni@gmail.com", "FRANCOIS DE LORRAINE - NANCY - GODF"),
+            ("jeanluc.barthel@orange.fr", "Georges Jacques Danton"),
+            ("jeff.fritsch@neuf.fr", "DE LA REUNION PHILANTROPIQUE - LONGWY - GODF"),
+            ("jmjansem@orange.fr", "Logos - Thélème"),
+            ("jmmmathieu@orange.fr", "SAEDAR - PAM - GODF"),
+            ("josephvaleri@mac.com", "REGELE et l'INFINI - METZ - GODF"),
+            ("jougletreinelde@gmail.com", "KETHER - METZ - GLFF"),
+            ("klein@cerigo.net", "ST JEAN au TEMPLE DE LA PAIX - METZ - GODF"),
+            ("larbresurleterril@gmail.com", "L'Arbre sur le Terril - GLMF"),
+            ("laurent.gingembre@wanadoo.fr", "Frat EUROPEENNE - SARREBRUCK - GODF"),
+            ("lesamisdujeunehenry@gmail.com", "Les Amis du Jeune Henry"),
+            ("louis.maillard0207@gmail.com", "LA PARRESIA - NANCY - GODF"),
+            ("mailliot.gilles@orange.fr", "Joseph CARREZ - TOUL - GODF"),
+            ("mallory.koenig@gmail.com", "Progres et Diversite EdC - NANCY - GODF"),
+            ("margaux.mondin@gmail.com", "Margaux Mondin"),
+            ("martibc@protonmail.com", "AMIS DE LA LIBERTE 57 - Sarreguemines - GODF"),
+            ("mceugnie@club-internet.fr", "Victor HUGO - REDING - GODF"),
+            ("michel.naymark@numericable.fr", "Arbre et la Pierre - METZ - GODF"),
+            ("michelepierson4@gmail.com", "Delta de l'Europe"),
+            ("mj.ruff@orange.fr", "Nicolas Henry Jacobi"),
+            ("monikarno@yahoo.fr", "MEDIATION - METZ - DH"),
+            ("mstoinon@gmail.com", "Marie Antoinette Meichelbeck"),
+            ("n.woerner@wanadoo.fr", "Devoir et Liberte - Longwy - GODF"),
+            ("nathik57@hotmail.fr", "Virginie Massia Djhouty"),
+            ("ndu5966@proton.me", "CAIRN et ACACIA - NANCY GODF"),
+            ("nicolashenry2009@hotmail.fr", "Nicolas Henri Jacobi"),
+            ("ogrsgrg@protonmail.com", "Jacques CALLOT NANCY - GODF"),
+            ("olivier.defretin@gmail.com", "REF - METZ - GODF"),
+            ("olivierjulien.lahaye@gmail.com", "les 3 P - METZ - GODF"),
+            ("paspor@hotmail.fr", "Logos"),
+            ("petit.valerie65@orange.fr", "SIRONA - THIONVILLE - GLFF"),
+            ("philippe.gasparella@orange.fr", "UNION et SERENITE - THIONVILLE - DH"),
+            ("piechnik@pm.me", "MVH - METZ - GODF"),
+            ("pierre.s.a@wanadoo.fr", "UTOPIA NANCY GLFF"),
+            ("president1617@mailo.fr", "Rite et RAISON - NANCY - DH"),
+            ("secretaire.amouretliberte@gmail.com", "Amour et Liberté Secretariat"),
+            ("secretaire.francoisrabelais@gmail.com", "François Rabelais VM"),
+            ("secretaire.us@gmail.com", "Union et Sérénité"),
+            ("secretaire@horus-haroeris.fr", "Horus-Haoeris"),
+            ("SecretaireDLRP@ik.me", "SecretaireDLRP"),
+            ("Secretairena@gmail.com", "Noble Amitié"),
+            ("secretariat-adll57@protonmail.com", "Les Amis de la Liberté"),
+            ("secretariat.aa1455@gmail.com", "L'Arche d'Alliance"),
+            ("secretariat.logos@gmail.com", "Logos"),
+            ("secretariat.mvh57@gmail.com", "Villard de Honnecourt"),
+            ("secretariatref@gmail.com", "la République à l'Ecole de la Fraternité"),
+            ("secretariatheliopolismetz@gmail.com", "Heliopolis Renaissante"),
+            ("Secretariatouroboros@proton.me", "Ouroboros secrétaire"),
+            ("secretariat@leschemins.eu", "Chemins de la Tradition Or Thionville-Yutz"),
+            ("selliermariecatherine@gmail.com", "MOZART - NANCY - DH"),
+            ("sg57340@gmail.com", "ARCHE d'ALLIANCE - METZ DH"),
+            ("sornettepascal@gmail.com", "3 VERSANTS - REDING - GODF"),
+            ("venerable@zoroastre.org", "GLDF Metz Zoroastre"),
+            ("victor.phalsbourg@gmail.com", "Victor Hugo"),
+            ("vitruve-metz@outlook.fr", "vitruve"),
+            ("vm.sdAntigone@gmx.fr", "Les soeurs d'Antigone"),
+            ("vm@saedar.info", "De St Antoine les amis réunis"),
+            ("w.weymeskirch@yahoo.com", "ABBE GREGOIRE - LUNEVILLE - GODF"),
+            ("webmaster@theleme.eu", "Theleme.eu"),
+        ]
+        # Insérer les contacts manquants (idempotent : on vérifie par email)
+        existing_emails_r = await conn.exec_driver_sql(
+            "SELECT LOWER(email) FROM external_contacts WHERE contact_type = 'LOGE'"
+        )
+        existing_emails = {r[0] for r in existing_emails_r.fetchall()}
+        now_str = "datetime('now')"
+        for email, org_name in LOGES_PARTENAIRES:
+            if email.lower() in existing_emails:
+                continue
+            await conn.exec_driver_sql(
+                "INSERT INTO external_contacts (name, email, organization, contact_type, is_active, created_at) "
+                f"VALUES (?, ?, ?, 'LOGE', 1, {now_str})",
+                (org_name, email.lower(), org_name),
+            )
+        # Créer la liste de diffusion "Loges partenaires" si elle n'existe pas
+        ml_r = await conn.exec_driver_sql(
+            "SELECT id FROM mailing_lists WHERE name = 'Loges partenaires' LIMIT 1"
+        )
+        ml_row = ml_r.fetchone()
+        if not ml_row:
+            await conn.exec_driver_sql(
+                "INSERT INTO mailing_lists (name, description, list_type, is_system, created_at, updated_at) "
+                "VALUES ('Loges partenaires', 'VM et secrétaires des loges du réseau inter-obédientiel', "
+                f"'STATIC', 1, {now_str}, {now_str})"
+            )
+            ml_r2 = await conn.exec_driver_sql(
+                "SELECT id FROM mailing_lists WHERE name = 'Loges partenaires' LIMIT 1"
+            )
+            ml_row = ml_r2.fetchone()
+        ml_id = ml_row[0]
+        # Rattacher tous les contacts LOGE à cette liste (idempotent)
+        all_loge_r = await conn.exec_driver_sql(
+            "SELECT id FROM external_contacts WHERE contact_type = 'LOGE' AND is_active = 1"
+        )
+        already_in_r = await conn.exec_driver_sql(
+            "SELECT external_id FROM mailing_list_externals WHERE list_id = ?", (ml_id,)
+        )
+        already_in = {r[0] for r in already_in_r.fetchall()}
+        for (contact_id,) in all_loge_r.fetchall():
+            if contact_id not in already_in:
+                await conn.exec_driver_sql(
+                    f"INSERT INTO mailing_list_externals (list_id, external_id, subscribed_at) "
+                    f"VALUES (?, ?, {now_str})",
+                    (ml_id, contact_id),
+                )
+

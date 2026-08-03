@@ -487,8 +487,9 @@
         <select name="contact_type_filter" onchange="this.form.submit()"
                 class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
           <option value="" {% if not contact_type_filter %}selected{% endif %}>Tous les types</option>
+          <option value="LOGE" {% if contact_type_filter == 'LOGE' %}selected{% endif %}>🏛 Loges partenaires</option>
           <option value="VISITOR" {% if contact_type_filter == 'VISITOR' %}selected{% endif %}>👤 Passant·e·s</option>
-          <option value="EXTERNAL" {% if contact_type_filter == 'EXTERNAL' %}selected{% endif %}>🏛 Institutionnels</option>
+          <option value="EXTERNAL" {% if contact_type_filter == 'EXTERNAL' %}selected{% endif %}>📋 Autres contacts</option>
         </select>
         {% if contact_lodges %}
         <select name="contact_lodge_filter" onchange="this.form.submit()"
@@ -520,8 +521,8 @@
         {% for c in external_contacts %}
         <div class="flex flex-wrap items-start gap-2 py-2.5">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium flex-shrink-0
-            {% if c.contact_type == 'VISITOR' %}bg-loge-100 text-loge-700{% else %}bg-blue-50 text-blue-700{% endif %}">
-            {{ '👤 Passant·e' if c.contact_type == 'VISITOR' else '🏛 Institutionnel' }}
+            {% if c.contact_type == 'VISITOR' %}bg-loge-100 text-loge-700{% elif c.contact_type == 'LOGE' %}bg-blue-50 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+            {% if c.contact_type == 'VISITOR' %}👤 Passant·e{% elif c.contact_type == 'LOGE' %}🏛 Loge partenaire{% else %}📋 Autre contact{% endif %}
           </span>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-gray-900">
@@ -612,8 +613,9 @@
                   <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
                   <select name="contact_type"
                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                    <option value="LOGE" :selected="ec.contact_type === 'LOGE'">🏛 Loge partenaire</option>
                     <option value="VISITOR" :selected="ec.contact_type === 'VISITOR'">👤 F∴/S∴ passant·e</option>
-                    <option value="EXTERNAL" :selected="ec.contact_type === 'EXTERNAL'">🏛 Contact institutionnel</option>
+                    <option value="EXTERNAL" :selected="ec.contact_type === 'EXTERNAL'">📋 Autre contact</option>
                   </select>
                 </div>
                 <div class="sm:col-span-2">
@@ -707,8 +709,9 @@
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
             <select name="contact_type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+              <option value="LOGE">🏛 Loge partenaire (VM / Secrétaire)</option>
               <option value="VISITOR">👤 F∴/S∴ passant·e (opt-in programme)</option>
-              <option value="EXTERNAL">🏛 Contact institutionnel</option>
+              <option value="EXTERNAL">📋 Autre contact</option>
             </select>
           </div>
         </div>

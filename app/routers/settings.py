@@ -122,7 +122,7 @@ async def settings_page(
     all_member_map = {m.id: m for m in r_all_members.scalars().all()}
 
     contacts_stmt = select(ExternalContact).order_by(ExternalContact.contact_type, ExternalContact.name)
-    if contact_type_filter in ("EXTERNAL", "VISITOR"):
+    if contact_type_filter in ("EXTERNAL", "VISITOR", "LOGE"):
         contacts_stmt = contacts_stmt.where(ExternalContact.contact_type == contact_type_filter)
     if contact_lodge_filter.strip():
         contacts_stmt = contacts_stmt.where(ExternalContact.lodge_name == contact_lodge_filter.strip())
@@ -505,7 +505,7 @@ async def external_contact_add(
         organization=organization.strip() or None,
         lodge_name=lodge_name.strip() or None,
         orient=orient.strip() or None,
-        contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL",
+        contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL",
         notes=notes.strip() or None,
         is_active=True,
         last_confirmed_at=datetime.utcnow(),
@@ -551,7 +551,7 @@ async def external_contacts_import_csv(
             errors.append(f"Ligne {i} ignorée : email manquant")
             continue
         contact_type = (row.get("type") or "EXTERNAL").strip().upper()
-        if contact_type not in ("EXTERNAL", "VISITOR"):
+        if contact_type not in ("EXTERNAL", "VISITOR", "LOGE"):
             contact_type = "EXTERNAL"
         first_name = (row.get("prenom") or "").strip()
         last_name = (row.get("nom") or "").strip()
@@ -678,7 +678,7 @@ async def external_contact_edit(
     contact.organization = organization.strip() or None
     contact.lodge_name = lodge_name.strip() or None
     contact.orient = orient.strip() or None
-    contact.contact_type = contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL"
+    contact.contact_type = contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL"
     contact.notes = notes.strip() or None
     await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
