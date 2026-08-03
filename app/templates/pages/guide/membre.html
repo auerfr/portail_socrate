@@ -4,11 +4,14 @@
 {% block content %}
 <style>
   @media print {
-    nav, aside, header, .no-print { display: none !important; }
-    .print-content { padding: 0 !important; }
-    details { open: true; }
-    details summary { display: none; }
+    html, body { overflow: visible !important; max-width: none !important; }
+    aside, nav, header, footer, .no-print { display: none !important; }
+    main { margin-left: 0 !important; padding-bottom: 0 !important; }
+    .print-content { padding: 0 !important; max-width: none !important; }
+    details { display: block !important; }
+    details summary { display: none !important; }
     details > * { display: block !important; }
+    section, .bg-white, .bg-loge-50, .bg-amber-50 { break-inside: avoid; }
   }
 </style>
 <div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 print-content">
