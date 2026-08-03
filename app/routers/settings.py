@@ -641,10 +641,11 @@ async def external_contacts_send_confirmation(
     request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    list_id: Annotated[str, Form()] = "",
+    target: Annotated[str, Form()] = "",
 ):
-    """Déclenche l'envoi de l'email de confirmation annuelle, optionnellement
-    restreint aux membres d'une liste de diffusion donnée."""
+    """Déclenche l'envoi de l'email de confirmation annuelle.
+    target = "" (tous) | "type:LOGE" | "type:VISITOR" | "type:EXTERNAL" | "list:123"
+    """
     user, member = ctx
     from app.dependencies import can_manage_members
     if not (user.is_admin or can_manage_members(member)):
@@ -655,18 +656,35 @@ async def external_contacts_send_confirmation(
     from app.services.audit import log_audit
 
     contact_ids: Optional[list[int]] = None
-    if list_id:
+    label = "tous les contacts actifs"
+
+    if target.startswith("type:"):
+        ctype = target[5:]
+        r_ids = await db.execute(
+            select(ExternalContact.id)
+            .where(
+                ExternalContact.contact_type == ctype,
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+            )
+        )
+        contact_ids = [r[0] for r in r_ids.all()]
+        label = f"type {ctype}"
+
+    elif target.startswith("list:"):
+        list_id = int(target[5:])
         r_ids = await db.execute(
             select(MailingListExternal.external_id)
             .join(ExternalContact, ExternalContact.id == MailingListExternal.external_id)
             .where(
-                MailingListExternal.list_id == int(list_id),
+                MailingListExternal.list_id == list_id,
                 MailingListExternal.unsubscribed_at.is_(None),
                 ExternalContact.is_active == True,  # noqa: E712
                 ExternalContact.removal_requested_at.is_(None),
             )
         )
         contact_ids = [r[0] for r in r_ids.all()]
+        label = f"liste #{list_id}"
 
     n = len(contact_ids) if contact_ids is not None else (
         (await db.execute(
@@ -680,7 +698,7 @@ async def external_contacts_send_confirmation(
     base_url = str(request.base_url).rstrip("/")
     await log_audit(
         db, actor_id=member.id, action="CONTACTS_CONFIRMATION_SEND",
-        details=f"{n} correspondant(s) ciblé(s){' (liste #' + list_id + ')' if list_id else ''}",
+        details=f"{n} correspondant(s) ciblé(s) — {label}",
         request=request, commit=True,
     )
     launch_confirmation_campaign(base_url, contact_ids=contact_ids)

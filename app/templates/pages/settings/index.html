@@ -498,12 +498,21 @@
         <form method="post" action="/settings/external-contacts/send-confirmation"
               class="inline-flex items-center gap-2"
               onsubmit="return confirm('Envoyer l\'email de confirmation annuelle aux correspondants sélectionnés ? Ceci envoie de vrais emails.')">
-          <select name="list_id"
+          <select name="target"
                   class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-loge-500">
-            <option value="">Tous les visiteurs actifs</option>
-            {% for ml in external_mailing_lists %}
-            <option value="{{ ml.id }}">{{ ml.name }}</option>
-            {% endfor %}
+            <option value="">Tous les contacts actifs</option>
+            <optgroup label="Par type">
+              <option value="type:LOGE">🏛 Loges partenaires</option>
+              <option value="type:VISITOR">👤 Passant·e·s</option>
+              <option value="type:EXTERNAL">📋 Autres contacts</option>
+            </optgroup>
+            {% if external_mailing_lists %}
+            <optgroup label="Par liste de diffusion">
+              {% for ml in external_mailing_lists %}
+              <option value="list:{{ ml.id }}">{{ ml.name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
           </select>
           <button type="submit"
                   class="text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5">
