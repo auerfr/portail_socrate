@@ -321,11 +321,14 @@ async def maintenance_banner_middleware(request: Request, call_next):
     except Exception:
         request.state.banner = None
 
-    # ── Flag confidentialité ────────────────────────────────────────────────
+    # ── Flag confidentialité (via cache 30s) ────────────────────────────────
     try:
-        from app.services.confidentiality import get_config as _get_conf
-        c = await _get_conf()
-        request.state.show_conf_banner = bool(c.get("show_confidentiality_banner"))
+        from app.services.confidentiality import KEY as _CONF_KEY, DEFAULTS as _CONF_DEFAULTS
+        _conf_stored = await _get_setting_cached(_CONF_KEY) or {}
+        _conf = dict(_CONF_DEFAULTS)
+        if isinstance(_conf_stored, dict):
+            _conf.update(_conf_stored)
+        request.state.show_conf_banner = bool(_conf.get("show_confidentiality_banner"))
     except Exception:
         request.state.show_conf_banner = False
 
