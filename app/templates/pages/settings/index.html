@@ -477,6 +477,13 @@
           <span class="text-gray-500">En attente :</span>
           <strong class="text-amber-700">{{ contact_conf_stats.pending }}</strong>
         </div>
+        {% if contact_conf_stats.auto_removed > 0 %}
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-orange-400"></span>
+          <span class="text-gray-500">Retirés auto :</span>
+          <strong class="text-orange-700">{{ contact_conf_stats.auto_removed }}</strong>
+        </div>
+        {% endif %}
         {% if contact_conf_stats.removed > 0 %}
         <div class="flex items-center gap-1.5 text-xs">
           <span class="inline-block w-2 h-2 rounded-full bg-red-400"></span>
@@ -570,8 +577,10 @@
               <span class="text-red-500">✕ Désinscription demandée le {{ c.removal_requested_at.strftime('%d/%m/%Y') }}</span>
               {% elif c.last_confirmed_at %}
               <span class="text-green-600">✓ Confirmé le {{ c.last_confirmed_at.strftime('%d/%m/%Y') }}</span>
+              {% elif not c.is_active %}
+              <span class="text-orange-500">⏱ Retiré automatiquement (non-réponse)</span>
               {% else %}
-              <span class="text-gray-400">Jamais confirmé</span>
+              <span class="text-amber-500">⏳ En attente de confirmation (suppression auto sous 60 j.)</span>
               {% endif %}
             </div>
           </div>

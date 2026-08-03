@@ -78,12 +78,12 @@ Vous figurez dans notre liste de correspondants de la loge {LODGE_FULL_NAME} et 
 Pour mettre à jour vos informations (nom, loge, obédience…) ou simplement confirmer que vous souhaitez continuer à recevoir nos communications, cliquez ici :
 {update_url}
 
-Vous avez le droit de demander à être retiré·e de notre liste à tout moment. Pour cela, utilisez ce lien :
-{remove_url}
+⚠ Sans réponse de votre part dans les 60 jours, votre adresse sera automatiquement retirée de notre liste.
 
 🔒 Vos coordonnées sont strictement confidentielles, utilisées uniquement pour l'envoi de nos programmes. Elles ne sont ni partagées, ni cédées à des tiers. Nos communications vous sont adressées individuellement.
 
-Sans action de votre part, vous continuerez à recevoir nos programmes.
+Vous avez le droit de demander à être retiré·e de notre liste à tout moment. Pour cela, utilisez ce lien :
+{remove_url}
 
 Fraternellement,
 {SIGNATURE}"""
@@ -107,6 +107,12 @@ Fraternellement,
       Mettre à jour mes informations →
     </a>
   </p>
+  <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;margin:20px 0;">
+    <p style="font-size:13px;color:#92400e;line-height:1.6;margin:0;">
+      ⚠ <strong>Sans réponse de votre part dans les 60 jours</strong>, votre adresse sera
+      automatiquement retirée de notre liste.
+    </p>
+  </div>
   <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;margin:20px 0;">
     <p style="font-size:13px;color:#166534;line-height:1.6;margin:0;">
       🔒 <strong>Confidentialité</strong> — Vos coordonnées sont strictement confidentielles
@@ -120,9 +126,6 @@ Fraternellement,
     Vous avez le droit de demander à être retiré·e de notre liste à tout moment.<br>
     Pour cela, utilisez ce lien :
     <a href="{remove_url}" style="color:#6b7280;">Me désinscrire de la liste</a>
-  </p>
-  <p style="font-size:13px;color:#6b7280;">
-    Sans action de votre part, vous continuerez à recevoir nos programmes.
   </p>
   <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
   <p style="font-size:13px;color:#888;">Fraternellement,<br><strong>{SIGNATURE}</strong></p>

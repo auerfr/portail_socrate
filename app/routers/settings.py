@@ -153,11 +153,21 @@ async def settings_page(
         ).where(ExternalContact.contact_type == "VISITOR")
     )
     _cs = r_conf_stats.one()
+    # Contacts VISITOR désactivés sans demande explicite = retirés automatiquement
+    r_auto_removed = await db.execute(
+        select(_sqlfunc.count()).where(
+            ExternalContact.contact_type == "VISITOR",
+            ExternalContact.is_active == False,  # noqa: E712
+            ExternalContact.removal_requested_at.is_(None),
+        )
+    )
+    _auto_removed = r_auto_removed.scalar_one() or 0
     contact_conf_stats = {
         "total": _cs[0],
         "confirmed": _cs[1],
         "removed": _cs[2],
-        "pending": _cs[0] - _cs[1] - _cs[2],
+        "auto_removed": _auto_removed,
+        "pending": _cs[0] - _cs[1] - _cs[2] - _auto_removed,
     }
 
     from app.dependencies import can_manage_members
