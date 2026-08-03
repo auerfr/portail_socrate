@@ -1327,7 +1327,16 @@ async def admin_analytics(
     days = days if days in (7, 30, 90) else 30
     since = datetime.utcnow() - timedelta(days=days)
 
+    # Exclure les visites des administrateurs
+    from app.models.identity import User as _User
+    admin_ids_r = await db.execute(
+        select(_User.member_id).where(_User.is_admin == True, _User.member_id.isnot(None))
+    )
+    admin_member_ids = [r[0] for r in admin_ids_r.all()]
+
     base_filter = PageView.created_at >= since
+    if admin_member_ids:
+        base_filter = base_filter & PageView.member_id.not_in(admin_member_ids)
 
     total_views = (await db.execute(
         select(func.count(PageView.id)).where(base_filter)

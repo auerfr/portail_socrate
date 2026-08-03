@@ -413,8 +413,11 @@ async def _record_pageview(request: Request) -> None:
 
         async with AsyncSessionLocal() as db:
             if user_id:
-                r = await db.execute(select(User.member_id).where(User.id == user_id))
-                member_id = r.scalar_one_or_none()
+                r = await db.execute(select(User.member_id, User.is_admin).where(User.id == user_id))
+                row = r.one_or_none()
+                if row and row[1]:  # is_admin → ne pas enregistrer
+                    return
+                member_id = row[0] if row else None
             db.add(PageView(
                 path=request.url.path,
                 referrer_host=referrer_host,
