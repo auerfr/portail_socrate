@@ -182,7 +182,7 @@ class Notification(Base):
     __tablename__ = "notifications"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    member_id: Mapped[int]           = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    member_id: Mapped[int]           = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), index=True)
     type: Mapped[NotificationType]   = mapped_column(Enum(NotificationType))
     title: Mapped[str]               = mapped_column(String(300))
     message: Mapped[str]             = mapped_column(Text)
@@ -200,7 +200,7 @@ class PushSubscription(Base):
     __tablename__ = "push_subscriptions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    member_id: Mapped[int]   = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    member_id: Mapped[int]   = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), index=True)
     endpoint: Mapped[str]    = mapped_column(String(1000))
     key_p256dh: Mapped[str]  = mapped_column(String(200))
     key_auth: Mapped[str]    = mapped_column(String(100))

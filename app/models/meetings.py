@@ -160,8 +160,8 @@ class Attendance(Base):
     __table_args__ = (UniqueConstraint("meeting_id", "member_id"),)
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"))
-    member_id: Mapped[int]  = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"), index=True)
+    member_id: Mapped[int]  = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), index=True)
 
     status: Mapped[AttendanceStatus] = mapped_column(Enum(AttendanceStatus))
     excuse_reason: Mapped[Optional[str]] = mapped_column(Text)
@@ -212,8 +212,8 @@ class MeetingVisitor(Base):
     __tablename__ = "meeting_visitors"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"))
-    visitor_id: Mapped[int] = mapped_column(ForeignKey("visitors.id", ondelete="CASCADE"))
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"), index=True)
+    visitor_id: Mapped[int] = mapped_column(ForeignKey("visitors.id", ondelete="CASCADE"), index=True)
 
     status: Mapped[VisitorStatus] = mapped_column(Enum(VisitorStatus), default=VisitorStatus.CONFIRMED)
     agape: Mapped[bool]           = mapped_column(Boolean, default=False)
@@ -231,7 +231,7 @@ class MeetingGuest(Base):
     __tablename__ = "meeting_guests"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    meeting_id: Mapped[int]      = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"))
+    meeting_id: Mapped[int]      = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"), index=True)
     invited_by_id: Mapped[int]   = mapped_column(ForeignKey("members.id"))
 
     last_name: Mapped[str]  = mapped_column(String(100))
@@ -290,10 +290,10 @@ class MeetingWaitlist(Base):
     __tablename__ = "meeting_waitlist"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"))
+    meeting_id: Mapped[int] = mapped_column(ForeignKey("meetings.id", ondelete="CASCADE"), index=True)
 
     # Peut être un membre ou un visiteur (pas les deux)
-    member_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("members.id"))
+    member_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("members.id"), index=True)
     visitor_id: Mapped[Optional[int]] = mapped_column(ForeignKey("visitors.id"))
 
     # Ou un externe non-maçon

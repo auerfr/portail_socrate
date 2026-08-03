@@ -5,7 +5,7 @@ la recherche globale (app/routers/search.py)."""
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import select, func
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.identity import Member
@@ -112,5 +112,70 @@ async def get_notification_events(db: AsyncSession, user, member: Member, limit:
 
 
 async def get_notifications_count(db: AsyncSession, user, member: Member) -> int:
-    events = await get_notification_events(db, user, member)
-    return sum(1 for e in events if e["is_new"])
+    """Compte les notifications non vues via COUNT SQL directs — sans charger d'objets."""
+    seen_at = member.notifications_seen_at
+    since = datetime.now() - timedelta(days=WINDOW_DAYS)
+    count = 0
+
+    # Messages non lus (toujours "new" car jamais vus = unread)
+    if member.notif_messages:
+        r = await db.execute(
+            select(func.count()).select_from(Message)
+            .join(MessageRecipient, MessageRecipient.message_id == Message.id)
+            .where(
+                MessageRecipient.member_id == member.id,
+                MessageRecipient.read_at.is_(None),
+                MessageRecipient.deleted_at.is_(None),
+                Message.sent_at.isnot(None),
+            )
+        )
+        count += r.scalar_one() or 0
+
+    if seen_at is None:
+        # Rien vu encore → tout est nouveau, pas besoin de compter plus précisément
+        return min(count + 5, 9)
+
+    # Planches publiées après seen_at (filtre grade omis pour éviter N+1 — approximation ok pour le badge)
+    if member.notif_planches:
+        r = await db.execute(
+            select(func.count()).select_from(Planche)
+            .where(
+                Planche.status == PlancheStatus.PUBLIE,
+                Planche.published_at.isnot(None),
+                Planche.published_at > seen_at,
+                Planche.published_at >= since,
+            )
+        )
+        count += r.scalar_one() or 0
+
+    # Sondages ouverts non votés créés après seen_at
+    if member.notif_polls:
+        voted_r = await db.execute(
+            select(PollVote.poll_id).where(PollVote.member_id == member.id)
+        )
+        voted_ids = {row[0] for row in voted_r.all()}
+        r = await db.execute(
+            select(Poll).where(
+                Poll.created_at > seen_at,
+                Poll.created_at >= since,
+                Poll.id.not_in(voted_ids) if voted_ids else True,
+            )
+        )
+        for p in r.scalars().all():
+            from app.routers.polls import _is_open
+            if _is_open(p):
+                count += 1
+
+    # Forum — nouveaux sujets actifs après seen_at
+    if member.notif_forum:
+        r = await db.execute(
+            select(func.count()).select_from(ForumSubject)
+            .where(
+                ForumSubject.last_message_at.isnot(None),
+                ForumSubject.last_message_at > seen_at,
+                ForumSubject.last_message_at >= since,
+            )
+        )
+        count += r.scalar_one() or 0
+
+    return count

@@ -541,3 +541,30 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_page_views_session_id ON page_views(session_id)")
         await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_page_views_created_at ON page_views(created_at)")
 
+    # ── Index de performance (FK fréquemment filtrées) ─────────────────────
+    async with engine.begin() as conn:
+        # Finance
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_member_contributions_member_id ON member_contributions(member_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_member_contributions_masonic_year_id ON member_contributions(masonic_year_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_member_contributions_tier_id ON member_contributions(tier_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_payments_member_contribution_id ON payments(member_contribution_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_quitus_member_id ON quitus(member_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_quitus_masonic_year_id ON quitus(masonic_year_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_budget_categories_masonic_year_id ON budget_categories(masonic_year_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_transactions_masonic_year_id ON transactions(masonic_year_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_transactions_category_id ON transactions(category_id)")
+        # Tenues
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_attendance_meeting_id ON attendance(meeting_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_attendance_member_id ON attendance(member_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_meeting_visitors_meeting_id ON meeting_visitors(meeting_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_meeting_visitors_visitor_id ON meeting_visitors(visitor_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_meeting_guests_meeting_id ON meeting_guests(meeting_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_meeting_waitlist_meeting_id ON meeting_waitlist(meeting_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_meeting_waitlist_member_id ON meeting_waitlist(member_id)")
+        # Forum
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_forum_subjects_theme_id ON forum_subjects(theme_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_forum_messages_subject_id ON forum_messages(subject_id)")
+        # Notifications & Push
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_notifications_member_id ON notifications(member_id)")
+        await conn.exec_driver_sql("CREATE INDEX IF NOT EXISTS ix_push_subscriptions_member_id ON push_subscriptions(member_id)")
+

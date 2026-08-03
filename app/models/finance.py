@@ -131,9 +131,9 @@ class MemberContribution(Base):
     __tablename__ = "member_contributions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    member_id: Mapped[int]       = mapped_column(ForeignKey("members.id"))
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"))
-    tier_id: Mapped[int]         = mapped_column(ForeignKey("contribution_tiers.id"))
+    member_id: Mapped[int]       = mapped_column(ForeignKey("members.id"), index=True)
+    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), index=True)
+    tier_id: Mapped[int]         = mapped_column(ForeignKey("contribution_tiers.id"), index=True)
 
     base_amount: Mapped[float]       = mapped_column(Numeric(10, 2))  # cotisation pure
     capitation_amount: Mapped[float] = mapped_column(Numeric(10, 2))  # nat + régionale
@@ -167,7 +167,7 @@ class Payment(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     member_contribution_id: Mapped[int] = mapped_column(
-        ForeignKey("member_contributions.id", ondelete="CASCADE")
+        ForeignKey("member_contributions.id", ondelete="CASCADE"), index=True
     )
     amount: Mapped[float]         = mapped_column(Numeric(10, 2))
     payment_date: Mapped[date]    = mapped_column(Date)
@@ -188,8 +188,8 @@ class Quitus(Base):
     __tablename__ = "quitus"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    member_id: Mapped[int]       = mapped_column(ForeignKey("members.id"))
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"))
+    member_id: Mapped[int]       = mapped_column(ForeignKey("members.id"), index=True)
+    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), index=True)
     contribution_id: Mapped[int] = mapped_column(
         ForeignKey("member_contributions.id"), unique=True
     )
@@ -211,7 +211,7 @@ class BudgetCategory(Base):
     __tablename__ = "budget_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"))
+    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), index=True)
     name: Mapped[str]             = mapped_column(String(200))
     type: Mapped[TransactionType] = mapped_column(Enum(TransactionType))
     planned_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
@@ -224,8 +224,8 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    masonic_year_id: Mapped[int]  = mapped_column(ForeignKey("masonic_years.id"))
-    category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("budget_categories.id"))
+    masonic_year_id: Mapped[int]  = mapped_column(ForeignKey("masonic_years.id"), index=True)
+    category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("budget_categories.id"), index=True)
 
     date: Mapped[date]              = mapped_column(Date)
     label: Mapped[str]              = mapped_column(String(300))

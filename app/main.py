@@ -257,14 +257,27 @@ async def not_found_handler(request: Request, exc):
         return PlainTextResponse("Page introuvable", status_code=404)
 
 
+# Cache en mémoire pour les settings lus à chaque requête (TTL 30s)
+import time as _time
+_settings_cache: dict = {}
+_SETTINGS_TTL = 30.0
+
+async def _get_setting_cached(key: str):
+    """Lit un setting avec cache mémoire TTL 30s pour ne pas interroger la DB à chaque requête."""
+    from app.services.settings_store import get_setting
+    now = _time.monotonic()
+    entry = _settings_cache.get(key)
+    if entry and now - entry[1] < _SETTINGS_TTL:
+        return entry[0]
+    value = await get_setting(key)
+    _settings_cache[key] = (value, now)
+    return value
+
+
 @app.middleware("http")
 async def maintenance_banner_middleware(request: Request, call_next):
     """Charge la bannière maintenance + flag confidentialité dans request.state.
     Si maintenance_mode est activé, redirige tous les non-admins vers la page maintenance."""
-    from app.services.settings_store import get_setting
-
-    # ── Mode maintenance complet ─────────────────────────────────────────────
-    _MAINTENANCE_BYPASS = {"/auth/login", "/auth/logout", "/static"}
     path = request.url.path
     bypass = (
         path.startswith("/static")
@@ -273,9 +286,9 @@ async def maintenance_banner_middleware(request: Request, call_next):
     )
     if not bypass:
         try:
-            maintenance_mode = await get_setting("maintenance_mode")
+            maintenance_mode = await _get_setting_cached("maintenance_mode")
             if maintenance_mode:
-                # Vérifier si l'utilisateur est admin (via cookie)
+                # Vérifier si l'utilisateur est admin via le token (sans DB — juste le payload JWT)
                 is_admin = False
                 token = request.cookies.get("access_token")
                 if token:
@@ -292,7 +305,7 @@ async def maintenance_banner_middleware(request: Request, call_next):
                     except Exception:
                         pass
                 if not is_admin:
-                    msg = await get_setting("maintenance_message") or None
+                    msg = await _get_setting_cached("maintenance_message") or None
                     return templates.TemplateResponse(
                         request, "errors/maintenance.html",
                         {"message": msg},
@@ -303,7 +316,7 @@ async def maintenance_banner_middleware(request: Request, call_next):
 
     # ── Bannière maintenance (simple message) ────────────────────────────────
     try:
-        request.state.banner = await get_setting("maintenance_banner")
+        request.state.banner = await _get_setting_cached("maintenance_banner")
     except Exception:
         request.state.banner = None
 
