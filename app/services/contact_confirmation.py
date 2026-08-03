@@ -59,9 +59,13 @@ def verify_cc_token(token: str) -> Optional[tuple[int, str]]:
         return None
 
 
-def launch_confirmation_campaign(portal_url: Optional[str] = None) -> None:
-    """Démarre l'envoi en tâche de fond (fire-and-forget)."""
-    task = asyncio.ensure_future(run_confirmation_campaign(portal_url))
+def launch_confirmation_campaign(
+    portal_url: Optional[str] = None,
+    contact_ids: Optional[list[int]] = None,
+) -> None:
+    """Démarre l'envoi en tâche de fond (fire-and-forget).
+    Si contact_ids est fourni, seuls ces contacts reçoivent l'email."""
+    task = asyncio.ensure_future(run_confirmation_campaign(portal_url, contact_ids))
     _RUNNING_TASKS.add(task)
     task.add_done_callback(_RUNNING_TASKS.discard)
 
@@ -143,20 +147,27 @@ async def send_confirmation_email(db, contact: ExternalContact, portal_url: str)
     return ok, err
 
 
-async def run_confirmation_campaign(portal_url: Optional[str] = None) -> None:
-    """Envoie l'email de confirmation à tous les correspondants externes actifs."""
+async def run_confirmation_campaign(
+    portal_url: Optional[str] = None,
+    contact_ids: Optional[list[int]] = None,
+) -> None:
+    """Envoie l'email de confirmation aux correspondants externes actifs.
+    Si contact_ids est fourni, seuls ces contacts sont ciblés."""
     settings = get_settings()
     base_url = (portal_url or settings.portal_url or "https://portail.amisdesocrate.fr").rstrip("/")
 
     async with AsyncSessionLocal() as db:
-        contacts = (await db.execute(
+        stmt = (
             select(ExternalContact)
             .where(
                 ExternalContact.is_active == True,  # noqa: E712
                 ExternalContact.removal_requested_at.is_(None),
             )
             .order_by(ExternalContact.name)
-        )).scalars().all()
+        )
+        if contact_ids is not None:
+            stmt = stmt.where(ExternalContact.id.in_(contact_ids))
+        contacts = (await db.execute(stmt)).scalars().all()
 
         for contact in contacts:
             try:
