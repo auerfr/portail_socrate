@@ -84,10 +84,15 @@ async def _accessible_channels(member: Member, db: AsyncSession) -> list[ChatCha
             if member_grade_order >= required_order:
                 accessible.append(ch)
         elif ch.type == ChannelType.FUNCTION:
-            if ch.function_filter and member.lodge_function.value == ch.function_filter:
-                accessible.append(ch)
-            elif member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE):
-                accessible.append(ch)  # officiers voient tout
+            if member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE):
+                accessible.append(ch)  # VM et Secrétaire voient tous les canaux officiers
+            elif ch.function_filter:
+                if member.lodge_function.value == ch.function_filter:
+                    accessible.append(ch)
+            else:
+                # Pas de filtre → visible par tous les officiers (lodge_function ≠ FRERE)
+                if member.lodge_function != LodgeFunction.FRERE:
+                    accessible.append(ch)
         elif ch.type == ChannelType.DIRECT:
             if ch.id in member_channel_ids:
                 accessible.append(ch)
