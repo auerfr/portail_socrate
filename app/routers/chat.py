@@ -76,6 +76,9 @@ async def _accessible_channels(member: Member, db: AsyncSession) -> list[ChatCha
     for ch in all_channels:
         if ch.type == ChannelType.GENERAL:
             accessible.append(ch)
+        elif ch.created_by_id == member.id:
+            # Créateur d'un canal : toujours accès, quel que soit le type/filtre
+            accessible.append(ch)
         elif ch.type == ChannelType.GRADE:
             required_order = GRADE_ORDER.get(MasonicGrade(ch.grade_filter), 0) if ch.grade_filter else 0
             if member_grade_order >= required_order:
@@ -89,15 +92,15 @@ async def _accessible_channels(member: Member, db: AsyncSession) -> list[ChatCha
             if ch.id in member_channel_ids:
                 accessible.append(ch)
         elif ch.type == ChannelType.COMMISSION:
-            if ch.lodge_group_id:
+            if ch.id in member_channel_ids:
+                accessible.append(ch)  # membre explicite (priorité sur le filtre groupe)
+            elif ch.lodge_group_id:
                 from app.routers.groups import resolve_group_member_ids
                 grp = await db.get(LodgeGroup, ch.lodge_group_id)
                 if grp:
                     ids = await resolve_group_member_ids(db, grp)
                     if member.id in ids:
                         accessible.append(ch)
-            elif ch.id in member_channel_ids:
-                accessible.append(ch)
 
     return accessible
 
