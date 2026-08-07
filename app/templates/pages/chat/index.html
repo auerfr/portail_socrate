@@ -646,6 +646,31 @@ function chatApp(initialLastId, channelId, initialOthersMaxRead) {
 
     <div class="overflow-y-auto flex-1 px-5 py-4 space-y-5">
 
+      <!-- Modifier nom & description -->
+      {% if can_manage_channel %}
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Modifier le canal</p>
+        <form method="post" action="/chat/channels/{{ active_channel.id }}/edit" class="space-y-2">
+          <input type="hidden" name="lodge_group_id" value="{{ active_channel.lodge_group_id or 0 }}">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Nom</label>
+            <input type="text" name="name" required value="{{ active_channel.name }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Description <span class="font-normal text-gray-400">(optionnel)</span></label>
+            <textarea name="description" rows="2"
+                      placeholder="Brève description du canal…"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none">{{ active_channel.description or '' }}</textarea>
+          </div>
+          <button type="submit"
+                  class="w-full bg-loge-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">
+            Enregistrer le nom / description
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
       <!-- Membres actuels -->
       <div>
         <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Membres actuels</p>
@@ -743,6 +768,7 @@ function chatApp(initialLastId, channelId, initialOthersMaxRead) {
           <input type="hidden" name="name" value="{{ active_channel.name }}">
           <input type="hidden" name="description" value="{{ active_channel.description or '' }}">
           <select name="lodge_group_id"
+
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             <option value="0">— Accès individuel (géré manuellement) —</option>
             {% for g in lodge_groups %}
