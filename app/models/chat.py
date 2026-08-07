@@ -34,6 +34,11 @@ class ChatChannel(Base):
     grade_filter: Mapped[Optional[str]]    = mapped_column(String(50))
     function_filter: Mapped[Optional[str]] = mapped_column(String(50))
 
+    # Restriction à un groupe de loge (accès dynamique via resolve_group_member_ids)
+    lodge_group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lodge_groups.id"), nullable=True
+    )
+
     # Seuls les admins/VM peuvent écrire
     is_readonly: Mapped[bool] = mapped_column(Boolean, default=False)
 

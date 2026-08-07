@@ -23,6 +23,7 @@ class EventVisibility(str, enum.Enum):
     APPRENTIS            = "APPRENTIS"            # Apprentis uniquement
     OFFICERS             = "OFFICERS"             # Conseil d'officiers (toute fonction)
     GROUP                = "GROUP"                # Groupe spécifique (visibility_group_id)
+    MEMBERS              = "MEMBERS"              # Membres spécifiques (visibility_member_ids)
     ADMIN                = "ADMIN"                # Administrateurs seulement
 
 
@@ -66,6 +67,9 @@ class LodgeEvent(Base):
     # le même recurrence_group_id (permet la suppression groupée).
     recurrence_group_id: Mapped[Optional[str]] = mapped_column(String(32), index=True)
     recurrence_label: Mapped[Optional[str]] = mapped_column(String(200))
+
+    # Pour EventVisibility.MEMBERS : liste d'IDs membre (séparés par virgule)
+    visibility_member_ids: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
 
     created_by_id: Mapped[int] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

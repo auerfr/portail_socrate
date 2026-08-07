@@ -527,6 +527,17 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             )
         if cols_ev and "recurrence_label" not in cols_ev:
             await conn.exec_driver_sql("ALTER TABLE lodge_events ADD COLUMN recurrence_label VARCHAR(200)")
+        if cols_ev and "visibility_member_ids" not in cols_ev:
+            await conn.exec_driver_sql("ALTER TABLE lodge_events ADD COLUMN visibility_member_ids TEXT")
+
+    # ── chat_channels.lodge_group_id ──────────────────────────────────────────
+    async with engine.begin() as conn:
+        r_cc = await conn.exec_driver_sql("PRAGMA table_info(chat_channels)")
+        cols_cc = [row[1] for row in r_cc.fetchall()]
+        if cols_cc and "lodge_group_id" not in cols_cc:
+            await conn.exec_driver_sql(
+                "ALTER TABLE chat_channels ADD COLUMN lodge_group_id INTEGER REFERENCES lodge_groups(id)"
+            )
 
     # ── page_views : analytique interne (pages vues, provenance, appareil) ──
     async with engine.begin() as conn:

@@ -13,11 +13,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import require_auth
-from app.models.identity import Member, MasonicGrade, LodgeFunction
+from app.models.identity import Member, MasonicGrade, LodgeFunction, MemberStatus
 from app.models.chat import (
     ChatChannel, ChatChannelMember, ChatMessage, ChatRead,
     ChannelType, MessageContentType,
 )
+from app.models.groups import LodgeGroup
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 from app.template_engine import templates
@@ -84,8 +85,18 @@ async def _accessible_channels(member: Member, db: AsyncSession) -> list[ChatCha
                 accessible.append(ch)
             elif member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE):
                 accessible.append(ch)  # officiers voient tout
-        elif ch.type in (ChannelType.COMMISSION, ChannelType.DIRECT):
+        elif ch.type == ChannelType.DIRECT:
             if ch.id in member_channel_ids:
+                accessible.append(ch)
+        elif ch.type == ChannelType.COMMISSION:
+            if ch.lodge_group_id:
+                from app.routers.groups import resolve_group_member_ids
+                grp = await db.get(LodgeGroup, ch.lodge_group_id)
+                if grp:
+                    ids = await resolve_group_member_ids(db, grp)
+                    if member.id in ids:
+                        accessible.append(ch)
+            elif ch.id in member_channel_ids:
                 accessible.append(ch)
 
     return accessible
@@ -158,6 +169,11 @@ async def chat_home(
 
     can_manage = user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)
 
+    lodge_groups: list[LodgeGroup] = []
+    if can_manage:
+        lg_r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
+        lodge_groups = lg_r.scalars().all()
+
     return templates.TemplateResponse(request, "pages/chat/index.html", {
         "current_member": member,
         "current_user": user,
@@ -167,6 +183,9 @@ async def chat_home(
         "unread": unread,
         "active_members": active_members,
         "can_manage": can_manage,
+        "can_manage_channel": False,
+        "channel_members": [],
+        "lodge_groups": lodge_groups,
         "last_msg_id": 0,
     })
 
@@ -216,6 +235,23 @@ async def chat_channel(
     can_manage = user.is_admin or member.lodge_function in (
         LodgeFunction.VM, LodgeFunction.SECRETAIRE
     )
+    can_manage_channel = can_manage or channel.created_by_id == member.id
+
+    # Membres du canal courant (COMMISSION sans restriction de groupe)
+    channel_members: list[Member] = []
+    if channel.type == ChannelType.COMMISSION and not channel.lodge_group_id:
+        cm_r = await db.execute(
+            select(ChatChannelMember)
+            .options(selectinload(ChatChannelMember.member))
+            .where(ChatChannelMember.channel_id == channel.id)
+        )
+        channel_members = [cm.member for cm in cm_r.scalars().all()]
+
+    # Groupes de loge pour la restriction (admins)
+    lodge_groups: list[LodgeGroup] = []
+    if can_manage:
+        lg_r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
+        lodge_groups = lg_r.scalars().all()
 
     return templates.TemplateResponse(request, "pages/chat/index.html", {
         "current_member": member,
@@ -226,6 +262,9 @@ async def chat_channel(
         "unread": unread,
         "active_members": active_members,
         "can_manage": can_manage,
+        "can_manage_channel": can_manage_channel,
+        "channel_members": channel_members,
+        "lodge_groups": lodge_groups,
         "last_msg_id": messages[-1].id if messages else 0,
     })
 
@@ -367,6 +406,86 @@ async def delete_message(
     return JSONResponse({"ok": True})
 
 
+# ── Ajouter un membre à un canal ─────────────────────────────────────────────
+
+@router.post("/channels/{channel_id}/members/add")
+async def channel_add_member(
+    channel_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    member_id: int = Form(...),
+):
+    user, member = ctx
+    channel = await db.get(ChatChannel, channel_id)
+    if not channel:
+        raise HTTPException(404)
+    can_manage = user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)
+    if not can_manage and channel.created_by_id != member.id:
+        raise HTTPException(403)
+    exists = (await db.execute(
+        select(ChatChannelMember).where(
+            ChatChannelMember.channel_id == channel_id,
+            ChatChannelMember.member_id == member_id,
+        )
+    )).scalar_one_or_none()
+    if not exists:
+        db.add(ChatChannelMember(channel_id=channel_id, member_id=member_id))
+        await db.commit()
+    return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
+
+
+# ── Retirer un membre d'un canal ──────────────────────────────────────────────
+
+@router.post("/channels/{channel_id}/members/remove/{target_member_id}")
+async def channel_remove_member(
+    channel_id: int,
+    target_member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    channel = await db.get(ChatChannel, channel_id)
+    if not channel:
+        raise HTTPException(404)
+    can_manage = user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)
+    if not can_manage and channel.created_by_id != member.id:
+        raise HTTPException(403)
+    await db.execute(
+        delete(ChatChannelMember).where(
+            ChatChannelMember.channel_id == channel_id,
+            ChatChannelMember.member_id == target_member_id,
+        )
+    )
+    await db.commit()
+    return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
+
+
+# ── Modifier un canal (nom, groupe de restriction) ────────────────────────────
+
+@router.post("/channels/{channel_id}/edit")
+async def channel_edit(
+    channel_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(""),
+    description: str = Form(""),
+    lodge_group_id: Optional[int] = Form(None),
+):
+    user, member = ctx
+    channel = await db.get(ChatChannel, channel_id)
+    if not channel:
+        raise HTTPException(404)
+    can_manage = user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)
+    if not can_manage and channel.created_by_id != member.id:
+        raise HTTPException(403)
+    if name.strip():
+        channel.name = name.strip()
+    channel.description = description.strip() or None
+    channel.lodge_group_id = lodge_group_id if lodge_group_id and lodge_group_id > 0 else None
+    await db.commit()
+    return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
+
+
 # ── Supprimer un canal (admin/VM) ────────────────────────────────────────────
 
 @router.post("/channels/{channel_id}/delete")
@@ -401,6 +520,7 @@ async def create_channel(
     channel_type: str = Form("GENERAL"),
     grade_filter: str = Form(""),
     function_filter: str = Form(""),
+    lodge_group_id: Optional[int] = Form(None),
     is_readonly: str = Form(""),
 ):
     user, member = ctx
@@ -422,6 +542,7 @@ async def create_channel(
         type=ch_type,
         grade_filter=grade_filter or None,
         function_filter=function_filter or None,
+        lodge_group_id=lodge_group_id if lodge_group_id and lodge_group_id > 0 else None,
         is_readonly=bool(is_readonly),
         created_by_id=member.id,
     )
@@ -445,6 +566,7 @@ async def create_group(
     name: str = Form(""),
     description: str = Form(""),
     member_ids: str = Form(""),
+    lodge_group_id: Optional[int] = Form(None),
 ):
     user, member = ctx
     name = name.strip()
@@ -455,6 +577,7 @@ async def create_group(
         name=name,
         description=description.strip() or None,
         type=ChannelType.COMMISSION,
+        lodge_group_id=lodge_group_id if lodge_group_id and lodge_group_id > 0 else None,
         created_by_id=member.id,
     )
     db.add(channel)
