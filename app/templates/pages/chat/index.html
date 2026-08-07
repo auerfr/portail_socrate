@@ -65,7 +65,12 @@
          class="flex items-center gap-2.5 px-3 py-2 mx-2 my-0.5 rounded-lg transition-colors
                 {% if is_active %}bg-loge-50 text-loge-700{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}">
         <span class="text-xs text-gray-400 font-mono shrink-0 w-3 text-center select-none">{{ type_icons.get(ch.type.value, '●') }}</span>
-        <span class="text-sm {% if is_active %}font-semibold{% else %}font-medium{% endif %} flex-1 truncate">{{ ch.name }}</span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-sm {% if is_active %}font-semibold{% else %}font-medium{% endif %} truncate">{{ ch.name }}</span>
+          {% if ch.description %}
+          <span class="block text-xs text-gray-400 truncate leading-tight">{{ ch.description }}</span>
+          {% endif %}
+        </span>
         {% if ch_unread > 0 %}
         <span class="shrink-0 bg-loge-500 text-white text-xs font-bold rounded-full px-1.5 min-w-[18px] text-center leading-5">
           {{ ch_unread if ch_unread < 100 else '99+' }}
@@ -369,6 +374,12 @@
           <label class="block text-xs font-medium text-gray-500 mb-1">Nom du groupe *</label>
           <input type="text" name="name" required placeholder="Ex : Équipe tracés, Commission finances…"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Description / Info <span class="text-gray-400 font-normal">(optionnel)</span></label>
+          <textarea name="description" rows="2" placeholder="Ex : Travaux du 1er degré, préparation des tentures…"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"></textarea>
+          <p class="text-xs text-gray-400 mt-0.5">Apparaît en sous-titre sous le nom du groupe dans la liste.</p>
         </div>
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Membres à ajouter</label>
