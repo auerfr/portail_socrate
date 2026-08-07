@@ -665,6 +665,14 @@ async def calendar_event_detail(
     )
     all_groups = groups_r.scalars().all()
 
+    # Membres invités (pour EventVisibility.MEMBERS)
+    vis_members: list[Member] = []
+    if event.visibility == EventVisibility.MEMBERS and event.visibility_member_ids:
+        raw_ids = {int(x) for x in event.visibility_member_ids.split(",") if x.strip().isdigit()}
+        if raw_ids:
+            mems_r = await db.execute(select(Member).where(Member.id.in_(raw_ids)))
+            vis_members = list(mems_r.scalars().all())
+
     vis_labels = {
         "ALL": "Tous les membres",
         "MAITRES": "Maîtres uniquement",
@@ -672,6 +680,7 @@ async def calendar_event_detail(
         "APPRENTIS": "Apprentis uniquement",
         "OFFICERS": "Conseil d'officiers",
         "GROUP": f"Groupe : {vis_group.name}" if vis_group else "Groupe spécifique",
+        "MEMBERS": "Membres spécifiques",
         "ADMIN": "Administrateurs seulement",
     }
     type_labels = {
@@ -689,6 +698,7 @@ async def calendar_event_detail(
         "event": event,
         "can_edit": can_edit,
         "vis_group": vis_group,
+        "vis_members": vis_members,
         "all_groups": all_groups,
         "vis_label": vis_labels.get(event.visibility.value, event.visibility.value),
         "type_label": type_labels.get(event.event_type.value, event.event_type.value),
