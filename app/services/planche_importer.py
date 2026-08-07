@@ -23,7 +23,7 @@ ESPACE_NOM = "Planches reçues"
 
 
 async def _get_or_create_space(db, nom: str):
-    """Retourne (ou crée) l'espace GED 'Planches reçues'."""
+    """Retourne (ou crée) l'espace GED 'Planches reçues'. Met à jour min_grade si besoin."""
     from sqlalchemy import select
     from app.models.documents import DocSpace, DocAccessMode, MinGrade
     r = await db.execute(select(DocSpace).where(DocSpace.name == nom))
@@ -33,9 +33,12 @@ async def _get_or_create_space(db, nom: str):
             name=nom,
             description="Planches reçues par email d'autres loges",
             access_mode=DocAccessMode.GRADE,
-            min_grade=MinGrade.MAITRE,
+            min_grade=MinGrade.ALL,
         )
         db.add(space)
+        await db.flush()
+    elif space.min_grade != MinGrade.ALL:
+        space.min_grade = MinGrade.ALL
         await db.flush()
     return space
 
