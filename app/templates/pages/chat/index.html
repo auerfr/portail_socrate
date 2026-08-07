@@ -79,23 +79,14 @@
       </a>
       {% endmacro %}
 
-      {% if general_chs %}
+      {% set official_chs = general_chs + grade_chs + function_chs %}
+      {% if official_chs %}
       <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Canaux</div>
-      {% for ch in general_chs %}{{ channel_item(ch) }}{% endfor %}
-      {% endif %}
-
-      {% if grade_chs %}
-      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Par grade</div>
-      {% for ch in grade_chs %}{{ channel_item(ch) }}{% endfor %}
-      {% endif %}
-
-      {% if function_chs %}
-      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Officiers</div>
-      {% for ch in function_chs %}{{ channel_item(ch) }}{% endfor %}
+      {% for ch in official_chs %}{{ channel_item(ch) }}{% endfor %}
       {% endif %}
 
       {% if group_chs %}
-      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Groupes</div>
+      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Groupes privés</div>
       {% for ch in group_chs %}{{ channel_item(ch) }}{% endfor %}
       {% endif %}
 
