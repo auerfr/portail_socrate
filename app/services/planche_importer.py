@@ -217,6 +217,8 @@ async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int
     total = 0
     try:
         ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         conn = imaplib.IMAP4_SSL(s.imap_host, s.imap_port, ssl_context=ctx)
         conn.login(s.imap_user, s.imap_pass)
         conn.select(s.imap_folder)
