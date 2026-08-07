@@ -194,7 +194,35 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
 
     if imported:
         await db.commit()
+        # Notifier les membres de l'arrivée de la/les planche(s)
+        try:
+            await _notify_new_planches(db, space.id, imported, sender_label)
+        except Exception as e:
+            logger.warning("Notification planches échouée : %s", e)
     return imported
+
+
+async def _notify_new_planches(db, space_id: int, count: int, sender_label: str) -> None:
+    """Crée une notification in-app pour tous les membres actifs."""
+    from sqlalchemy import select
+    from app.models.identity import Member, MemberStatus
+    from app.models.system import Notification, NotificationType
+
+    members_r = await db.execute(
+        select(Member.id).where(Member.status == MemberStatus.ACTIVE)
+    )
+    member_ids = [row[0] for row in members_r.all()]
+    for mid in member_ids:
+        db.add(Notification(
+            member_id=mid,
+            type=NotificationType.INFO,
+            title=f"Nouvelle planche reçue",
+            message=f"{count} planche(s) reçue(s) de « {sender_label} » et classée(s) dans la GED.",
+            link_url=f"/documents/space/{space_id}",
+        ))
+    if member_ids:
+        await db.commit()
+        logger.info("Notification planches envoyée à %d membre(s)", len(member_ids))
 
 
 async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int:

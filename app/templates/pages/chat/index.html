@@ -214,8 +214,14 @@
             <span>{{ msg.created_at.strftime('%H:%M') }}</span>
             {% if is_mine %}
             {% set read = msg.id <= (max_other_read_id | default(0)) %}
+            {% if read %}
+              {% set msg_readers = reads_detail | default([]) | selectattr("max_id", "ge", msg.id) | map(attribute="name") | list %}
+            {% else %}
+              {% set msg_readers = [] %}
+            {% endif %}
             <span data-tick-msg-id="{{ msg.id }}"
-                  class="leading-none text-[11px] {% if read %}text-loge-500{% else %}text-gray-400{% endif %}">
+                  {% if msg_readers %}title="Lu par : {{ msg_readers | join(', ') }}"{% endif %}
+                  class="leading-none text-[11px] {% if read %}text-loge-500{% else %}text-gray-400{% endif %} {% if msg_readers %}cursor-help{% endif %}">
               {% if read %}✓✓{% else %}✓{% endif %}
             </span>
             {% endif %}

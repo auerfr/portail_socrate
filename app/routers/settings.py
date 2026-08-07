@@ -679,7 +679,19 @@ async def external_contacts_send_confirmation(
     contact_ids: Optional[list[int]] = None
     label = "tous les contacts actifs"
 
-    if target.startswith("type:"):
+    if target == "unconfirmed":
+        r_ids = await db.execute(
+            select(ExternalContact.id)
+            .where(
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+                ExternalContact.last_confirmed_at.is_(None),
+            )
+        )
+        contact_ids = [r[0] for r in r_ids.all()]
+        label = "contacts jamais confirmés (relance)"
+
+    elif target.startswith("type:"):
         ctype = target[5:]
         r_ids = await db.execute(
             select(ExternalContact.id)

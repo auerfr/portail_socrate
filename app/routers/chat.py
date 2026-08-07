@@ -275,15 +275,22 @@ async def chat_channel(
         lg_r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
         lodge_groups = lg_r.scalars().all()
 
-    # Statut de lecture des autres membres (coches ✓/✓✓)
-    read_max_r = await db.execute(
-        select(sql_func.max(ChatRead.last_read_message_id))
+    # Statut de lecture détaillé — nom + dernier message lu par chaque autre membre
+    reads_r = await db.execute(
+        select(ChatRead.last_read_message_id, Member.first_name, Member.last_name)
+        .join(Member, ChatRead.member_id == Member.id)
         .where(
             ChatRead.channel_id == channel_id,
             ChatRead.member_id != member.id,
+            ChatRead.last_read_message_id.isnot(None),
         )
     )
-    max_other_read_id = read_max_r.scalar() or 0
+    reads_raw = reads_r.all()
+    reads_detail = [
+        {"max_id": r.last_read_message_id, "name": f"{r.first_name} {r.last_name}"}
+        for r in reads_raw
+    ]
+    max_other_read_id = max((r["max_id"] for r in reads_detail), default=0)
 
     return templates.TemplateResponse(request, "pages/chat/index.html", {
         "current_member": member,
@@ -299,6 +306,7 @@ async def chat_channel(
         "channel_admin_ids": channel_admin_ids,
         "lodge_groups": lodge_groups,
         "max_other_read_id": max_other_read_id,
+        "reads_detail": reads_detail,
         "last_msg_id": messages[-1].id if messages else 0,
     })
 
