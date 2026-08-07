@@ -185,6 +185,7 @@ async def chat_home(
         "can_manage": can_manage,
         "can_manage_channel": False,
         "channel_members": [],
+        "channel_admin_ids": set(),
         "lodge_groups": lodge_groups,
         "last_msg_id": 0,
     })
@@ -235,23 +236,46 @@ async def chat_channel(
     can_manage = user.is_admin or member.lodge_function in (
         LodgeFunction.VM, LodgeFunction.SECRETAIRE
     )
-    can_manage_channel = can_manage or channel.created_by_id == member.id
 
     # Membres du canal courant (COMMISSION sans restriction de groupe)
     channel_members: list[Member] = []
+    channel_member_rows: list[ChatChannelMember] = []
     if channel.type == ChannelType.COMMISSION and not channel.lodge_group_id:
         cm_r = await db.execute(
             select(ChatChannelMember)
             .options(selectinload(ChatChannelMember.member))
             .where(ChatChannelMember.channel_id == channel.id)
         )
-        channel_members = [cm.member for cm in cm_r.scalars().all()]
+        channel_member_rows = cm_r.scalars().all()
+        channel_members = [cm.member for cm in channel_member_rows]
+
+    # Admin de canal : créateur ou membre marqué is_admin
+    is_channel_admin = (
+        channel.created_by_id == member.id
+        or any(cm.member_id == member.id and cm.is_admin for cm in channel_member_rows)
+    )
+    can_manage_channel = can_manage or is_channel_admin
+
+    # Admins du canal pour affichage
+    channel_admin_ids = {
+        cm.member_id for cm in channel_member_rows if cm.is_admin
+    } | ({channel.created_by_id} if channel.created_by_id else set())
 
     # Groupes de loge pour la restriction (admins)
     lodge_groups: list[LodgeGroup] = []
     if can_manage:
         lg_r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
         lodge_groups = lg_r.scalars().all()
+
+    # Statut de lecture des autres membres (coches ✓/✓✓)
+    read_max_r = await db.execute(
+        select(sql_func.max(ChatRead.last_read_message_id))
+        .where(
+            ChatRead.channel_id == channel_id,
+            ChatRead.member_id != member.id,
+        )
+    )
+    max_other_read_id = read_max_r.scalar() or 0
 
     return templates.TemplateResponse(request, "pages/chat/index.html", {
         "current_member": member,
@@ -264,7 +288,9 @@ async def chat_channel(
         "can_manage": can_manage,
         "can_manage_channel": can_manage_channel,
         "channel_members": channel_members,
+        "channel_admin_ids": channel_admin_ids,
         "lodge_groups": lodge_groups,
+        "max_other_read_id": max_other_read_id,
         "last_msg_id": messages[-1].id if messages else 0,
     })
 
@@ -301,6 +327,16 @@ async def chat_messages_poll(
     if new_msgs:
         await _mark_read(member.id, channel_id, new_msgs[-1].id, db)
 
+    # Statut de lecture des autres (pour mise à jour des coches côté client)
+    read_max_r = await db.execute(
+        select(sql_func.max(ChatRead.last_read_message_id))
+        .where(
+            ChatRead.channel_id == channel_id,
+            ChatRead.member_id != member.id,
+        )
+    )
+    others_max_read = read_max_r.scalar() or 0
+
     def _msg_json(m: ChatMessage) -> dict:
         reply = None
         if m.reply_to:
@@ -327,6 +363,7 @@ async def chat_messages_poll(
     return JSONResponse({
         "messages": [_msg_json(m) for m in new_msgs],
         "last_id": new_msgs[-1].id if new_msgs else since_id,
+        "others_max_read": others_max_read,
     })
 
 
@@ -430,6 +467,35 @@ async def channel_add_member(
     )).scalar_one_or_none()
     if not exists:
         db.add(ChatChannelMember(channel_id=channel_id, member_id=member_id))
+        await db.commit()
+    return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
+
+
+# ── Promouvoir/rétrograder admin canal ───────────────────────────────────────
+
+@router.post("/channels/{channel_id}/members/admin/{target_member_id}")
+async def channel_toggle_admin(
+    channel_id: int,
+    target_member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    is_admin: str = Form("0"),
+):
+    user, member = ctx
+    channel = await db.get(ChatChannel, channel_id)
+    if not channel:
+        raise HTTPException(404)
+    can_manage = user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)
+    if not can_manage and channel.created_by_id != member.id:
+        raise HTTPException(403)
+    cm = (await db.execute(
+        select(ChatChannelMember).where(
+            ChatChannelMember.channel_id == channel_id,
+            ChatChannelMember.member_id == target_member_id,
+        )
+    )).scalar_one_or_none()
+    if cm:
+        cm.is_admin = is_admin in ("1", "true", "on")
         await db.commit()
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
@@ -583,7 +649,7 @@ async def create_group(
     db.add(channel)
     await db.flush()
 
-    db.add(ChatChannelMember(channel_id=channel.id, member_id=member.id))
+    db.add(ChatChannelMember(channel_id=channel.id, member_id=member.id, is_admin=True))
     seen = {member.id}
     for mid_str in member_ids.split(","):
         mid_str = mid_str.strip()

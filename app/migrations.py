@@ -530,13 +530,19 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if cols_ev and "visibility_member_ids" not in cols_ev:
             await conn.exec_driver_sql("ALTER TABLE lodge_events ADD COLUMN visibility_member_ids TEXT")
 
-    # ── chat_channels.lodge_group_id ──────────────────────────────────────────
+    # ── chat_channels.lodge_group_id + chat_channel_members.is_admin ─────────
     async with engine.begin() as conn:
         r_cc = await conn.exec_driver_sql("PRAGMA table_info(chat_channels)")
         cols_cc = [row[1] for row in r_cc.fetchall()]
         if cols_cc and "lodge_group_id" not in cols_cc:
             await conn.exec_driver_sql(
                 "ALTER TABLE chat_channels ADD COLUMN lodge_group_id INTEGER REFERENCES lodge_groups(id)"
+            )
+        r_ccm = await conn.exec_driver_sql("PRAGMA table_info(chat_channel_members)")
+        cols_ccm = [row[1] for row in r_ccm.fetchall()]
+        if cols_ccm and "is_admin" not in cols_ccm:
+            await conn.exec_driver_sql(
+                "ALTER TABLE chat_channel_members ADD COLUMN is_admin BOOLEAN NOT NULL DEFAULT 0"
             )
 
     # ── page_views : analytique interne (pages vues, provenance, appareil) ──

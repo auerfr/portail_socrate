@@ -63,6 +63,7 @@ class ChatChannelMember(Base):
     member_id: Mapped[int]  = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), primary_key=True)
     joined_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     is_muted: Mapped[bool]      = mapped_column(Boolean, default=False)
+    is_admin: Mapped[bool]      = mapped_column(Boolean, default=False)
 
     channel: Mapped["ChatChannel"] = relationship(back_populates="members")
     member: Mapped["Member"]       = relationship()
