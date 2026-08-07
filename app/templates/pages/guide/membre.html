@@ -138,6 +138,22 @@
         <p class="text-gray-600 mt-2">Le Secrétaire peut envoyer un lien d'inscription direct par email ou QR code. Ce lien permet de s'inscrire sans se connecter, idéal depuis un téléphone avant la tenue.</p>
       </details>
 
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Créer un événement visible uniquement par certains membres
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Lors de la création ou de l'édition d'un événement, le champ <strong>Visibilité</strong> propose :</p>
+          <ul class="list-disc list-inside space-y-1 text-xs">
+            <li><strong>Tous les membres</strong> — visible par tous les membres connectés.</li>
+            <li><strong>Mon groupe / Mon grade</strong> — restreint à votre groupe ou grade.</li>
+            <li><strong>👤 Membres spécifiques…</strong> — cochez un ou plusieurs membres : seuls eux (et vous) verront l'événement.</li>
+          </ul>
+          <p class="text-xs text-gray-500">La visibilité peut être modifiée à tout moment depuis la fiche de l'événement → <em>Modifier</em>.</p>
+        </div>
+      </details>
+
       <details class="group py-2">
         <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
           Exporter le calendrier dans votre agenda
@@ -267,15 +283,47 @@
 
       <details class="group border-b border-gray-100 py-2" open>
         <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
-          Chat (échanges instantanés)
+          Canaux, groupes privés et messages directs
           <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
         </summary>
-        <div class="text-gray-600 mt-2 space-y-1">
-          <p>Le chat permet des échanges rapides organisés par <strong>canaux</strong> (Général, thématiques) et des <strong>messages directs</strong> (DM) privés entre deux membres.</p>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Le chat est organisé en trois types de conversations :</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
+              <strong class="block text-gray-800 mb-1"># Canaux</strong>
+              Canaux officiels (Général, Annonces, par grade, officiers). Accès automatique selon votre rôle — aucune invitation nécessaire.
+            </div>
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
+              <strong class="block text-gray-800 mb-1">● Groupes privés</strong>
+              Groupes de travail sur invitation. Vous devez être ajouté par l'administrateur du groupe. Chaque groupe a une description visible sous son nom.
+            </div>
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
+              <strong class="block text-gray-800 mb-1">● Directs</strong>
+              Conversation 1:1 privée avec un autre membre. Cliquez sur l'icône <i class="ti ti-message"></i> ou démarrez depuis la liste des membres.
+            </div>
+          </div>
           <ol class="list-decimal list-inside space-y-1 mt-2">
-            <li>Allez dans <strong>Chat</strong> et choisissez un canal ou démarrez un DM.</li>
-            <li>Tapez votre message et appuyez sur Entrée. Vous pouvez répondre en fil à un message.</li>
+            <li>Allez dans <strong>Chat</strong> et choisissez un canal, un groupe ou démarrez un DM.</li>
+            <li>Tapez votre message et appuyez sur Entrée. Vous pouvez répondre en fil à un message existant.</li>
           </ol>
+          <div class="bg-loge-50 border border-loge-100 rounded-lg p-2 text-xs text-loge-800 mt-1">
+            <strong>Coches de lecture</strong> — ✓ = message envoyé · ✓✓ (couleur loge) = lu par au moins un destinataire.
+          </div>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Créer un groupe privé
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Cliquez sur <strong>+</strong> (en haut de la sidebar) → <strong>Nouveau groupe</strong>.</li>
+            <li>Donnez un nom et, optionnellement, une <strong>description</strong> qui apparaîtra en sous-titre sous le nom du groupe.</li>
+            <li>Cochez les membres à inviter, puis cliquez sur <strong>Créer le groupe</strong>.</li>
+          </ol>
+          <p class="text-xs text-gray-500">Le créateur d'un groupe en devient l'administrateur : il peut ajouter ou retirer des membres, et modifier le nom/description depuis <em>Gérer les membres</em> en haut du canal.</p>
         </div>
       </details>
 
