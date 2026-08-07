@@ -507,7 +507,7 @@ async def calendar_create_event(
     recurrence_weekday: Optional[int] = Form(None),
     recurrence_position: Optional[str] = Form(None),
     recurrence_until: Optional[str] = Form(None),
-    visibility_member_ids: Optional[list[int]] = Form(None),
+    visibility_member_ids: Optional[str] = Form(None),
 ):
     user, member = ctx
     personal = is_personal in ("on", "1", "true")
@@ -544,11 +544,10 @@ async def calendar_create_event(
 
     vis = EventVisibility(visibility)
     grp_id = visibility_group_id if vis == EventVisibility.GROUP else None
-    mbr_ids_str = (
-        ",".join(str(x) for x in visibility_member_ids)
-        if vis == EventVisibility.MEMBERS and visibility_member_ids
-        else None
-    )
+    mbr_ids_str = None
+    if vis == EventVisibility.MEMBERS and visibility_member_ids:
+        ids = [x.strip() for x in visibility_member_ids.split(",") if x.strip().isdigit()]
+        mbr_ids_str = ",".join(ids) if ids else None
 
     url = (meeting_url or "").strip() or None
     if url and not url.startswith(("http://", "https://")):
