@@ -623,8 +623,34 @@ async def reset_password_confirm(
     user.password_hash = hash_password(new_password)
     user.reset_token = None
     user.reset_token_expires = None
+    user.last_login_at = datetime.utcnow()
     await db.commit()
-    return RedirectResponse(url="/auth/login?reset=1", status_code=status.HTTP_302_FOUND)
+
+    # Auto-connexion immédiate — évite de renvoyer l'utilisateur sur le formulaire
+    access_token = create_access_token({"sub": str(user.id)})
+    refresh_token = create_refresh_token({"sub": str(user.id)})
+    try:
+        from app.models.system import UserSession
+        payload = decode_token(access_token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti:
+            from datetime import datetime as _dt
+            expires = _dt.utcfromtimestamp(exp) if exp else None
+            db.add(UserSession(
+                user_id=user.id, jti=jti,
+                ip_address=request.client.host if request.client else None,
+                user_agent=(request.headers.get("user-agent", "")[:300]),
+                expires_at=expires,
+            ))
+            await db.commit()
+    except Exception:
+        pass
+
+    redirect = RedirectResponse(url="/", status_code=status.HTTP_302_FOUND)
+    redirect.set_cookie("access_token", access_token, httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 8)
+    redirect.set_cookie("refresh_token", refresh_token, httponly=True, samesite="lax", secure=False, max_age=60 * 60 * 24 * 30)
+    return redirect
 
 
 # ── Logout ─────────────────────────────────────────────────────────────────
