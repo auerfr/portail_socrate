@@ -665,6 +665,14 @@ async def calendar_event_detail(
     )
     all_groups = groups_r.scalars().all()
 
+    # Membres actifs pour le sélecteur MEMBERS dans l'édition
+    active_members_r = await db.execute(
+        select(Member)
+        .where(Member.status == MemberStatus.ACTIVE, Member.id != member.id)
+        .order_by(Member.last_name)
+    )
+    active_members = active_members_r.scalars().all()
+
     # Membres invités (pour EventVisibility.MEMBERS)
     vis_members: list[Member] = []
     if event.visibility == EventVisibility.MEMBERS and event.visibility_member_ids:
@@ -699,6 +707,8 @@ async def calendar_event_detail(
         "can_edit": can_edit,
         "vis_group": vis_group,
         "vis_members": vis_members,
+        "vis_member_ids": [m.id for m in vis_members],
+        "active_members": active_members,
         "all_groups": all_groups,
         "vis_label": vis_labels.get(event.visibility.value, event.visibility.value),
         "type_label": type_labels.get(event.event_type.value, event.event_type.value),
@@ -726,6 +736,7 @@ async def calendar_event_edit(
     event_type: str = Form(...),
     visibility: str = Form(...),
     visibility_group_id: Optional[int] = Form(None),
+    visibility_member_ids: Optional[str] = Form(None),
 ):
     user, member = ctx
 
@@ -756,6 +767,11 @@ async def calendar_event_edit(
     if url and not url.startswith(("http://", "https://")):
         url = "https://" + url
 
+    mbr_ids_str = None
+    if vis == EventVisibility.MEMBERS and visibility_member_ids:
+        ids = [x.strip() for x in visibility_member_ids.split(",") if x.strip().isdigit()]
+        mbr_ids_str = ",".join(ids) if ids else None
+
     event.title = title.strip()
     event.description = (description or "").strip() or None
     event.location = (location or "").strip() or None
@@ -766,6 +782,7 @@ async def calendar_event_edit(
     event.event_type = EventType(event_type)
     event.visibility = vis
     event.visibility_group_id = visibility_group_id if vis == EventVisibility.GROUP else None
+    event.visibility_member_ids = mbr_ids_str if vis == EventVisibility.MEMBERS else None
 
     await db.commit()
     return RedirectResponse(url=f"/calendar/events/{event_id}", status_code=303)

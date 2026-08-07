@@ -6,7 +6,12 @@
      x-data="{
        editing: false,
        allDay: {{ 'true' if event.all_day else 'false' }},
-       visibility: '{{ event.visibility.value }}'
+       visibility: '{{ event.visibility.value }}',
+       selectedMembers: {{ vis_member_ids | tojson }},
+       toggleMember(id) {
+         const i = this.selectedMembers.indexOf(id);
+         if (i >= 0) this.selectedMembers.splice(i, 1); else this.selectedMembers.push(id);
+       }
      }">
 
   {# ── Fil d'Ariane ─────────────────────────────────────────────────────── #}
@@ -290,6 +295,7 @@
               <option value="APPRENTIS">🟢 Apprentis uniquement</option>
               <option value="OFFICERS">⚒ Conseil d'officiers</option>
               <option value="GROUP">🏷 Groupe spécifique…</option>
+              <option value="MEMBERS">👤 Membres spécifiques…</option>
               <option value="ADMIN">🔒 Administrateurs</option>
             </select>
             <div x-show="visibility === 'GROUP'" x-cloak class="mt-2">
@@ -300,6 +306,21 @@
                 <option value="{{ g.id }}" {% if event.visibility_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
                 {% endfor %}
               </select>
+            </div>
+            <div x-show="visibility === 'MEMBERS'" x-cloak class="mt-2">
+              <input type="hidden" name="visibility_member_ids" :value="selectedMembers.join(',')">
+              <div class="border border-gray-200 rounded-lg max-h-40 overflow-y-auto bg-white divide-y divide-gray-50">
+                {% for m in active_members %}
+                <label class="flex items-center gap-2 px-3 py-2 hover:bg-loge-50 cursor-pointer">
+                  <input type="checkbox" value="{{ m.id }}"
+                         :checked="selectedMembers.includes({{ m.id }})"
+                         @change="toggleMember({{ m.id }})"
+                         class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+                  <span class="text-sm text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              <p class="text-xs text-gray-400 mt-1"><span x-text="selectedMembers.length"></span> membre(s) — seuls eux + vous verrez l'événement.</p>
             </div>
           </div>
         </div>
