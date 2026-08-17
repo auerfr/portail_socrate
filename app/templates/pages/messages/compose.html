@@ -14,13 +14,19 @@
     <a href="/messages/{{ reply_msg.id }}" class="hover:text-loge-700">{{ reply_msg.subject }}</a>
     <span class="mx-2">›</span>
     <span class="text-gray-800">Répondre</span>
+    {% elif forward_msg %}
+    <a href="/messages/{{ forward_msg.id }}" class="hover:text-loge-700">{{ forward_msg.subject }}</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Faire suivre</span>
     {% else %}
     <span class="text-gray-800">Nouveau message</span>
     {% endif %}
   </nav>
 
   <h1 class="text-2xl font-bold text-gray-900 mb-6">
-    {% if reply_msg %}{% if reply_all %}Répondre à tous{% else %}Répondre au message{% endif %}{% else %}Nouveau message{% endif %}
+    {% if reply_msg %}{% if reply_all %}Répondre à tous{% else %}Répondre au message{% endif %}
+    {% elif forward_msg %}Faire suivre le message
+    {% else %}Nouveau message{% endif %}
   </h1>
 
   {% if reply_msg %}
@@ -35,12 +41,27 @@
       {% endif %}
     </div>
   </div>
+  {% elif forward_msg %}
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-4 text-sm text-amber-800">
+    <div class="flex items-center gap-2 font-semibold mb-1">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3"/>
+      </svg>
+      Transfert du message : {{ forward_msg.subject }}
+    </div>
+    <div class="text-xs text-amber-700">
+      De :
+      {% if forward_sender %}{{ forward_sender.last_name }} {{ forward_sender.first_name }}{% else %}Membre inconnu{% endif %}
+      · le {{ forward_msg.sent_at.strftime('%d/%m/%Y à %H:%M') if forward_msg.sent_at else '' }}
+    </div>
+    <div class="text-xs text-amber-600 mt-1">Choisissez le(s) destinataire(s) ci-dessous.</div>
+  </div>
   {% endif %}
 
   <form method="post" action="/messages/send" enctype="multipart/form-data"
         @submit="sending = true"
         x-data="{
-          targetType: '{{ 'MANUAL' if preselect_member_id else 'ALL' }}',
+          targetType: '{{ 'MANUAL' if (forward_msg or preselect_member_id) else 'ALL' }}',
           files: [],
           visioUrl: '',
           sending: false,
@@ -72,7 +93,7 @@
         <label class="block text-sm font-semibold text-gray-700 mb-1.5">Objet</label>
         <input type="text" name="subject" required maxlength="300"
                placeholder="Objet du message…"
-               value="{% if reply_msg %}Re : {{ reply_msg.subject }}{% endif %}"
+               value="{% if reply_msg %}Re : {{ reply_msg.subject }}{% elif forward_msg %}Tr : {{ forward_msg.subject }}{% endif %}"
                class="w-full border border-gray-200 rounded-lg px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
       <div x-data="{ emojiOpen: false }">
@@ -592,6 +613,24 @@ function pickDoc(doc) {
     composeQuill.insertText(range.index, token, 'user');
     composeQuill.setSelection(range.index + token.length);
   }
+
+  {% if forward_msg %}
+  (function() {
+    const senderName = {{ ((forward_sender.last_name ~ ' ' ~ forward_sender.first_name) if forward_sender else 'Membre inconnu') | tojson }};
+    const sentDate   = {{ (forward_msg.sent_at.strftime('%d/%m/%Y à %H:%M') if forward_msg.sent_at else '') | tojson }};
+    const origHtml   = {{ (forward_msg.body_html or '') | tojson }};
+    const sepHtml =
+      '<p><br></p>' +
+      '<hr>' +
+      '<p><em>— Message transféré —</em></p>' +
+      '<p><em>De : ' + senderName + ' · ' + sentDate + '</em></p>' +
+      '<p><em>Objet : ' + {{ forward_msg.subject | tojson }} + '</em></p>' +
+      '<p><br></p>' +
+      (origHtml || '<p>' + {{ (forward_msg.body or '') | tojson }} + '</p>');
+    composeQuill.clipboard.dangerouslyPasteHTML(sepHtml);
+    composeQuill.setSelection(0, 0);
+  })();
+  {% endif %}
 
   document.querySelector('form[action="/messages/send"]').addEventListener('submit', function (e) {
     const html = composeQuill.root.innerHTML;
