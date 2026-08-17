@@ -737,7 +737,7 @@ async def program_preview_email(
         "has_attachment": False,
         "attachment_name": None,
         "imap_inbox": _imap_user,
-        "remove_url": None,
+        "remove_url": "#exemple-desinscription",  # placeholder visible en prévisualisation
     })
     return HTMLResponse(content=html_content.body.decode("utf-8"))
 
