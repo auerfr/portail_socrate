@@ -125,11 +125,11 @@
              style="min-height:180px;"></div>
         <input type="hidden" name="body" id="compose-body-input">
 
-        <div class="flex items-center gap-2 mt-1.5">
-          <div class="relative flex-1">
+        <div class="flex flex-wrap items-center gap-2 mt-1.5">
+          <div class="relative">
             <button type="button" @click="emojiOpen = !emojiOpen" @click.outside="emojiOpen = false"
                     title="Insérer un emoji"
-                    class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
+                    class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors whitespace-nowrap">
               😀 Emoji
             </button>
             <div x-show="emojiOpen" x-cloak x-transition
@@ -145,11 +145,11 @@
             ∴
           </button>
           <button type="button" onclick="openDocPicker('compose')"
-                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors shrink-0">
-            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                  class="flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors whitespace-nowrap">
+            <svg class="w-3.5 h-3.5 shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
             </svg>
-            Insérer depuis la bibliothèque
+            <span class="hidden sm:inline">Insérer depuis la </span>bibliothèque
           </button>
         </div>
       </div>

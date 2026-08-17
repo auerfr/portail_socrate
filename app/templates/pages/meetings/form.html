@@ -125,24 +125,36 @@
             Ordre du jour
             <span class="text-gray-400 font-normal">(points de travaux — affiché sur le programme imprimable)</span>
           </label>
-          <div id="agenda-quill-toolbar" class="border border-gray-200 rounded-t-lg bg-gray-50">
+          <div id="agenda-quill-toolbar" class="border border-gray-200 rounded-t-lg bg-gray-50 flex flex-wrap items-center gap-x-1">
             <span class="ql-formats">
               <button class="ql-bold" title="Gras"></button>
+              <button class="ql-italic" title="Italique"></button>
+              <button class="ql-underline" title="Souligné"></button>
             </span>
             <span class="ql-formats">
+              <select class="ql-header" title="Style">
+                <option selected></option>
+                <option value="2">Titre</option>
+                <option value="3">Sous-titre</option>
+              </select>
+            </span>
+            <span class="ql-formats">
+              <button class="ql-list" value="ordered" title="Liste numérotée"></button>
               <button class="ql-list" value="bullet" title="Liste à puces"></button>
             </span>
             <span class="ql-formats">
               <button class="ql-link" title="Lien"></button>
+              <button class="ql-clean" title="Effacer la mise en forme"></button>
+            </span>
+            <span class="ql-formats" style="border-left:1px solid #e5e7eb;padding-left:6px;margin-left:2px;">
+              <button type="button" @click.prevent="insertMasonicAgenda('∴')"
+                      title="Insérer ∴"
+                      class="text-xs font-bold text-loge-700 hover:text-loge-900 px-1.5 py-0.5 rounded hover:bg-loge-50 transition-colors leading-none"
+                      style="font-size:13px;line-height:1.6;">∴</button>
             </span>
           </div>
           <div id="agenda-quill-editor" class="border border-gray-200 border-t-0 rounded-b-lg bg-white text-sm"
                style="min-height:130px;"></div>
-          <button type="button" @click="insertMasonicAgenda('∴')"
-                  title="Insérer le caractère ∴"
-                  class="mt-1.5 flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
-            ∴
-          </button>
           <input type="hidden" name="agenda_html" id="agenda-html-input"
                  value="{{ meeting.agenda_html if meeting and meeting.agenda_html else '' }}">
           <p class="text-xs text-gray-400 mt-1">Ce contenu apparaîtra dans le bloc tenue du programme mensuel.</p>
