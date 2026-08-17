@@ -697,6 +697,49 @@ async def program_transmit(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PRÉVISUALISATION EMAIL EXTERNE
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/{program_id}/preview-email", response_class=HTMLResponse)
+async def program_preview_email(
+    program_id: int,
+    request: Request,
+    ctx: Annotated[object, Depends(_require_program_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Rendu de l'email externe dans le navigateur — aucun envoi."""
+    program = await db.get(
+        Program, program_id,
+        options=[selectinload(Program.meetings).selectinload(ProgramMeeting.meeting).selectinload(Meeting.degrees)],
+    )
+    if not program:
+        raise HTTPException(404)
+
+    lodge = await _get_lodge(db)
+    pm_sorted = sorted(
+        [pm for pm in program.meetings if pm.meeting is not None],
+        key=lambda pm: pm.meeting.meeting_date,
+    )
+
+    from app.config import get_settings as _gs
+    _imap_user = _gs().imap_user or None
+
+    html_content = templates.TemplateResponse(request, "emails/programme.html", {
+        "program": program,
+        "pm_sorted": pm_sorted,
+        "lodge": lodge,
+        "GRADE_LABELS": GRADE_LABELS,
+        "date_civil": _date_civil,
+        "inscription_url": lambda token: _inscription_url(request, token),
+        "greeting": "Mon T∴C∴F∴, ma T∴C∴S∴,",
+        "base_url": str(request.base_url).rstrip("/"),
+        "has_attachment": False,
+        "attachment_name": None,
+        "imap_inbox": _imap_user,
+    })
+    return HTMLResponse(content=html_content.body.decode("utf-8"))
+
+
 # ENVOI EMAIL AUX CORRESPONDANTS EXTERNES
 # ══════════════════════════════════════════════════════════════════════════════
 

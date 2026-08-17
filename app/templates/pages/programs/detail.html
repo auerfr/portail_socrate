@@ -327,6 +327,12 @@
     {% endif %}
 
     {% if can_manage_programs and external_contacts %}
+    <div style="margin-bottom:6px;">
+      <a href="/programs/{{ program.id }}/preview-email" target="_blank"
+         style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#1a5252;padding:5px 12px;background:#f0fafa;border:1px solid #8eccc6;border-radius:6px;text-decoration:none;">
+        👁 Prévisualiser l'email
+      </a>
+    </div>
     <details style="margin-bottom:8px;">
       <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#1a5252;padding:8px 12px;background:#e6f4f1;border:1px solid #8eccc6;border-radius:6px;list-style:none;">
         ✉ Envoyer par email aux correspondants externes ({{ external_contacts | length }} contact{{ 's' if external_contacts | length > 1 }})
