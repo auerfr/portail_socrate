@@ -406,6 +406,7 @@ async def compose(
     reply_to: Optional[int] = None,
     reply_all: bool = False,
     to: Optional[int] = None,
+    forward_from: Optional[int] = None,
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -437,6 +438,14 @@ async def compose(
             else:
                 reply_member_ids = [reply_msg.sender_id]
 
+    # Pré-remplissage si transfert d'un message reçu
+    forward_msg = None
+    forward_sender = None
+    if forward_from and not reply_msg:
+        forward_msg = await db.get(Message, forward_from)
+        if forward_msg:
+            forward_sender = await db.get(Member, forward_msg.sender_id)
+
     # Pré-sélection d'un groupe
     preselect_group = None
     if group_id:
@@ -461,6 +470,8 @@ async def compose(
         "reply_msg": reply_msg,
         "reply_member_ids": reply_member_ids,
         "reply_all": bool(reply_all and reply_msg),
+        "forward_msg": forward_msg,
+        "forward_sender": forward_sender,
         "preselect_group": preselect_group,
         "preselect_member_id": preselect_member_id,
         "visio_server": visio_server,

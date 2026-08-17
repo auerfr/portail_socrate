@@ -198,6 +198,15 @@
         </a>
         {% endif %}
         {% endif %}
+        {% if can_send %}
+        <a href="/messages/compose?forward_from={{ msg.id }}"
+           class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-xl transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M15 15l6-6m0 0l-6-6m6 6H9a6 6 0 000 12h3"/>
+          </svg>
+          Faire suivre
+        </a>
+        {% endif %}
         {% if is_sender or current_user.is_admin %}
         <form method="post" action="/messages/{{ msg.id }}/delete"
               onsubmit="return confirm('Supprimer ce message définitivement ?')">
