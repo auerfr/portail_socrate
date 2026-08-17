@@ -30,7 +30,14 @@
                 <span class="text-xs bg-black/20 rounded-full px-2.5 py-1">🔒 Verrouillée</span>
                 {% endif %}
               </div>
-              <h1 class="text-xl font-bold">{{ meeting.title or type_label(meeting.type) }}</h1>
+              <h1 class="text-xl font-bold leading-snug">
+                {%- if meeting.meeting_number -%}
+                  {{ meeting.meeting_number }}<sup class="text-base font-semibold">ème</sup> tenue
+                  {%- if meeting.title %} — {{ meeting.title }}{%- endif -%}
+                {%- else -%}
+                  {{ meeting.title or type_label(meeting.type) }}
+                {%- endif -%}
+              </h1>
               {% if meeting.theme %}
               <p class="text-loge-200 text-sm mt-1">{{ meeting.theme }}</p>
               {% endif %}
@@ -83,7 +90,9 @@
             <span>⏰ {{ meeting.meeting_time }}</span>
             {% endif %}
             {% if meeting.location %}
-            <span>📍 {{ meeting.location }}</span>
+            <a href="https://maps.google.com/?q={{ (meeting.address or meeting.location) | urlencode }}"
+               target="_blank" rel="noopener"
+               class="hover:underline hover:text-white transition-colors">📍 {{ meeting.location }}</a>
             {% endif %}
             {% if meeting.visio_url %}
             <a href="{{ meeting.visio_url }}" target="_blank" class="text-loge-200 hover:text-white underline">

@@ -50,17 +50,18 @@
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Lieu</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Lieu <span class="text-gray-400 font-normal">(nom court affiché)</span></label>
           <input type="text" name="location"
-                 value="{{ (meeting.location or '') if meeting else '' }}"
-                 placeholder="Temple maçonnique, rue…"
+                 value="{{ (meeting.location if meeting else '') or (lodge.temple_name if lodge else '') }}"
+                 placeholder="La Colonie, Salle …"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
 
         <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">Adresse complète</label>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Adresse complète <span class="text-gray-400 font-normal">(pour Google Maps)</span></label>
           <input type="text" name="address"
-                 value="{{ (meeting.address or '') if meeting else '' }}"
+                 value="{{ (meeting.address if meeting else '') or (lodge.temple_address if lodge else '') }}"
+                 placeholder="Eglise de l'Assomption 54700 MOUSSON"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
 
@@ -166,21 +167,21 @@
     <!-- Degrés travaillés -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
          x-data="{
-           degrees: [{ grade: 'MAITRE', desc: '' }],
+           degrees: {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"MAITRE","desc":""}]{% endif %},
            addDegree() { this.degrees.push({ grade: 'APPRENTI', desc: '' }) },
            removeDegree(i) { if (this.degrees.length > 1) this.degrees.splice(i, 1) },
            gradesValue() { return this.degrees.map(d => d.grade).join(',') },
            descsValue() { return this.degrees.map(d => d.desc).join('|') }
          }">
-      <div class="flex items-center justify-between mb-4">
-        <div>
+      <div class="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
+        <div class="flex-1">
           <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Degrés travaillés</h2>
           <p class="text-xs text-gray-400 mt-1">
             Par défaut : une tenue à un seul degré. Ajouter des lignes pour les tenues multi-degrés.
           </p>
         </div>
         <button type="button" @click="addDegree()"
-                class="text-xs text-loge-700 border border-loge-200 px-3 py-1.5 rounded-lg hover:bg-loge-50">
+                class="self-start shrink-0 whitespace-nowrap text-xs text-loge-700 border border-loge-200 px-3 py-1.5 rounded-lg hover:bg-loge-50">
           + Ajouter un degré
         </button>
       </div>
@@ -191,32 +192,28 @@
 
       <div class="space-y-3">
         <template x-for="(deg, i) in degrees" :key="i">
-          <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-lg">
-
-            <!-- Numéro de séquence -->
-            <div class="w-6 h-6 rounded-full bg-loge-700 text-white text-xs flex items-center justify-center shrink-0 font-bold"
-                 x-text="i + 1"></div>
-
-            <!-- Grade -->
-            <select x-model="deg.grade"
-                    class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
-              <option value="APPRENTI">1er degré — Apprentis</option>
-              <option value="COMPAGNON">2e degré — Compagnons</option>
-              <option value="MAITRE">3e degré — Maîtres</option>
-              <option value="ALL">Toutes loges réunies</option>
-            </select>
-
-            <!-- Description optionnelle -->
+          <div class="p-3 bg-gray-50 rounded-lg space-y-2">
+            <!-- Ligne 1 : numéro + grade + supprimer -->
+            <div class="flex items-center gap-2">
+              <div class="w-6 h-6 rounded-full bg-loge-700 text-white text-xs flex items-center justify-center shrink-0 font-bold"
+                   x-text="i + 1"></div>
+              <select x-model="deg.grade"
+                      class="flex-1 min-w-0 border border-gray-200 rounded-lg px-2 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
+                <option value="APPRENTI">1er degré — Apprentis</option>
+                <option value="COMPAGNON">2e degré — Compagnons</option>
+                <option value="MAITRE">3e degré — Maîtres</option>
+                <option value="ALL">Toutes loges réunies</option>
+              </select>
+              <button type="button" @click="removeDegree(i)"
+                      x-show="degrees.length > 1"
+                      class="text-gray-400 hover:text-red-500 p-1 rounded shrink-0">
+                ✕
+              </button>
+            </div>
+            <!-- Ligne 2 : description -->
             <input type="text" x-model="deg.desc"
                    placeholder="Description (ex: Ouverture, Initiation…)"
-                   class="flex-1 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
-
-            <!-- Supprimer -->
-            <button type="button" @click="removeDegree(i)"
-                    x-show="degrees.length > 1"
-                    class="text-gray-400 hover:text-red-500 p-1 rounded">
-              ✕
-            </button>
+                   class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white">
           </div>
         </template>
       </div>

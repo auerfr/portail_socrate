@@ -1597,11 +1597,15 @@ async def meeting_new_form(
     year_result = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True))
     current_year = year_result.scalar_one_or_none()
 
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+
     return templates.TemplateResponse(request, "pages/meetings/form.html", {
         "current_member": member,
         "current_user": user,
         "meeting": None,
         "current_year": current_year,
+        "lodge": lodge,
         "MeetingType": MeetingType,
         "MeetingGrade": MeetingGrade,
         "type_label": _type_label,
@@ -1770,11 +1774,15 @@ async def meeting_edit_form(
     year_result = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True))
     current_year = year_result.scalar_one_or_none()
 
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+
     return templates.TemplateResponse(request, "pages/meetings/form.html", {
         "current_member": member,
         "current_user": user,
         "meeting": meeting,
         "current_year": current_year,
+        "lodge": lodge,
         "MeetingType": MeetingType,
         "MeetingGrade": MeetingGrade,
         "type_label": _type_label,
