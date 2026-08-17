@@ -19,32 +19,19 @@
       <!-- En-tête tenue -->
       <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden">
         <div class="bg-gradient-to-r from-loge-800 to-loge-700 text-white px-6 py-6">
-          <div class="flex flex-col-reverse gap-3 sm:flex-row sm:items-start sm:justify-between">
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 mb-2 flex-wrap">
-                <span class="text-xs font-medium bg-white/20 rounded-full px-2.5 py-1">
-                  {{ type_label(meeting.type) }}
-                </span>
-                <span class="text-xs text-loge-200">{{ grade_label(meeting.grade) }}</span>
-                {% if meeting.is_locked %}
-                <span class="text-xs bg-black/20 rounded-full px-2.5 py-1">🔒 Verrouillée</span>
-                {% endif %}
-              </div>
-              <h1 class="text-xl font-bold leading-snug">
-                {%- if meeting.title -%}
-                  {{ meeting.title }}
-                {%- elif meeting.meeting_number -%}
-                  {{ meeting.meeting_number }}<sup class="text-base font-semibold">ème</sup> tenue — {{ type_label(meeting.type) }}
-                {%- else -%}
-                  {{ type_label(meeting.type) }}
-                {%- endif -%}
-              </h1>
-              {% if meeting.theme %}
-              <p class="text-loge-200 text-sm mt-1">{{ meeting.theme }}</p>
+          <!-- Ligne badges + boutons admin -->
+          <div class="flex items-center gap-2 flex-wrap justify-between mb-3">
+            <div class="flex items-center gap-2 flex-wrap">
+              <span class="text-xs font-medium bg-white/20 rounded-full px-2.5 py-1">
+                {{ type_label(meeting.type) }}
+              </span>
+              <span class="text-xs text-loge-200">{{ grade_label(meeting.grade) }}</span>
+              {% if meeting.is_locked %}
+              <span class="text-xs bg-black/20 rounded-full px-2.5 py-1">🔒 Verrouillée</span>
               {% endif %}
             </div>
             {% if can_manage %}
-            <div class="flex items-center gap-2 sm:shrink-0">
+            <div class="flex items-center gap-2 shrink-0">
               {% if not meeting.is_locked %}
               <a href="/meetings/{{ meeting.id }}/edit"
                  class="text-xs bg-white/20 hover:bg-white/30 rounded-lg px-3 py-1.5 transition-colors">
@@ -61,6 +48,19 @@
             </div>
             {% endif %}
           </div>
+          <!-- Titre pleine largeur -->
+          <h1 class="text-xl font-bold leading-snug">
+            {%- if meeting.title -%}
+              {{ meeting.title }}
+            {%- elif meeting.meeting_number -%}
+              {{ meeting.meeting_number }}<sup class="text-base font-semibold">ème</sup> tenue — {{ type_label(meeting.type) }}
+            {%- else -%}
+              {{ type_label(meeting.type) }}
+            {%- endif -%}
+          </h1>
+          {% if meeting.theme %}
+          <p class="text-loge-200 text-sm mt-1">{{ meeting.theme }}</p>
+          {% endif %}
 
           <!-- Séquence des degrés -->
           {% if meeting.degrees %}
