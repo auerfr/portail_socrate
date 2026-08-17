@@ -175,13 +175,14 @@
     <!-- Degrés travaillés -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
          x-data="{
-           degrees: JSON.parse(JSON.stringify(window._meetingDegrees || [{'grade':'MAITRE','desc':''}])),
+           degrees: [{grade:'MAITRE',desc:''}],
            addDegree() { this.degrees.push({ grade: 'APPRENTI', desc: '' }) },
            removeDegree(i) { if (this.degrees.length > 1) this.degrees.splice(i, 1) },
            gradesValue() { return this.degrees.map(d => d.grade).join(',') },
            descsValue() { return this.degrees.map(d => d.desc).join('|') }
-         ">
-      <script>window._meetingDegrees = {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"MAITRE","desc":""}]{% endif %};</script>
+         }"
+         x-init="degrees = JSON.parse(JSON.stringify(window._initDegrees || [{grade:'MAITRE',desc:''}]))"
+         >
       <div class="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
         <div class="flex-1">
           <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider">Degrés travaillés</h2>
@@ -374,6 +375,9 @@
   }
 
   document.querySelector('form').addEventListener('submit', _syncAgendaHtml);
+
+// ── Données degrés (lues par x-init du composant Alpine) ────────────────────
+window._initDegrees = {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"MAITRE","desc":""}]{% endif %};
 
 // ── Titre automatique ────────────────────────────────────────────────────────
 (function() {
