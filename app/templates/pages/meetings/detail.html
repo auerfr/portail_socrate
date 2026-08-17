@@ -31,11 +31,12 @@
                 {% endif %}
               </div>
               <h1 class="text-xl font-bold leading-snug">
-                {%- if meeting.meeting_number -%}
-                  {{ meeting.meeting_number }}<sup class="text-base font-semibold">ème</sup> tenue
-                  {%- if meeting.title %} — {{ meeting.title }}{%- endif -%}
+                {%- if meeting.title -%}
+                  {{ meeting.title }}
+                {%- elif meeting.meeting_number -%}
+                  {{ meeting.meeting_number }}<sup class="text-base font-semibold">ème</sup> tenue — {{ type_label(meeting.type) }}
                 {%- else -%}
-                  {{ meeting.title or type_label(meeting.type) }}
+                  {{ type_label(meeting.type) }}
                 {%- endif -%}
               </h1>
               {% if meeting.theme %}

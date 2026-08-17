@@ -98,11 +98,19 @@
         </div>
 
         <div class="sm:col-span-2">
-          <label class="block text-sm font-medium text-gray-700 mb-1">Titre (optionnel)</label>
-          <input type="text" name="title"
-                 value="{{ (meeting.title or '') if meeting else '' }}"
-                 placeholder="Ex: Tenue blanche ouverte — Saint-Jean d'hiver"
-                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <label class="block text-sm font-medium text-gray-700 mb-1">Titre</label>
+          <div class="flex gap-2">
+            <input type="text" name="title" id="meeting-title"
+                   value="{{ (meeting.title or '') if meeting else '' }}"
+                   placeholder="Généré automatiquement depuis les champs ci-dessus…"
+                   class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <button type="button" id="btn-gen-title"
+                    title="Générer le titre depuis le numéro, type, date et grade"
+                    class="shrink-0 px-3 py-2 border border-loge-200 text-loge-700 rounded-lg text-xs hover:bg-loge-50 whitespace-nowrap">
+              ✨ Générer
+            </button>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">Ex : «&nbsp;75ème tenue Solennelle du 16/09/2026 en loge d'Apprentis&nbsp;»</p>
         </div>
 
         <div class="sm:col-span-2">
@@ -165,9 +173,12 @@
     </div>
 
     <!-- Degrés travaillés -->
+    <script>
+      window._meetingDegrees = {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"MAITRE","desc":""}]{% endif %};
+    </script>
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
          x-data="{
-           degrees: {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"MAITRE","desc":""}]{% endif %},
+           degrees: JSON.parse(JSON.stringify(window._meetingDegrees)),
            addDegree() { this.degrees.push({ grade: 'APPRENTI', desc: '' }) },
            removeDegree(i) { if (this.degrees.length > 1) this.degrees.splice(i, 1) },
            gradesValue() { return this.degrees.map(d => d.grade).join(',') },
@@ -365,5 +376,72 @@
   }
 
   document.querySelector('form').addEventListener('submit', _syncAgendaHtml);
+
+// ── Titre automatique ────────────────────────────────────────────────────────
+(function() {
+  var titleInput  = document.getElementById('meeting-title');
+  var btnGen      = document.getElementById('btn-gen-title');
+  var numInput    = document.querySelector('[name=meeting_number]');
+  var typeSelect  = document.querySelector('[name=meeting_type]');
+  var dateInput   = document.querySelector('[name=meeting_date]');
+  var gradeSelect = document.querySelector('[name=meeting_grade]');
+
+  var typeLabels = {
+    'BLANCHE':      'ordinaire',
+    'SOLENNELLE':   'Solennelle',
+    'INSTRUCTION':  "d'instruction",
+    'INITIATION':   "d'Initiation",
+    'INSTALLATION': 'Installation',
+    'ELECTION':     'Élection',
+    'PASSAGE':      'Passage au 2e degré',
+    'ELEVATION':    'Élévation au 3e degré',
+    'FETE':         'Fête',
+    'EXTRA':        'extraordinaire',
+  };
+
+  var gradePreps = {
+    'APPRENTI':  "en loge d'Apprentis",
+    'COMPAGNON': 'en loge de Compagnons',
+    'MAITRE':    'en loge de Maîtres',
+    'ALL':       'à toutes loges réunies',
+  };
+
+  function fmtDate(val) {
+    if (!val) return '';
+    var parts = val.split('-');
+    return 'du ' + parts[2] + '/' + parts[1] + '/' + parts[0];
+  }
+
+  function buildTitle() {
+    var num   = numInput   ? numInput.value.trim() : '';
+    var type  = typeSelect ? typeSelect.value      : '';
+    var dt    = dateInput  ? dateInput.value       : '';
+    var grade = gradeSelect ? gradeSelect.value    : '';
+    var out   = [];
+    if (num)   out.push(num + 'ème tenue');
+    if (type && typeLabels[type]) out.push(typeLabels[type]);
+    if (dt)    out.push(fmtDate(dt));
+    if (grade && gradePreps[grade]) out.push(gradePreps[grade]);
+    return out.join(' ');
+  }
+
+  if (btnGen) btnGen.addEventListener('click', function() {
+    if (titleInput) titleInput.value = buildTitle();
+  });
+
+  {% if is_new %}
+  var autoActive = true;
+  if (titleInput) titleInput.addEventListener('input', function() {
+    autoActive = this.value.trim() === '';
+  });
+  function autoUpdate() { if (autoActive && titleInput) titleInput.value = buildTitle(); }
+  [numInput, typeSelect, dateInput, gradeSelect].forEach(function(el) {
+    if (!el) return;
+    el.addEventListener('change', autoUpdate);
+    if (el.tagName === 'INPUT') el.addEventListener('input', autoUpdate);
+  });
+  autoUpdate();
+  {% endif %}
+})();
 </script>
 {% endblock %}
