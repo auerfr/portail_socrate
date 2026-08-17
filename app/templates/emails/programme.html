@@ -71,6 +71,8 @@
               <p style="margin:0 0 12px;font-size:13px;font-style:italic;color:#374151;">Mon T∴C∴F∴, ma T∴C∴S∴,</p>
               {% if program.content_html %}
               <div style="font-size:13px;color:#374151;line-height:1.75;">{{ program.content_html }}</div>
+              {% elif lodge and lodge.programme_intro_text %}
+              <p style="font-size:13px;color:#374151;line-height:1.75;margin:0;">{{ lodge.programme_intro_text }}</p>
               {% else %}
               <p style="font-size:13px;color:#374151;line-height:1.75;margin:0;">
                 Nous avons le plaisir de t'inviter à partager les joies du Trav∴ Maç∴ lors de nos prochaines TTen∴
@@ -311,9 +313,16 @@
               <a href="mailto:{{ lodge.secretary_email_display }}" style="color:#1a5252;">{{ lodge.secretary_email_display }}</a>
               {% endif %}
             </p>
+            {% if remove_url %}
+            <p style="margin:0 0 6px;font-size:9.5px;color:#6b7280;font-family:Arial,sans-serif;line-height:1.6;">
+              <a href="{{ remove_url }}" style="color:#9ca3af;">Je ne souhaite plus recevoir ces communications</a>
+              &nbsp;·&nbsp;
+              <a href="{{ remove_url | replace('/remove/', '/update/') }}" style="color:#9ca3af;">Mettre à jour mes coordonnées</a>
+            </p>
+            {% endif %}
             <p style="margin:0;font-size:9.5px;color:#9ca3af;font-family:Arial,sans-serif;line-height:1.6;">
               Ce message vous a été transmis en tant que correspondant de la {{ lodge.name if lodge else 'loge' }}.<br>
-              Pour vous désinscrire, répondez à cet email en indiquant votre souhait.
+              Chaque année, nous révisons et nettoyons notre base de correspondants — vous recevrez un email de confirmation.
             </p>
           </td>
         </tr>

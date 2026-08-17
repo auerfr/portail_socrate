@@ -403,6 +403,7 @@ async def program_detail(
         "external_contacts": external_contacts,
         "mailing_lists_for_program": mailing_lists_for_program,
         "email_sent": request.query_params.get("email_sent"),
+        "imap_inbox": __import__('app.config', fromlist=['get_settings']).get_settings().imap_user or None,
     })
 
 
@@ -736,6 +737,7 @@ async def program_preview_email(
         "has_attachment": False,
         "attachment_name": None,
         "imap_inbox": _imap_user,
+        "remove_url": None,
     })
     return HTMLResponse(content=html_content.body.decode("utf-8"))
 
@@ -769,13 +771,16 @@ async def program_send_external(
     extra_emails = [e.strip() for e in extra_emails_raw.replace(";", ",").split(",") if e.strip() and "@" in e]
 
     # Récupérer les emails des contacts sélectionnés
-    recipients = []
+    recipients = []  # (name, email, remove_url | None)
+    base_url_str = str(request.base_url).rstrip("/")
     if contact_ids:
+        from app.services.contact_confirmation import make_cc_token
         r = await db.execute(select(ExternalContact).where(ExternalContact.id.in_(contact_ids), ExternalContact.is_active == True))
         for c in r.scalars().all():
-            recipients.append((c.name, c.email))
+            remove_url = f"{base_url_str}/contacts/remove/{make_cc_token(c.id, 'remove')}"
+            recipients.append((c.name, c.email, remove_url))
     for e in extra_emails:
-        recipients.append(("", e))
+        recipients.append(("", e, None))
 
     if not recipients:
         return RedirectResponse(url=f"/programs/{program_id}?email_sent=0", status_code=303)
@@ -1012,7 +1017,7 @@ async def program_send_external(
     _imap_user = _get_settings().imap_user or None
 
     sent = 0
-    for name, email in recipients:
+    for name, email, remove_url in recipients:
         greeting = f"Bonjour{' ' + name if name else ''},"
         html_content = templates.TemplateResponse(request, "emails/programme.html", {
             "program": program,
@@ -1026,6 +1031,7 @@ async def program_send_external(
             "has_attachment": attachments is not None,
             "attachment_name": attachments[0][0] if attachments else None,
             "imap_inbox": _imap_user,
+            "remove_url": remove_url,
         })
         html_str = html_content.body.decode("utf-8")
 

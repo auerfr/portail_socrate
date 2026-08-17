@@ -329,9 +329,10 @@ async def settings_save_lodge(
     lodge.secretary_email_display = form.get("secretary_email_display", "").strip() or lodge.secretary_email_display
 
     # OJ & horaires
-    lodge.common_agenda     = form.get("common_agenda", "").strip() or None
-    lodge.standard_schedule = form.get("standard_schedule", "").strip() or None
-    lodge.chantiers_info    = form.get("chantiers_info", "").strip() or None
+    lodge.common_agenda          = form.get("common_agenda", "").strip() or None
+    lodge.standard_schedule      = form.get("standard_schedule", "").strip() or None
+    lodge.chantiers_info         = form.get("chantiers_info", "").strip() or None
+    lodge.programme_intro_text   = form.get("programme_intro_text", "").strip() or None
 
     # Seuils assiduité
     tw = form.get("attendance_threshold_warn", "").strip()

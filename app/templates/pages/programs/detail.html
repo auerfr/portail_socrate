@@ -658,6 +658,15 @@
         {% endfor %}
       </div>
       {% endif %}
+
+      {% if imap_inbox or (lodge and lodge.secretary_email_display) %}
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #d1fae5;font-size:8px;color:#6b7280;text-align:center;">
+        Pour nous transmettre votre programme :
+        {% if imap_inbox %}<strong>{{ imap_inbox }}</strong> (traitement automatique)
+        {% if lodge and lodge.secretary_email_display %} ou {{ lodge.secretary_email_display }}{% endif %}
+        {% elif lodge and lodge.secretary_email_display %}{{ lodge.secretary_email_display }}{% endif %}
+      </div>
+      {% endif %}
     </div>
 
   </div><!-- /page 1 -->

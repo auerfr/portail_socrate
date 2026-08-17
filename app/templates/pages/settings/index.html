@@ -258,6 +258,15 @@
           <textarea name="standard_schedule" rows="5"
                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y">{{ lodge.standard_schedule if lodge and lodge.standard_schedule else '' }}</textarea>
         </div>
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Texte d'invitation programme
+            <span class="text-gray-400 font-normal">(accroche email envoyé aux correspondants externes — modifiable par le VM ou le Secrétaire)</span>
+          </label>
+          <textarea name="programme_intro_text" rows="4"
+                    placeholder="Nous avons le plaisir de t'inviter à partager les joies du Trav∴ Maç∴ lors de nos prochaines TTen∴"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y">{{ lodge.programme_intro_text if lodge and lodge.programme_intro_text else '' }}</textarea>
+        </div>
       </div>
 
       <!-- Seuils assiduité -->

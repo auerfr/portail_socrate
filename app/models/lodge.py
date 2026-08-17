@@ -37,9 +37,10 @@ class LodgeSettings(Base):
     secretary_email_display: Mapped[Optional[str]] = mapped_column(String(200))
 
     # Textes récurrents sur les programmes
-    standard_schedule: Mapped[Optional[str]] = mapped_column(Text)  # horaires habituels
-    chantiers_info: Mapped[Optional[str]]    = mapped_column(Text)  # chantiers de la loge
-    common_agenda: Mapped[Optional[str]]     = mapped_column(Text)  # OJ commun à toutes tenues
+    standard_schedule: Mapped[Optional[str]]    = mapped_column(Text)  # horaires habituels
+    chantiers_info: Mapped[Optional[str]]       = mapped_column(Text)  # chantiers de la loge
+    common_agenda: Mapped[Optional[str]]        = mapped_column(Text)  # OJ commun à toutes tenues
+    programme_intro_text: Mapped[Optional[str]] = mapped_column(Text)  # texte d'invitation email programme
 
     # SMTP
     smtp_from: Mapped[Optional[str]]  = mapped_column(String(200))
