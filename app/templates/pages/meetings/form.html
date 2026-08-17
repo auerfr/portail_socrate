@@ -333,8 +333,21 @@
     modules: { toolbar: '#agenda-quill-toolbar' },
     placeholder: 'Ouverture des travaux, lecture et approbation du compte-rendu, planche du F∴ …, questions diverses, fermeture des travaux',
   });
+
+  function _syncAgendaHtml() {
+    const html = agendaQuill.root.innerHTML;
+    const isEmpty = !html || html === '<p><br></p>' || html === '<p></p>' || html.trim() === '';
+    document.getElementById('agenda-html-input').value = isEmpty ? '' : html;
+  }
+
   const agendaExisting = {{ (meeting.agenda_html if meeting and meeting.agenda_html else '') | tojson }};
-  if (agendaExisting) agendaQuill.clipboard.dangerouslyPasteHTML(agendaExisting);
+  if (agendaExisting) {
+    agendaQuill.clipboard.dangerouslyPasteHTML(agendaExisting);
+    _syncAgendaHtml();
+  }
+
+  // Sync en temps réel (évite tout problème de timing au submit)
+  agendaQuill.on('text-change', _syncAgendaHtml);
 
   function insertMasonicAgenda(token) {
     const range = agendaQuill.getSelection(true);
@@ -342,9 +355,6 @@
     agendaQuill.setSelection(range.index + token.length);
   }
 
-  document.querySelector('form').addEventListener('submit', function () {
-    const html = agendaQuill.root.innerHTML;
-    document.getElementById('agenda-html-input').value = (html === '<p><br></p>') ? '' : html;
-  });
+  document.querySelector('form').addEventListener('submit', _syncAgendaHtml);
 </script>
 {% endblock %}
