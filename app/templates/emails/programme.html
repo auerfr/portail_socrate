@@ -304,10 +304,11 @@
           <td style="padding:14px 36px;text-align:center;">
             <p style="margin:0 0 8px;font-size:9.5px;color:#374151;font-family:Arial,sans-serif;line-height:1.6;">
               📬 Pour nous transmettre le programme de vos propres travaux afin de le diffuser à nos membres, merci de l'adresser à :
-              {% if lodge and lodge.secretary_email_display %}
+              {% if imap_inbox %}
+              <a href="mailto:{{ imap_inbox }}" style="color:#1a5252;font-weight:bold;">{{ imap_inbox }}</a>
+              (traitement automatique){% if lodge and lodge.secretary_email_display %} ou <a href="mailto:{{ lodge.secretary_email_display }}" style="color:#1a5252;">{{ lodge.secretary_email_display }}</a>{% endif %}
+              {% elif lodge and lodge.secretary_email_display %}
               <a href="mailto:{{ lodge.secretary_email_display }}" style="color:#1a5252;">{{ lodge.secretary_email_display }}</a>
-              {% else %}
-              <a href="mailto:cloud@amisdesocrate.fr" style="color:#1a5252;">cloud@amisdesocrate.fr</a>
               {% endif %}
             </p>
             <p style="margin:0;font-size:9.5px;color:#9ca3af;font-family:Arial,sans-serif;line-height:1.6;">

@@ -965,6 +965,9 @@ async def program_send_external(
         (f"qr{meeting_id}", png, "image/png") for meeting_id, png in qr_pngs.items()
     ]
 
+    from app.config import get_settings as _get_settings
+    _imap_user = _get_settings().imap_user or None
+
     sent = 0
     for name, email in recipients:
         greeting = f"Bonjour{' ' + name if name else ''},"
@@ -979,6 +982,7 @@ async def program_send_external(
             "base_url": base_url,
             "has_attachment": attachments is not None,
             "attachment_name": attachments[0][0] if attachments else None,
+            "imap_inbox": _imap_user,
         })
         html_str = html_content.body.decode("utf-8")
 
