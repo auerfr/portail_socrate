@@ -23,11 +23,14 @@ def _db_path() -> Path | None:
     """Trouve le fichier SQLite depuis DATABASE_URL."""
     from app.config import get_settings
     url = get_settings().database_url
-    if "sqlite" in url:
-        # aiosqlite:///./socrate.db  → socrate.db
-        path = url.split("///")[-1].lstrip("./")
-        return Path(path)
-    return None
+    if "sqlite" not in url:
+        return None
+    # sqlite+aiosqlite:///./socrate.db      (relatif)  → socrate.db
+    # sqlite+aiosqlite:////abs/socrate.db   (absolu)   → /abs/socrate.db
+    path = url.split("///", 1)[-1]
+    if not path.startswith("/"):
+        path = path.lstrip("./")
+    return Path(path)
 
 
 def create_backup_zip() -> Path:
