@@ -16,7 +16,7 @@ from pathlib import Path
 logger = logging.getLogger(__name__)
 
 BACKUP_DIR = Path("backups")
-MAX_BACKUPS = 5  # nombre de ZIP à conserver localement
+MAX_BACKUPS = 3  # nombre de ZIP à conserver localement (quota disque limité, cf. uploads/)
 
 
 def _db_path() -> Path | None:
