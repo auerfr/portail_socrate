@@ -10,7 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import (
     get_current_user, require_auth, require_admin,
-    hash_password, can_manage_members,
+    hash_password, can_manage_members, can_manage_finance,
 )
 from app.models.identity import (
     Member, User, MasonicGrade, MemberStatus, LodgeFunction, MembershipType,
@@ -163,7 +163,7 @@ def _status_label(s: MemberStatus) -> str:
 
 # ── Liste des membres ─────────────────────────────────────────────────────────
 
-def _filtered_members_query(search: str = "", grade: str = "", status_filter: str = ""):
+def _filtered_members_query(search: str = "", grade: str = "", status_filter: str = "", is_manager: bool = False):
     """Construit la requête Membre filtrée, partagée par la liste, l'export CSV
     et la vue imprimable (mêmes critères : recherche/grade/statut)."""
     admin_member_ids = select(User.member_id).where(
@@ -174,6 +174,9 @@ def _filtered_members_query(search: str = "", grade: str = "", status_filter: st
         .where(Member.id.not_in(admin_member_ids))
         .order_by(Member.last_name, Member.first_name)
     )
+    # Les membres sans rôle de gestion ne voient que les membres actifs
+    if not is_manager and not status_filter:
+        query = query.where(Member.status == MemberStatus.ACTIVE)
     if search:
         term = f"%{search}%"
         query = query.where(
@@ -197,7 +200,8 @@ async def members_list(
 ):
     user, member = ctx
 
-    result = await db.execute(_filtered_members_query(search, grade, status_filter))
+    is_manager = can_manage_members(member) or user.is_admin
+    result = await db.execute(_filtered_members_query(search, grade, status_filter, is_manager=is_manager))
     members = result.scalars().all()
 
     # Construire un dict member_id → label d'office
@@ -217,7 +221,8 @@ async def members_list(
         "MasonicGrade": MasonicGrade,
         "MembershipType": MembershipType,
         "MemberStatus": MemberStatus,
-        "can_manage": can_manage_members(member) or user.is_admin,
+        "can_manage": is_manager,
+        "is_manager": is_manager,
     })
 
 
@@ -361,6 +366,7 @@ async def member_detail(
         "function_label": _function_label,
         "status_label": _status_label,
         "can_manage": can_manage_members(current_member) or user.is_admin,
+        "can_see_finance": can_manage_finance(current_member) or user.is_admin,
         "is_own_profile": target.id == current_member.id,
         "current_year": current_year,
         "member_contrib": member_contrib,
