@@ -191,7 +191,7 @@
               {{ msg.content | render_chat }}
             </div>
             <div class="absolute -top-2 {% if is_mine %}left-0{% else %}right-0{% endif %}
-                        opacity-0 group-hover/msg:opacity-100 transition-opacity flex gap-1">
+                        transition-opacity flex gap-1">
               <button @click="replyTo = {id: {{ msg.id }}, sender: '{{ msg.sender.first_name }}', preview: {{ msg.content[:60] | tojson }}}"
                       class="w-6 h-6 rounded-full bg-white border border-gray-200 shadow-sm
                              flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"

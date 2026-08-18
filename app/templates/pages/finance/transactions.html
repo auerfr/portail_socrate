@@ -235,12 +235,12 @@
                   </a>
                   {% if is_admin %}
                   <form method="post" action="/finance/transactions/{{ t.id }}/detach" class="inline">
-                    <button type="submit" class="text-gray-300 hover:text-red-400 text-xs ml-1 opacity-0 group-hover:opacity-100 transition-opacity" title="Retirer">×</button>
+                    <button type="submit" class="text-gray-300 hover:text-red-400 text-xs ml-1 transition-opacity" title="Retirer">×</button>
                   </form>
                   {% endif %}
                   {% elif is_admin %}
                   <button @click="showUpload = !showUpload"
-                          class="text-xs text-gray-300 hover:text-amber-500 opacity-0 group-hover:opacity-100 transition-opacity" title="Joindre un justificatif">
+                          class="text-xs text-gray-300 hover:text-amber-500 transition-opacity" title="Joindre un justificatif">
                     📎
                   </button>
                   {% else %}
@@ -265,7 +265,7 @@
                   <form method="post" action="/finance/transactions/{{ t.id }}/delete"
                         onsubmit="return confirm('Supprimer ce mouvement ?')">
                     <button type="submit"
-                            class="text-gray-300 hover:text-red-500 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity text-xs">✕</button>
+                            class="text-gray-300 hover:text-red-500 transition-opacity text-xs">✕</button>
                   </form>
                 </td>
                 {% endif %}
