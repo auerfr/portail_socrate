@@ -293,6 +293,14 @@
       </a>
       {% endif %}
 
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
+      <a href="/secretariat/annees"
+         class="nav-item {% if '/secretariat' in request.url.path %}active{% endif %}">
+        <i class="ti ti-calendar-event"></i>
+        Années maçonniques
+      </a>
+      {% endif %}
+
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'MAITRE_BANQUETS', 'SECRETAIRE'])) %}
       <a href="/meetings/me/agapes"
          class="nav-item {% if '/me/agapes' in request.url.path %}active{% endif %}">
@@ -586,6 +594,14 @@
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/officiers' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-crown text-lg opacity-70"></i>
         Officiers
+      </a>
+      {% endif %}
+
+      {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
+      <a href="/secretariat/annees" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/secretariat' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-calendar-event text-lg opacity-70"></i>
+        Années maçonniques
       </a>
       {% endif %}
 

@@ -1,0 +1,124 @@
+{% extends "base.html" %}
+{% block title %}Années maçonniques — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-3xl mx-auto" x-data="{ showForm: false }">
+
+  <nav class="text-sm text-gray-500 mb-4">
+    <span class="text-gray-800">Secrétariat</span>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Années maçonniques</span>
+  </nav>
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Années maçonniques</h1>
+      <p class="text-sm text-gray-400 mt-0.5">Un mandat = une année maçonnique (1er septembre → juin), tableau de loge propre à chaque année.</p>
+    </div>
+    <button type="button" @click="showForm = !showForm"
+            class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors flex-shrink-0">
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+      </svg>
+      Nouvelle année
+    </button>
+  </div>
+
+  <!-- Formulaire de création -->
+  <div x-show="showForm" x-cloak x-transition
+       class="bg-white rounded-xl border border-loge-200 shadow-sm p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-700 mb-1">Créer une nouvelle année maçonnique</h2>
+    <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
+      ⚠ Le tableau de loge actuel (<a href="/settings/#officers" class="underline font-medium">Paramètres → Officiers</a>)
+      sera archivé tel quel au moment de la création, daté d'aujourd'hui. Mettez-le à jour
+      <strong>avant</strong> de créer la nouvelle année si les officiers ont changé.
+    </p>
+    <form method="post" action="/secretariat/annees/new" class="space-y-4">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Libellé</label>
+        <input type="text" name="label" required maxlength="20" placeholder="ex : 6026-6027"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div class="grid grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Début (1er septembre)</label>
+          <input type="date" name="start_date" required value="{{ default_start }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Fin (juin)</label>
+          <input type="date" name="end_date" required value="{{ default_end }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button type="submit"
+                class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
+          Créer et archiver le tableau de loge
+        </button>
+        <button type="button" @click="showForm = false"
+                class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
+          Annuler
+        </button>
+      </div>
+    </form>
+  </div>
+
+  <!-- Tableau de loge courant -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">Tableau de loge courant</h2>
+    {% if offices %}
+    <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+      {% for o in offices %}
+      <div class="flex items-center justify-between border-b border-gray-50 py-1.5">
+        <span class="text-gray-500">{{ o.label }}</span>
+        <span class="font-medium text-gray-800">
+          {% set m = members_map.get(o.member_id) %}
+          {% if m %}{{ m.first_name }} {{ m.last_name | anon_nom }}{% else %}<span class="text-gray-300">— vacant —</span>{% endif %}
+        </span>
+      </div>
+      {% endfor %}
+    </div>
+    {% else %}
+    <p class="text-sm text-gray-400 italic">Aucun office configuré — voir <a href="/settings/#officers" class="text-loge-600 underline">Paramètres → Officiers</a>.</p>
+    {% endif %}
+  </div>
+
+  <!-- Historique des années -->
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm divide-y divide-gray-50 overflow-hidden">
+    {% for y in years %}
+    <div class="p-5">
+      <div class="flex items-center justify-between mb-2">
+        <div class="flex items-center gap-2">
+          <span class="font-semibold text-gray-900">{{ y.label }}</span>
+          {% if y.is_current %}
+          <span class="text-[10px] font-semibold px-2 py-0.5 rounded-full bg-loge-100 text-loge-700">Année courante</span>
+          {% endif %}
+        </div>
+        <span class="text-xs text-gray-400">{{ y.start_date.strftime('%d/%m/%Y') }} → {{ y.end_date.strftime('%d/%m/%Y') }}</span>
+      </div>
+      {% set assignments = hist_by_year.get(y.id, []) %}
+      {% if assignments %}
+      <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-xs mt-3">
+        {% for a in assignments %}
+        {% set m = members_map.get(a.member_id) %}
+        <div class="flex items-center justify-between text-gray-500">
+          <span>{{ a.function }}</span>
+          <span class="font-medium text-gray-700">{% if m %}{{ m.first_name }} {{ m.last_name | anon_nom }}{% else %}—{% endif %}</span>
+        </div>
+        {% endfor %}
+      </div>
+      {% else %}
+      <p class="text-xs text-gray-300 italic mt-2">Aucun tableau de loge archivé pour cette année.</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+    {% if not years %}
+    <div class="p-12 text-center text-gray-400">
+      <p class="text-sm">Aucune année maçonnique enregistrée.</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

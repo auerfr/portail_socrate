@@ -1663,6 +1663,13 @@ async def meeting_create(
         # Fallback : année courante
         year_result = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True))
         masonic_year = year_result.scalar_one_or_none()
+    if not masonic_year:
+        raise HTTPException(
+            status_code=400,
+            detail="Aucune année maçonnique ne couvre cette date et aucune année "
+                   "courante n'est définie — créez-la depuis Secrétariat avant de "
+                   "créer une tenue.",
+        )
 
     # Date de clôture des inscriptions (agapes incluses).
     # Si fournie manuellement → on l'utilise ; sinon défaut = veille J-1 à 8h.
@@ -1687,7 +1694,7 @@ async def meeting_create(
             final_visio_url = f"{base}/{room}"
 
     new_meeting = Meeting(
-        masonic_year_id=masonic_year.id if masonic_year else 1,
+        masonic_year_id=masonic_year.id,
         meeting_date=d,
         meeting_time=meeting_time or "20:30",
         type=MeetingType(meeting_type),

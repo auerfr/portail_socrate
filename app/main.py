@@ -47,6 +47,7 @@ from app.routers import contact_confirmation as contact_confirmation_router
 from app.routers import search as search_router
 from app.routers import notifications as notifications_router
 from app.routers import engagement as engagement_router
+from app.routers import secretariat as secretariat_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -529,6 +530,7 @@ app.include_router(meetings.router)
 app.include_router(finance.router)
 app.include_router(programs.router)
 app.include_router(settings_router.router)
+app.include_router(secretariat_router.router)
 app.include_router(attendance.router)
 app.include_router(announcements.router)
 app.include_router(messages_router.router)

@@ -249,6 +249,19 @@ def can_manage_members(member: Member) -> bool:
     )
 
 
+async def require_secretariat_manager(
+    ctx: Annotated[tuple, Depends(require_active_member)]
+) -> tuple:
+    """Exige admin, VM ou Secrétaire — pour la gestion des années maçonniques."""
+    user, member = ctx
+    if user.is_admin or can_manage_members(member):
+        return ctx
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Réservé au Vénérable Maître, au Secrétaire ou à l'administrateur",
+    )
+
+
 def can_manage_attendance(member: Member) -> bool:
     """Peut émarger et consulter les présences (VM, Secrétaire, 1er et 2e Surveillant)."""
     return member.lodge_function in (

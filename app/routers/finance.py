@@ -533,47 +533,22 @@ async def budget_new_year(
     copy_budget: Annotated[str, Form()] = "",
     source_year_id: Annotated[Optional[int], Form()] = None,
 ):
-    from app.models.lodge import MasonicYear as MY
     from datetime import date as _date
+    from app.services.masonic_year import create_new_masonic_year
     user, member = ctx
     if not user.is_admin:
         raise HTTPException(403)
 
-    # Désactiver l'année courante
-    if True:
-        await db.execute(
-            select(MY).where(MY.is_current == True)
+    try:
+        new_year = await create_new_masonic_year(
+            db,
+            label,
+            _date.fromisoformat(start_date),
+            _date.fromisoformat(end_date),
+            copy_budget_from_year_id=int(source_year_id) if (copy_budget and source_year_id) else None,
         )
-
-    new_year = MY(
-        label=label.strip(),
-        start_date=_date.fromisoformat(start_date),
-        end_date=_date.fromisoformat(end_date),
-        is_current=True,
-    )
-    # Désactiver les anciennes années courantes
-    r_cur = await db.execute(select(MY).where(MY.is_current == True))
-    for y in r_cur.scalars().all():
-        y.is_current = False
-
-    db.add(new_year)
-    await db.flush()
-
-    # Copier les lignes budget si demandé
-    if copy_budget and source_year_id:
-        r_lines = await db.execute(
-            select(BudgetLine).where(BudgetLine.masonic_year_id == source_year_id)
-        )
-        for bl in r_lines.scalars().all():
-            db.add(BudgetLine(
-                masonic_year_id=new_year.id,
-                label=bl.label,
-                type=bl.type,
-                category_label=bl.category_label,
-                amount=bl.amount,
-                order_position=bl.order_position,
-                notes=bl.notes,
-            ))
+    except ValueError as e:
+        raise HTTPException(400, str(e))
 
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={new_year.id}", status_code=303)
