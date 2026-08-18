@@ -2,8 +2,8 @@
 
 Centralise ce que faisaient séparément Finance (`/finance/budget/new-year`)
 et Secrétariat (`/secretariat/annees/new`) : bascule de l'année courante,
-archivage du tableau de loge dans OfficerAssignment (jusque-là jamais
-alimenté), et copie optionnelle du budget prévisionnel.
+archivage du collège des Maîtres officiers dans OfficerAssignment
+(jusque-là jamais alimenté), et copie optionnelle du budget prévisionnel.
 """
 from datetime import date as _date
 from typing import Optional
@@ -25,7 +25,7 @@ async def create_new_masonic_year(
 ) -> MasonicYear:
     """Crée une nouvelle année maçonnique et bascule `is_current`.
 
-    Archive aussi le tableau de loge courant (LodgeOffice) dans
+    Archive aussi le collège des Maîtres officiers courant (LodgeOffice) dans
     OfficerAssignment, daté du jour, pour garder une mémoire année par année
     de qui occupait quelle fonction — avant que les offices ne soient
     réattribués pour la nouvelle année via Paramètres.
@@ -42,7 +42,7 @@ async def create_new_masonic_year(
 
     today = _date.today()
 
-    # Snapshot du tableau de loge courant AVANT bascule de l'année.
+    # Snapshot du collège des Maîtres officiers courant AVANT bascule de l'année.
     r_off = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
     current_offices = r_off.scalars().all()
 

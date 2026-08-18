@@ -35,7 +35,7 @@ async def annees_list(
     r = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
     years = r.scalars().all()
 
-    # Tableau de loge courant — ce qui sera figé si on crée une nouvelle année maintenant.
+    # Collège des Maîtres officiers courant — ce qui sera figé si on crée une nouvelle année maintenant.
     r_off = await db.execute(select(LodgeOffice).order_by(LodgeOffice.sort_order))
     offices = r_off.scalars().all()
 

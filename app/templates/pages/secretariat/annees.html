@@ -13,7 +13,7 @@
   <div class="flex items-center justify-between mb-6">
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Années maçonniques</h1>
-      <p class="text-sm text-gray-400 mt-0.5">Un mandat = une année maçonnique (1er septembre → juin), tableau de loge propre à chaque année.</p>
+      <p class="text-sm text-gray-400 mt-0.5">Un mandat = une année maçonnique (1er septembre → juin), collège des Maîtres officiers propre à chaque année.</p>
     </div>
     <button type="button" @click="showForm = !showForm"
             class="inline-flex items-center gap-2 bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors flex-shrink-0">
@@ -29,7 +29,7 @@
        class="bg-white rounded-xl border border-loge-200 shadow-sm p-5 mb-6">
     <h2 class="text-sm font-semibold text-gray-700 mb-1">Créer une nouvelle année maçonnique</h2>
     <p class="text-xs text-amber-700 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2 mb-4">
-      ⚠ Le tableau de loge actuel (<a href="/settings/#officers" class="underline font-medium">Paramètres → Officiers</a>)
+      ⚠ Le collège des Maîtres officiers actuel (<a href="/settings/#officers" class="underline font-medium">Paramètres → Officiers</a>)
       sera archivé tel quel au moment de la création, daté d'aujourd'hui. Mettez-le à jour
       <strong>avant</strong> de créer la nouvelle année si les officiers ont changé.
     </p>
@@ -54,7 +54,7 @@
       <div class="flex gap-3">
         <button type="submit"
                 class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-semibold hover:bg-loge-800 transition-colors">
-          Créer et archiver le tableau de loge
+          Créer et archiver le collège
         </button>
         <button type="button" @click="showForm = false"
                 class="px-4 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">
@@ -64,9 +64,9 @@
     </form>
   </div>
 
-  <!-- Tableau de loge courant -->
+  <!-- Collège des Maîtres officiers courant -->
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
-    <h2 class="text-sm font-semibold text-gray-700 mb-3">Tableau de loge courant</h2>
+    <h2 class="text-sm font-semibold text-gray-700 mb-3">Collège des Maîtres officiers courant</h2>
     {% if offices %}
     <div class="divide-y divide-gray-50 text-sm">
       {% for o in offices %}
@@ -109,7 +109,7 @@
         {% endfor %}
       </div>
       {% else %}
-      <p class="text-xs text-gray-300 italic mt-2">Aucun tableau de loge archivé pour cette année.</p>
+      <p class="text-xs text-gray-300 italic mt-2">Aucun collège archivé pour cette année.</p>
       {% endif %}
     </div>
     {% endfor %}
