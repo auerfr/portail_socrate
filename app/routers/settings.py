@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 LOGO_DIR = Path("app/static/uploads/logo")
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 _LOGO_ALLOWED = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-from sqlalchemy import select, or_
+from sqlalchemy import select, or_, func as _sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -17,6 +17,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
 from app.models.lodge import LodgeSettings, LodgeOffice, ExternalContact
+from app.models.mailing import MailingList, MailingListExternal
 from app.models.identity import Member, MemberStatus, LodgeFunction, User
 
 ENV_FILE = Path(__file__).parent.parent.parent / ".env"
@@ -99,6 +100,7 @@ async def settings_page(
     db: Annotated[AsyncSession, Depends(get_db)],
     contact_type_filter: str = "",
     contact_lodge_filter: str = "",
+    contact_status_filter: str = "",
     contact_q: str = "",
 ):
     user, member = ctx
@@ -122,10 +124,25 @@ async def settings_page(
     all_member_map = {m.id: m for m in r_all_members.scalars().all()}
 
     contacts_stmt = select(ExternalContact).order_by(ExternalContact.contact_type, ExternalContact.name)
-    if contact_type_filter in ("EXTERNAL", "VISITOR"):
+    if contact_type_filter in ("EXTERNAL", "VISITOR", "LOGE"):
         contacts_stmt = contacts_stmt.where(ExternalContact.contact_type == contact_type_filter)
     if contact_lodge_filter.strip():
         contacts_stmt = contacts_stmt.where(ExternalContact.lodge_name == contact_lodge_filter.strip())
+    if contact_status_filter == "confirmed":
+        contacts_stmt = contacts_stmt.where(ExternalContact.last_confirmed_at.isnot(None))
+    elif contact_status_filter == "pending":
+        contacts_stmt = contacts_stmt.where(
+            ExternalContact.is_active == True,  # noqa: E712
+            ExternalContact.last_confirmed_at.is_(None),
+            ExternalContact.removal_requested_at.is_(None),
+        )
+    elif contact_status_filter == "auto_removed":
+        contacts_stmt = contacts_stmt.where(
+            ExternalContact.is_active == False,  # noqa: E712
+            ExternalContact.removal_requested_at.is_(None),
+        )
+    elif contact_status_filter == "deregistered":
+        contacts_stmt = contacts_stmt.where(ExternalContact.removal_requested_at.isnot(None))
     if contact_q.strip():
         like = f"%{contact_q.strip()}%"
         contacts_stmt = contacts_stmt.where(or_(
@@ -143,6 +160,46 @@ async def settings_page(
         .distinct().order_by(ExternalContact.lodge_name)
     )
     contact_lodges = [row[0] for row in r_lodges.all()]
+
+    # Listes de diffusion externes (pour le sélecteur d'envoi confirmation)
+    r_ml = await db.execute(
+        select(MailingList.id, MailingList.name)
+        .join(MailingListExternal, MailingListExternal.list_id == MailingList.id)
+        .join(ExternalContact, ExternalContact.id == MailingListExternal.external_id)
+        .where(
+            ExternalContact.contact_type == "VISITOR",
+            ExternalContact.is_active == True,  # noqa: E712
+            MailingListExternal.unsubscribed_at.is_(None),
+        )
+        .group_by(MailingList.id, MailingList.name)
+        .order_by(MailingList.name)
+    )
+    external_mailing_lists = [{"id": r[0], "name": r[1]} for r in r_ml.all()]
+
+    # Statistiques campagne de confirmation (tous types confondus)
+    r_conf_stats = await db.execute(
+        select(
+            _sqlfunc.count().label("total"),
+            _sqlfunc.count(ExternalContact.last_confirmed_at).label("confirmed"),
+            _sqlfunc.count(ExternalContact.removal_requested_at).label("removed"),
+        )
+    )
+    _cs = r_conf_stats.one()
+    # Contacts désactivés sans demande explicite = retirés automatiquement
+    r_auto_removed = await db.execute(
+        select(_sqlfunc.count()).where(
+            ExternalContact.is_active == False,  # noqa: E712
+            ExternalContact.removal_requested_at.is_(None),
+        )
+    )
+    _auto_removed = r_auto_removed.scalar_one() or 0
+    contact_conf_stats = {
+        "total": _cs[0],
+        "confirmed": _cs[1],
+        "removed": _cs[2],
+        "auto_removed": _auto_removed,
+        "pending": _cs[0] - _cs[1] - _cs[2] - _auto_removed,
+    }
 
     from app.dependencies import can_manage_members
     can_manage_contacts = user.is_admin or can_manage_members(member)
@@ -170,8 +227,11 @@ async def settings_page(
         "contact_lodges": contact_lodges,
         "contact_type_filter": contact_type_filter,
         "contact_lodge_filter": contact_lodge_filter,
+        "contact_status_filter": contact_status_filter,
         "contact_q": contact_q,
         "external_contacts": external_contacts,
+        "contact_conf_stats": contact_conf_stats,
+        "external_mailing_lists": external_mailing_lists,
         "backups": backups,
         "saved": request.query_params.get("saved"),
         "smtp_saved": request.query_params.get("smtp_saved"),
@@ -269,9 +329,10 @@ async def settings_save_lodge(
     lodge.secretary_email_display = form.get("secretary_email_display", "").strip() or lodge.secretary_email_display
 
     # OJ & horaires
-    lodge.common_agenda     = form.get("common_agenda", "").strip() or None
-    lodge.standard_schedule = form.get("standard_schedule", "").strip() or None
-    lodge.chantiers_info    = form.get("chantiers_info", "").strip() or None
+    lodge.common_agenda          = form.get("common_agenda", "").strip() or None
+    lodge.standard_schedule      = form.get("standard_schedule", "").strip() or None
+    lodge.chantiers_info         = form.get("chantiers_info", "").strip() or None
+    lodge.programme_intro_text   = form.get("programme_intro_text", "").strip() or None
 
     # Seuils assiduité
     tw = form.get("attendance_threshold_warn", "").strip()
@@ -485,6 +546,7 @@ async def external_contact_add(
     organization: str = Form(""),
     lodge_name: str = Form(""),
     orient: str = Form(""),
+    obedience: str = Form(""),
     contact_type: str = Form("EXTERNAL"),
     notes: str = Form(""),
 ):
@@ -495,6 +557,9 @@ async def external_contact_add(
     fname = first_name.strip()
     lname = last_name.strip()
     full = f"{fname} {lname}".strip()
+    ctype = contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL"
+    if ctype == "LOGE":
+        full = lodge_name.strip() or full
     if not full:
         raise HTTPException(400, "Nom requis")
     db.add(ExternalContact(
@@ -505,7 +570,8 @@ async def external_contact_add(
         organization=organization.strip() or None,
         lodge_name=lodge_name.strip() or None,
         orient=orient.strip() or None,
-        contact_type=contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL",
+        obedience=obedience.strip() or None,
+        contact_type=ctype,
         notes=notes.strip() or None,
         is_active=True,
         last_confirmed_at=datetime.utcnow(),
@@ -551,7 +617,7 @@ async def external_contacts_import_csv(
             errors.append(f"Ligne {i} ignorée : email manquant")
             continue
         contact_type = (row.get("type") or "EXTERNAL").strip().upper()
-        if contact_type not in ("EXTERNAL", "VISITOR"):
+        if contact_type not in ("EXTERNAL", "VISITOR", "LOGE"):
             contact_type = "EXTERNAL"
         first_name = (row.get("prenom") or "").strip()
         last_name = (row.get("nom") or "").strip()
@@ -597,9 +663,11 @@ async def external_contacts_send_confirmation(
     request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    target: Annotated[str, Form()] = "",
 ):
-    """Déclenche l'envoi de l'email de confirmation annuelle à tous les
-    correspondants externes actifs, en tâche de fond."""
+    """Déclenche l'envoi de l'email de confirmation annuelle.
+    target = "" (tous) | "type:LOGE" | "type:VISITOR" | "type:EXTERNAL" | "list:123"
+    """
     user, member = ctx
     from app.dependencies import can_manage_members
     if not (user.is_admin or can_manage_members(member)):
@@ -609,15 +677,65 @@ async def external_contacts_send_confirmation(
     from app.services.contact_confirmation import launch_confirmation_campaign
     from app.services.audit import log_audit
 
-    n = (await db.execute(
-        select(func.count(ExternalContact.id)).where(ExternalContact.is_active == True)  # noqa: E712
-    )).scalar() or 0
+    contact_ids: Optional[list[int]] = None
+    label = "tous les contacts actifs"
+
+    if target == "unconfirmed":
+        r_ids = await db.execute(
+            select(ExternalContact.id)
+            .where(
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+                ExternalContact.last_confirmed_at.is_(None),
+            )
+        )
+        contact_ids = [r[0] for r in r_ids.all()]
+        label = "contacts jamais confirmés (relance)"
+
+    elif target.startswith("type:"):
+        ctype = target[5:]
+        r_ids = await db.execute(
+            select(ExternalContact.id)
+            .where(
+                ExternalContact.contact_type == ctype,
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+            )
+        )
+        contact_ids = [r[0] for r in r_ids.all()]
+        label = f"type {ctype}"
+
+    elif target.startswith("list:"):
+        list_id = int(target[5:])
+        r_ids = await db.execute(
+            select(MailingListExternal.external_id)
+            .join(ExternalContact, ExternalContact.id == MailingListExternal.external_id)
+            .where(
+                MailingListExternal.list_id == list_id,
+                MailingListExternal.unsubscribed_at.is_(None),
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+            )
+        )
+        contact_ids = [r[0] for r in r_ids.all()]
+        label = f"liste #{list_id}"
+
+    n = len(contact_ids) if contact_ids is not None else (
+        (await db.execute(
+            select(func.count(ExternalContact.id))
+            .where(
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+            )
+        )).scalar() or 0
+    )
     base_url = str(request.base_url).rstrip("/")
     await log_audit(
         db, actor_id=member.id, action="CONTACTS_CONFIRMATION_SEND",
-        details=f"{n} correspondant(s) actif(s) ciblé(s)", request=request, commit=True,
+        details=f"{n} correspondant(s) ciblé(s) — {label}",
+        request=request, commit=True,
     )
-    launch_confirmation_campaign(base_url)
+    launch_confirmation_campaign(base_url, contact_ids=contact_ids)
     return RedirectResponse(url="/settings/?saved=contacts&confirmation_started=1", status_code=303)
 
 
@@ -658,6 +776,7 @@ async def external_contact_edit(
     organization: str = Form(""),
     lodge_name: str = Form(""),
     orient: str = Form(""),
+    obedience: str = Form(""),
     contact_type: str = Form("EXTERNAL"),
     notes: str = Form(""),
 ):
@@ -668,17 +787,21 @@ async def external_contact_edit(
     contact = await db.get(ExternalContact, contact_id)
     if not contact:
         raise HTTPException(404)
+    ctype = contact_type if contact_type in ("EXTERNAL", "VISITOR", "LOGE") else "EXTERNAL"
     fname = first_name.strip()
     lname = last_name.strip()
     contact.first_name = fname or None
     contact.last_name  = lname or None
     full = f"{fname} {lname}".strip()
+    if ctype == "LOGE":
+        full = lodge_name.strip() or full
     contact.name = full or contact.name
     contact.email = email.strip().lower()
     contact.organization = organization.strip() or None
     contact.lodge_name = lodge_name.strip() or None
     contact.orient = orient.strip() or None
-    contact.contact_type = contact_type if contact_type in ("EXTERNAL", "VISITOR") else "EXTERNAL"
+    contact.obedience = obedience.strip() or None
+    contact.contact_type = ctype
     contact.notes = notes.strip() or None
     await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)

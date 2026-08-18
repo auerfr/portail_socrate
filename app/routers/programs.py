@@ -403,6 +403,7 @@ async def program_detail(
         "external_contacts": external_contacts,
         "mailing_lists_for_program": mailing_lists_for_program,
         "email_sent": request.query_params.get("email_sent"),
+        "imap_inbox": __import__('app.config', fromlist=['get_settings']).get_settings().imap_user or None,
     })
 
 
@@ -697,6 +698,50 @@ async def program_transmit(
 
 
 # ══════════════════════════════════════════════════════════════════════════════
+# PRÉVISUALISATION EMAIL EXTERNE
+# ══════════════════════════════════════════════════════════════════════════════
+
+@router.get("/{program_id}/preview-email", response_class=HTMLResponse)
+async def program_preview_email(
+    program_id: int,
+    request: Request,
+    ctx: Annotated[object, Depends(_require_program_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Rendu de l'email externe dans le navigateur — aucun envoi."""
+    program = await db.get(
+        Program, program_id,
+        options=[selectinload(Program.meetings).selectinload(ProgramMeeting.meeting).selectinload(Meeting.degrees)],
+    )
+    if not program:
+        raise HTTPException(404)
+
+    lodge = await _get_lodge(db)
+    pm_sorted = sorted(
+        [pm for pm in program.meetings if pm.meeting is not None],
+        key=lambda pm: pm.meeting.meeting_date,
+    )
+
+    from app.config import get_settings as _gs
+    _imap_user = _gs().imap_user or None
+
+    html_content = templates.TemplateResponse(request, "emails/programme.html", {
+        "program": program,
+        "pm_sorted": pm_sorted,
+        "lodge": lodge,
+        "GRADE_LABELS": GRADE_LABELS,
+        "date_civil": _date_civil,
+        "inscription_url": lambda token: _inscription_url(request, token),
+        "greeting": "Mon T∴C∴F∴, ma T∴C∴S∴,",
+        "base_url": str(request.base_url).rstrip("/"),
+        "has_attachment": False,
+        "attachment_name": None,
+        "imap_inbox": _imap_user,
+        "remove_url": "#exemple-desinscription",  # placeholder visible en prévisualisation
+    })
+    return HTMLResponse(content=html_content.body.decode("utf-8"))
+
+
 # ENVOI EMAIL AUX CORRESPONDANTS EXTERNES
 # ══════════════════════════════════════════════════════════════════════════════
 
@@ -726,13 +771,16 @@ async def program_send_external(
     extra_emails = [e.strip() for e in extra_emails_raw.replace(";", ",").split(",") if e.strip() and "@" in e]
 
     # Récupérer les emails des contacts sélectionnés
-    recipients = []
+    recipients = []  # (name, email, remove_url | None)
+    base_url_str = str(request.base_url).rstrip("/")
     if contact_ids:
+        from app.services.contact_confirmation import make_cc_token
         r = await db.execute(select(ExternalContact).where(ExternalContact.id.in_(contact_ids), ExternalContact.is_active == True))
         for c in r.scalars().all():
-            recipients.append((c.name, c.email))
+            remove_url = f"{base_url_str}/contacts/remove/{make_cc_token(c.id, 'remove')}"
+            recipients.append((c.name, c.email, remove_url))
     for e in extra_emails:
-        recipients.append(("", e))
+        recipients.append(("", e, None))
 
     if not recipients:
         return RedirectResponse(url=f"/programs/{program_id}?email_sent=0", status_code=303)
@@ -965,8 +1013,11 @@ async def program_send_external(
         (f"qr{meeting_id}", png, "image/png") for meeting_id, png in qr_pngs.items()
     ]
 
+    from app.config import get_settings as _get_settings
+    _imap_user = _get_settings().imap_user or None
+
     sent = 0
-    for name, email in recipients:
+    for name, email, remove_url in recipients:
         greeting = f"Bonjour{' ' + name if name else ''},"
         html_content = templates.TemplateResponse(request, "emails/programme.html", {
             "program": program,
@@ -979,6 +1030,8 @@ async def program_send_external(
             "base_url": base_url,
             "has_attachment": attachments is not None,
             "attachment_name": attachments[0][0] if attachments else None,
+            "imap_inbox": _imap_user,
+            "remove_url": remove_url,
         })
         html_str = html_content.body.decode("utf-8")
 

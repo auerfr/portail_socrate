@@ -6,7 +6,12 @@
      x-data="{
        editing: false,
        allDay: {{ 'true' if event.all_day else 'false' }},
-       visibility: '{{ event.visibility.value }}'
+       visibility: '{{ event.visibility.value }}',
+       selectedMembers: {{ vis_member_ids | tojson }},
+       toggleMember(id) {
+         const i = this.selectedMembers.indexOf(id);
+         if (i >= 0) this.selectedMembers.splice(i, 1); else this.selectedMembers.push(id);
+       }
      }">
 
   {# ── Fil d'Ariane ─────────────────────────────────────────────────────── #}
@@ -94,12 +99,21 @@
         {% endif %}
 
         {# Visibilité #}
-        <div class="flex items-center gap-2 text-sm text-gray-500">
-          <svg class="w-4 h-4 text-gray-400 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <div class="flex items-start gap-2 text-sm text-gray-500">
+          <svg class="w-4 h-4 text-gray-400 flex-shrink-0 mt-0.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M2.036 12.322a1.012 1.012 0 010-.639C3.423 7.51 7.36 4.5 12 4.5c4.638 0 8.573 3.007 9.963 7.178.07.207.07.431 0 .639C20.577 16.49 16.64 19.5 12 19.5c-4.638 0-8.573-3.007-9.963-7.178z"/>
             <path stroke-linecap="round" stroke-linejoin="round" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/>
           </svg>
-          <span>{{ vis_label }}</span>
+          <div>
+            <span>{{ vis_label }}</span>
+            {% if vis_members %}
+            <div class="mt-1 text-xs text-gray-400">
+              Invités :
+              {% for m in vis_members %}{{ m.last_name | anon_nom }} {{ m.first_name }}{% if not loop.last %}, {% endif %}{% endfor %}
+              (+ le créateur)
+            </div>
+            {% endif %}
+          </div>
         </div>
 
         {# Récurrence #}
@@ -281,6 +295,7 @@
               <option value="APPRENTIS">🟢 Apprentis uniquement</option>
               <option value="OFFICERS">⚒ Conseil d'officiers</option>
               <option value="GROUP">🏷 Groupe spécifique…</option>
+              <option value="MEMBERS">👤 Membres spécifiques…</option>
               <option value="ADMIN">🔒 Administrateurs</option>
             </select>
             <div x-show="visibility === 'GROUP'" x-cloak class="mt-2">
@@ -291,6 +306,21 @@
                 <option value="{{ g.id }}" {% if event.visibility_group_id == g.id %}selected{% endif %}>{{ g.name }}</option>
                 {% endfor %}
               </select>
+            </div>
+            <div x-show="visibility === 'MEMBERS'" x-cloak class="mt-2">
+              <input type="hidden" name="visibility_member_ids" :value="selectedMembers.join(',')">
+              <div class="border border-gray-200 rounded-lg max-h-40 overflow-y-auto bg-white divide-y divide-gray-50">
+                {% for m in active_members %}
+                <label class="flex items-center gap-2 px-3 py-2 hover:bg-loge-50 cursor-pointer">
+                  <input type="checkbox" value="{{ m.id }}"
+                         :checked="selectedMembers.includes({{ m.id }})"
+                         @change="toggleMember({{ m.id }})"
+                         class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+                  <span class="text-sm text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
+                </label>
+                {% endfor %}
+              </div>
+              <p class="text-xs text-gray-400 mt-1"><span x-text="selectedMembers.length"></span> membre(s) — seuls eux + vous verrez l'événement.</p>
             </div>
           </div>
         </div>

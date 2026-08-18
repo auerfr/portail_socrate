@@ -54,9 +54,9 @@
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Titre du programme
-          <span class="text-gray-400 font-normal">(laissez vide pour le titre automatique)</span>
+          <span class="text-gray-400 font-normal">(modifiable)</span>
         </label>
-        <input type="text" name="title" placeholder="Ex: Programme — Novembre 6025 E∴L∴"
+        <input type="text" name="title" id="prog-title-input"
                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
 
@@ -189,4 +189,24 @@
 
   </form>
 </div>
+
+<script>
+(function () {
+  const MOIS = {{ MOIS_FR | tojson }};
+  const titleInput = document.getElementById('prog-title-input');
+  const monthSel   = document.querySelector('select[name="month"]');
+  const yearInput  = document.querySelector('input[name="year"]');
+
+  function updateTitle() {
+    const m = parseInt(monthSel.value);
+    const y = parseInt(yearInput.value);
+    const nom = (MOIS[m] || '').charAt(0).toUpperCase() + (MOIS[m] || '').slice(1);
+    titleInput.value = 'Programme — ' + nom + ' ' + (y + 4000) + ' E∴L∴';
+  }
+
+  updateTitle();
+  monthSel.addEventListener('change', updateTitle);
+  yearInput.addEventListener('input', updateTitle);
+})();
+</script>
 {% endblock %}

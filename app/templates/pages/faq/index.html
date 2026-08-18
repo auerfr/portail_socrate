@@ -24,6 +24,73 @@
     </div>
   </div>
 
+  {# ── Guides de formation ──────────────────────────────────────────────── #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <h2 class="text-base font-semibold text-loge-800 mb-1"><i class="ti ti-book-2"></i> Guides de formation par rôle</h2>
+    <p class="text-xs text-gray-500 mb-4">Procédures pas à pas, fiches de référence et aide à l'impression (PDF).</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3">
+
+      <a href="/guides/membre" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-user text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide membre</p>
+          <p class="text-xs text-gray-500">Connexion, tenues, documents, messages, profil</p>
+        </div>
+      </a>
+
+      {% if show_guide_secretaire %}
+      <a href="/guides/secretaire" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-notebook text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Secrétaire</p>
+          <p class="text-xs text-gray-500">Membres, tenues, présences, PV, annonces</p>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if show_guide_tresorier %}
+      <a href="/guides/tresorier" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-coins text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Trésorier</p>
+          <p class="text-xs text-gray-500">Budget, T3, appel à tranche, paiements, bilan</p>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if show_guide_banquets %}
+      <a href="/guides/maitre-banquets" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <span class="text-base">🍽</span>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Maître des Banquets</p>
+          <p class="text-xs text-gray-500">Agapes, couverts, régimes alimentaires, export</p>
+        </div>
+      </a>
+      {% endif %}
+
+      {% if show_guide_vm %}
+      <a href="/guides/vm" class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-crown text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Guide Vénérable Maître</p>
+          <p class="text-xs text-gray-500">Actions exclusives VM, verrouillage, finances, communications</p>
+        </div>
+      </a>
+      {% endif %}
+
+    </div>
+  </section>
+
   {# ── Général ─────────────────────────────────────────────────────────── #}
   <section id="general" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 scroll-mt-4">
     <h2 class="text-lg font-semibold text-loge-800 mb-3">Général — tous les membres</h2>
@@ -103,7 +170,7 @@
         </p>
       </details>
 
-      <details class="group py-2">
+      <details class="group border-b border-gray-100 py-2">
         <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
           Je ne vois pas une rubrique dans mon menu, est-ce normal ?
           <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
@@ -112,6 +179,48 @@
           Oui — certaines rubriques (officiers, présences, trésorerie, diffusion, annonces,
           administration…) ne sont visibles que par les frères occupant la fonction correspondante.
           Si vous occupez une de ces fonctions, sa section dédiée apparaît dans le sommaire ci-dessus.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Quelle différence entre un canal et un groupe privé dans le chat ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1 text-sm">
+          <p><strong># Canaux</strong> — canaux officiels créés par les administrateurs (Général, Annonces, par grade, officiers…). L'accès est automatique selon votre rôle ou grade, sans invitation.</p>
+          <p><strong>● Groupes privés</strong> — groupes de travail créés sur invitation. Vous devez être ajouté par l'administrateur du groupe pour le voir. Chaque groupe affiche une description en sous-titre.</p>
+          <p><strong>● Directs</strong> — conversation privée 1:1 avec un autre membre.</p>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Les coches ✓ et ✓✓ dans le chat, que signifient-elles ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2 text-sm">
+          Sous chaque message envoyé : <strong>✓</strong> = message enregistré. <strong>✓✓</strong> en couleur loge = lu par au moins un autre membre.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment créer un événement visible uniquement par certains membres ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2 text-sm">
+          Lors de la création ou de l'édition d'un événement dans le <strong>Calendrier</strong>, choisissez la visibilité <strong>« 👤 Membres spécifiques… »</strong> puis cochez les membres concernés. Seuls eux (et vous) verront l'événement.
+        </p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment envoyer une planche reçue d'une autre loge dans la GED ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2 text-sm">
+          Transférez ou envoyez un email avec la planche en pièce jointe à <strong>cloud@amisdesocrate.fr</strong>. Elle est automatiquement classée dans la GED sous <em>« Planches reçues »</em>, dans un dossier mensuel, et visible par tous les membres. Formats acceptés : .pdf, .doc, .docx, .odt, .rtf, .jpg, .png.
         </p>
       </details>
 

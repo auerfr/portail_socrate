@@ -37,9 +37,10 @@ class LodgeSettings(Base):
     secretary_email_display: Mapped[Optional[str]] = mapped_column(String(200))
 
     # Textes récurrents sur les programmes
-    standard_schedule: Mapped[Optional[str]] = mapped_column(Text)  # horaires habituels
-    chantiers_info: Mapped[Optional[str]]    = mapped_column(Text)  # chantiers de la loge
-    common_agenda: Mapped[Optional[str]]     = mapped_column(Text)  # OJ commun à toutes tenues
+    standard_schedule: Mapped[Optional[str]]    = mapped_column(Text)  # horaires habituels
+    chantiers_info: Mapped[Optional[str]]       = mapped_column(Text)  # chantiers de la loge
+    common_agenda: Mapped[Optional[str]]        = mapped_column(Text)  # OJ commun à toutes tenues
+    programme_intro_text: Mapped[Optional[str]] = mapped_column(Text)  # texte d'invitation email programme
 
     # SMTP
     smtp_from: Mapped[Optional[str]]  = mapped_column(String(200))
@@ -146,6 +147,9 @@ class ExternalContact(Base):
     is_active: Mapped[bool] = mapped_column(Boolean, default=True)
     notes: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    obedience: Mapped[Optional[str]] = mapped_column(String(100), nullable=True)
     # Dernière confirmation (campagne annuelle) que ce contact souhaite toujours
     # recevoir les programmes — cf. app/services/contact_confirmation.py
     last_confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Demande de désinscription reçue via le lien dans l'email de confirmation
+    removal_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

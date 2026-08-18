@@ -33,7 +33,7 @@ class ForumSubject(Base):
     __tablename__ = "forum_subjects"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    theme_id: Mapped[int] = mapped_column(ForeignKey("forum_themes.id", ondelete="CASCADE"))
+    theme_id: Mapped[int] = mapped_column(ForeignKey("forum_themes.id", ondelete="CASCADE"), index=True)
     title: Mapped[str]    = mapped_column(String(300))
     is_pinned: Mapped[bool]  = mapped_column(Boolean, default=False)
     is_locked: Mapped[bool]  = mapped_column(Boolean, default=False)
@@ -58,7 +58,7 @@ class ForumMessage(Base):
     __tablename__ = "forum_messages"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    subject_id: Mapped[int]          = mapped_column(ForeignKey("forum_subjects.id", ondelete="CASCADE"))
+    subject_id: Mapped[int]          = mapped_column(ForeignKey("forum_subjects.id", ondelete="CASCADE"), index=True)
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_messages.id"))
     content_html: Mapped[str]        = mapped_column(Text)
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))

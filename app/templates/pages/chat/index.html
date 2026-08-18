@@ -7,9 +7,9 @@
 
 {# Full-height layout : desktop = 100vh, mobile = 100vh - 80px (bottom nav) #}
 <div class="flex overflow-hidden"
-     style="height:calc(100vh - 80px - env(safe-area-inset-bottom, 0px));"
+     style="height:calc(100dvh - 80px - env(safe-area-inset-bottom, 0px));"
      x-data>
-  <style>@media(min-width:1024px){.chat-root{height:100vh!important}}</style>
+  <style>@media(min-width:1024px){.chat-root{height:100dvh!important}}</style>
   <script>document.currentScript.closest('[x-data]').classList.add('chat-root')</script>
 
   <!-- ══════════ SIDEBAR CANAUX ══════════ -->
@@ -65,7 +65,12 @@
          class="flex items-center gap-2.5 px-3 py-2 mx-2 my-0.5 rounded-lg transition-colors
                 {% if is_active %}bg-loge-50 text-loge-700{% else %}text-gray-600 hover:bg-gray-100 hover:text-gray-900{% endif %}">
         <span class="text-xs text-gray-400 font-mono shrink-0 w-3 text-center select-none">{{ type_icons.get(ch.type.value, '●') }}</span>
-        <span class="text-sm {% if is_active %}font-semibold{% else %}font-medium{% endif %} flex-1 truncate">{{ ch.name }}</span>
+        <span class="flex-1 min-w-0">
+          <span class="block text-sm {% if is_active %}font-semibold{% else %}font-medium{% endif %} truncate">{{ ch.name }}</span>
+          {% if ch.description %}
+          <span class="block text-xs text-gray-400 truncate leading-tight">{{ ch.description }}</span>
+          {% endif %}
+        </span>
         {% if ch_unread > 0 %}
         <span class="shrink-0 bg-loge-500 text-white text-xs font-bold rounded-full px-1.5 min-w-[18px] text-center leading-5">
           {{ ch_unread if ch_unread < 100 else '99+' }}
@@ -74,23 +79,14 @@
       </a>
       {% endmacro %}
 
-      {% if general_chs %}
+      {% set official_chs = general_chs + grade_chs + function_chs %}
+      {% if official_chs %}
       <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Canaux</div>
-      {% for ch in general_chs %}{{ channel_item(ch) }}{% endfor %}
-      {% endif %}
-
-      {% if grade_chs %}
-      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Par grade</div>
-      {% for ch in grade_chs %}{{ channel_item(ch) }}{% endfor %}
-      {% endif %}
-
-      {% if function_chs %}
-      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Officiers</div>
-      {% for ch in function_chs %}{{ channel_item(ch) }}{% endfor %}
+      {% for ch in official_chs %}{{ channel_item(ch) }}{% endfor %}
       {% endif %}
 
       {% if group_chs %}
-      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Groupes</div>
+      <div class="px-3 pt-4 pb-1 text-xs font-semibold text-gray-400 uppercase tracking-wider">Groupes privés</div>
       {% for ch in group_chs %}{{ channel_item(ch) }}{% endfor %}
       {% endif %}
 
@@ -107,7 +103,7 @@
 
   <!-- ═══════════════ ZONE MESSAGES ═══════════════ -->
   <div class="{% if not active_channel %}hidden lg:flex{% else %}flex{% endif %} flex-1 flex-col min-w-0 bg-gray-50"
-       x-data="chatApp({{ last_msg_id | default(0) }}, {{ active_channel.id if active_channel else 'null' }})"
+       x-data="chatApp({{ last_msg_id | default(0) }}, {{ active_channel.id if active_channel else 'null' }}, {{ max_other_read_id | default(0) }})"
        @keydown.escape.window="replyTo = null">
 
     {% if active_channel %}
@@ -138,6 +134,16 @@
           <span class="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
           <span class="hidden sm:inline">En direct</span>
         </div>
+        {% if can_manage_channel and active_channel.type.value == 'COMMISSION' %}
+        <!-- Bouton gérer les membres -->
+        <button onclick="document.getElementById('modal-members-{{ active_channel.id }}').classList.remove('hidden')"
+                title="Gérer les membres"
+                class="w-7 h-7 rounded-lg text-gray-400 hover:text-loge-600 hover:bg-loge-50 flex items-center justify-center transition-colors">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M18 18.72a9.094 9.094 0 003.741-.479 3 3 0 00-4.682-2.72m.94 3.198l.001.031c0 .225-.012.447-.037.666A11.944 11.944 0 0112 21c-2.17 0-4.207-.576-5.963-1.584A6.062 6.062 0 016 18.719m12 0a5.971 5.971 0 00-.941-3.197m0 0A5.995 5.995 0 0012 12.75a5.995 5.995 0 00-5.058 2.772m0 0a3 3 0 00-4.681 2.72 8.986 8.986 0 003.74.477m.94-3.197a5.971 5.971 0 00-.94 3.197M15 6.75a3 3 0 11-6 0 3 3 0 016 0zm6 3a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0zm-13.5 0a2.25 2.25 0 11-4.5 0 2.25 2.25 0 014.5 0z"/>
+          </svg>
+        </button>
+        {% endif %}
         {% if can_manage %}
         <form method="post" action="/chat/channels/{{ active_channel.id }}/delete"
               onsubmit="return confirm('Supprimer le canal « {{ active_channel.name }} » et tous ses messages ?')">
@@ -204,8 +210,21 @@
               {% endif %}
             </div>
           </div>
-          <div class="text-xs text-gray-400 mt-0.5 {% if is_mine %}text-right pr-1{% else %}pl-1{% endif %}">
-            {{ msg.created_at.strftime('%H:%M') }}
+          <div class="text-xs text-gray-400 mt-0.5 {% if is_mine %}flex items-center justify-end gap-0.5 pr-1{% else %}pl-1{% endif %}">
+            <span>{{ msg.created_at.strftime('%H:%M') }}</span>
+            {% if is_mine %}
+            {% set read = msg.id <= (max_other_read_id | default(0)) %}
+            {% if read %}
+              {% set msg_readers = reads_detail | default([]) | selectattr("max_id", "ge", msg.id) | map(attribute="name") | list %}
+            {% else %}
+              {% set msg_readers = [] %}
+            {% endif %}
+            <span data-tick-msg-id="{{ msg.id }}"
+                  {% if msg_readers %}title="Lu par : {{ msg_readers | join(', ') }}"{% endif %}
+                  class="leading-none text-[11px] {% if read %}text-loge-500{% else %}text-gray-400{% endif %} {% if msg_readers %}cursor-help{% endif %}">
+              {% if read %}✓✓{% else %}✓{% endif %}
+            </span>
+            {% endif %}
           </div>
         </div>
       </div>
@@ -234,8 +253,16 @@
                  :class="msg.is_mine ? 'bg-loge-700 text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm'"
                  x-html="renderMsg(msg.content)"></div>
             <div class="text-xs text-gray-400 mt-0.5"
-                 :class="msg.is_mine ? 'text-right pr-1' : 'pl-1'"
-                 x-text="msg.created_at"></div>
+                 :class="msg.is_mine ? 'flex items-center justify-end gap-0.5 pr-1' : 'pl-1'">
+              <span x-text="msg.created_at"></span>
+              <template x-if="msg.is_mine">
+                <span class="leading-none text-[11px]"
+                      :class="msg.id <= othersMaxRead ? 'text-loge-500' : 'text-gray-400'"
+                      :data-tick-msg-id="msg.id"
+                      x-text="msg.id <= othersMaxRead ? '✓✓' : '✓'">
+                </span>
+              </template>
+            </div>
           </div>
         </div>
       </template>
@@ -346,6 +373,12 @@
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
         <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Description / Info <span class="text-gray-400 font-normal">(optionnel)</span></label>
+          <textarea name="description" rows="2" placeholder="Ex : Travaux du 1er degré, préparation des tentures…"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"></textarea>
+          <p class="text-xs text-gray-400 mt-0.5">Apparaît en sous-titre sous le nom du groupe dans la liste.</p>
+        </div>
+        <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Membres à ajouter</label>
           <input type="text" x-model="search" placeholder="Rechercher un membre…"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 mb-2">
@@ -369,6 +402,19 @@
           <input type="hidden" name="member_ids" :value="selected.join(',')">
           <p class="text-xs text-gray-400 mt-1"><span x-text="selected.length"></span> membre(s) sélectionné(s)</p>
         </div>
+        {% if can_manage and lodge_groups %}
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Restreindre à un groupe (optionnel)</label>
+          <select name="lodge_group_id"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="0">— Membres sélectionnés manuellement —</option>
+            {% for g in lodge_groups %}
+            <option value="{{ g.id }}">{{ g.name }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-400 mt-1">Si un groupe est choisi, les membres ci-dessus sont ignorés — seuls les membres du groupe auront accès.</p>
+        </div>
+        {% endif %}
       </div>
       <div class="flex gap-3 p-5 pt-0 border-t border-gray-100 shrink-0">
         <button type="button" onclick="document.getElementById('modal-new-group').classList.add('hidden')"
@@ -519,12 +565,13 @@ async function deleteMsg(msgId, btn) {
   } catch(e) {}
 }
 
-function chatApp(initialLastId, channelId) {
+function chatApp(initialLastId, channelId, initialOthersMaxRead) {
   return {
     lastId: initialLastId,
     newMessages: [],
     replyTo: null,
     pollInterval: null,
+    othersMaxRead: initialOthersMaxRead || 0,
 
     init() {
       this.scrollToBottom();
@@ -548,7 +595,24 @@ function chatApp(initialLastId, channelId) {
           this.lastId = data.last_id;
           this.$nextTick(() => this.scrollToBottom());
         }
+        // Mise à jour des coches de lecture
+        if (typeof data.others_max_read === 'number' && data.others_max_read > this.othersMaxRead) {
+          this.othersMaxRead = data.others_max_read;
+          this._refreshTicks();
+        }
       } catch (e) { /* réseau indispo */ }
+    },
+
+    _refreshTicks() {
+      // Met à jour les coches des messages déjà rendus côté serveur
+      document.querySelectorAll('[data-tick-msg-id]').forEach(el => {
+        const msgId = parseInt(el.dataset.tickMsgId, 10);
+        if (msgId <= this.othersMaxRead) {
+          el.textContent = '✓✓';
+          el.classList.remove('text-gray-400');
+          el.classList.add('text-loge-500');
+        }
+      });
     },
 
     scrollToBottom() {
@@ -562,6 +626,173 @@ function chatApp(initialLastId, channelId) {
 <style>
 [x-cloak] { display: none !important; }
 </style>
+
+<!-- ═══════════ MODAL GESTION MEMBRES CANAL ═══════════ -->
+{% if active_channel and can_manage_channel and active_channel.type.value == 'COMMISSION' %}
+<div id="modal-members-{{ active_channel.id }}"
+     class="hidden fixed inset-0 z-50 flex items-end sm:items-center justify-center bg-black/40 backdrop-blur-sm"
+     onclick="if(event.target===this) this.classList.add('hidden')">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-xl w-full sm:max-w-md overflow-hidden max-h-[92vh] flex flex-col"
+       x-data="{ addSearch: '' }">
+
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between shrink-0">
+      <h2 class="font-semibold text-gray-900">Membres — {{ active_channel.name }}</h2>
+      <button onclick="document.getElementById('modal-members-{{ active_channel.id }}').classList.add('hidden')"
+              class="text-gray-400 hover:text-gray-600 text-xl leading-none">✕</button>
+    </div>
+
+    <div class="overflow-y-auto flex-1 px-5 py-4 space-y-5">
+
+      <!-- Modifier nom & description -->
+      {% if can_manage_channel %}
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Modifier le canal</p>
+        <form method="post" action="/chat/channels/{{ active_channel.id }}/edit" class="space-y-2">
+          <input type="hidden" name="lodge_group_id" value="{{ active_channel.lodge_group_id or 0 }}">
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Nom</label>
+            <input type="text" name="name" required value="{{ active_channel.name }}"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-xs text-gray-500 mb-1">Description <span class="font-normal text-gray-400">(optionnel)</span></label>
+            <textarea name="description" rows="2"
+                      placeholder="Brève description du canal…"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none">{{ active_channel.description or '' }}</textarea>
+          </div>
+          <button type="submit"
+                  class="w-full bg-loge-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">
+            Enregistrer le nom / description
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
+      <!-- Membres actuels -->
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Membres actuels</p>
+        {% if active_channel.lodge_group_id %}
+          <div class="bg-loge-50 border border-loge-100 rounded-lg px-3 py-2.5 text-sm text-loge-700">
+            Ce canal est restreint au groupe
+            <strong>{% for g in lodge_groups %}{% if g.id == active_channel.lodge_group_id %}{{ g.name }}{% endif %}{% endfor %}</strong>.
+            Les membres sont gérés dynamiquement via ce groupe.
+          </div>
+        {% elif channel_members %}
+          <div class="border border-gray-200 rounded-lg divide-y divide-gray-100">
+            {% for m in channel_members %}
+            {% set is_ch_admin = m.id in (channel_admin_ids | default([])) %}
+            <div class="flex items-center gap-3 px-3 py-2.5">
+              <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+              </div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900 flex items-center gap-1.5">
+                  {{ m.last_name | anon_nom }} {{ m.first_name }}
+                  {% if is_ch_admin %}
+                  <span class="text-[10px] font-semibold text-loge-600 bg-loge-50 border border-loge-200 rounded px-1 leading-4">Admin</span>
+                  {% endif %}
+                </div>
+              </div>
+              {% if can_manage_channel and m.id != current_member.id %}
+              <div class="flex items-center gap-1">
+                <!-- Bouton promouvoir/rétrograder admin -->
+                <form method="post" action="/chat/channels/{{ active_channel.id }}/members/admin/{{ m.id }}">
+                  <input type="hidden" name="is_admin" value="{{ '0' if is_ch_admin else '1' }}">
+                  <button type="submit" title="{% if is_ch_admin %}Retirer les droits admin{% else %}Rendre admin{% endif %}"
+                          class="w-6 h-6 rounded-full flex items-center justify-center transition-colors text-xs
+                                 {% if is_ch_admin %}text-loge-500 hover:text-gray-400 hover:bg-gray-50{% else %}text-gray-300 hover:text-loge-500 hover:bg-loge-50{% endif %}">
+                    ★
+                  </button>
+                </form>
+                <!-- Bouton retirer -->
+                <form method="post" action="/chat/channels/{{ active_channel.id }}/members/remove/{{ m.id }}"
+                      onsubmit="return confirm('Retirer {{ m.first_name }} de ce canal ?')">
+                  <button type="submit" title="Retirer du canal"
+                          class="w-6 h-6 rounded-full text-gray-300 hover:text-red-500 hover:bg-red-50 flex items-center justify-center transition-colors shrink-0">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                  </button>
+                </form>
+              </div>
+              {% endif %}
+            </div>
+            {% endfor %}
+          </div>
+        {% else %}
+          <p class="text-sm text-gray-400 italic">Aucun membre dans ce canal.</p>
+        {% endif %}
+      </div>
+
+      <!-- Ajouter un membre (si pas restreint à un groupe) -->
+      {% if not active_channel.lodge_group_id %}
+      <div>
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Ajouter un membre</p>
+        {% set ch_member_ids = channel_members | map(attribute='id') | list %}
+        {% set addable = active_members | rejectattr('id', 'in', ch_member_ids) | list %}
+        {% if addable %}
+        <input type="text" x-model="addSearch" placeholder="Rechercher…"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 mb-2">
+        <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-40 overflow-y-auto">
+          {% for m in addable %}
+          <form method="post" action="/chat/channels/{{ active_channel.id }}/members/add">
+            <input type="hidden" name="member_id" value="{{ m.id }}">
+            <button type="submit"
+                    class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-loge-50 transition-colors text-left"
+                    x-show="!addSearch || '{{ ((m.last_name | anon_nom) ~ ' ' ~ m.first_name) | lower }}'.includes(addSearch.toLowerCase())">
+              <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
+                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+              </div>
+              <span class="text-sm text-gray-800 flex-1 truncate">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
+              <svg class="w-4 h-4 text-loge-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
+              </svg>
+            </button>
+          </form>
+          {% endfor %}
+        </div>
+        {% else %}
+        <p class="text-sm text-gray-400 italic">Tous les membres actifs sont déjà dans ce canal.</p>
+        {% endif %}
+      </div>
+      {% endif %}
+
+      <!-- Restriction à un groupe (admins) -->
+      {% if can_manage and lodge_groups %}
+      <div class="border-t border-gray-100 pt-4">
+        <p class="text-xs font-semibold text-gray-500 uppercase tracking-wider mb-2">Restreindre à un groupe</p>
+        <form method="post" action="/chat/channels/{{ active_channel.id }}/edit" class="space-y-2">
+          <input type="hidden" name="name" value="{{ active_channel.name }}">
+          <input type="hidden" name="description" value="{{ active_channel.description or '' }}">
+          <select name="lodge_group_id"
+
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="0">— Accès individuel (géré manuellement) —</option>
+            {% for g in lodge_groups %}
+            <option value="{{ g.id }}"{% if active_channel.lodge_group_id == g.id %} selected{% endif %}>{{ g.name }}</option>
+            {% endfor %}
+          </select>
+          <p class="text-xs text-gray-400">Si un groupe est choisi, les membres sont déterminés dynamiquement — la liste manuelle n'a plus d'effet.</p>
+          <button type="submit"
+                  class="w-full bg-loge-700 text-white py-2 rounded-lg text-sm font-medium hover:bg-loge-800 transition-colors">
+            Enregistrer
+          </button>
+        </form>
+      </div>
+      {% endif %}
+
+    </div>
+
+    <div class="px-5 py-4 border-t border-gray-100 shrink-0">
+      <button onclick="document.getElementById('modal-members-{{ active_channel.id }}').classList.add('hidden')"
+              class="w-full border border-gray-200 text-gray-600 py-2.5 rounded-lg text-sm hover:bg-gray-50 transition-colors">
+        Fermer
+      </button>
+    </div>
+  </div>
+</div>
+{% endif %}
+
 
 <!-- ═══ Modale sélecteur de document ═══ -->
 <div id="doc-picker-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 px-4"

@@ -1,8 +1,7 @@
 """Confirmation annuelle des correspondants externes (F∴/S∴ passant·e·s
-réguliers, loges amies…) : email de confirmation avec lien pour continuer à
-recevoir les programmes ou mettre à jour son adresse, et désactivation
-(jamais suppression) des non-répondants après un délai — déclenché
-manuellement par un admin, cf. app/routers/settings.py.
+réguliers, loges amies…) : email avec lien unique pour mettre à jour ses
+informations (ce qui vaut confirmation) ou demander sa désinscription.
+Déclenché manuellement par un admin, cf. app/routers/settings.py.
 """
 import asyncio
 import hashlib
@@ -10,7 +9,6 @@ import hmac
 import logging
 from datetime import datetime, timedelta
 from typing import Optional
-from urllib.parse import quote
 
 from sqlalchemy import select, update
 
@@ -21,6 +19,10 @@ from app.services.email import _send_raw, create_pending_log
 
 logger = logging.getLogger(__name__)
 
+LODGE_FULL_NAME = "Socrate Raison et Progrès à l'orient de Pont à Mousson du GODF"
+LODGE_SHORT_NAME = "Socrate Raison et Progrès"
+SIGNATURE = "Les frères et Sœurs de Socrate Raison et Progrès"
+
 CONFIRMATION_EMAIL_SUBJECT = "Souhaitez-vous continuer à recevoir nos programmes ?"
 CONFIRMATION_EMAIL_DELAY_MS = 300
 
@@ -28,16 +30,13 @@ _RUNNING_TASKS: set = set()
 
 
 # ── Tokens de confirmation ──────────────────────────────────────────────────
-# Namespace "cc." distinct des tokens de app.services.mailing (unsubscribe,
-# par liste) et de app.services.member_access (accès portail) — même id
-# numérique pouvant exister dans plusieurs tables, on évite toute ambiguïté.
 
 def _cc_secret() -> bytes:
     return (get_settings().secret_key or "fallback-secret").encode("utf-8")
 
 
 def make_cc_token(contact_id: int, kind: str) -> str:
-    """kind = 'confirm' ou 'update'."""
+    """kind = 'update' | 'remove'."""
     payload = f"cc.{contact_id}.{kind}"
     sig = hmac.new(_cc_secret(), payload.encode(), hashlib.sha256).hexdigest()[:16]
     return f"{contact_id}.{kind}.{sig}"
@@ -49,7 +48,7 @@ def verify_cc_token(token: str) -> Optional[tuple[int, str]]:
         if len(parts) != 3:
             return None
         contact_id_s, kind, sig = parts
-        if kind not in ("confirm", "update"):
+        if kind not in ("confirm", "update", "remove"):
             return None
         payload = f"cc.{contact_id_s}.{kind}"
         expected = hmac.new(_cc_secret(), payload.encode(), hashlib.sha256).hexdigest()[:16]
@@ -60,66 +59,188 @@ def verify_cc_token(token: str) -> Optional[tuple[int, str]]:
         return None
 
 
-def launch_confirmation_campaign(portal_url: Optional[str] = None) -> None:
-    """Démarre l'envoi en tâche de fond (fire-and-forget)."""
-    task = asyncio.ensure_future(run_confirmation_campaign(portal_url))
+def launch_confirmation_campaign(
+    portal_url: Optional[str] = None,
+    contact_ids: Optional[list[int]] = None,
+) -> None:
+    """Démarre l'envoi en tâche de fond (fire-and-forget).
+    Si contact_ids est fourni, seuls ces contacts reçoivent l'email."""
+    task = asyncio.ensure_future(run_confirmation_campaign(portal_url, contact_ids))
     _RUNNING_TASKS.add(task)
     task.add_done_callback(_RUNNING_TASKS.discard)
 
 
-def _confirmation_email_content(contact: ExternalContact, portal_url: str, lodge_name: str) -> tuple[str, str]:
-    confirm_url = f"{portal_url}/contacts/confirm/{make_cc_token(contact.id, 'confirm')}"
-    update_url = f"{portal_url}/contacts/update-email/{make_cc_token(contact.id, 'update')}"
-    prenom = contact.first_name or contact.name
+def _confirmation_email_content(contact: ExternalContact, portal_url: str) -> tuple[str, str]:
+    update_url = f"{portal_url}/contacts/update/{make_cc_token(contact.id, 'update')}"
+    remove_url = f"{portal_url}/contacts/remove/{make_cc_token(contact.id, 'remove')}"
+
+    if contact.contact_type == "LOGE":
+        return _confirmation_email_loge(contact, update_url, remove_url)
+    return _confirmation_email_visiteur(contact, update_url, remove_url)
+
+
+def _confirmation_email_visiteur(contact: ExternalContact, update_url: str, remove_url: str) -> tuple[str, str]:
+    prenom = contact.first_name or contact.name.split()[0] if contact.name else "Chère/Cher F∴/S∴"
 
     text = f"""Bonjour {prenom},
 
-Vous recevez actuellement les programmes de la loge {lodge_name} à cette adresse ({contact.email}).
+Vous figurez dans notre liste de correspondants de la loge {LODGE_FULL_NAME} et recevez nos programmes à cette adresse ({contact.email}).
 
-Afin de tenir notre liste à jour, merci de confirmer que vous souhaitez continuer à les recevoir :
-{confirm_url}
-
-Si votre adresse email a changé, vous pouvez la mettre à jour ici :
+Pour mettre à jour vos informations (nom, loge, obédience…) ou simplement confirmer que vous souhaitez continuer à recevoir nos communications, cliquez ici :
 {update_url}
 
-Sans action de votre part, votre adresse reste enregistrée telle quelle pour le moment.
+⚠ Sans réponse de votre part dans les 60 jours, votre adresse sera automatiquement retirée de notre liste.
 
-Cordialement,
-{lodge_name}"""
+🔒 Vos coordonnées sont strictement confidentielles, utilisées uniquement pour l'envoi de nos programmes. Elles ne sont ni partagées, ni cédées à des tiers. Nos communications vous sont adressées individuellement.
 
-    html = f"""<p>Bonjour {prenom},</p>
-<p>Vous recevez actuellement les programmes de la loge <strong>{lodge_name}</strong> à cette adresse (<strong>{contact.email}</strong>).</p>
-<p>Afin de tenir notre liste à jour, merci de confirmer que vous souhaitez continuer à les recevoir :</p>
-<p><a href="{confirm_url}" style="background:#2c7a7b;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;margin:8px 0">
-  Je confirme, je continue à recevoir les programmes →
-</a></p>
-<p>Si votre adresse email a changé :</p>
-<p><a href="{update_url}" style="color:#2c7a7b;">Mettre à jour mon adresse email</a></p>
-<p style="color:#6b7280;font-size:13px;">Sans action de votre part, votre adresse reste enregistrée telle quelle pour le moment.</p>
-<hr><p style="color:#888;font-size:12px">{lodge_name}</p>"""
+Vous avez le droit de demander à être retiré·e de notre liste à tout moment. Pour cela, utilisez ce lien :
+{remove_url}
+
+Fraternellement,
+{SIGNATURE}"""
+
+    html = f"""
+<div style="font-family:Arial,sans-serif;max-width:580px;margin:0 auto;padding:24px;color:#222;">
+  <p style="font-size:15px;line-height:1.6;">Bonjour {prenom},</p>
+  <p style="font-size:15px;line-height:1.6;">
+    Vous figurez dans notre liste de correspondants de la loge
+    <strong>{LODGE_FULL_NAME}</strong><br>
+    et recevez nos programmes à cette adresse : <strong>{contact.email}</strong>.
+  </p>
+  <p style="font-size:15px;line-height:1.6;">
+    Pour mettre à jour vos informations (nom, loge, obédience…) ou confirmer
+    que vous souhaitez continuer à recevoir nos communications :
+  </p>
+  <p style="margin:20px 0;">
+    <a href="{update_url}"
+       style="background:#1a5252;color:#fff;padding:12px 24px;border-radius:6px;
+              text-decoration:none;display:inline-block;font-size:14px;font-weight:600;">
+      Mettre à jour mes informations →
+    </a>
+  </p>
+  <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;margin:20px 0;">
+    <p style="font-size:13px;color:#92400e;line-height:1.6;margin:0;">
+      ⚠ <strong>Sans réponse de votre part dans les 60 jours</strong>, votre adresse sera
+      automatiquement retirée de notre liste.
+    </p>
+  </div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;margin:20px 0;">
+    <p style="font-size:13px;color:#166534;line-height:1.6;margin:0;">
+      🔒 <strong>Confidentialité</strong> — Vos coordonnées sont strictement confidentielles
+      et utilisées uniquement pour l'envoi de nos programmes.
+      Elles ne sont ni partagées ni cédées à des tiers.
+      Nos communications vous sont adressées individuellement.
+    </p>
+  </div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+  <p style="font-size:13px;color:#6b7280;line-height:1.6;">
+    Vous avez le droit de demander à être retiré·e de notre liste à tout moment.<br>
+    Pour cela, utilisez ce lien :
+    <a href="{remove_url}" style="color:#6b7280;">Me désinscrire de la liste</a>
+  </p>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+  <p style="font-size:13px;color:#888;">Fraternellement,<br><strong>{SIGNATURE}</strong></p>
+</div>"""
+
+    return html, text
+
+
+def _confirmation_email_loge(contact: ExternalContact, update_url: str, remove_url: str) -> tuple[str, str]:
+    loge_name = contact.lodge_name or contact.name or "votre loge"
+
+    text = f"""Madame, Monsieur,
+
+L'adresse de contact de {loge_name} figure dans notre liste de correspondants de la loge {LODGE_FULL_NAME}.
+Vous recevez à ce titre nos programmes et tenues ouvertes à l'adresse {contact.email}.
+
+Afin de maintenir nos échanges fraternels, nous vous invitons à confirmer ou mettre à jour les coordonnées de votre loge (adresse email, interlocuteur…) en cliquant ici :
+{update_url}
+
+⚠ Sans retour de votre part dans les 60 jours, cette adresse sera automatiquement retirée de notre liste.
+
+🔒 Ces coordonnées sont utilisées exclusivement pour nos échanges institutionnels. Elles ne sont ni partagées ni cédées à des tiers.
+
+Si vous souhaitez que votre loge soit retirée de notre liste, utilisez ce lien :
+{remove_url}
+
+Fraternellement,
+{SIGNATURE}"""
+
+    html = f"""
+<div style="font-family:Arial,sans-serif;max-width:580px;margin:0 auto;padding:24px;color:#222;">
+  <p style="font-size:15px;line-height:1.6;">Madame, Monsieur,</p>
+  <p style="font-size:15px;line-height:1.6;">
+    L'adresse de contact de <strong>{loge_name}</strong> figure dans notre liste
+    de correspondants de la loge <strong>{LODGE_FULL_NAME}</strong>.<br>
+    Vous recevez à ce titre nos programmes et tenues ouvertes
+    à l'adresse : <strong>{contact.email}</strong>.
+  </p>
+  <p style="font-size:15px;line-height:1.6;">
+    Afin de maintenir nos échanges fraternels, nous vous invitons à confirmer
+    ou mettre à jour les coordonnées de votre loge :
+  </p>
+  <p style="margin:20px 0;">
+    <a href="{update_url}"
+       style="background:#1a5252;color:#fff;padding:12px 24px;border-radius:6px;
+              text-decoration:none;display:inline-block;font-size:14px;font-weight:600;">
+      Mettre à jour les coordonnées de la loge →
+    </a>
+  </p>
+  <div style="background:#fffbeb;border:1px solid #fcd34d;border-radius:6px;padding:12px 16px;margin:20px 0;">
+    <p style="font-size:13px;color:#92400e;line-height:1.6;margin:0;">
+      ⚠ <strong>Sans retour de votre part dans les 60 jours</strong>, cette adresse sera
+      automatiquement retirée de notre liste.
+    </p>
+  </div>
+  <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:6px;padding:12px 16px;margin:20px 0;">
+    <p style="font-size:13px;color:#166534;line-height:1.6;margin:0;">
+      🔒 <strong>Confidentialité</strong> — Ces coordonnées sont utilisées exclusivement
+      pour nos échanges institutionnels entre loges.
+      Elles ne sont ni partagées ni cédées à des tiers.
+    </p>
+  </div>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+  <p style="font-size:13px;color:#6b7280;line-height:1.6;">
+    Si vous souhaitez que votre loge soit retirée de notre liste :<br>
+    <a href="{remove_url}" style="color:#6b7280;">Retirer cette adresse de la liste</a>
+  </p>
+  <hr style="border:none;border-top:1px solid #e5e7eb;margin:20px 0;">
+  <p style="font-size:13px;color:#888;">Fraternellement,<br><strong>{SIGNATURE}</strong></p>
+</div>"""
 
     return html, text
 
 
 async def send_confirmation_email(db, contact: ExternalContact, portal_url: str) -> tuple[bool, Optional[str]]:
     settings = get_settings()
-    subject = f"[{settings.lodge_name}] {CONFIRMATION_EMAIL_SUBJECT}"
+    subject = f"[{LODGE_SHORT_NAME}] {CONFIRMATION_EMAIL_SUBJECT}"
     log_id = await create_pending_log(contact.email, subject)
-    html, text = _confirmation_email_content(contact, portal_url, settings.lodge_name)
+    html, text = _confirmation_email_content(contact, portal_url)
     ok, err = await _send_raw(to=contact.email, subject=subject, html=html, text=text, log_id=log_id)
     return ok, err
 
 
-async def run_confirmation_campaign(portal_url: Optional[str] = None) -> None:
-    """Envoie l'email de confirmation à tous les correspondants externes actifs."""
+async def run_confirmation_campaign(
+    portal_url: Optional[str] = None,
+    contact_ids: Optional[list[int]] = None,
+) -> None:
+    """Envoie l'email de confirmation aux correspondants externes actifs.
+    Si contact_ids est fourni, seuls ces contacts sont ciblés."""
     settings = get_settings()
     base_url = (portal_url or settings.portal_url or "https://portail.amisdesocrate.fr").rstrip("/")
 
     async with AsyncSessionLocal() as db:
-        contacts = (await db.execute(
-            select(ExternalContact).where(ExternalContact.is_active == True)  # noqa: E712
+        stmt = (
+            select(ExternalContact)
+            .where(
+                ExternalContact.is_active == True,  # noqa: E712
+                ExternalContact.removal_requested_at.is_(None),
+            )
             .order_by(ExternalContact.name)
-        )).scalars().all()
+        )
+        if contact_ids is not None:
+            stmt = stmt.where(ExternalContact.id.in_(contact_ids))
+        contacts = (await db.execute(stmt)).scalars().all()
 
         for contact in contacts:
             try:
@@ -138,6 +259,7 @@ async def deactivate_unconfirmed(db, older_than_days: int = 60) -> int:
         update(ExternalContact)
         .where(
             ExternalContact.is_active == True,  # noqa: E712
+            ExternalContact.removal_requested_at.is_(None),
             (ExternalContact.last_confirmed_at.is_(None)) | (ExternalContact.last_confirmed_at < cutoff),
         )
         .values(is_active=False)

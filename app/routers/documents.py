@@ -13,9 +13,11 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
 from app.models.documents import DocFolder, DocSpace, DocStatus, Document, DocumentVersion, MinGrade
-from app.models.groups import LodgeGroup
-from app.models.identity import MasonicGrade, Member
+import json as _json
+from app.models.groups import LodgeGroup, GroupMembership, GroupType
+from app.models.identity import MasonicGrade, Member, LodgeFunction
 from app.routers.groups import resolve_group_member_ids
+from sqlalchemy import select as _select_stmt
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 from app.template_engine import templates
@@ -47,6 +49,14 @@ _MIN_GRADE_ORDER = {
     MinGrade.MAITRE:    3,
 }
 
+_OFFICER_FUNCTIONS = {
+    LodgeFunction.VM, LodgeFunction.PREMIER_S, LodgeFunction.SECOND_S,
+    LodgeFunction.ORATEUR, LodgeFunction.SECRETAIRE, LodgeFunction.TRESORIER,
+    LodgeFunction.EXPERT, LodgeFunction.MAITRE_CEREMONIES, LodgeFunction.HARMONISTE,
+    LodgeFunction.HOSPITALIER, LodgeFunction.TUILEUR, LodgeFunction.ARCHITECTE,
+    LodgeFunction.MAITRE_BANQUETS,
+}
+
 
 async def _can_access(
     member: Member,
@@ -74,8 +84,24 @@ async def _can_access(
         group = await db.get(LodgeGroup, group_id)
         if not group:
             return False
-        member_ids = await resolve_group_member_ids(db, group)
-        return member.id in member_ids
+        # Vérification ciblée par type de groupe (sans charger tous les membres actifs)
+        if group.group_type == GroupType.GRADE:
+            if group.grade_filter is None:
+                return True
+            return bool(member.masonic_grade and member.masonic_grade.value == group.grade_filter)
+        elif group.group_type == GroupType.COUNCIL:
+            return member.lodge_function in _OFFICER_FUNCTIONS
+        elif group.group_type == GroupType.PAIR:
+            functions = set(_json.loads(group.function_filter or "[]"))
+            return bool(member.lodge_function and member.lodge_function.value in functions)
+        else:
+            r = await db.execute(
+                _select_stmt(GroupMembership).where(
+                    GroupMembership.group_id == group_id,
+                    GroupMembership.member_id == member.id,
+                )
+            )
+            return r.scalar_one_or_none() is not None
 
     member_lvl = _GRADE_ORDER.get(member.masonic_grade, 0)
     required   = _MIN_GRADE_ORDER.get(min_grade, 0)
@@ -96,11 +122,7 @@ async def _can_download(member: Member, user, folder: DocFolder, db: AsyncSessio
     if not folder.allow_download:
         return False
     if folder.download_group_id:
-        grp = await db.get(LodgeGroup, folder.download_group_id)
-        if not grp:
-            return False
-        member_ids = await resolve_group_member_ids(db, grp)
-        return member.id in member_ids
+        return await _can_access(member, user, MinGrade.ALL, folder.download_group_id, db)
     return True
 
 
@@ -116,11 +138,7 @@ async def _can_write(member: Member, user, folder: DocFolder, db: AsyncSession) 
     if user.is_admin:
         return True
     if folder.write_group_id:
-        grp = await db.get(LodgeGroup, folder.write_group_id)
-        if not grp:
-            return False
-        member_ids = await resolve_group_member_ids(db, grp)
-        return member.id in member_ids
+        return await _can_access(member, user, MinGrade.ALL, folder.write_group_id, db)
     # Grade minimum pour écrire
     member_lvl = _GRADE_ORDER.get(member.masonic_grade, 0)
     required   = _MIN_GRADE_ORDER.get(folder.write_min_grade, 0)
@@ -197,6 +215,12 @@ async def documents_home(
     )
     all_spaces = spaces_r.scalars().all()
 
+    # Précharger les groupes dans l'identity map SQLAlchemy pour que les
+    # db.get(LodgeGroup, id) dans _can_access soient servis sans aller en DB
+    _space_group_ids = {s.group_id for s in all_spaces if s.group_id}
+    if _space_group_ids:
+        await db.execute(select(LodgeGroup).where(LodgeGroup.id.in_(_space_group_ids)))
+
     # Filtrer selon droits (grade ou groupe) — exclure l'espace interne "__PERSONAL__"
     spaces = []
     for s in all_spaces:
@@ -244,8 +268,12 @@ async def documents_space(
         .where(DocFolder.space_id == space_id, DocFolder.parent_id == None)
         .order_by(DocFolder.order_position, DocFolder.name)
     )
+    _all_folders = folders_r.scalars().all()
+    _folder_group_ids = {f.group_id for f in _all_folders if f.group_id}
+    if _folder_group_ids:
+        await db.execute(select(LodgeGroup).where(LodgeGroup.id.in_(_folder_group_ids)))
     folders = []
-    for f in folders_r.scalars().all():
+    for f in _all_folders:
         if await _can_access(member, user, f.min_grade, f.group_id, db):
             folders.append(f)
 

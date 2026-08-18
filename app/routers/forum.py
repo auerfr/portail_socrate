@@ -135,29 +135,38 @@ async def forum_index(
     )
     themes = r.scalars().all()
 
-    # Comptes par thème (sujets, messages)
-    theme_stats: dict[int, dict] = {}
-    for th in themes:
-        sub_count = (await db.execute(
-            select(func.count(ForumSubject.id)).where(ForumSubject.theme_id == th.id)
-        )).scalar() or 0
-        msg_count = (await db.execute(
-            select(func.count(ForumMessage.id))
-            .join(ForumSubject, ForumSubject.id == ForumMessage.subject_id)
-            .where(ForumSubject.theme_id == th.id)
-        )).scalar() or 0
-        last_sub_r = await db.execute(
-            select(ForumSubject)
-            .where(ForumSubject.theme_id == th.id)
-            .order_by(desc(ForumSubject.last_message_at), desc(ForumSubject.created_at))
-            .limit(1)
-        )
-        last_sub = last_sub_r.scalar_one_or_none()
-        theme_stats[th.id] = {
-            "subjects": sub_count,
-            "messages": msg_count,
-            "last_subject": last_sub,
+    # Comptes par thème — 3 requêtes fixes au lieu de 3×N
+    sub_counts_r = await db.execute(
+        select(ForumSubject.theme_id, func.count(ForumSubject.id))
+        .group_by(ForumSubject.theme_id)
+    )
+    sub_counts = {row[0]: row[1] for row in sub_counts_r.all()}
+
+    msg_counts_r = await db.execute(
+        select(ForumSubject.theme_id, func.count(ForumMessage.id))
+        .join(ForumMessage, ForumMessage.subject_id == ForumSubject.id)
+        .group_by(ForumSubject.theme_id)
+    )
+    msg_counts = {row[0]: row[1] for row in msg_counts_r.all()}
+
+    # Dernier sujet par thème : on charge tous les sujets triés, on garde le 1er par thème
+    all_subs_r = await db.execute(
+        select(ForumSubject)
+        .order_by(desc(ForumSubject.last_message_at), desc(ForumSubject.created_at))
+    )
+    _last_by_theme: dict[int, ForumSubject] = {}
+    for s in all_subs_r.scalars().all():
+        if s.theme_id not in _last_by_theme:
+            _last_by_theme[s.theme_id] = s
+
+    theme_stats: dict[int, dict] = {
+        th.id: {
+            "subjects": sub_counts.get(th.id, 0),
+            "messages": msg_counts.get(th.id, 0),
+            "last_subject": _last_by_theme.get(th.id),
         }
+        for th in themes
+    }
 
     # Activité récente : 10 derniers sujets actifs
     r2 = await db.execute(
@@ -203,13 +212,16 @@ async def forum_category(
     )
     subjects = r.scalars().all()
 
-    # Compteurs messages par sujet
+    # Compteurs messages par sujet — 1 GROUP BY au lieu de 1 COUNT×N
+    subject_ids = [s.id for s in subjects]
     counts: dict[int, int] = {}
-    for s in subjects:
-        c = (await db.execute(
-            select(func.count(ForumMessage.id)).where(ForumMessage.subject_id == s.id)
-        )).scalar() or 0
-        counts[s.id] = c
+    if subject_ids:
+        counts_r = await db.execute(
+            select(ForumMessage.subject_id, func.count(ForumMessage.id))
+            .where(ForumMessage.subject_id.in_(subject_ids))
+            .group_by(ForumMessage.subject_id)
+        )
+        counts = {row[0]: row[1] for row in counts_r.all()}
 
     # Auteurs (création)
     author_ids = {s.created_by_id for s in subjects if s.created_by_id}

@@ -1,0 +1,208 @@
+{% extends "base.html" %}
+{% block title %}Guide Vénérable Maître{% endblock %}
+
+{% block content %}
+<style>
+  @media print {
+    html, body { overflow: visible !important; max-width: none !important; }
+    aside, nav, header, footer, .no-print { display: none !important; }
+    main { margin-left: 0 !important; padding-bottom: 0 !important; }
+    .print-content { padding: 0 !important; max-width: none !important; }
+    details { display: block !important; }
+    details summary { display: none !important; }
+    details > * { display: block !important; }
+    section, .bg-white, .bg-loge-50, .bg-amber-50 { break-inside: avoid; }
+  }
+</style>
+<div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 print-content">
+
+  <div class="flex items-start justify-between gap-4 mb-6">
+    <div>
+      <nav class="text-xs text-gray-500 mb-1 no-print">
+        <a href="/faq" class="text-loge-700 hover:underline">FAQ</a>
+        <span class="mx-1">›</span>
+        <span>Guide Vénérable Maître</span>
+      </nav>
+      <h1 class="text-2xl font-bold text-gray-900"><i class="ti ti-crown text-loge-700"></i> Guide du Vénérable Maître</h1>
+      <p class="text-sm text-gray-500 mt-1">Accès complet à tous les modules du portail — tenues, finances, communications et membres.</p>
+    </div>
+    <button onclick="window.print()"
+            class="no-print flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl">
+      <i class="ti ti-printer"></i> Imprimer / PDF
+    </button>
+  </div>
+
+  {# Zone rouge admin #}
+  <div class="bg-red-50 border border-red-200 rounded-2xl p-4 mb-6">
+    <p class="text-sm font-semibold text-red-800 mb-2">🔴 Zone réservée à l'administrateur technique — non accessible depuis votre compte VM</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs text-red-700">
+      <div class="flex items-center gap-1.5"><i class="ti ti-settings text-red-400"></i> Configuration SMTP et serveur d'envoi</div>
+      <div class="flex items-center gap-1.5"><i class="ti ti-shield text-red-400"></i> Délégation des permissions et rôles</div>
+      <div class="flex items-center gap-1.5"><i class="ti ti-building text-red-400"></i> Paramètres de la loge (nom, logo, URL)</div>
+      <div class="flex items-center gap-1.5"><i class="ti ti-tools text-red-400"></i> Mode maintenance du portail</div>
+      <div class="flex items-center gap-1.5"><i class="ti ti-user-cog text-red-400"></i> Nomination permanente des officiers du bureau</div>
+      <div class="flex items-center gap-1.5"><i class="ti ti-calendar-plus text-red-400"></i> Ouverture d'une nouvelle année maçonnique</div>
+    </div>
+    <p class="text-xs text-red-600 mt-2">Pour toute action ci-dessus, contactez le webmestre ou l'administrateur technique de la loge.</p>
+  </div>
+
+  {# Sommaire #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6 no-print">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Sommaire</p>
+    <div class="flex flex-wrap gap-2 text-sm">
+      <a href="#exclusif"       class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Actions exclusives VM</a>
+      <a href="#tenues"         class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Tenues &amp; travaux</a>
+      <a href="#finances"       class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Finances</a>
+      <a href="#communications" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Communications</a>
+      <a href="#ref"            class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Référence rapide</a>
+    </div>
+  </div>
+
+  {# ── Exclusif VM ── #}
+  <section id="exclusif" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-crown"></i> Actions exclusives au Vénérable Maître</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Verrouiller une tenue
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1.5">
+          <p>Après une tenue, le VM peut la <strong>verrouiller</strong> pour figer définitivement ses données (présences, tracé, agapes). Une fois verrouillée, aucune modification n'est possible.</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Ouvrez la fiche de la tenue.</li>
+            <li>Cliquez sur <strong>« Verrouiller »</strong> (visible uniquement pour le VM).</li>
+            <li>Confirmez — la tenue est archivée définitivement.</li>
+          </ol>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-800">
+            ⚠ Vérifiez que le PV est approuvé et que les présences sont correctes avant de verrouiller. Cette action est irréversible sans intervention de l'administrateur.
+          </div>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Approuver (ou rejeter) un procès-verbal
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1.5">
+          <p>Quand le Secrétaire soumet un PV, le VM reçoit une notification et peut l'approuver ou le rejeter :</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Tenues → tenue concernée → section <strong>PV / Tracé</strong>.</li>
+            <li>Relisez le PV.</li>
+            <li><strong>Approuver</strong> : le PV est archivé en GED et ne peut plus être modifié.</li>
+            <li><strong>Rejeter</strong> : saisissez un commentaire explicatif — le PV revient en brouillon chez le Secrétaire.</li>
+          </ol>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Tenues ── #}
+  <section id="tenues" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-calendar"></i> Tenues et travaux (partagé avec le Secrétaire)</h2>
+    <p class="text-sm text-gray-500 mb-3">Vous avez les mêmes droits que le Secrétaire sur toutes ces actions. Consultez le <a href="/guides/secretaire" class="text-loge-700 underline">Guide Secrétaire</a> pour le détail de chaque procédure.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="bg-loge-50 rounded-xl p-3 border border-loge-100 text-sm">
+        <p class="font-semibold text-loge-800 mb-2">Partagé avec le Secrétaire</p>
+        <ul class="space-y-1 text-gray-600 text-xs">
+          <li><i class="ti ti-check text-loge-600"></i> Créer / modifier une tenue</li>
+          <li><i class="ti ti-check text-loge-600"></i> Gérer l'émargement (présences)</li>
+          <li><i class="ti ti-check text-loge-600"></i> Gérer le tableau des officiers (remplacements)</li>
+          <li><i class="ti ti-check text-loge-600"></i> Rédiger et soumettre des planches</li>
+          <li><i class="ti ti-check text-loge-600"></i> Gérer les programmes de travaux</li>
+          <li><i class="ti ti-check text-loge-600"></i> Publier des annonces</li>
+        </ul>
+      </div>
+      <div class="bg-loge-700 rounded-xl p-3 border border-loge-600 text-sm">
+        <p class="font-semibold text-white mb-2">Exclusif VM</p>
+        <ul class="space-y-1 text-loge-100 text-xs">
+          <li>🔐 Verrouiller une tenue (données figées)</li>
+          <li>📜 Approuver ou rejeter un PV soumis par le Secrétaire</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  {# ── Finances ── #}
+  <section id="finances" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-coins"></i> Finances (accès complet, partagé avec le Trésorier)</h2>
+    <p class="text-sm text-gray-500 mb-3">Vous avez accès à l'intégralité du module finance. Consultez le <a href="/guides/tresorier" class="text-loge-700 underline">Guide Trésorier</a> pour le workflow annuel détaillé.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="bg-loge-50 rounded-xl p-3 border border-loge-100 text-sm">
+        <p class="font-semibold text-loge-800 mb-2">Accès complet au module finance</p>
+        <ul class="space-y-1 text-gray-600 text-xs">
+          <li><i class="ti ti-check text-loge-600"></i> Tableau de bord financier</li>
+          <li><i class="ti ti-check text-loge-600"></i> Cotisations de chaque membre</li>
+          <li><i class="ti ti-check text-loge-600"></i> Enregistrer paiements / exonérer / quitus</li>
+          <li><i class="ti ti-check text-loge-600"></i> Budget et postes budgétaires</li>
+          <li><i class="ti ti-check text-loge-600"></i> Journal des transactions</li>
+          <li><i class="ti ti-check text-loge-600"></i> Appel à tranche (ouvrir / fermer)</li>
+          <li><i class="ti ti-check text-loge-600"></i> Exports CSV, bilan PDF</li>
+        </ul>
+      </div>
+      <div class="bg-amber-50 rounded-xl p-3 border border-amber-100 text-sm">
+        <p class="font-semibold text-amber-800 mb-2">À savoir</p>
+        <ul class="space-y-2 text-amber-700 text-xs">
+          <li>💡 En pratique, déléguez la gestion quotidienne au Trésorier. Votre accès finance est là pour superviser et co-valider.</li>
+          <li>⚠ La <strong>création d'une nouvelle année maçonnique</strong> est réservée à l'administrateur technique. Signalez-le en septembre.</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  {# ── Communications ── #}
+  <section id="communications" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-speakerphone"></i> Communications</h2>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="bg-loge-50 rounded-xl p-3 border border-loge-100 text-sm">
+        <p class="font-semibold text-loge-800 mb-2">Ce que vous pouvez faire</p>
+        <ul class="space-y-1 text-gray-600 text-xs">
+          <li><i class="ti ti-check text-loge-600"></i> Publier des annonces (même accès que le Secrétaire)</li>
+          <li><i class="ti ti-check text-loge-600"></i> Envoyer des mailings à la loge (Diffusion)</li>
+          <li><i class="ti ti-check text-loge-600"></i> Créer des sondages</li>
+          <li><i class="ti ti-check text-loge-600"></i> Modérer le forum</li>
+        </ul>
+      </div>
+      <div class="bg-red-50 rounded-xl p-3 border border-red-100 text-sm">
+        <p class="font-semibold text-red-800 mb-2">Réservé à l'admin technique</p>
+        <ul class="space-y-1 text-red-700 text-xs">
+          <li><i class="ti ti-lock text-red-400"></i> Configurer le serveur SMTP</li>
+          <li><i class="ti ti-lock text-red-400"></i> Modifier les templates d'emails</li>
+          <li><i class="ti ti-lock text-red-400"></i> Modifier la bannière ou le nom du portail</li>
+        </ul>
+      </div>
+    </div>
+  </section>
+
+  {# ── Référence rapide ── #}
+  <section id="ref" class="bg-loge-50 border border-loge-200 rounded-2xl p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-bookmark"></i> Référence rapide — Vénérable Maître</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs border border-loge-100 rounded-lg overflow-hidden bg-white">
+        <thead><tr class="bg-loge-100"><th class="text-left px-3 py-2 font-semibold text-loge-800">Action</th><th class="text-left px-3 py-2 font-semibold text-loge-800">Chemin</th><th class="text-left px-3 py-2 font-semibold text-loge-800">Qui ?</th></tr></thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-3 py-1.5 font-semibold">Verrouiller une tenue</td><td class="px-3 py-1.5 font-mono text-loge-700">/meetings/{id} → Verrouiller</td><td class="px-3 py-1.5"><span class="bg-loge-100 text-loge-800 rounded px-1.5 py-0.5 text-xs font-semibold">VM seul</span></td></tr>
+          <tr><td class="px-3 py-1.5 font-semibold">Approuver un PV</td><td class="px-3 py-1.5 font-mono text-loge-700">/meetings/{id}/pv → Approuver</td><td class="px-3 py-1.5"><span class="bg-loge-100 text-loge-800 rounded px-1.5 py-0.5 text-xs font-semibold">VM seul</span></td></tr>
+          <tr><td class="px-3 py-1.5">Tableau de bord financier</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/</td><td class="px-3 py-1.5"><span class="bg-blue-100 text-blue-800 rounded px-1.5 py-0.5 text-xs">VM + Trésorier</span></td></tr>
+          <tr><td class="px-3 py-1.5">Appel à tranche (ouvrir/fermer)</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/cotisations/toggle-appel</td><td class="px-3 py-1.5"><span class="bg-blue-100 text-blue-800 rounded px-1.5 py-0.5 text-xs">VM + Trésorier</span></td></tr>
+          <tr><td class="px-3 py-1.5">Créer / modifier un membre</td><td class="px-3 py-1.5 font-mono text-loge-700">/members/new · /members/{id}/edit</td><td class="px-3 py-1.5"><span class="bg-green-100 text-green-800 rounded px-1.5 py-0.5 text-xs">VM + Secrétaire</span></td></tr>
+          <tr><td class="px-3 py-1.5">Créer une tenue</td><td class="px-3 py-1.5 font-mono text-loge-700">/meetings/new</td><td class="px-3 py-1.5"><span class="bg-green-100 text-green-800 rounded px-1.5 py-0.5 text-xs">VM + Secrétaire</span></td></tr>
+          <tr><td class="px-3 py-1.5">Émargement / présences</td><td class="px-3 py-1.5 font-mono text-loge-700">/meetings/{id}/attendance</td><td class="px-3 py-1.5"><span class="bg-green-100 text-green-800 rounded px-1.5 py-0.5 text-xs">VM + Sec. + Surv.</span></td></tr>
+          <tr><td class="px-3 py-1.5">Annonces</td><td class="px-3 py-1.5 font-mono text-loge-700">/announcements/</td><td class="px-3 py-1.5"><span class="bg-green-100 text-green-800 rounded px-1.5 py-0.5 text-xs">VM + Secrétaire</span></td></tr>
+          <tr class="opacity-50"><td class="px-3 py-1.5 line-through">Configuration SMTP</td><td class="px-3 py-1.5 font-mono">/settings/smtp</td><td class="px-3 py-1.5"><span class="bg-red-100 text-red-800 rounded px-1.5 py-0.5 text-xs">Admin uniquement</span></td></tr>
+          <tr class="opacity-50"><td class="px-3 py-1.5 line-through">Paramètres loge</td><td class="px-3 py-1.5 font-mono">/settings/ (écriture)</td><td class="px-3 py-1.5"><span class="bg-red-100 text-red-800 rounded px-1.5 py-0.5 text-xs">Admin uniquement</span></td></tr>
+          <tr class="opacity-50"><td class="px-3 py-1.5 line-through">Délégation permissions</td><td class="px-3 py-1.5 font-mono">/admin/permissions/</td><td class="px-3 py-1.5"><span class="bg-red-100 text-red-800 rounded px-1.5 py-0.5 text-xs">Admin uniquement</span></td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="text-xs text-gray-400 text-center pt-2 no-print">
+    Guides complémentaires : <a href="/guides/secretaire" class="text-loge-700 underline">Secrétaire</a> · <a href="/guides/tresorier" class="text-loge-700 underline">Trésorier</a> · <a href="/guides/maitre-banquets" class="text-loge-700 underline">Maître des Banquets</a>
+  </p>
+
+</div>
+{% endblock %}

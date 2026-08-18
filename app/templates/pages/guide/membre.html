@@ -1,0 +1,452 @@
+{% extends "base.html" %}
+{% block title %}Guide du membre{% endblock %}
+
+{% block content %}
+<style>
+  @media print {
+    html, body { overflow: visible !important; max-width: none !important; }
+    aside, nav, header, footer, .no-print { display: none !important; }
+    main { margin-left: 0 !important; padding-bottom: 0 !important; }
+    .print-content { padding: 0 !important; max-width: none !important; }
+    details { display: block !important; }
+    details summary { display: none !important; }
+    details > * { display: block !important; }
+    section, .bg-white, .bg-loge-50, .bg-amber-50 { break-inside: avoid; }
+  }
+</style>
+<div class="max-w-4xl mx-auto px-4 py-6 lg:py-8 print-content">
+
+  <div class="flex items-start justify-between gap-4 mb-6">
+    <div>
+      <nav class="text-xs text-gray-500 mb-1 no-print">
+        <a href="/faq" class="text-loge-700 hover:underline">FAQ</a>
+        <span class="mx-1">›</span>
+        <span>Guide du membre</span>
+      </nav>
+      <h1 class="text-2xl font-bold text-gray-900"><i class="ti ti-user text-loge-700"></i> Guide du membre</h1>
+      <p class="text-sm text-gray-500 mt-1">Prise en main du portail — connexion, vie de loge, communications et compte personnel.</p>
+    </div>
+    <button onclick="window.print()"
+            class="no-print flex-shrink-0 inline-flex items-center gap-1.5 px-3 py-2 text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 rounded-xl">
+      <i class="ti ti-printer"></i> Imprimer / PDF
+    </button>
+  </div>
+
+  {# Sommaire #}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 mb-6 no-print">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Sommaire</p>
+    <div class="flex flex-wrap gap-2 text-sm">
+      <a href="#connexion"  class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Connexion</a>
+      <a href="#tableau-de-bord" class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Tableau de bord</a>
+      <a href="#tenues"     class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Tenues & agapes</a>
+      <a href="#documents"  class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Documents</a>
+      <a href="#messages"   class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Messages</a>
+      <a href="#chat"       class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Chat & forum</a>
+      <a href="#sondages"   class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Sondages</a>
+      <a href="#profil"     class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Profil & sécurité</a>
+      <a href="#ref"        class="px-3 py-1.5 rounded-lg bg-loge-50 text-loge-800 hover:bg-loge-100">Référence rapide</a>
+    </div>
+  </div>
+
+  {# ── Connexion ── #}
+  <section id="connexion" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-key"></i> Se connecter</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Première connexion
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1.5">
+          <p>Vous avez reçu un email avec un lien d'accès. Ce lien vous permet de définir votre mot de passe (minimum 8 caractères), puis de vous connecter.</p>
+          <p>Votre <strong>identifiant</strong> vous a été communiqué par le Secrétaire ou l'administrateur. Vous pouvez aussi utiliser votre adresse email à la place.</p>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Mot de passe oublié
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Sur la page de connexion, cliquez sur « Mot de passe oublié ? ». Vous recevrez un email avec un lien de réinitialisation, valable 2 heures. Pensez à vérifier votre dossier spams.</p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Session et déconnexion
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Votre session expire après 8 heures d'inactivité. Pour vous déconnecter, cliquez sur votre nom en bas de la barre latérale, puis « Se déconnecter ».</p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Tableau de bord ── #}
+  <section id="tableau-de-bord" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-layout-dashboard"></i> Tableau de bord</h2>
+    <p class="text-sm text-gray-600 mb-3">Le tableau de bord est votre point d'entrée. Il affiche d'un coup d'œil tout ce qui nécessite votre attention.</p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 text-sm">
+      <div class="bg-loge-50 rounded-xl p-3 border border-loge-100">
+        <p class="font-semibold text-loge-800 mb-1"><i class="ti ti-speakerphone"></i> Annonces</p>
+        <p class="text-gray-600 text-xs">Messages importants publiés par le Secrétaire ou le VM. Les annonces épinglées apparaissent en priorité.</p>
+      </div>
+      <div class="bg-loge-50 rounded-xl p-3 border border-loge-100">
+        <p class="font-semibold text-loge-800 mb-1"><i class="ti ti-calendar-event"></i> Prochaine tenue</p>
+        <p class="text-gray-600 text-xs">Date, heure et lieu de la prochaine réunion avec bouton d'inscription rapide aux agapes.</p>
+      </div>
+      <div class="bg-loge-50 rounded-xl p-3 border border-loge-100">
+        <p class="font-semibold text-loge-800 mb-1"><i class="ti ti-mail"></i> Messages non lus</p>
+        <p class="text-gray-600 text-xs">Aperçu de vos derniers messages internes. Les badges rouges indiquent les éléments non lus.</p>
+      </div>
+      <div class="bg-loge-50 rounded-xl p-3 border border-loge-100">
+        <p class="font-semibold text-loge-800 mb-1"><i class="ti ti-cake"></i> Anniversaires</p>
+        <p class="text-gray-600 text-xs">Anniversaires civils et maçonniques du mois en cours.</p>
+      </div>
+    </div>
+  </section>
+
+  {# ── Tenues ── #}
+  <section id="tenues" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-calendar"></i> Tenues et inscriptions aux agapes</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Consulter les tenues et s'inscrire aux agapes
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Cliquez sur <strong>Tenues</strong> dans la navigation — vous voyez toutes les tenues de l'année.</li>
+            <li>Cliquez sur la tenue souhaitée pour en voir le détail (ordre du jour, lieu, heure).</li>
+            <li>Cliquez sur <strong>« M'inscrire aux agapes »</strong> et indiquez le nombre d'invités / régime alimentaire.</li>
+            <li>Confirmez — vous pouvez modifier ou annuler avant la date limite.</li>
+          </ol>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 mt-2 text-xs text-amber-800">
+            ⚠ Les inscriptions aux agapes ferment automatiquement la veille de la tenue à 8h. Inscrivez-vous à l'avance.
+          </div>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Inscription via un lien public (sans connexion)
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Le Secrétaire peut envoyer un lien d'inscription direct par email ou QR code. Ce lien permet de s'inscrire sans se connecter, idéal depuis un téléphone avant la tenue.</p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Créer un événement visible uniquement par certains membres
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Lors de la création ou de l'édition d'un événement, le champ <strong>Visibilité</strong> propose :</p>
+          <ul class="list-disc list-inside space-y-1 text-xs">
+            <li><strong>Tous les membres</strong> — visible par tous les membres connectés.</li>
+            <li><strong>Mon groupe / Mon grade</strong> — restreint à votre groupe ou grade.</li>
+            <li><strong>👤 Membres spécifiques…</strong> — cochez un ou plusieurs membres : seuls eux (et vous) verront l'événement.</li>
+          </ul>
+          <p class="text-xs text-gray-500">La visibilité peut être modifiée à tout moment depuis la fiche de l'événement → <em>Modifier</em>.</p>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Exporter le calendrier dans votre agenda
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Depuis la rubrique <strong>Calendrier</strong>, cliquez sur « Exporter (ICS) » pour ajouter toutes les tenues à votre agenda personnel (Google Calendar, Apple Calendar, Outlook…).</p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Documents ── #}
+  <section id="documents" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-folder"></i> Documents (GED)</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Consulter et télécharger des documents
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>La bibliothèque regroupe planches, comptes-rendus et archives classés par dossiers. L'accès à certains dossiers dépend de votre grade (Apprenti, Compagnon, Maître).</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Allez dans <strong>Documents</strong> — vous voyez les espaces auxquels vous avez accès.</li>
+            <li>Naviguez dans les dossiers, cliquez sur un fichier pour le prévisualiser ou le télécharger.</li>
+            <li>Utilisez la <strong>barre de recherche</strong> pour retrouver un fichier par nom ou contenu.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Mon espace personnel
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Vous disposez d'un dossier privé <strong>« Mon espace »</strong> où vous pouvez déposer vos fichiers personnels, invisibles des autres membres sauf si vous choisissez de les partager.</p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Annuaire ── #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-users"></i> Annuaire des membres</h2>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Consulter les fiches membres
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1">
+          <p>Depuis <strong>Membres</strong>, vous voyez tous les membres actifs avec leur grade et leur office. Utilisez la recherche ou les filtres de grade pour trouver un frère.</p>
+          <p>Les coordonnées personnelles (email, téléphone, adresse) sont réservées aux officiers de la loge pour protéger la vie privée des membres.</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Ma cotisation ── #}
+  <section class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-coin"></i> Ma cotisation</h2>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Choisir ma tranche de cotisation
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Chaque année, le Trésorier ouvre une <strong>période d'appel à tranche</strong> (généralement mi-novembre à fin décembre). Pendant cette période, rendez-vous sur <strong>« Ma cotisation »</strong> et choisissez votre tranche parmi 5 niveaux (T1 à T5).</p>
+          <div class="overflow-x-auto mt-2">
+            <table class="w-full text-xs border border-gray-100 rounded-lg overflow-hidden">
+              <thead><tr class="bg-gray-50"><th class="text-left px-3 py-2">Tranche</th><th class="text-left px-3 py-2">Label</th><th class="text-left px-3 py-2">Coefficient</th></tr></thead>
+              <tbody>
+                <tr class="border-t border-gray-100"><td class="px-3 py-1.5">T1</td><td class="px-3 py-1.5">Très aménagée</td><td class="px-3 py-1.5">× 0,4</td></tr>
+                <tr class="border-t border-gray-100"><td class="px-3 py-1.5">T2</td><td class="px-3 py-1.5">Aménagée</td><td class="px-3 py-1.5">× 0,7</td></tr>
+                <tr class="border-t border-gray-100 bg-loge-50"><td class="px-3 py-1.5 font-semibold">T3</td><td class="px-3 py-1.5 font-semibold">Référence</td><td class="px-3 py-1.5 font-semibold">× 1,0</td></tr>
+                <tr class="border-t border-gray-100"><td class="px-3 py-1.5">T4</td><td class="px-3 py-1.5">Confortable</td><td class="px-3 py-1.5">× 1,3</td></tr>
+                <tr class="border-t border-gray-100"><td class="px-3 py-1.5">T5</td><td class="px-3 py-1.5">Très confortable</td><td class="px-3 py-1.5">× 1,6</td></tr>
+              </tbody>
+            </table>
+          </div>
+          <div class="bg-amber-50 border border-amber-200 rounded-lg p-2 text-xs text-amber-800">
+            ⚠ Votre choix est définitif une fois validé. Seul le Trésorier peut le modifier après coup. Si l'appel n'est pas encore ouvert, la page affiche la date d'ouverture prévue.
+          </div>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Messages ── #}
+  <section id="messages" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-mail"></i> Messages internes</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Lire et envoyer un message
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>La messagerie interne est différente du chat : elle est plus formelle et supporte les pièces jointes (PDF, documents, images — max 10 Mo).</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Cliquez sur <strong>Messages</strong> — la boîte de réception affiche les messages non lus en priorité.</li>
+            <li>Pour envoyer : cliquez sur <strong>« Nouveau message »</strong>, choisissez le ou les destinataires (un membre précis, tous les membres actifs, les Maîtres…).</li>
+            <li>Rédigez votre message, joignez un fichier si besoin et envoyez.</li>
+          </ol>
+          <p class="text-xs text-gray-500 mt-1">Vous pouvez recevoir une notification email à chaque message reçu — réglable dans <strong>Paramètres</strong>.</p>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Supprimer des messages
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Les messages supprimés vont en corbeille. Vous pouvez les restaurer depuis l'onglet « Corbeille » avant de vider définitivement. Vous pouvez aussi sélectionner et supprimer plusieurs messages en une seule opération.</p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Chat & Forum ── #}
+  <section id="chat" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-message-circle"></i> Chat et forum</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Canaux, groupes privés et messages directs
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Le chat est organisé en trois types de conversations :</p>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-1">
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
+              <strong class="block text-gray-800 mb-1"># Canaux</strong>
+              Canaux officiels (Général, Annonces, par grade, officiers). Accès automatique selon votre rôle — aucune invitation nécessaire.
+            </div>
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
+              <strong class="block text-gray-800 mb-1">● Groupes privés</strong>
+              Groupes de travail sur invitation. Vous devez être ajouté par l'administrateur du groupe. Chaque groupe a une description visible sous son nom.
+            </div>
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
+              <strong class="block text-gray-800 mb-1">● Directs</strong>
+              Conversation 1:1 privée avec un autre membre. Cliquez sur l'icône <i class="ti ti-message"></i> ou démarrez depuis la liste des membres.
+            </div>
+          </div>
+          <ol class="list-decimal list-inside space-y-1 mt-2">
+            <li>Allez dans <strong>Chat</strong> et choisissez un canal, un groupe ou démarrez un DM.</li>
+            <li>Tapez votre message et appuyez sur Entrée. Vous pouvez répondre en fil à un message existant.</li>
+          </ol>
+          <div class="bg-loge-50 border border-loge-100 rounded-lg p-2 text-xs text-loge-800 mt-1">
+            <strong>Coches de lecture</strong> — ✓ = message envoyé · ✓✓ (couleur loge) = lu par au moins un destinataire.
+          </div>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Créer un groupe privé
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Cliquez sur <strong>+</strong> (en haut de la sidebar) → <strong>Nouveau groupe</strong>.</li>
+            <li>Donnez un nom et, optionnellement, une <strong>description</strong> qui apparaîtra en sous-titre sous le nom du groupe.</li>
+            <li>Cochez les membres à inviter, puis cliquez sur <strong>Créer le groupe</strong>.</li>
+          </ol>
+          <p class="text-xs text-gray-500">Le créateur d'un groupe en devient l'administrateur : il peut ajouter ou retirer des membres, et modifier le nom/description depuis <em>Gérer les membres</em> en haut du canal.</p>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Forum (délibérations et décisions)
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1">
+          <p>Le forum est structuré par catégories et sujets. Il est adapté aux sujets nécessitant réflexion et consensus, avec système de vote intégré (Pour, Contre, Abstention, Blocage).</p>
+          <p class="text-xs text-gray-500 mt-1">Abonnez-vous à un sujet pour recevoir une notification à chaque nouvelle réponse.</p>
+        </div>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Sondages ── #}
+  <section id="sondages" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-chart-bar"></i> Sondages</h2>
+    <div class="space-y-1 text-sm">
+      <details class="group py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Participer à un sondage
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Allez dans <strong>Sondages</strong> — les sondages ouverts apparaissent en haut avec votre statut de participation.</li>
+            <li>Cliquez sur un sondage, choisissez votre réponse (choix unique ou multiple selon le paramétrage).</li>
+            <li>Cliquez sur <strong>« Voter »</strong> pour valider.</li>
+          </ol>
+          <div class="grid grid-cols-1 sm:grid-cols-3 gap-2 mt-2">
+            <div class="bg-gray-50 border border-gray-200 rounded-lg p-2 text-xs text-gray-700">
+              <strong>Avant de voter</strong> — seul le formulaire est affiché, les résultats ne sont pas visibles.
+            </div>
+            <div class="bg-green-50 border border-green-200 rounded-lg p-2 text-xs text-green-800">
+              <strong>Après avoir voté</strong> — les résultats (nombres et pourcentages) s'affichent immédiatement.
+            </div>
+            <div class="bg-loge-50 border border-loge-200 rounded-lg p-2 text-xs text-loge-800">
+              <strong>Sondage clôturé</strong> — tout le monde voit les résultats sans avoir à voter.
+            </div>
+          </div>
+          <p class="text-xs text-gray-500 mt-1">Options configurables par le créateur du sondage : <strong>vote anonyme</strong> (aucun nom enregistré) ou <strong>vote public</strong> (les noms des votants sont visibles sous chaque option).</p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  {# ── Profil ── #}
+  <section id="profil" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-settings"></i> Profil et sécurité</h2>
+    <div class="space-y-1 text-sm">
+
+      <details class="group border-b border-gray-100 py-2" open>
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Modifier mon profil
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2">
+          <p>Depuis <strong>Membres → votre fiche → Modifier</strong>, vous pouvez mettre à jour votre numéro de téléphone, date de naissance et préférences de notifications email.</p>
+        </div>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Changer mon mot de passe ou mon identifiant
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Depuis <strong>Profil → Changer mon mot de passe</strong>, vous pouvez modifier votre mot de passe (8 caractères minimum) et votre identifiant de connexion (3 caractères minimum, sans espace).</p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Activer la double authentification (2FA) — recommandé
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-1.5">
+          <p>La 2FA protège votre compte même si votre mot de passe est compromis. Fortement recommandée pour tous les membres.</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Allez dans <strong>Profil → Changer le mot de passe</strong> — la section 2FA est en bas de page.</li>
+            <li>Cliquez sur <strong>« Activer »</strong> et installez une application d'authentification (Google Authenticator, Authy, Aegis…).</li>
+            <li>Scannez le QR code avec l'application et saisissez le code à 6 chiffres affiché pour confirmer.</li>
+          </ol>
+        </div>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Télécharger mes données personnelles (RGPD)
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">Depuis <strong>Profil → Changer le mot de passe</strong>, cliquez sur « Télécharger » dans la section « Mes données personnelles » pour obtenir une copie de toutes vos données (conforme RGPD).</p>
+      </details>
+
+    </div>
+  </section>
+
+  {# ── Référence rapide ── #}
+  <section id="ref" class="bg-loge-50 border border-loge-200 rounded-2xl p-5 mb-4 scroll-mt-4">
+    <h2 class="text-lg font-semibold text-loge-800 mb-3"><i class="ti ti-bookmark"></i> Fiche de référence rapide</h2>
+    <div class="overflow-x-auto">
+      <table class="w-full text-xs border border-loge-100 rounded-lg overflow-hidden bg-white">
+        <thead><tr class="bg-loge-100"><th class="text-left px-3 py-2 font-semibold text-loge-800">Action</th><th class="text-left px-3 py-2 font-semibold text-loge-800">Chemin</th><th class="text-left px-3 py-2 font-semibold text-loge-800">Note</th></tr></thead>
+        <tbody class="divide-y divide-gray-100">
+          <tr><td class="px-3 py-1.5">Se connecter</td><td class="px-3 py-1.5 font-mono text-loge-700">/auth/login</td><td class="px-3 py-1.5 text-gray-500">Login ou email</td></tr>
+          <tr><td class="px-3 py-1.5">Réinitialiser le mot de passe</td><td class="px-3 py-1.5 font-mono text-loge-700">/auth/reset-password</td><td class="px-3 py-1.5 text-gray-500">Lien valable 2h</td></tr>
+          <tr><td class="px-3 py-1.5">Voir les tenues</td><td class="px-3 py-1.5 font-mono text-loge-700">/meetings/</td><td class="px-3 py-1.5 text-gray-500">Toutes les tenues de l'année</td></tr>
+          <tr><td class="px-3 py-1.5">Ma cotisation (choisir la tranche)</td><td class="px-3 py-1.5 font-mono text-loge-700">/finance/cotisations/choisir</td><td class="px-3 py-1.5 text-gray-500">Pendant l'appel à tranche uniquement</td></tr>
+          <tr><td class="px-3 py-1.5">Parcourir les documents</td><td class="px-3 py-1.5 font-mono text-loge-700">/documents/</td><td class="px-3 py-1.5 text-gray-500">Selon grade d'accès</td></tr>
+          <tr><td class="px-3 py-1.5">Écrire un message</td><td class="px-3 py-1.5 font-mono text-loge-700">/messages/compose</td><td class="px-3 py-1.5 text-gray-500">Avec pièce jointe possible</td></tr>
+          <tr><td class="px-3 py-1.5">Accéder au chat</td><td class="px-3 py-1.5 font-mono text-loge-700">/chat/</td><td class="px-3 py-1.5 text-gray-500">Canaux et DM</td></tr>
+          <tr><td class="px-3 py-1.5">Voter à un sondage</td><td class="px-3 py-1.5 font-mono text-loge-700">/polls/</td><td class="px-3 py-1.5 text-gray-500">Résultats selon paramétrage</td></tr>
+          <tr><td class="px-3 py-1.5">Changer mon mot de passe</td><td class="px-3 py-1.5 font-mono text-loge-700">/auth/change-password</td><td class="px-3 py-1.5 text-gray-500">Min. 8 caractères</td></tr>
+          <tr><td class="px-3 py-1.5">Activer la 2FA</td><td class="px-3 py-1.5 font-mono text-loge-700">/auth/2fa/setup</td><td class="px-3 py-1.5 text-gray-500">Recommandé pour tous</td></tr>
+        </tbody>
+      </table>
+    </div>
+  </section>
+
+  <p class="text-xs text-gray-400 text-center pt-2 no-print">
+    Une question sans réponse ? Consultez la <a href="/faq" class="text-loge-700 underline">FAQ</a> ou contactez le webmestre.
+  </p>
+
+</div>
+{% endblock %}

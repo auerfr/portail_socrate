@@ -73,8 +73,9 @@ from app.models.meetings import (
 )
 from app.models.communication import Announcement, AnnouncementRead
 from app.models.messaging import MessageRecipient as MsgRecipient, Message as Msg
-from app.models.lodge_calendar import LodgeEvent
+from app.models.lodge_calendar import LodgeEvent, EventVisibility
 from app.routers.calendar import _event_visible_to
+from app.models.groups import LodgeGroup, GroupMembership
 from app.models.chat import ChatChannel, ChatChannelMember, ChatMessage, ChatRead, ChannelType
 
 settings = get_settings()
@@ -257,14 +258,27 @@ async def not_found_handler(request: Request, exc):
         return PlainTextResponse("Page introuvable", status_code=404)
 
 
+# Cache en mémoire pour les settings lus à chaque requête (TTL 30s)
+import time as _time
+_settings_cache: dict = {}
+_SETTINGS_TTL = 30.0
+
+async def _get_setting_cached(key: str):
+    """Lit un setting avec cache mémoire TTL 30s pour ne pas interroger la DB à chaque requête."""
+    from app.services.settings_store import get_setting
+    now = _time.monotonic()
+    entry = _settings_cache.get(key)
+    if entry and now - entry[1] < _SETTINGS_TTL:
+        return entry[0]
+    value = await get_setting(key)
+    _settings_cache[key] = (value, now)
+    return value
+
+
 @app.middleware("http")
 async def maintenance_banner_middleware(request: Request, call_next):
     """Charge la bannière maintenance + flag confidentialité dans request.state.
     Si maintenance_mode est activé, redirige tous les non-admins vers la page maintenance."""
-    from app.services.settings_store import get_setting
-
-    # ── Mode maintenance complet ─────────────────────────────────────────────
-    _MAINTENANCE_BYPASS = {"/auth/login", "/auth/logout", "/static"}
     path = request.url.path
     bypass = (
         path.startswith("/static")
@@ -273,9 +287,9 @@ async def maintenance_banner_middleware(request: Request, call_next):
     )
     if not bypass:
         try:
-            maintenance_mode = await get_setting("maintenance_mode")
+            maintenance_mode = await _get_setting_cached("maintenance_mode")
             if maintenance_mode:
-                # Vérifier si l'utilisateur est admin (via cookie)
+                # Vérifier si l'utilisateur est admin via le token (sans DB — juste le payload JWT)
                 is_admin = False
                 token = request.cookies.get("access_token")
                 if token:
@@ -292,7 +306,7 @@ async def maintenance_banner_middleware(request: Request, call_next):
                     except Exception:
                         pass
                 if not is_admin:
-                    msg = await get_setting("maintenance_message") or None
+                    msg = await _get_setting_cached("maintenance_message") or None
                     return templates.TemplateResponse(
                         request, "errors/maintenance.html",
                         {"message": msg},
@@ -303,15 +317,18 @@ async def maintenance_banner_middleware(request: Request, call_next):
 
     # ── Bannière maintenance (simple message) ────────────────────────────────
     try:
-        request.state.banner = await get_setting("maintenance_banner")
+        request.state.banner = await _get_setting_cached("maintenance_banner")
     except Exception:
         request.state.banner = None
 
-    # ── Flag confidentialité ────────────────────────────────────────────────
+    # ── Flag confidentialité (via cache 30s) ────────────────────────────────
     try:
-        from app.services.confidentiality import get_config as _get_conf
-        c = await _get_conf()
-        request.state.show_conf_banner = bool(c.get("show_confidentiality_banner"))
+        from app.services.confidentiality import KEY as _CONF_KEY, DEFAULTS as _CONF_DEFAULTS
+        _conf_stored = await _get_setting_cached(_CONF_KEY) or {}
+        _conf = dict(_CONF_DEFAULTS)
+        if isinstance(_conf_stored, dict):
+            _conf.update(_conf_stored)
+        request.state.show_conf_banner = bool(_conf.get("show_confidentiality_banner"))
     except Exception:
         request.state.show_conf_banner = False
 
@@ -396,8 +413,11 @@ async def _record_pageview(request: Request) -> None:
 
         async with AsyncSessionLocal() as db:
             if user_id:
-                r = await db.execute(select(User.member_id).where(User.id == user_id))
-                member_id = r.scalar_one_or_none()
+                r = await db.execute(select(User.member_id, User.is_admin).where(User.id == user_id))
+                row = r.one_or_none()
+                if row and row[1]:  # is_admin → ne pas enregistrer
+                    return
+                member_id = row[0] if row else None
             db.add(PageView(
                 path=request.url.path,
                 referrer_host=referrer_host,
@@ -744,9 +764,31 @@ async def home(
         .limit(20)  # on filtre côté Python après vérification visibilité
     )
     _all_upcoming_events = upcoming_events_r.scalars().all()
+
+    # Précharger les groupes des événements GROUP pour éviter 1 SELECT par événement
+    _group_event_ids = {ev.visibility_group_id for ev in _all_upcoming_events
+                       if ev.visibility == EventVisibility.GROUP and ev.visibility_group_id}
+    _group_member_sets: dict[int, set[int]] = {}
+    if _group_event_ids:
+        from app.routers.groups import resolve_group_member_ids
+        for gid in _group_event_ids:
+            grp = await db.get(LodgeGroup, gid)
+            if grp:
+                _group_member_sets[gid] = await resolve_group_member_ids(db, grp)
+
     upcoming_events = []
     for ev in _all_upcoming_events:
-        if await _event_visible_to(ev, member, db, user):
+        # Vérification sans DB pour les cas non-GROUP
+        if ev.is_personal:
+            visible = user.is_admin or ev.created_by_id == member.id
+        elif ev.visibility == EventVisibility.GROUP:
+            if ev.visibility_group_id and ev.visibility_group_id in _group_member_sets:
+                visible = member.id in _group_member_sets[ev.visibility_group_id]
+            else:
+                visible = await _event_visible_to(ev, member, db, user)
+        else:
+            visible = await _event_visible_to(ev, member, db, user)
+        if visible:
             upcoming_events.append(ev)
             if len(upcoming_events) >= 4:
                 break

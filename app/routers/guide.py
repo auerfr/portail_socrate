@@ -1,18 +1,28 @@
 """Guide utilisateur — page publique (aucune authentification requise), pour
-qu'un membre puisse la consulter avant même d'avoir défini son mot de passe."""
+qu'un membre puisse la consulter avant même d'avoir défini son mot de passe.
+Guides de formation par rôle : authentifiés, accès restreint selon la fonction."""
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse, Response, StreamingResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.config import get_settings
 from app.database import get_db
+from app.dependencies import require_auth
 
 router = APIRouter(tags=["guide"])
 from app.template_engine import templates
 
+
+# ── Helpers ──────────────────────────────────────────────────────────────────
+
+def _function(member) -> str | None:
+    return member.lodge_function.value if member and member.lodge_function else None
+
+
+# ── Guide public ──────────────────────────────────────────────────────────────
 
 @router.get("/guide", response_class=HTMLResponse)
 async def guide_page(request: Request):
@@ -34,6 +44,79 @@ async def guide_pdf(request: Request):
         io.BytesIO(pdf), media_type="application/pdf",
         headers={"Content-Disposition": 'inline; filename="guide-utilisateur-portail.pdf"'},
     )
+
+
+# ── Guides de formation par rôle ─────────────────────────────────────────────
+
+@router.get("/guides/membre", response_class=HTMLResponse)
+async def guide_membre(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+):
+    user, member = ctx
+    return templates.TemplateResponse(request, "pages/guide/membre.html", {
+        "current_user": user, "current_member": member,
+    })
+
+
+@router.get("/guides/tresorier", response_class=HTMLResponse)
+async def guide_tresorier(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+):
+    user, member = ctx
+    is_admin = bool(getattr(user, "is_admin", False))
+    fn = _function(member)
+    if not (is_admin or fn in ("VM", "TRESORIER")):
+        raise HTTPException(403)
+    return templates.TemplateResponse(request, "pages/guide/tresorier.html", {
+        "current_user": user, "current_member": member,
+    })
+
+
+@router.get("/guides/secretaire", response_class=HTMLResponse)
+async def guide_secretaire(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+):
+    user, member = ctx
+    is_admin = bool(getattr(user, "is_admin", False))
+    fn = _function(member)
+    if not (is_admin or fn in ("VM", "SECRETAIRE")):
+        raise HTTPException(403)
+    return templates.TemplateResponse(request, "pages/guide/secretaire.html", {
+        "current_user": user, "current_member": member,
+    })
+
+
+@router.get("/guides/maitre-banquets", response_class=HTMLResponse)
+async def guide_maitre_banquets(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+):
+    user, member = ctx
+    is_admin = bool(getattr(user, "is_admin", False))
+    fn = _function(member)
+    if not (is_admin or fn in ("VM", "MAITRE_BANQUETS")):
+        raise HTTPException(403)
+    return templates.TemplateResponse(request, "pages/guide/maitre_banquets.html", {
+        "current_user": user, "current_member": member,
+    })
+
+
+@router.get("/guides/vm", response_class=HTMLResponse)
+async def guide_vm(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+):
+    user, member = ctx
+    is_admin = bool(getattr(user, "is_admin", False))
+    fn = _function(member)
+    if not (is_admin or fn == "VM"):
+        raise HTTPException(403)
+    return templates.TemplateResponse(request, "pages/guide/vm.html", {
+        "current_user": user, "current_member": member,
+    })
 
 
 # ── Suivi ouverture/clic des emails d'accès (pas d'auth — appelé depuis l'email) ──

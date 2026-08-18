@@ -66,6 +66,12 @@ async def _event_visible_to(event: LodgeEvent, member: Member, db: AsyncSession,
         ids = await resolve_group_member_ids(db, group)
         return member.id in ids
 
+    if v == EventVisibility.MEMBERS:
+        if not event.visibility_member_ids:
+            return event.created_by_id == member.id
+        ids = {int(x) for x in event.visibility_member_ids.split(",") if x.strip().isdigit()}
+        return member.id in ids or event.created_by_id == member.id or user.is_admin
+
     if v == EventVisibility.ADMIN:
         return user.is_admin
 
@@ -451,6 +457,14 @@ async def calendar_compose(
 
     can_manage = _can_create_shared_event(user, member)
 
+    # Membres actifs (pour la sélection individuelle EventVisibility.MEMBERS)
+    active_members_r = await db.execute(
+        select(Member)
+        .where(Member.status == MemberStatus.ACTIVE, Member.id != member.id)
+        .order_by(Member.last_name)
+    )
+    active_members = active_members_r.scalars().all()
+
     return templates.TemplateResponse(request, "pages/calendar/compose.html", {
         "current_member": member,
         "current_user": user,
@@ -458,6 +472,7 @@ async def calendar_compose(
         "event_visibilities": EventVisibility,
         "all_groups": all_groups,
         "member_groups": member_groups,
+        "active_members": active_members,
         "can_manage_calendar": can_manage,
         "today_str": date.today().isoformat(),
         "today_weekday": date.today().weekday(),
@@ -492,6 +507,7 @@ async def calendar_create_event(
     recurrence_weekday: Optional[int] = Form(None),
     recurrence_position: Optional[str] = Form(None),
     recurrence_until: Optional[str] = Form(None),
+    visibility_member_ids: Optional[str] = Form(None),
 ):
     user, member = ctx
     personal = is_personal in ("on", "1", "true")
@@ -528,6 +544,10 @@ async def calendar_create_event(
 
     vis = EventVisibility(visibility)
     grp_id = visibility_group_id if vis == EventVisibility.GROUP else None
+    mbr_ids_str = None
+    if vis == EventVisibility.MEMBERS and visibility_member_ids:
+        ids = [x.strip() for x in visibility_member_ids.split(",") if x.strip().isdigit()]
+        mbr_ids_str = ",".join(ids) if ids else None
 
     url = (meeting_url or "").strip() or None
     if url and not url.startswith(("http://", "https://")):
@@ -556,6 +576,7 @@ async def calendar_create_event(
             event_type=EventType(event_type),
             visibility=vis,
             visibility_group_id=grp_id,
+            visibility_member_ids=mbr_ids_str,
             is_personal=personal,
             created_by_id=member.id,
         )
@@ -601,6 +622,7 @@ async def calendar_create_event(
             event_type=EventType(event_type),
             visibility=vis,
             visibility_group_id=grp_id,
+            visibility_member_ids=mbr_ids_str,
             is_personal=personal,
             created_by_id=member.id,
             recurrence_group_id=group_id,
@@ -643,6 +665,22 @@ async def calendar_event_detail(
     )
     all_groups = groups_r.scalars().all()
 
+    # Membres actifs pour le sélecteur MEMBERS dans l'édition
+    active_members_r = await db.execute(
+        select(Member)
+        .where(Member.status == MemberStatus.ACTIVE, Member.id != member.id)
+        .order_by(Member.last_name)
+    )
+    active_members = active_members_r.scalars().all()
+
+    # Membres invités (pour EventVisibility.MEMBERS)
+    vis_members: list[Member] = []
+    if event.visibility == EventVisibility.MEMBERS and event.visibility_member_ids:
+        raw_ids = {int(x) for x in event.visibility_member_ids.split(",") if x.strip().isdigit()}
+        if raw_ids:
+            mems_r = await db.execute(select(Member).where(Member.id.in_(raw_ids)))
+            vis_members = list(mems_r.scalars().all())
+
     vis_labels = {
         "ALL": "Tous les membres",
         "MAITRES": "Maîtres uniquement",
@@ -650,6 +688,7 @@ async def calendar_event_detail(
         "APPRENTIS": "Apprentis uniquement",
         "OFFICERS": "Conseil d'officiers",
         "GROUP": f"Groupe : {vis_group.name}" if vis_group else "Groupe spécifique",
+        "MEMBERS": "Membres spécifiques",
         "ADMIN": "Administrateurs seulement",
     }
     type_labels = {
@@ -667,6 +706,9 @@ async def calendar_event_detail(
         "event": event,
         "can_edit": can_edit,
         "vis_group": vis_group,
+        "vis_members": vis_members,
+        "vis_member_ids": [m.id for m in vis_members],
+        "active_members": active_members,
         "all_groups": all_groups,
         "vis_label": vis_labels.get(event.visibility.value, event.visibility.value),
         "type_label": type_labels.get(event.event_type.value, event.event_type.value),
@@ -694,6 +736,7 @@ async def calendar_event_edit(
     event_type: str = Form(...),
     visibility: str = Form(...),
     visibility_group_id: Optional[int] = Form(None),
+    visibility_member_ids: Optional[str] = Form(None),
 ):
     user, member = ctx
 
@@ -724,6 +767,11 @@ async def calendar_event_edit(
     if url and not url.startswith(("http://", "https://")):
         url = "https://" + url
 
+    mbr_ids_str = None
+    if vis == EventVisibility.MEMBERS and visibility_member_ids:
+        ids = [x.strip() for x in visibility_member_ids.split(",") if x.strip().isdigit()]
+        mbr_ids_str = ",".join(ids) if ids else None
+
     event.title = title.strip()
     event.description = (description or "").strip() or None
     event.location = (location or "").strip() or None
@@ -734,6 +782,7 @@ async def calendar_event_edit(
     event.event_type = EventType(event_type)
     event.visibility = vis
     event.visibility_group_id = visibility_group_id if vis == EventVisibility.GROUP else None
+    event.visibility_member_ids = mbr_ids_str if vis == EventVisibility.MEMBERS else None
 
     await db.commit()
     return RedirectResponse(url=f"/calendar/events/{event_id}", status_code=303)

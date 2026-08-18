@@ -19,6 +19,11 @@
           visibility: 'ALL',
           recurring: false,
           recurrenceFreq: 'WEEKLY',
+          selectedMembers: [],
+          toggleMember(id) {
+            const i = this.selectedMembers.indexOf(id);
+            if (i >= 0) this.selectedMembers.splice(i, 1); else this.selectedMembers.push(id);
+          },
           generateVisio() {
             const server = '{{ visio_server }}';
             const prefix = '{{ visio_prefix }}';
@@ -276,6 +281,10 @@
               <option value="GROUP" {% if not can_manage_calendar %}selected{% endif %}>🏷 Choisir un groupe…</option>
             </optgroup>
 
+            <optgroup label="── Membres spécifiques ──">
+              <option value="MEMBERS">👤 Choisir des membres…</option>
+            </optgroup>
+
             {% if can_manage_calendar %}
             <optgroup label="── Restreint ──">
               <option value="ADMIN">🔒 Administrateurs seulement</option>
@@ -302,6 +311,27 @@
               {% endfor %}
               {% endif %}
             </select>
+          </div>
+
+          {# Sélecteur de membres individuels #}
+          <div x-show="visibility === 'MEMBERS'" x-transition class="mt-2">
+            <label class="block text-xs font-medium text-gray-600 mb-1">
+              Membres concernés <span class="text-red-500">*</span>
+            </label>
+            <input type="hidden" name="visibility_member_ids" :value="selectedMembers.join(',')">
+            <div class="border border-gray-200 rounded-lg max-h-48 overflow-y-auto bg-white divide-y divide-gray-50">
+              {% for m in active_members %}
+              <label class="flex items-center gap-2 px-3 py-2 hover:bg-loge-50 cursor-pointer">
+                <input type="checkbox" value="{{ m.id }}"
+                       @change="toggleMember({{ m.id }})"
+                       class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+                <span class="text-sm text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            <p class="text-xs text-gray-400 mt-1">
+              <span x-text="selectedMembers.length"></span> membre(s) sélectionné(s) — seuls eux + vous verrez l'événement.
+            </p>
           </div>
 
           <p class="text-xs text-gray-400 mt-1">Définit qui peut voir cet événement dans l'agenda.</p>

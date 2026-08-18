@@ -23,7 +23,7 @@ ESPACE_NOM = "Planches reçues"
 
 
 async def _get_or_create_space(db, nom: str):
-    """Retourne (ou crée) l'espace GED 'Planches reçues'."""
+    """Retourne (ou crée) l'espace GED 'Planches reçues'. Met à jour min_grade si besoin."""
     from sqlalchemy import select
     from app.models.documents import DocSpace, DocAccessMode, MinGrade
     r = await db.execute(select(DocSpace).where(DocSpace.name == nom))
@@ -33,9 +33,12 @@ async def _get_or_create_space(db, nom: str):
             name=nom,
             description="Planches reçues par email d'autres loges",
             access_mode=DocAccessMode.GRADE,
-            min_grade=MinGrade.MAITRE,
+            min_grade=MinGrade.ALL,
         )
         db.add(space)
+        await db.flush()
+    elif space.min_grade != MinGrade.ALL:
+        space.min_grade = MinGrade.ALL
         await db.flush()
     return space
 
@@ -191,7 +194,35 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
 
     if imported:
         await db.commit()
+        # Notifier les membres de l'arrivée de la/les planche(s)
+        try:
+            await _notify_new_planches(db, space.id, imported, sender_label)
+        except Exception as e:
+            logger.warning("Notification planches échouée : %s", e)
     return imported
+
+
+async def _notify_new_planches(db, space_id: int, count: int, sender_label: str) -> None:
+    """Crée une notification in-app pour tous les membres actifs."""
+    from sqlalchemy import select
+    from app.models.identity import Member, MemberStatus
+    from app.models.system import Notification, NotificationType
+
+    members_r = await db.execute(
+        select(Member.id).where(Member.status == MemberStatus.ACTIVE)
+    )
+    member_ids = [row[0] for row in members_r.all()]
+    for mid in member_ids:
+        db.add(Notification(
+            member_id=mid,
+            type=NotificationType.INFO,
+            title=f"Nouvelle planche reçue",
+            message=f"{count} planche(s) reçue(s) de « {sender_label} » et classée(s) dans la GED.",
+            link_url=f"/documents/space/{space_id}",
+        ))
+    if member_ids:
+        await db.commit()
+        logger.info("Notification planches envoyée à %d membre(s)", len(member_ids))
 
 
 async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int:
@@ -217,6 +248,8 @@ async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int
     total = 0
     try:
         ctx = ssl.create_default_context()
+        ctx.check_hostname = False
+        ctx.verify_mode = ssl.CERT_NONE
         conn = imaplib.IMAP4_SSL(s.imap_host, s.imap_port, ssl_context=ctx)
         conn.login(s.imap_user, s.imap_pass)
         conn.select(s.imap_folder)

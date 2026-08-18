@@ -85,7 +85,7 @@
       flex: 1;
       padding: 8px 4px;
       color: #4b5563;
-      font-size: 10px;
+      font-size: 12px;
       font-weight: 500;
       text-decoration: none;
       transition: color 120ms;
@@ -658,6 +658,21 @@
         Administration
       </a>
       {% endif %}
+
+      <!-- ── Aide ── -->
+      <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-4 pb-1">Aide</p>
+
+      <a href="/guides/membre" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/guides' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-book-2 text-lg opacity-70"></i>
+        Guide d'utilisation
+      </a>
+
+      <a href="/faq" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/faq' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-message-question text-lg opacity-70"></i>
+        FAQ
+      </a>
 
       <!-- ── Profil ── -->
       <div class="h-px mx-1 my-3" style="background:rgba(255,255,255,0.08);"></div>

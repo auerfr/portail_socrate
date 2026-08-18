@@ -262,6 +262,8 @@ async def poll_detail(
 
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 
+    is_creator = bool(member and poll.created_by_id == member.id)
+
     return templates.TemplateResponse(request, "pages/polls/detail.html", {
         "current_member": member,
         "current_user": user,
@@ -273,6 +275,7 @@ async def poll_detail(
         "is_open": _is_open(poll),
         "can_manage": _can_manage(member, user.is_admin),
         "author": author,
+        "is_creator": is_creator,
     })
 
 

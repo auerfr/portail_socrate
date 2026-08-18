@@ -15,7 +15,7 @@
   </div>
 
   <!-- Onglets navigation -->
-  <nav class="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1">
+  <nav class="flex gap-1 mb-6 bg-gray-100 rounded-xl p-1 overflow-x-auto">
     {% if is_admin %}
     <button type="button" @click="tab='loge'"
             :class="tab === 'loge' ? 'bg-white shadow text-loge-700 font-semibold' : 'text-gray-500 hover:text-gray-700'"
@@ -258,6 +258,15 @@
           <textarea name="standard_schedule" rows="5"
                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y">{{ lodge.standard_schedule if lodge and lodge.standard_schedule else '' }}</textarea>
         </div>
+        <div class="sm:col-span-2">
+          <label class="block text-sm font-medium text-gray-700 mb-1">
+            Texte d'invitation programme
+            <span class="text-gray-400 font-normal">(accroche email envoyé aux correspondants externes — modifiable par le VM ou le Secrétaire)</span>
+          </label>
+          <textarea name="programme_intro_text" rows="4"
+                    placeholder="Nous avons le plaisir de t'inviter à partager les joies du Trav∴ Maç∴ lors de nos prochaines TTen∴"
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y">{{ lodge.programme_intro_text if lodge and lodge.programme_intro_text else '' }}</textarea>
+        </div>
       </div>
 
       <!-- Seuils assiduité -->
@@ -459,9 +468,62 @@
         <span class="text-xs text-gray-400">F∴/S∴ passant·e·s opt-in &amp; contacts institutionnels</span>
       </div>
 
+      <!-- Statistiques campagne de confirmation (contacts VISITOR uniquement) -->
+      {% if contact_conf_stats and contact_conf_stats.total > 0 %}
+      <div class="flex flex-wrap gap-3 mb-4 p-3 bg-gray-50 rounded-lg border border-gray-100">
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-gray-400"></span>
+          <span class="text-gray-500">Total correspondants :</span>
+          <strong class="text-gray-700">{{ contact_conf_stats.total }}</strong>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-green-500"></span>
+          <span class="text-gray-500">Confirmés :</span>
+          <strong class="text-green-700">{{ contact_conf_stats.confirmed }}</strong>
+        </div>
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-amber-400"></span>
+          <span class="text-gray-500">En attente :</span>
+          <strong class="text-amber-700">{{ contact_conf_stats.pending }}</strong>
+        </div>
+        {% if contact_conf_stats.auto_removed > 0 %}
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-orange-400"></span>
+          <span class="text-gray-500">Retirés auto :</span>
+          <strong class="text-orange-700">{{ contact_conf_stats.auto_removed }}</strong>
+        </div>
+        {% endif %}
+        {% if contact_conf_stats.removed > 0 %}
+        <div class="flex items-center gap-1.5 text-xs">
+          <span class="inline-block w-2 h-2 rounded-full bg-red-400"></span>
+          <span class="text-gray-500">Désinscriptions :</span>
+          <strong class="text-red-700">{{ contact_conf_stats.removed }}</strong>
+        </div>
+        {% endif %}
+      </div>
+      {% endif %}
+
       <div class="flex flex-wrap items-center gap-2 mb-4 pb-4 border-b border-gray-100">
         <form method="post" action="/settings/external-contacts/send-confirmation"
-              onsubmit="return confirm('Envoyer l\'email de confirmation annuelle à tous les correspondants actifs ? Ceci envoie de vrais emails.')">
+              class="inline-flex items-center gap-2"
+              onsubmit="return confirm('Envoyer l\'email de confirmation annuelle aux correspondants sélectionnés ? Ceci envoie de vrais emails.')">
+          <select name="target"
+                  class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 bg-white text-gray-700 focus:outline-none focus:ring-1 focus:ring-loge-500">
+            <option value="">Tous les contacts actifs</option>
+            <option value="unconfirmed">⏳ Relance — non confirmés uniquement</option>
+            <optgroup label="Par type">
+              <option value="type:LOGE">🏛 Loges partenaires</option>
+              <option value="type:VISITOR">👤 Passant·e·s</option>
+              <option value="type:EXTERNAL">📋 Autres contacts</option>
+            </optgroup>
+            {% if external_mailing_lists %}
+            <optgroup label="Par liste de diffusion">
+              {% for ml in external_mailing_lists %}
+              <option value="list:{{ ml.id }}">{{ ml.name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+          </select>
           <button type="submit"
                   class="text-xs font-semibold text-white bg-loge-700 hover:bg-loge-800 px-3 py-1.5 rounded-lg inline-flex items-center gap-1.5">
             <i class="ti ti-mail-forward"></i> Envoyer la confirmation annuelle
@@ -487,8 +549,9 @@
         <select name="contact_type_filter" onchange="this.form.submit()"
                 class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
           <option value="" {% if not contact_type_filter %}selected{% endif %}>Tous les types</option>
+          <option value="LOGE" {% if contact_type_filter == 'LOGE' %}selected{% endif %}>🏛 Loges partenaires</option>
           <option value="VISITOR" {% if contact_type_filter == 'VISITOR' %}selected{% endif %}>👤 Passant·e·s</option>
-          <option value="EXTERNAL" {% if contact_type_filter == 'EXTERNAL' %}selected{% endif %}>🏛 Institutionnels</option>
+          <option value="EXTERNAL" {% if contact_type_filter == 'EXTERNAL' %}selected{% endif %}>📋 Autres contacts</option>
         </select>
         {% if contact_lodges %}
         <select name="contact_lodge_filter" onchange="this.form.submit()"
@@ -499,12 +562,20 @@
           {% endfor %}
         </select>
         {% endif %}
+        <select name="contact_status_filter" onchange="this.form.submit()"
+                class="border border-gray-200 rounded-lg px-2 py-1.5 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="" {% if not contact_status_filter %}selected{% endif %}>Tous les statuts</option>
+          <option value="confirmed"    {% if contact_status_filter == 'confirmed' %}selected{% endif %}>✓ Confirmés</option>
+          <option value="pending"      {% if contact_status_filter == 'pending' %}selected{% endif %}>⏳ En attente</option>
+          <option value="auto_removed" {% if contact_status_filter == 'auto_removed' %}selected{% endif %}>⏱ Retirés auto</option>
+          <option value="deregistered" {% if contact_status_filter == 'deregistered' %}selected{% endif %}>✕ Désinscriptions</option>
+        </select>
         <input type="text" name="contact_q" value="{{ contact_q }}" placeholder="Rechercher (nom, email, organisation…)"
                class="border border-gray-200 rounded-lg px-3 py-1.5 text-xs flex-1 min-w-[180px] focus:outline-none focus:ring-2 focus:ring-loge-500">
         <button type="submit" class="text-xs font-medium text-gray-600 border border-gray-200 px-3 py-1.5 rounded-lg hover:bg-gray-50">
           Filtrer
         </button>
-        {% if contact_type_filter or contact_lodge_filter or contact_q %}
+        {% if contact_type_filter or contact_lodge_filter or contact_status_filter or contact_q %}
         <a href="/settings/?tab=contacts" class="text-xs text-gray-400 hover:text-gray-600">Réinitialiser</a>
         {% endif %}
       </form>
@@ -520,8 +591,8 @@
         {% for c in external_contacts %}
         <div class="flex flex-wrap items-start gap-2 py-2.5">
           <span class="inline-flex items-center px-2 py-0.5 rounded text-xs font-medium flex-shrink-0
-            {% if c.contact_type == 'VISITOR' %}bg-loge-100 text-loge-700{% else %}bg-blue-50 text-blue-700{% endif %}">
-            {{ '👤 Passant·e' if c.contact_type == 'VISITOR' else '🏛 Institutionnel' }}
+            {% if c.contact_type == 'VISITOR' %}bg-loge-100 text-loge-700{% elif c.contact_type == 'LOGE' %}bg-blue-50 text-blue-700{% else %}bg-gray-100 text-gray-600{% endif %}">
+            {% if c.contact_type == 'VISITOR' %}👤 Passant·e{% elif c.contact_type == 'LOGE' %}🏛 Loge partenaire{% else %}📋 Autre contact{% endif %}
           </span>
           <div class="flex-1 min-w-0">
             <div class="text-sm font-medium text-gray-900">
@@ -536,11 +607,15 @@
             {% if c.notes %}
             <div class="text-xs text-gray-400 italic mt-0.5">{{ c.notes }}</div>
             {% endif %}
-            <div class="text-xs text-gray-400 mt-0.5">
-              {% if c.last_confirmed_at %}
-              Confirmé le {{ c.last_confirmed_at.strftime('%d/%m/%Y') }}
+            <div class="text-xs mt-0.5">
+              {% if c.removal_requested_at %}
+              <span class="text-red-500">✕ Désinscription demandée le {{ c.removal_requested_at.strftime('%d/%m/%Y') }}</span>
+              {% elif c.last_confirmed_at %}
+              <span class="text-green-600">✓ Confirmé le {{ c.last_confirmed_at.strftime('%d/%m/%Y') }}</span>
+              {% elif not c.is_active %}
+              <span class="text-orange-500">⏱ Retiré automatiquement (non-réponse)</span>
               {% else %}
-              Jamais confirmé
+              <span class="text-amber-500">⏳ En attente de confirmation (suppression auto sous 60 j.)</span>
               {% endif %}
             </div>
           </div>
@@ -549,7 +624,7 @@
           </span>
           <!-- Modifier -->
           <button type="button"
-                  @click="open({ id: {{ c.id }}, name: '{{ c.name | replace("'", "\\'") }}', first_name: '{{ (c.first_name or '') | replace("'", "\\'") }}', last_name: '{{ (c.last_name or '') | replace("'", "\\'") }}', email: '{{ c.email }}', organization: '{{ (c.organization or '') | replace("'", "\\'") }}', lodge_name: '{{ (c.lodge_name or '') | replace("'", "\\'") }}', orient: '{{ (c.orient or '') | replace("'", "\\'") }}', contact_type: '{{ c.contact_type }}', notes: '{{ (c.notes or '') | replace("'", "\\'") }}' })"
+                  @click="open({ id: {{ c.id }}, name: '{{ c.name | replace("'", "\\'") }}', first_name: '{{ (c.first_name or '') | replace("'", "\\'") }}', last_name: '{{ (c.last_name or '') | replace("'", "\\'") }}', email: '{{ c.email }}', organization: '{{ (c.organization or '') | replace("'", "\\'") }}', lodge_name: '{{ (c.lodge_name or '') | replace("'", "\\'") }}', orient: '{{ (c.orient or '') | replace("'", "\\'") }}', obedience: '{{ (c.obedience or '') | replace("'", "\\'") }}', contact_type: '{{ c.contact_type }}', notes: '{{ (c.notes or '') | replace("'", "\\'") }}' })"
                   class="text-gray-400 hover:text-loge-600 p-1 rounded hover:bg-loge-50 transition-colors flex-shrink-0 self-start" title="Modifier">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M16.862 4.487l1.687-1.688a1.875 1.875 0 112.652 2.652L10.582 16.07a4.5 4.5 0 01-1.897 1.13L6 18l.8-2.685a4.5 4.5 0 011.13-1.897l8.932-8.931zm0 0L19.5 7.125"/>
@@ -580,44 +655,83 @@
                 </svg>
               </button>
             </div>
-            <form method="post" :action="'/settings/external-contacts/' + ec.id + '/edit'" class="space-y-3">
+            <form method="post" :action="'/settings/external-contacts/' + ec.id + '/edit'" class="space-y-3"
+                  x-data="{ ctype: '' }" x-init="$watch('ec', v => ctype = v.contact_type)" @change="if($event.target.name==='contact_type') ctype=$event.target.value">
               <div class="grid sm:grid-cols-2 gap-3">
-                <div>
+
+                <!-- Nom de la loge (LOGE uniquement) -->
+                <div class="sm:col-span-2" x-show="ctype === 'LOGE'">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Nom de la loge *</label>
+                  <input type="text" name="lodge_name" :value="ec.lodge_name"
+                         placeholder="Les Amis de la Vérité"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                </div>
+                <!-- Contact (LOGE) : interlocuteur optionnel -->
+                <div class="sm:col-span-2" x-show="ctype === 'LOGE'">
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Interlocuteur (VM, Secrétaire…) — optionnel</label>
+                  <div class="grid grid-cols-2 gap-2">
+                    <input type="text" name="first_name" :value="ec.first_name" placeholder="Prénom"
+                           class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                    <input type="text" name="last_name" :value="ec.last_name" placeholder="Nom"
+                           class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                  </div>
+                </div>
+
+                <!-- Prénom / Nom (non-LOGE) -->
+                <div x-show="ctype !== 'LOGE'">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Prénom</label>
                   <input type="text" name="first_name" :value="ec.first_name"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
-                <div>
+                <div x-show="ctype !== 'LOGE'">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Nom *</label>
-                  <input type="text" name="last_name" :value="ec.last_name" required
+                  <input type="text" name="last_name" :value="ec.last_name"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
+
+                <!-- Email -->
                 <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Email *</label>
                   <input type="email" name="email" :value="ec.email" required
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
-                <div>
+
+                <!-- Loge (non-LOGE : champ secondaire) -->
+                <div x-show="ctype !== 'LOGE'">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Loge</label>
                   <input type="text" name="lodge_name" :value="ec.lodge_name"
                          placeholder="Les Compagnons du Devoir"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
+
+                <!-- Orient -->
                 <div>
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Orient</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Orient (ville)</label>
                   <input type="text" name="orient" :value="ec.orient" placeholder="Strasbourg"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
+
+                <!-- Obédience -->
+                <div>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Obédience</label>
+                  <input type="text" name="obedience" :value="ec.obedience" placeholder="GODF, DH, GLNF…"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                </div>
+
+                <!-- Type -->
                 <div class="sm:col-span-2">
                   <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
                   <select name="contact_type"
                           class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                    <option value="LOGE" :selected="ec.contact_type === 'LOGE'">🏛 Loge partenaire</option>
                     <option value="VISITOR" :selected="ec.contact_type === 'VISITOR'">👤 F∴/S∴ passant·e</option>
-                    <option value="EXTERNAL" :selected="ec.contact_type === 'EXTERNAL'">🏛 Contact institutionnel</option>
+                    <option value="EXTERNAL" :selected="ec.contact_type === 'EXTERNAL'">📋 Autre contact</option>
                   </select>
                 </div>
+
+                <!-- Organisation (legacy) -->
                 <div class="sm:col-span-2">
-                  <label class="block text-xs font-medium text-gray-600 mb-1">Organisation (legacy, optionnel)</label>
+                  <label class="block text-xs font-medium text-gray-600 mb-1">Organisation (optionnel)</label>
                   <input type="text" name="organization" :value="ec.organization"
                          class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 </div>
@@ -707,8 +821,9 @@
           <div class="sm:col-span-2">
             <label class="block text-xs font-medium text-gray-600 mb-1">Type</label>
             <select name="contact_type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+              <option value="LOGE">🏛 Loge partenaire (VM / Secrétaire)</option>
               <option value="VISITOR">👤 F∴/S∴ passant·e (opt-in programme)</option>
-              <option value="EXTERNAL">🏛 Contact institutionnel</option>
+              <option value="EXTERNAL">📋 Autre contact</option>
             </select>
           </div>
         </div>
@@ -830,7 +945,7 @@
     <form method="post" action="/settings/smtp/test" class="mt-3 flex items-center gap-2 flex-wrap">
       <input type="email" name="test_to"
              placeholder="adresse@exemple.fr (laisser vide = votre email de membre)"
-             class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 w-72">
+             class="border border-gray-200 rounded-xl px-3 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 w-full sm:w-72">
       <button type="submit"
               class="inline-flex items-center gap-2 px-5 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
         <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

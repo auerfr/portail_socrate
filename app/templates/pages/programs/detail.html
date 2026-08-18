@@ -327,6 +327,12 @@
     {% endif %}
 
     {% if can_manage_programs and external_contacts %}
+    <div style="margin-bottom:6px;">
+      <a href="/programs/{{ program.id }}/preview-email" target="_blank"
+         style="display:inline-flex;align-items:center;gap:5px;font-size:11px;font-weight:600;color:#1a5252;padding:5px 12px;background:#f0fafa;border:1px solid #8eccc6;border-radius:6px;text-decoration:none;">
+        👁 Prévisualiser l'email
+      </a>
+    </div>
     <details style="margin-bottom:8px;">
       <summary style="cursor:pointer;font-size:12px;font-weight:600;color:#1a5252;padding:8px 12px;background:#e6f4f1;border:1px solid #8eccc6;border-radius:6px;list-style:none;">
         ✉ Envoyer par email aux correspondants externes ({{ external_contacts | length }} contact{{ 's' if external_contacts | length > 1 }})
@@ -368,28 +374,72 @@
         <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
           {% set visitors = external_contacts | selectattr('contact_type', 'eq', 'VISITOR') | list %}
           {% set externals = external_contacts | selectattr('contact_type', 'eq', 'EXTERNAL') | list %}
+          {% set loges = external_contacts | selectattr('contact_type', 'eq', 'LOGE') | list %}
 
           {% if visitors %}
-          <div>
-            <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">👤 F∴/S∴ passant·e·s</div>
+          <div style="grid-column:1/-1;">
+            <div style="display:none;">
             {% for c in visitors %}
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;margin-bottom:3px;cursor:pointer;">
-              <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
-              <span>{{ c.name }}{% if c.organization %} <span style="color:#9ca3af;">· {{ c.organization }}</span>{% endif %}</span>
-            </label>
+            <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
             {% endfor %}
+            </div>
+            <details>
+              <summary style="font-size:11px;font-weight:600;color:#374151;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px;">
+                <span style="font-size:10px;color:#9ca3af;">▶</span>
+                👤 F∴/S∴ passant·e·s
+                <span style="font-weight:normal;color:#9ca3af;">({{ visitors|length }} contacts — géré via la liste de diffusion ci-dessus)</span>
+              </summary>
+              <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;padding:6px 8px;background:#f9fafb;border-radius:4px;border:1px solid #e5e7eb;">
+              {% for c in visitors %}
+              <div style="font-size:11px;color:#6b7280;padding:1px 0;">{{ c.name }}{% if c.organization %} · <em>{{ c.organization }}</em>{% endif %}</div>
+              {% endfor %}
+              </div>
+            </details>
           </div>
           {% endif %}
 
           {% if externals %}
-          <div>
-            <div style="font-size:11px;font-weight:600;color:#374151;margin-bottom:4px;">🏛 Contacts institutionnels</div>
+          <div style="grid-column:1/-1;">
+            <div style="display:none;">
             {% for c in externals %}
-            <label style="display:flex;align-items:center;gap:6px;font-size:12px;color:#374151;margin-bottom:3px;cursor:pointer;">
-              <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
-              <span>{{ c.name }}{% if c.organization %} <span style="color:#9ca3af;">· {{ c.organization }}</span>{% endif %}</span>
-            </label>
+            <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
             {% endfor %}
+            </div>
+            <details>
+              <summary style="font-size:11px;font-weight:600;color:#374151;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px;">
+                <span style="font-size:10px;color:#9ca3af;">▶</span>
+                🏛 Contacts institutionnels
+                <span style="font-weight:normal;color:#9ca3af;">({{ externals|length }} contact{{ 's' if externals|length > 1 }} — géré via la liste de diffusion ci-dessus)</span>
+              </summary>
+              <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;padding:6px 8px;background:#f9fafb;border-radius:4px;border:1px solid #e5e7eb;">
+              {% for c in externals %}
+              <div style="font-size:11px;color:#6b7280;padding:1px 0;">{{ c.name }}{% if c.organization %} · <em>{{ c.organization }}</em>{% endif %}</div>
+              {% endfor %}
+              </div>
+            </details>
+          </div>
+          {% endif %}
+
+          {% if loges %}
+          <div style="grid-column:1/-1;">
+            <!-- Checkboxes cachées mais présentes dans le DOM pour que la liste de diffusion puisse les cocher/décocher -->
+            <div style="display:none;">
+            {% for c in loges %}
+            <input type="checkbox" name="contact_ids" value="{{ c.id }}" checked>
+            {% endfor %}
+            </div>
+            <details style="margin-top:2px;">
+              <summary style="font-size:11px;font-weight:600;color:#374151;cursor:pointer;list-style:none;display:flex;align-items:center;gap:4px;">
+                <span style="font-size:10px;color:#9ca3af;">▶</span>
+                🏛 Loges partenaires
+                <span style="font-weight:normal;color:#9ca3af;">({{ loges|length }} contacts — géré via la liste de diffusion ci-dessus)</span>
+              </summary>
+              <div style="margin-top:6px;display:grid;grid-template-columns:1fr 1fr;gap:2px 16px;padding:6px 8px;background:#f9fafb;border-radius:4px;border:1px solid #e5e7eb;">
+              {% for c in loges %}
+              <div style="font-size:11px;color:#6b7280;padding:1px 0;">{{ c.name }}{% if c.organization %} · <em>{{ c.organization }}</em>{% endif %}</div>
+              {% endfor %}
+              </div>
+            </details>
           </div>
           {% endif %}
         </div>
@@ -606,6 +656,15 @@
         {% for line in lodge.standard_schedule.split('\n') %}
         {% if line.strip() %}<div>{{ line }}</div>{% endif %}
         {% endfor %}
+      </div>
+      {% endif %}
+
+      {% if imap_inbox or (lodge and lodge.secretary_email_display) %}
+      <div style="margin-top:6px;padding-top:6px;border-top:1px solid #d1fae5;font-size:8px;color:#6b7280;text-align:center;">
+        Pour nous transmettre votre programme :
+        {% if imap_inbox %}<strong>{{ imap_inbox }}</strong> (traitement automatique)
+        {% if lodge and lodge.secretary_email_display %} ou {{ lodge.secretary_email_display }}{% endif %}
+        {% elif lodge and lodge.secretary_email_display %}{{ lodge.secretary_email_display }}{% endif %}
       </div>
       {% endif %}
     </div>
