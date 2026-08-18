@@ -68,11 +68,11 @@
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
     <h2 class="text-sm font-semibold text-gray-700 mb-3">Tableau de loge courant</h2>
     {% if offices %}
-    <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1.5 text-sm">
+    <div class="divide-y divide-gray-50 text-sm">
       {% for o in offices %}
-      <div class="flex items-center justify-between border-b border-gray-50 py-1.5">
-        <span class="text-gray-500">{{ o.label }}</span>
-        <span class="font-medium text-gray-800">
+      <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-4 py-1.5">
+        <span class="text-gray-500 sm:w-56 sm:flex-shrink-0">{{ o.label }}</span>
+        <span class="font-medium text-gray-800 sm:text-right">
           {% set m = members_map.get(o.member_id) %}
           {% if m %}{{ m.first_name }} {{ m.last_name | anon_nom }}{% else %}<span class="text-gray-300">— vacant —</span>{% endif %}
         </span>
@@ -99,12 +99,12 @@
       </div>
       {% set assignments = hist_by_year.get(y.id, []) %}
       {% if assignments %}
-      <div class="grid sm:grid-cols-2 gap-x-6 gap-y-1 text-xs mt-3">
+      <div class="divide-y divide-gray-50 text-xs mt-3">
         {% for a in assignments %}
         {% set m = members_map.get(a.member_id) %}
-        <div class="flex items-center justify-between text-gray-500">
-          <span>{{ a.function }}</span>
-          <span class="font-medium text-gray-700">{% if m %}{{ m.first_name }} {{ m.last_name | anon_nom }}{% else %}—{% endif %}</span>
+        <div class="flex flex-col sm:flex-row sm:items-baseline sm:justify-between gap-0.5 sm:gap-4 py-1">
+          <span class="text-gray-500 sm:w-56 sm:flex-shrink-0">{{ a.function }}</span>
+          <span class="font-medium text-gray-700 sm:text-right">{% if m %}{{ m.first_name }} {{ m.last_name | anon_nom }}{% else %}—{% endif %}</span>
         </div>
         {% endfor %}
       </div>
