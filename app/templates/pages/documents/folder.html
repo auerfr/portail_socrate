@@ -253,7 +253,7 @@
           {% endif %}
         </div>
       </a>
-      <div class="absolute top-2 right-2 opacity-0 group-hover:opacity-100 transition-opacity flex gap-1">
+      <div class="absolute top-2 right-2 transition-opacity flex gap-1">
         <button type="button" onclick='openShareFolder({{ sf.id }}, {{ sf.name | tojson }})'
                 title="Partager ce dossier"
                 class="w-6 h-6 flex items-center justify-center rounded text-gray-400 hover:bg-indigo-50 hover:text-indigo-600">
@@ -444,8 +444,8 @@
           </div><!-- fin info -->
           </div><!-- fin row1 icon+info -->
 
-          <!-- Actions : toujours visibles sur mobile (sous le nom), hover sur desktop -->
-          <div class="flex items-center gap-1.5 ml-11 sm:ml-0 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity flex-shrink-0">
+          <!-- Actions : toujours visibles -->
+          <div class="flex items-center gap-1.5 ml-11 sm:ml-0 transition-opacity flex-shrink-0">
 
             {% if has_embed %}
             <!-- Bouton lecteur embarqué -->
@@ -660,8 +660,8 @@
             {% endif %}
           </div>
 
-          <!-- Boutons d'action (visibles au survol) -->
-          <div class="mt-2 space-y-1 opacity-0 group-hover:opacity-100 transition-opacity">
+          <!-- Boutons d'action -->
+          <div class="mt-2 space-y-1 transition-opacity">
             {% if has_embed %}
             <button @click="toggleEmbed({{ doc.id }})"
                     class="w-full text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
