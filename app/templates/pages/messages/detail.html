@@ -207,7 +207,7 @@
           Faire suivre
         </a>
         {% endif %}
-        {% if is_sender or current_user.is_admin %}
+        {% if is_sender %}
         <form method="post" action="/messages/{{ msg.id }}/delete"
               onsubmit="return confirm('Supprimer ce message définitivement ?')">
           <button type="submit" class="text-sm text-red-500 hover:text-red-700 flex items-center gap-1.5">
