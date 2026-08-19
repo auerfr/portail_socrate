@@ -95,17 +95,24 @@
 
       {% if is_open and not has_voted %}
       <!-- Formulaire de vote -->
+      {% if vote_error == 'ranking_invalid' %}
+      <div class="flex items-center gap-2 text-sm text-red-700 bg-red-50 rounded-xl px-4 py-2.5 mb-4">
+        <span>⚠️</span>
+        <span class="font-medium">Classement invalide : chaque option doit recevoir un rang différent, de 1 (préférée) à {{ vote_options|length }} (la moins aimée), sans doublon. Merci de réessayer.</span>
+      </div>
+      {% endif %}
       <form method="post" action="/polls/{{ poll.id }}/vote" class="space-y-3"
             {% if poll.vote_type == 'RANKING' %}id="ranking-form"{% endif %}>
         {% if poll.vote_type == 'RANKING' %}
-        <p class="text-xs text-gray-500 mb-1">Classez chaque option de 1 (préférée) à {{ results|length }} (la moins aimée) — chaque rang une seule fois.</p>
-        {% for r in results %}
+        <p class="text-xs text-gray-500 mb-1">Classez chaque option de 1 (préférée) à {{ vote_options|length }} (la moins aimée) — chaque rang une seule fois.</p>
+        {% for opt in vote_options %}
+        {% set default_rank = loop.index %}
         <div class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-gray-200">
-          <span class="text-sm font-medium text-gray-800">{{ r.option.label }}</span>
-          <select name="rank_{{ r.option.id }}" data-rank-select
+          <span class="text-sm font-medium text-gray-800">{{ opt.label }}</span>
+          <select name="rank_{{ opt.id }}" data-rank-select
                   class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white shrink-0">
-            {% for n in range(1, results|length + 1) %}
-            <option value="{{ n }}" {% if n == loop.index %}selected{% endif %}>{{ n }}</option>
+            {% for n in range(1, vote_options|length + 1) %}
+            <option value="{{ n }}" {% if n == default_rank %}selected{% endif %}>{{ n }}</option>
             {% endfor %}
           </select>
         </div>
@@ -128,16 +135,16 @@
         })();
         </script>
         {% else %}
-        {% for r in results %}
+        {% for opt in vote_options %}
         <label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-loge-300 hover:bg-loge-50/30 cursor-pointer transition-colors group">
           {% if poll.is_multiple %}
-          <input type="checkbox" name="option_id" value="{{ r.option.id }}"
+          <input type="checkbox" name="option_id" value="{{ opt.id }}"
                  class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500 shrink-0">
           {% else %}
-          <input type="radio" name="option_id" value="{{ r.option.id }}"
+          <input type="radio" name="option_id" value="{{ opt.id }}"
                  class="w-4 h-4 border-gray-300 text-loge-600 focus:ring-loge-500 shrink-0">
           {% endif %}
-          <span class="text-sm font-medium text-gray-800">{{ r.option.label }}</span>
+          <span class="text-sm font-medium text-gray-800">{{ opt.label }}</span>
         </label>
         {% endfor %}
         {% endif %}

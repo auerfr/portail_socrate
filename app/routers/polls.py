@@ -326,6 +326,11 @@ async def poll_detail(
 
     results, total_votes = await _compute_results(poll, my_option_ids, db)
 
+    # Ordre stable et identique pour tous les votants (indépendant des
+    # résultats en cours) — sinon un votant plus tardif verrait les options
+    # déjà réordonnées par le classement provisoire, ce qui biaise le vote.
+    vote_options = sorted(poll.options, key=lambda o: o.order_position)
+
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 
     is_creator = bool(member and poll.created_by_id == member.id)
@@ -335,6 +340,7 @@ async def poll_detail(
         "current_user": user,
         "poll": poll,
         "results": results,
+        "vote_options": vote_options,
         "total_votes": total_votes,
         "has_voted": has_voted,
         "my_option_ids": my_option_ids,
@@ -342,6 +348,7 @@ async def poll_detail(
         "can_manage": _can_manage(member, user.is_admin),
         "author": author,
         "is_creator": is_creator,
+        "vote_error": request.query_params.get("error"),
     })
 
 
@@ -492,20 +499,19 @@ async def poll_vote(
         option_ids = [opt.id for opt in poll.options]
         n = len(option_ids)
         ranks: dict[int, int] = {}
+        incomplete = False
         for opt_id in option_ids:
             raw = form.get(f"rank_{opt_id}", "")
             try:
                 ranks[opt_id] = int(raw)
             except (TypeError, ValueError):
-                raise HTTPException(status_code=400, detail="Classement incomplet")
+                incomplete = True
 
         # Doit être une permutation exacte de 1..n (chaque rang utilisé une
         # seule fois) — sinon la moyenne des rangs n'a pas de sens.
-        if sorted(ranks.values()) != list(range(1, n + 1)):
-            raise HTTPException(
-                status_code=400,
-                detail="Chaque option doit avoir un rang distinct, de 1 (préférée) à "
-                       f"{n} (la moins aimée), sans doublon.",
+        if incomplete or sorted(ranks.values()) != list(range(1, n + 1)):
+            return RedirectResponse(
+                url=f"/polls/{poll_id}?error=ranking_invalid", status_code=303
             )
 
         for opt_id, rank in ranks.items():

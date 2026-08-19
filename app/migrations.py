@@ -1118,3 +1118,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if "target_member_ids" not in cols:
             await conn.exec_driver_sql("ALTER TABLE polls ADD COLUMN target_member_ids JSON")
 
+        r3 = await conn.exec_driver_sql("PRAGMA table_info(poll_options)")
+        cols3 = [row[1] for row in r3.fetchall()]
+        if "slot_start" not in cols3:
+            await conn.exec_driver_sql("ALTER TABLE poll_options ADD COLUMN slot_start DATETIME")
+        if "slot_end" not in cols3:
+            await conn.exec_driver_sql("ALTER TABLE poll_options ADD COLUMN slot_end DATETIME")
+

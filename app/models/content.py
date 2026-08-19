@@ -72,6 +72,10 @@ class PollOption(Base):
     poll_id: Mapped[int]    = mapped_column(ForeignKey("polls.id", ondelete="CASCADE"))
     label: Mapped[str]      = mapped_column(String(300))
     order_position: Mapped[int] = mapped_column(Integer, default=0)
+    # Sondages SCHEDULE uniquement (créneaux de type Framadate) : le créneau
+    # réel, pour l'affichage calendrier et la détection de conflit d'agenda.
+    slot_start: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    slot_end: Mapped[Optional[datetime]]   = mapped_column(DateTime)
 
     poll: Mapped["Poll"]           = relationship(back_populates="options")
     votes: Mapped[list["PollVote"]] = relationship(back_populates="option")
@@ -85,7 +89,7 @@ class PollVote(Base):
     option_id: Mapped[int] = mapped_column(ForeignKey("poll_options.id", ondelete="CASCADE"))
     member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))  # null si anonyme
     voted_at: Mapped[datetime]       = mapped_column(DateTime, server_default=func.now())
-    score: Mapped[Optional[int]]     = mapped_column(Integer)  # sondages de type "RATING" uniquement
+    score: Mapped[Optional[int]]     = mapped_column(Integer)  # sondages de type "RANKING" uniquement : le rang (1=préféré)
 
     poll: Mapped["Poll"]     = relationship(back_populates="votes")
     option: Mapped["PollOption"] = relationship(back_populates="votes")
