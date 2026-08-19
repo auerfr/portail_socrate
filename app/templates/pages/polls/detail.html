@@ -31,6 +31,8 @@
             {% endif %}
             {% if poll.vote_type == 'RANKING' %}
             <span class="text-xs bg-purple-50 text-purple-600 rounded-full px-2.5 py-1">🏅 Classement</span>
+            {% elif poll.vote_type == 'SCHEDULE' %}
+            <span class="text-xs bg-teal-50 text-teal-600 rounded-full px-2.5 py-1">📅 Créneaux</span>
             {% elif poll.is_multiple %}
             <span class="text-xs bg-blue-50 text-blue-600 rounded-full px-2.5 py-1">Choix multiples</span>
             {% endif %}
@@ -147,6 +149,22 @@
           });
         })();
         </script>
+        {% elif poll.vote_type == 'SCHEDULE' %}
+        <p class="text-xs text-gray-500 mb-1">Cochez tous les créneaux qui vous conviennent — comme un Framadate.</p>
+        {% for opt in vote_options %}
+        <label class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-loge-300 hover:bg-loge-50/30 cursor-pointer transition-colors group">
+          <span class="flex items-center gap-3 min-w-0">
+            <input type="checkbox" name="option_id" value="{{ opt.id }}"
+                   {% if edit_mode and opt.id in my_option_ids %}checked{% endif %}
+                   class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500 shrink-0">
+            <span class="text-sm font-medium text-gray-800">{{ opt.label }}</span>
+          </span>
+          {% if schedule_conflicts.get(opt.id) %}
+          <span title="{{ schedule_conflicts[opt.id]|join(' · ') }}"
+                class="text-xs bg-red-50 text-red-600 rounded-full px-2 py-0.5 shrink-0">⚠ Conflit agenda</span>
+          {% endif %}
+        </label>
+        {% endfor %}
         {% else %}
         {% for opt in vote_options %}
         <label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-loge-300 hover:bg-loge-50/30 cursor-pointer transition-colors group">
@@ -190,6 +208,8 @@
 
       {% if poll.vote_type == 'RANKING' %}
       <p class="text-xs text-gray-400 mb-3">Classées par rang moyen (1 = préférée) — les {{ poll.rating_winners }} mieux classées sont mises en avant.</p>
+      {% elif poll.vote_type == 'SCHEDULE' %}
+      <p class="text-xs text-gray-400 mb-3">Créneaux triés par ordre chronologique — le plus large en tête est celui qui convient au plus de monde.</p>
       {% endif %}
       <div class="space-y-4">
         {% set max_pct = results | map(attribute='pct') | max if results else 0 %}
@@ -202,6 +222,10 @@
               {% if r.is_winner %}<span title="Parmi les mieux classées">🏆</span>{% endif %}
               {% elif r.is_mine %}<span class="text-loge-600">✓</span>{% endif %}
               {{ r.option.label }}
+              {% if poll.vote_type == 'SCHEDULE' and schedule_conflicts.get(r.option.id) %}
+              <span title="{{ schedule_conflicts[r.option.id]|join(' · ') }}"
+                    class="text-xs bg-red-50 text-red-600 rounded-full px-2 py-0.5 shrink-0">⚠ Conflit agenda</span>
+              {% endif %}
             </span>
             {% if poll.vote_type == 'RANKING' %}
             <span class="text-sm font-bold {% if r.is_winner %}text-amber-700{% else %}text-gray-500{% endif %}">

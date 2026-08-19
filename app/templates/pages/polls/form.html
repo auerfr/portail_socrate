@@ -22,13 +22,16 @@
          toggleMember(id) {
            const i = this.selectedMembers.indexOf(id);
            if (i >= 0) this.selectedMembers.splice(i, 1); else this.selectedMembers.push(id);
-         }
+         },
+         scheduleSlots: [{ date: '', start: '19:00', end: '21:00' }],
+         addSlot() { this.scheduleSlots.push({ date: '', start: '19:00', end: '21:00' }); },
+         removeSlot(i) { if (this.scheduleSlots.length > 1) this.scheduleSlots.splice(i, 1); }
        }">
     <form method="post" action="/polls/new" class="space-y-5">
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Type de sondage</label>
-        <div class="grid grid-cols-2 gap-3">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <label class="flex items-start gap-2.5 p-3.5 rounded-xl border-2 cursor-pointer transition-colors"
                  :class="voteType === 'CHOICE' ? 'border-loge-500 bg-loge-50' : 'border-gray-200 hover:border-gray-300'">
             <input type="radio" name="vote_type" value="CHOICE" x-model="voteType" checked class="mt-0.5 text-loge-600 focus:ring-loge-500">
@@ -43,6 +46,14 @@
             <div>
               <div class="text-sm font-medium text-gray-800">Classement</div>
               <div class="text-xs text-gray-400">Chacun classe toutes les options de la préférée à la moins aimée</div>
+            </div>
+          </label>
+          <label class="flex items-start gap-2.5 p-3.5 rounded-xl border-2 cursor-pointer transition-colors"
+                 :class="voteType === 'SCHEDULE' ? 'border-loge-500 bg-loge-50' : 'border-gray-200 hover:border-gray-300'">
+            <input type="radio" name="vote_type" value="SCHEDULE" x-model="voteType" class="mt-0.5 text-loge-600 focus:ring-loge-500">
+            <div>
+              <div class="text-sm font-medium text-gray-800">Créneaux (Framadate)</div>
+              <div class="text-xs text-gray-400">Chacun coche les dates/horaires qui lui conviennent</div>
             </div>
           </label>
         </div>
@@ -69,12 +80,36 @@
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none"></textarea>
       </div>
 
-      <div>
+      <div x-show="voteType !== 'SCHEDULE'" x-cloak>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Options de réponse *</label>
-        <textarea name="options_raw" rows="5" required
+        <textarea name="options_raw" rows="5" :required="voteType !== 'SCHEDULE'"
                   placeholder="Une option par ligne :&#10;Oui, je serai présent&#10;Non, je serai absent&#10;Peut-être"
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y font-mono"></textarea>
         <p class="text-xs text-gray-400 mt-1">Une option par ligne, minimum 2</p>
+      </div>
+
+      <div x-show="voteType === 'SCHEDULE'" x-cloak class="space-y-2.5">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Créneaux proposés *</label>
+        <template x-for="(slot, i) in scheduleSlots" :key="i">
+          <div class="flex items-center gap-2 flex-wrap p-3 border border-gray-200 rounded-xl">
+            <input type="date" name="slot_date" x-model="slot.date" :required="voteType === 'SCHEDULE'"
+                   class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <input type="time" name="slot_start_time" x-model="slot.start" :required="voteType === 'SCHEDULE'"
+                   class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 w-28">
+            <span class="text-gray-400 text-sm">à</span>
+            <input type="time" name="slot_end_time" x-model="slot.end"
+                   class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 w-28">
+            <button type="button" @click="removeSlot(i)" x-show="scheduleSlots.length > 1"
+                    class="ml-auto text-gray-300 hover:text-red-500 transition-colors">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+              </svg>
+            </button>
+          </div>
+        </template>
+        <button type="button" @click="addSlot()"
+                class="text-sm text-loge-600 hover:text-loge-700 font-medium">+ Ajouter un créneau</button>
+        <p class="text-xs text-gray-400">Date, heure de début et heure de fin (optionnelle) pour chaque créneau proposé. Les conflits avec l'agenda existant seront signalés.</p>
       </div>
 
       <div class="grid sm:grid-cols-2 gap-4">

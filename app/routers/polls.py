@@ -1,5 +1,5 @@
 """Router — Sondages & Votes"""
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -43,6 +43,62 @@ def _target_value(poll: Poll) -> str:
     if poll.target_group_id:
         return f"group:{poll.target_group_id}"
     return poll.min_grade or ""
+
+
+_JOURS_FR = ["lundi", "mardi", "mercredi", "jeudi", "vendredi", "samedi", "dimanche"]
+_MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+            "août", "septembre", "octobre", "novembre", "décembre"]
+
+
+def _format_slot_label(start: datetime, end: Optional[datetime]) -> str:
+    jour = _JOURS_FR[start.weekday()].capitalize()
+    mois = _MOIS_FR[start.month - 1]
+    txt = f"{jour} {start.day} {mois} {start.year} · {start.strftime('%Hh%M')}"
+    if end:
+        txt += f"–{end.strftime('%Hh%M')}"
+    return txt
+
+
+async def _check_schedule_conflicts(options: list["PollOption"], db: AsyncSession) -> dict[int, list[str]]:
+    """Pour un sondage SCHEDULE, détecte les créneaux proposés qui chevauchent
+    un événement d'agenda ou une tenue déjà planifiée. Recalculé à chaque
+    affichage (l'agenda peut évoluer après la création du sondage)."""
+    from app.models.calendar import Event
+    from app.models.meetings import Meeting
+
+    slots = [(opt.id, opt.slot_start, opt.slot_end) for opt in options if opt.slot_start]
+    if not slots:
+        return {}
+
+    lo = min(s[1] for s in slots).date()
+    hi = max((s[2] or s[1]) for s in slots).date()
+
+    ev_r = await db.execute(
+        select(Event).where(
+            Event.date_start >= datetime.combine(lo, datetime.min.time()),
+            Event.date_start <= datetime.combine(hi, datetime.max.time()),
+        )
+    )
+    events = ev_r.scalars().all()
+    mt_r = await db.execute(
+        select(Meeting).where(Meeting.meeting_date >= lo, Meeting.meeting_date <= hi)
+    )
+    meetings = mt_r.scalars().all()
+
+    conflicts: dict[int, list[str]] = {}
+    for opt_id, start, end in slots:
+        end_eff = end or (start + timedelta(hours=2))
+        msgs = []
+        for ev in events:
+            ev_end = ev.date_end or (ev.date_start + timedelta(hours=2))
+            if ev.date_start < end_eff and ev_end > start:
+                msgs.append(f"Événement « {ev.title} »")
+        for mt in meetings:
+            if mt.meeting_date == start.date():
+                msgs.append("Tenue" + (f" « {mt.title} »" if mt.title else "") + f" du {mt.meeting_date.strftime('%d/%m/%Y')}")
+        if msgs:
+            conflicts[opt_id] = msgs
+    return conflicts
 
 
 async def _check_group_access(member: Member, group_id: int, db: AsyncSession) -> bool:
@@ -199,7 +255,7 @@ async def polls_create(
     else:
         min_grade, target_group_id = _parse_target(target)
 
-    vt = "RANKING" if vote_type == "RANKING" else "CHOICE"
+    vt = vote_type if vote_type in ("RANKING", "SCHEDULE") else "CHOICE"
     try:
         r_winners = max(1, int(rating_winners))
     except ValueError:
@@ -208,7 +264,7 @@ async def polls_create(
     poll = Poll(
         title=title,
         description=description.strip() or None,
-        is_multiple=bool(is_multiple) and vt == "CHOICE",
+        is_multiple=(bool(is_multiple) and vt == "CHOICE") or vt == "SCHEDULE",
         is_anonymous=bool(is_anonymous),
         is_public_vote=bool(is_public_vote),
         min_grade=min_grade,
@@ -222,9 +278,37 @@ async def polls_create(
     db.add(poll)
     await db.flush()
 
-    labels = [l.strip() for l in options_raw.splitlines() if l.strip()]
-    for i, label in enumerate(labels):
-        db.add(PollOption(poll_id=poll.id, label=label, order_position=i))
+    if vt == "SCHEDULE":
+        form = await request.form()
+        slot_dates = form.getlist("slot_date")
+        slot_start_times = form.getlist("slot_start_time")
+        slot_end_times = form.getlist("slot_end_time")
+        i = 0
+        for d, st, en in zip(slot_dates, slot_start_times, slot_end_times):
+            if not d.strip() or not st.strip():
+                continue
+            try:
+                start_dt = datetime.fromisoformat(f"{d}T{st}")
+            except ValueError:
+                continue
+            end_dt = None
+            if en.strip():
+                try:
+                    end_dt = datetime.fromisoformat(f"{d}T{en}")
+                except ValueError:
+                    end_dt = None
+            db.add(PollOption(
+                poll_id=poll.id, label=_format_slot_label(start_dt, end_dt),
+                order_position=i, slot_start=start_dt, slot_end=end_dt,
+            ))
+            i += 1
+        if i == 0:
+            await db.rollback()
+            raise HTTPException(status_code=400, detail="Ajoutez au moins un créneau")
+    else:
+        labels = [l.strip() for l in options_raw.splitlines() if l.strip()]
+        for i, label in enumerate(labels):
+            db.add(PollOption(poll_id=poll.id, label=label, order_position=i))
 
     await db.commit()
 
@@ -280,7 +364,11 @@ async def _compute_results(poll: Poll, my_option_ids: set, db: AsyncSession) -> 
     else:
         total_votes = len(poll.votes)
         results = []
-        for opt in sorted(poll.options, key=lambda o: o.order_position):
+        if poll.vote_type == "SCHEDULE":
+            opts_sorted = sorted(poll.options, key=lambda o: o.slot_start or datetime.max)
+        else:
+            opts_sorted = sorted(poll.options, key=lambda o: o.order_position)
+        for opt in opts_sorted:
             count = sum(1 for v in poll.votes if v.option_id == opt.id)
             pct = round(count * 100 / total_votes) if total_votes else 0
             voters = []
@@ -331,7 +419,16 @@ async def poll_detail(
     # Ordre stable et identique pour tous les votants (indépendant des
     # résultats en cours) — sinon un votant plus tardif verrait les options
     # déjà réordonnées par le classement provisoire, ce qui biaise le vote.
-    vote_options = sorted(poll.options, key=lambda o: o.order_position)
+    # Pour un sondage SCHEDULE, l'ordre chronologique des créneaux est bien
+    # plus lisible que l'ordre de création.
+    if poll.vote_type == "SCHEDULE":
+        vote_options = sorted(poll.options, key=lambda o: o.slot_start or datetime.max)
+    else:
+        vote_options = sorted(poll.options, key=lambda o: o.order_position)
+
+    schedule_conflicts = {}
+    if poll.vote_type == "SCHEDULE":
+        schedule_conflicts = await _check_schedule_conflicts(poll.options, db)
 
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 
@@ -348,6 +445,7 @@ async def poll_detail(
         "my_option_ids": my_option_ids,
         "my_ranks": my_ranks,
         "edit_mode": edit_mode,
+        "schedule_conflicts": schedule_conflicts,
         "is_open": _is_open(poll),
         "can_manage": _can_manage(member, user.is_admin),
         "author": author,

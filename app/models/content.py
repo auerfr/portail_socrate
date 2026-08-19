@@ -46,10 +46,12 @@ class Poll(Base):
     is_multiple: Mapped[bool]    = mapped_column(Boolean, default=False)  # multi-réponses
     is_anonymous: Mapped[bool]   = mapped_column(Boolean, default=False)
     is_public_vote: Mapped[bool] = mapped_column(Boolean, default=False)  # vote public
-    # "CHOICE" (classique, un ou plusieurs choix) ou "RANKING" (classement :
+    # "CHOICE" (classique, un ou plusieurs choix), "RANKING" (classement :
     # chaque membre range toutes les options de 1 = préférée à n = la moins
     # aimée, sans doublon ; les options sont ensuite triées par rang moyen —
-    # ex. sélection des questions à l'étude parmi plusieurs proposées).
+    # ex. sélection des questions à l'étude parmi plusieurs proposées) ou
+    # "SCHEDULE" (créneaux type Framadate : chacun coche les créneaux qui lui
+    # conviennent parmi des options datées — réutilise le vote CHOICE multiple).
     vote_type: Mapped[str]                = mapped_column(String(20), default="CHOICE")
     rating_scale: Mapped[Optional[int]]   = mapped_column(Integer)  # hérité, non utilisé
     rating_winners: Mapped[Optional[int]] = mapped_column(Integer)  # nb d'options mises en avant (RANKING)
