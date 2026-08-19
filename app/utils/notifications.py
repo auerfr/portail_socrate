@@ -23,6 +23,7 @@ async def send_notification(
     body: str,
     min_grade: Optional[str] = None,
     target_group_id: Optional[int] = None,
+    member_ids: Optional[list[int]] = None,
     push_url: str = "/messages",
     push_body: Optional[str] = None,
 ) -> None:
@@ -33,7 +34,12 @@ async def send_notification(
     )
     all_members = r.scalars().all()
 
-    if target_group_id:
+    if member_ids:
+        active_ids = {m.id for m in all_members}
+        recipient_ids = [mid for mid in member_ids if mid != sender_id and mid in active_ids]
+        target_type = MessageTargetType.MANUAL
+        target_filter = json.dumps({"member_ids": member_ids})
+    elif target_group_id:
         from app.models.groups import LodgeGroup, GroupMembership, GroupType
         group = await db.get(LodgeGroup, target_group_id)
         if not group:

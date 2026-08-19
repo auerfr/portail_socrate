@@ -1115,4 +1115,6 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         cols2 = [row[1] for row in r2.fetchall()]
         if "score" not in cols2:
             await conn.exec_driver_sql("ALTER TABLE poll_votes ADD COLUMN score INTEGER")
+        if "target_member_ids" not in cols:
+            await conn.exec_driver_sql("ALTER TABLE polls ADD COLUMN target_member_ids JSON")
 

@@ -13,7 +13,17 @@
     <h1 class="text-xl font-bold text-gray-900">Nouveau sondage</h1>
   </div>
 
-  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8" x-data="{ voteType: 'CHOICE' }">
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8"
+       x-data="{
+         voteType: 'CHOICE',
+         target: '{{ target_value }}',
+         memberSearch: '',
+         selectedMembers: [],
+         toggleMember(id) {
+           const i = this.selectedMembers.indexOf(id);
+           if (i >= 0) this.selectedMembers.splice(i, 1); else this.selectedMembers.push(id);
+         }
+       }">
     <form method="post" action="/polls/new" class="space-y-5">
 
       <div>
@@ -28,31 +38,21 @@
             </div>
           </label>
           <label class="flex items-start gap-2.5 p-3.5 rounded-xl border-2 cursor-pointer transition-colors"
-                 :class="voteType === 'RATING' ? 'border-loge-500 bg-loge-50' : 'border-gray-200 hover:border-gray-300'">
-            <input type="radio" name="vote_type" value="RATING" x-model="voteType" class="mt-0.5 text-loge-600 focus:ring-loge-500">
+                 :class="voteType === 'RANKING' ? 'border-loge-500 bg-loge-50' : 'border-gray-200 hover:border-gray-300'">
+            <input type="radio" name="vote_type" value="RANKING" x-model="voteType" class="mt-0.5 text-loge-600 focus:ring-loge-500">
             <div>
-              <div class="text-sm font-medium text-gray-800">Notation / classement</div>
-              <div class="text-xs text-gray-400">Chacun note chaque option, classement par score moyen</div>
+              <div class="text-sm font-medium text-gray-800">Classement</div>
+              <div class="text-xs text-gray-400">Chacun classe toutes les options de la préférée à la moins aimée</div>
             </div>
           </label>
         </div>
       </div>
 
-      <div x-show="voteType === 'RATING'" x-cloak class="grid sm:grid-cols-2 gap-4 p-4 bg-loge-50/50 border border-loge-100 rounded-xl">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Échelle de notation</label>
-          <select name="rating_scale" class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            <option value="3">0 à 3</option>
-            <option value="5" selected>0 à 5</option>
-            <option value="10">0 à 10</option>
-          </select>
-        </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Options mises en avant</label>
-          <input type="number" name="rating_winners" value="3" min="1" max="10"
-                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-          <p class="text-xs text-gray-400 mt-1">Les N meilleures moyennes seront mises en avant dans les résultats</p>
-        </div>
+      <div x-show="voteType === 'RANKING'" x-cloak class="p-4 bg-loge-50/50 border border-loge-100 rounded-xl">
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Options mises en avant</label>
+        <input type="number" name="rating_winners" value="3" min="1" max="10"
+               class="w-full sm:w-48 border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <p class="text-xs text-gray-400 mt-1">Les N options avec le meilleur rang moyen (1 = préférée) seront mises en avant dans les résultats</p>
       </div>
 
       <div>
@@ -80,7 +80,7 @@
       <div class="grid sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">Public cible</label>
-          <select name="target"
+          <select name="target" x-model="target"
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             <option value="" {% if not target_value %}selected{% endif %}>Tous les membres</option>
             <optgroup label="Par grade">
@@ -94,6 +94,7 @@
               {% endfor %}
             </optgroup>
             {% endif %}
+            <option value="members">— Membres spécifiques —</option>
           </select>
         </div>
         <div>
@@ -101,6 +102,24 @@
           <input type="datetime-local" name="ends_at"
                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
+      </div>
+
+      <div x-show="target === 'members'" x-cloak class="p-4 bg-amber-50/50 border border-amber-100 rounded-xl">
+        <p class="text-xs text-amber-700 mb-2">⚠ Seuls les membres sélectionnés ci-dessous pourront voir et voter à ce sondage — les autres n'y auront pas accès du tout, même l'administrateur ne changera pas cela sans modifier le ciblage.</p>
+        <input type="text" x-model="memberSearch" placeholder="Rechercher un membre…"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 mb-2">
+        <div class="border border-gray-200 rounded-lg divide-y divide-gray-100 max-h-56 overflow-y-auto bg-white">
+          {% for m in active_members %}
+          <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
+                 x-show="!memberSearch || '{{ ((m.last_name | anon_nom) ~ ' ' ~ m.first_name) | lower }}'.includes(memberSearch.toLowerCase())">
+            <input type="checkbox" class="rounded border-gray-300 text-loge-600 focus:ring-loge-500"
+                   value="{{ m.id }}" @change="toggleMember({{ m.id }})">
+            <span class="text-sm text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
+          </label>
+          {% endfor %}
+        </div>
+        <input type="hidden" name="member_ids" :value="selectedMembers.join(',')">
+        <p class="text-xs text-gray-400 mt-1"><span x-text="selectedMembers.length"></span> membre(s) sélectionné(s)</p>
       </div>
 
       <div class="flex flex-col gap-3 p-4 bg-gray-50 rounded-xl">

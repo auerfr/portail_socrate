@@ -12,7 +12,7 @@ from app.database import get_db
 from app.dependencies import require_auth
 from app.models.content import Poll, PollOption, PollVote
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
-from app.models.identity import Member, MasonicGrade, LodgeFunction
+from app.models.identity import Member, MasonicGrade, LodgeFunction, MemberStatus
 
 router = APIRouter(prefix="/polls", tags=["polls"])
 from app.template_engine import templates
@@ -72,6 +72,8 @@ async def _check_group_access(member: Member, group_id: int, db: AsyncSession) -
 async def _can_access(poll: Poll, member: Member, is_admin: bool, db: AsyncSession) -> bool:
     if is_admin:
         return True
+    if poll.target_member_ids:
+        return member.id in poll.target_member_ids
     if poll.target_group_id:
         return await _check_group_access(member, poll.target_group_id, db)
     if poll.min_grade:
@@ -138,12 +140,17 @@ async def polls_new_form(
     user, member = ctx
     if not _can_manage(member, user.is_admin):
         raise HTTPException(status_code=403)
+    r_members = await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
+        .order_by(Member.last_name, Member.first_name)
+    )
     return templates.TemplateResponse(request, "pages/polls/form.html", {
         "current_member": member,
         "current_user": user,
         "poll": None,
         "groups": await _load_groups(db),
         "target_value": "",
+        "active_members": r_members.scalars().all(),
     })
 
 
@@ -162,8 +169,8 @@ async def polls_create(
     ends_at: str = Form(""),
     notify_members: str = Form(""),
     vote_type: str = Form("CHOICE"),
-    rating_scale: str = Form("5"),
     rating_winners: str = Form("3"),
+    member_ids: str = Form(""),
 ):
     user, member = ctx
     if not _can_manage(member, user.is_admin):
@@ -180,13 +187,19 @@ async def polls_create(
         except ValueError:
             pass
 
-    min_grade, target_group_id = _parse_target(target)
+    target_member_ids = None
+    if target == "members":
+        try:
+            target_member_ids = [int(x) for x in member_ids.split(",") if x.strip()]
+        except ValueError:
+            target_member_ids = []
+        if not target_member_ids:
+            raise HTTPException(status_code=400, detail="Sélectionnez au moins un membre")
+        min_grade, target_group_id = None, None
+    else:
+        min_grade, target_group_id = _parse_target(target)
 
-    vt = "RATING" if vote_type == "RATING" else "CHOICE"
-    try:
-        r_scale = max(2, min(10, int(rating_scale)))
-    except ValueError:
-        r_scale = 5
+    vt = "RANKING" if vote_type == "RANKING" else "CHOICE"
     try:
         r_winners = max(1, int(rating_winners))
     except ValueError:
@@ -200,11 +213,11 @@ async def polls_create(
         is_public_vote=bool(is_public_vote),
         min_grade=min_grade,
         target_group_id=target_group_id,
+        target_member_ids=target_member_ids,
         ends_at=ea,
         created_by_id=member.id,
         vote_type=vt,
-        rating_scale=r_scale if vt == "RATING" else None,
-        rating_winners=r_winners if vt == "RATING" else None,
+        rating_winners=r_winners if vt == "RANKING" else None,
     )
     db.add(poll)
     await db.flush()
@@ -224,6 +237,7 @@ async def polls_create(
             f"Un nouveau sondage vous attend :\n\n{poll.title}\n\n{view_url}",
             min_grade=poll.min_grade,
             target_group_id=poll.target_group_id,
+            member_ids=poll.target_member_ids,
             push_url=f"/polls/{poll.id}",
             push_body=f"Cliquez pour voter — {poll.title}",
         )
@@ -257,13 +271,12 @@ async def poll_detail(
     my_option_ids = {v.option_id for v in my_votes}
     has_voted = bool(my_votes)
 
-    if poll.vote_type == "RATING":
-        scale = poll.rating_scale or 5
+    if poll.vote_type == "RANKING":
+        n_options = len(poll.options)
         results = []
         for opt in sorted(poll.options, key=lambda o: o.order_position):
-            scores = [v.score for v in poll.votes if v.option_id == opt.id and v.score is not None]
-            avg = round(sum(scores) / len(scores), 2) if scores else 0.0
-            pct = round((avg / scale) * 100) if scale else 0
+            ranks = [v.score for v in poll.votes if v.option_id == opt.id and v.score is not None]
+            avg = round(sum(ranks) / len(ranks), 2) if ranks else None
             voters = []
             if poll.is_public_vote and not poll.is_anonymous:
                 voter_ids = [v.member_id for v in poll.votes if v.option_id == opt.id and v.member_id]
@@ -272,20 +285,19 @@ async def poll_detail(
                     voters = vr.scalars().all()
             results.append({
                 "option": opt,
-                "count": len(scores),
+                "count": len(ranks),
                 "avg": avg,
-                "pct": pct,
+                # Barre visuelle : rang 1 (préféré) = 100%, rang n = ~0%.
+                "pct": round((1 - (avg - 1) / (n_options - 1)) * 100) if avg and n_options > 1 else (100 if avg else 0),
                 "is_mine": opt.id in my_option_ids,
                 "voters": voters,
             })
-        results.sort(key=lambda r: r["avg"], reverse=True)
+        # Rang moyen le plus BAS = option la plus préférée → en tête.
+        results.sort(key=lambda r: (r["avg"] is None, r["avg"]))
         n_winners = poll.rating_winners or 3
         for i, r in enumerate(results):
-            r["is_winner"] = i < n_winners and r["avg"] > 0
+            r["is_winner"] = i < n_winners and r["avg"] is not None
             r["rank"] = i + 1
-        # Approximation : nombre de participants = celui de l'option la plus
-        # notée (un votant peut s'abstenir sur certaines options sans que ce
-        # soit traçable individuellement une fois le vote anonymisé).
         total_votes = max((r["count"] for r in results), default=0)
     else:
         total_votes = len(poll.votes)
@@ -351,23 +363,28 @@ async def poll_vote(
     form = await request.form()
     member_id = None if poll.is_anonymous else member.id
 
-    if poll.vote_type == "RATING":
-        valid_ids = {opt.id for opt in poll.options}
-        scale = poll.rating_scale or 5
-        any_score = False
-        for opt_id in valid_ids:
-            raw = form.get(f"score_{opt_id}", "")
-            if raw == "" or raw is None:
-                continue  # abstention sur cette option
+    if poll.vote_type == "RANKING":
+        option_ids = [opt.id for opt in poll.options]
+        n = len(option_ids)
+        ranks: dict[int, int] = {}
+        for opt_id in option_ids:
+            raw = form.get(f"rank_{opt_id}", "")
             try:
-                score = int(raw)
-            except ValueError:
-                continue
-            score = max(0, min(scale, score))
-            db.add(PollVote(poll_id=poll_id, option_id=opt_id, member_id=member_id, score=score))
-            any_score = True
-        if not any_score:
-            return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
+                ranks[opt_id] = int(raw)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="Classement incomplet")
+
+        # Doit être une permutation exacte de 1..n (chaque rang utilisé une
+        # seule fois) — sinon la moyenne des rangs n'a pas de sens.
+        if sorted(ranks.values()) != list(range(1, n + 1)):
+            raise HTTPException(
+                status_code=400,
+                detail="Chaque option doit avoir un rang distinct, de 1 (préférée) à "
+                       f"{n} (la moins aimée), sans doublon.",
+            )
+
+        for opt_id, rank in ranks.items():
+            db.add(PollVote(poll_id=poll_id, option_id=opt_id, member_id=member_id, score=rank))
     else:
         option_ids_raw = form.getlist("option_id")
         if not option_ids_raw:

@@ -3,7 +3,7 @@ Actualités, Sondages, Contacts, Liens
 """
 from datetime import datetime, date
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, Date, Integer, ForeignKey, Text, func
+from sqlalchemy import String, Boolean, DateTime, Date, Integer, ForeignKey, Text, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -46,15 +46,17 @@ class Poll(Base):
     is_multiple: Mapped[bool]    = mapped_column(Boolean, default=False)  # multi-réponses
     is_anonymous: Mapped[bool]   = mapped_column(Boolean, default=False)
     is_public_vote: Mapped[bool] = mapped_column(Boolean, default=False)  # vote public
-    # "CHOICE" (classique, un ou plusieurs choix) ou "RATING" (notation par
-    # option, classement par score moyen — ex. sélection des questions à
-    # l'étude selon un principe de type Condorcet/vote de valeur).
-    vote_type: Mapped[str]              = mapped_column(String(20), default="CHOICE")
-    rating_scale: Mapped[Optional[int]] = mapped_column(Integer)    # note max (RATING), ex. 5
-    rating_winners: Mapped[Optional[int]] = mapped_column(Integer)  # nb d'options mises en avant (RATING)
+    # "CHOICE" (classique, un ou plusieurs choix) ou "RANKING" (classement :
+    # chaque membre range toutes les options de 1 = préférée à n = la moins
+    # aimée, sans doublon ; les options sont ensuite triées par rang moyen —
+    # ex. sélection des questions à l'étude parmi plusieurs proposées).
+    vote_type: Mapped[str]                = mapped_column(String(20), default="CHOICE")
+    rating_scale: Mapped[Optional[int]]   = mapped_column(Integer)  # hérité, non utilisé
+    rating_winners: Mapped[Optional[int]] = mapped_column(Integer)  # nb d'options mises en avant (RANKING)
     ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     min_grade: Mapped[Optional[str]]    = mapped_column(String(50))
     target_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lodge_groups.id"), nullable=True)
+    target_member_ids: Mapped[Optional[list]] = mapped_column(JSON)  # ciblage manuel (liste d'IDs membres)
 
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
