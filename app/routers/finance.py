@@ -839,6 +839,41 @@ async def config_update(
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
 
+@router.post("/config/adjust-treasury")
+async def config_adjust_treasury(
+    request: Request,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: Annotated[int, Form()],
+    amount: Annotated[float, Form()],
+    reason: Annotated[str, Form()],
+):
+    """Correction ponctuelle de la trésorerie initiale en cours d'année (écart
+    constaté avec le relevé bancaire) — n'affecte ni les taux de capitation ni
+    le barème T3, contrairement à « Recalculer le barème »."""
+    user, member = ctx
+    reason = reason.strip()
+    if not reason:
+        raise HTTPException(400, "Le motif de l'ajustement est requis")
+
+    cfg = await _get_or_create_config(db, year_id)
+    before = float(cfg.initial_treasury or 0)
+    cfg.initial_treasury = amount
+
+    from app.services.audit import log_audit
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_TREASURY_ADJUST",
+        target_type="contribution_config", target_id=cfg.id,
+        target_label=f"Année {year_id}",
+        details=f"Trésorerie initiale : {before:.2f}€ → {amount:.2f}€ — motif : {reason}",
+        request=request,
+    )
+
+    await db.commit()
+    return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
+
+
 # ── Export CSV retardataires ──────────────────────────────────────────────────
 
 @router.get("/cotisations/export-csv")
