@@ -1,4 +1,5 @@
 """Router Programmes — génération mensuelle avec URL d'inscription et QR codes"""
+import base64
 import io
 import logging
 import uuid
@@ -725,6 +726,23 @@ async def program_preview_email(
     from app.config import get_settings as _gs
     _imap_user = _gs().imap_user or None
 
+    # Dans le vrai email, le QR code est une image intégrée (cid:) attachée au
+    # message — un navigateur ne sait pas résoudre cid: en dehors d'un client
+    # mail, donc pour cette prévisualisation on l'encode en data: URI à la
+    # place, afin que le QR s'affiche réellement (le rendu final envoyé reste
+    # inchangé, cid:, cf. program_send).
+    qr_pngs: dict[int, bytes] = {}
+    for pm in pm_sorted:
+        m = pm.meeting
+        qr_url = pm.registration_url or _inscription_url(request, m.token)
+        qr_pngs[m.id] = _qr_png(qr_url)
+
+    def _qr_src(meeting_id: int) -> str:
+        png = qr_pngs.get(meeting_id)
+        if not png:
+            return ""
+        return f"data:image/png;base64,{base64.b64encode(png).decode()}"
+
     html_content = templates.TemplateResponse(request, "emails/programme.html", {
         "program": program,
         "pm_sorted": pm_sorted,
@@ -732,6 +750,7 @@ async def program_preview_email(
         "GRADE_LABELS": GRADE_LABELS,
         "date_civil": _date_civil,
         "inscription_url": lambda token: _inscription_url(request, token),
+        "qr_src": _qr_src,
         "greeting": "Mon T∴C∴F∴, ma T∴C∴S∴,",
         "base_url": str(request.base_url).rstrip("/"),
         "has_attachment": False,
@@ -1026,6 +1045,7 @@ async def program_send_external(
             "GRADE_LABELS": GRADE_LABELS,
             "date_civil": _date_civil,
             "inscription_url": lambda token: _inscription_url(request, token),
+            "qr_src": lambda meeting_id: f"cid:qr{meeting_id}",
             "greeting": greeting,
             "base_url": base_url,
             "has_attachment": attachments is not None,
