@@ -42,6 +42,31 @@ class ReportStatus(str, enum.Enum):
     APPROVED = "APPROVED"
 
 
+# ── Année civile (exercice comptable) ───────────────────────────────────────
+
+class FiscalYear(Base):
+    """
+    Année civile (1er janvier → 31 décembre) — axe de rattachement de toute
+    la comptabilité (budget, cotisations, trésorerie, bilan).
+
+    Distinct de MasonicYear (1er septembre → juin), qui ne sert plus qu'au
+    tableau des officiers et aux tenues. Le budget prévisionnel de l'année
+    civile N+1 est voté en décembre de l'année N, ce qui déclenche l'appel
+    à tranche pour N+1 — d'où le statut "prévisionnelle" avant le 1er janvier.
+    """
+    __tablename__ = "fiscal_years"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    label: Mapped[str] = mapped_column(String(20), unique=True)  # "2027"
+    start_date: Mapped[date] = mapped_column(Date)
+    end_date: Mapped[date] = mapped_column(Date)
+    is_current: Mapped[bool] = mapped_column(Boolean, default=False)
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    def __repr__(self) -> str:
+        return f"<FiscalYear {self.label}>"
+
+
 # ── Budget ─────────────────────────────────────────────────────────────────
 
 class BudgetLine(Base):
@@ -53,7 +78,8 @@ class BudgetLine(Base):
     __tablename__ = "budget_lines"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"))
+    masonic_year_id: Mapped[Optional[int]] = mapped_column(ForeignKey("masonic_years.id"))  # legacy, non utilisé
+    fiscal_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("fiscal_years.id"), index=True)
     label: Mapped[str]                    = mapped_column(String(300))
     type: Mapped[BudgetLineType]          = mapped_column(Enum(BudgetLineType))
     category_label: Mapped[Optional[str]] = mapped_column(String(200))  # catégorie libre
@@ -73,7 +99,8 @@ class ContributionConfig(Base):
     __tablename__ = "contribution_configs"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), unique=True)
+    masonic_year_id: Mapped[Optional[int]] = mapped_column(ForeignKey("masonic_years.id"))  # legacy, non utilisé
+    fiscal_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("fiscal_years.id"), unique=True, index=True)
 
     # Montant calculé depuis le budget (mis à jour quand budget change)
     reference_amount: Mapped[float]         = mapped_column(Numeric(10, 2))
@@ -132,7 +159,8 @@ class MemberContribution(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     member_id: Mapped[int]       = mapped_column(ForeignKey("members.id"), index=True)
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), index=True)
+    masonic_year_id: Mapped[Optional[int]] = mapped_column(ForeignKey("masonic_years.id"), index=True)  # legacy, non utilisé
+    fiscal_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("fiscal_years.id"), index=True)
     tier_id: Mapped[int]         = mapped_column(ForeignKey("contribution_tiers.id"), index=True)
 
     base_amount: Mapped[float]       = mapped_column(Numeric(10, 2))  # cotisation pure
@@ -189,7 +217,8 @@ class Quitus(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
     member_id: Mapped[int]       = mapped_column(ForeignKey("members.id"), index=True)
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), index=True)
+    masonic_year_id: Mapped[Optional[int]] = mapped_column(ForeignKey("masonic_years.id"), index=True)  # legacy, non utilisé
+    fiscal_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("fiscal_years.id"), index=True)
     contribution_id: Mapped[int] = mapped_column(
         ForeignKey("member_contributions.id"), unique=True
     )
@@ -211,7 +240,8 @@ class BudgetCategory(Base):
     __tablename__ = "budget_categories"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), index=True)
+    masonic_year_id: Mapped[Optional[int]] = mapped_column(ForeignKey("masonic_years.id"), index=True)  # legacy, non utilisé
+    fiscal_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("fiscal_years.id"), index=True)
     name: Mapped[str]             = mapped_column(String(200))
     type: Mapped[TransactionType] = mapped_column(Enum(TransactionType))
     planned_amount: Mapped[float] = mapped_column(Numeric(10, 2), default=0)
@@ -224,7 +254,8 @@ class Transaction(Base):
     __tablename__ = "transactions"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    masonic_year_id: Mapped[int]  = mapped_column(ForeignKey("masonic_years.id"), index=True)
+    masonic_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("masonic_years.id"), index=True)  # legacy, non utilisé
+    fiscal_year_id: Mapped[Optional[int]]   = mapped_column(ForeignKey("fiscal_years.id"), index=True)
     category_id: Mapped[Optional[int]] = mapped_column(ForeignKey("budget_categories.id"), index=True)
 
     date: Mapped[date]              = mapped_column(Date)
@@ -243,7 +274,8 @@ class AccountingReport(Base):
     __tablename__ = "accounting_reports"
 
     id: Mapped[int] = mapped_column(primary_key=True)
-    masonic_year_id: Mapped[int] = mapped_column(ForeignKey("masonic_years.id"), unique=True)
+    masonic_year_id: Mapped[Optional[int]] = mapped_column(ForeignKey("masonic_years.id"))  # legacy, non utilisé
+    fiscal_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("fiscal_years.id"), unique=True, index=True)
     content_html: Mapped[Optional[str]] = mapped_column(Text)
     status: Mapped[ReportStatus]         = mapped_column(Enum(ReportStatus), default=ReportStatus.DRAFT)
     approved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))

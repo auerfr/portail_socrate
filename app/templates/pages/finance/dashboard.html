@@ -9,7 +9,7 @@
     <div>
       <h1 class="text-2xl font-bold text-gray-900">Trésorerie</h1>
       <p class="text-sm text-gray-500 mt-1">
-        {% if year %}{{ year.label }}{% else %}Aucune année maçonnique active{% endif %}
+        {% if year %}{{ year.label }}{% else %}Aucune année civile active{% endif %}
       </p>
     </div>
     {% if year %}
@@ -51,7 +51,7 @@
 
   {% if not year %}
   <div class="text-center py-16 bg-white rounded-xl shadow-sm border border-gray-100">
-    <p class="font-medium text-gray-500">Aucune année maçonnique en cours.</p>
+    <p class="font-medium text-gray-500">Aucune année civile en cours.</p>
   </div>
   {% else %}
 
@@ -107,6 +107,30 @@
     <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-2">
       <span class="text-gray-500 min-w-0 text-xs sm:text-sm">Avances</span>
       <span class="font-semibold text-purple-600 shrink-0">{{ "%.2f"|format(stats.total_advances) }} €</span>
+    </div>
+  </div>
+
+  <!-- Ligne 3 : indicateurs droit de vote (informatifs) -->
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6 text-sm">
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-gray-500 text-xs sm:text-sm">Vote interne — à jour au prorata ({{ stats.vote_required_months }}/12)</span>
+        {% if stats.vote_not_ok_count == 0 %}
+        <span class="font-semibold text-green-600 shrink-0">Tous à jour</span>
+        {% else %}
+        <span class="font-semibold text-amber-600 shrink-0">{{ stats.vote_not_ok_count }} pas à jour</span>
+        {% endif %}
+      </div>
+      <p class="text-[10px] text-gray-400 mt-1">Un membre doit avoir payé au moins {{ stats.vote_required_months }}/12 de sa cotisation pour voter aux élections internes.</p>
+    </div>
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3">
+      <div class="flex items-center justify-between gap-2">
+        <span class="text-gray-500 text-xs sm:text-sm">Capitations GODF (indicatif)</span>
+        <span class="font-semibold {% if stats.capitation_paid >= stats.capitation_expected and stats.capitation_expected > 0 %}text-green-600{% else %}text-gray-600{% endif %} shrink-0">
+          {{ "%.0f"|format(stats.capitation_paid) }} € / {{ "%.0f"|format(stats.capitation_expected) }} €
+        </span>
+      </div>
+      <p class="text-[10px] text-gray-400 mt-1">Non bloquant — à jour souhaité pour le {{ stats.capitation_deadline.strftime('%d/%m/%Y') }} (avant le Convent).</p>
     </div>
   </div>
 
@@ -184,6 +208,7 @@
                 <th class="text-right px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell">Payé</th>
                 <th class="text-right px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell">Solde</th>
                 <th class="text-right px-3 py-3 font-medium text-xs text-gray-500">Reste</th>
+                <th class="text-center px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell" title="À jour au prorata pour voter aux élections internes">Vote</th>
                 {% if is_admin %}
                 <th class="px-3 py-3 font-medium text-xs text-gray-500 hidden sm:table-cell">Actions</th>
                 {% endif %}
@@ -237,6 +262,15 @@
                     {% endif %}
                   {% else %}
                   <span class="text-xs text-gray-400">—</span>
+                  {% endif %}
+                </td>
+
+                <!-- Vote interne -->
+                <td class="px-3 py-3 text-center hidden sm:table-cell">
+                  {% if ms.is_vote_ok %}
+                  <span class="text-green-600" title="À jour au prorata">✅</span>
+                  {% else %}
+                  <span class="text-amber-500" title="Pas encore à jour au prorata">⚠️</span>
                   {% endif %}
                 </td>
 

@@ -6,6 +6,7 @@ maniere autonome via scripts/migrate.py — utile quand le cycle de vie ASGI
 WSGI classique), ce qui laissait des colonnes manquantes en prod malgre
 un redemarrage de l'app.
 """
+from datetime import date
 from sqlalchemy.ext.asyncio import AsyncEngine
 
 
@@ -979,4 +980,104 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                     f"VALUES (?, ?, {now_str})",
                     (rv_id, contact_id),
                 )
+
+    # ── Chantier A : bascule comptabilité vers l'année civile (FiscalYear) ──
+    # Ajout des colonnes fiscal_year_id sur les 7 tables finance.
+    # masonic_year_id est conservé (colonne héritée) mais n'est plus utilisé
+    # par l'application — renseigné automatiquement en arrière-plan pour
+    # satisfaire les contraintes existantes, sans rôle fonctionnel.
+    finance_tables_fy = [
+        "budget_lines", "contribution_configs", "member_contributions",
+        "quitus", "budget_categories", "transactions", "accounting_reports",
+    ]
+    async with engine.begin() as conn:
+        for table in finance_tables_fy:
+            r = await conn.exec_driver_sql(f"PRAGMA table_info({table})")
+            cols = [row[1] for row in r.fetchall()]
+            if "fiscal_year_id" not in cols:
+                await conn.exec_driver_sql(
+                    f"ALTER TABLE {table} ADD COLUMN fiscal_year_id INTEGER REFERENCES fiscal_years(id)"
+                )
+
+    # contribution_configs.masonic_year_id portait une contrainte UNIQUE (un
+    # config par année maçonnique) — incompatible avec la création d'un
+    # nouveau config par année civile, qui réutilise la même valeur héritée.
+    # Reconstruction de la table (seule façon de retirer une contrainte
+    # UNIQUE en SQLite), idempotente : ne s'exécute que si la contrainte est
+    # encore présente.
+    async with engine.begin() as conn:
+        r_sql = await conn.exec_driver_sql(
+            "SELECT sql FROM sqlite_master WHERE type='table' AND name='contribution_configs'"
+        )
+        row = r_sql.fetchone()
+        if row and row[0] and "UNIQUE (masonic_year_id)" in row[0]:
+            await conn.exec_driver_sql("""
+                CREATE TABLE contribution_configs_new (
+                    id INTEGER NOT NULL,
+                    masonic_year_id INTEGER,
+                    fiscal_year_id INTEGER UNIQUE REFERENCES fiscal_years(id),
+                    reference_amount NUMERIC(10, 2) NOT NULL,
+                    national_capitation_rate NUMERIC(10, 2) NOT NULL,
+                    regional_capitation_rate NUMERIC(10, 2) NOT NULL,
+                    active_members_count INTEGER NOT NULL,
+                    initial_treasury NUMERIC(10, 2) NOT NULL,
+                    created_at DATETIME DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+                    updated_at DATETIME DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+                    tier_selection_open BOOLEAN NOT NULL,
+                    fiscal_year_label VARCHAR(20),
+                    capitations_published_at DATE,
+                    tier_selection_opens_at DATE,
+                    tier_selection_closes_at DATE,
+                    tier_selection_closed_at DATETIME,
+                    CONSTRAINT pk_contribution_configs_new PRIMARY KEY (id),
+                    CONSTRAINT fk_contribution_configs_new_masonic_year_id_masonic_years
+                        FOREIGN KEY(masonic_year_id) REFERENCES masonic_years (id)
+                )
+            """)
+            await conn.exec_driver_sql("""
+                INSERT INTO contribution_configs_new (
+                    id, masonic_year_id, fiscal_year_id, reference_amount,
+                    national_capitation_rate, regional_capitation_rate,
+                    active_members_count, initial_treasury, created_at, updated_at,
+                    tier_selection_open, fiscal_year_label, capitations_published_at,
+                    tier_selection_opens_at, tier_selection_closes_at, tier_selection_closed_at
+                )
+                SELECT
+                    id, masonic_year_id, fiscal_year_id, reference_amount,
+                    national_capitation_rate, regional_capitation_rate,
+                    active_members_count, initial_treasury, created_at, updated_at,
+                    tier_selection_open, fiscal_year_label, capitations_published_at,
+                    tier_selection_opens_at, tier_selection_closes_at, tier_selection_closed_at
+                FROM contribution_configs
+            """)
+            await conn.exec_driver_sql("DROP TABLE contribution_configs")
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs_new RENAME TO contribution_configs"
+            )
+
+    # Rattachement rétroactif de l'historique existant à l'année civile en
+    # cours (ex: la comptabilité 2025-2026 saisie sous l'ancien système
+    # devient l'année civile "2026") — ne s'exécute qu'une fois, si aucune
+    # FiscalYear n'existe encore.
+    async with engine.begin() as conn:
+        r_fy = await conn.exec_driver_sql("SELECT COUNT(*) FROM fiscal_years")
+        if r_fy.scalar() == 0:
+            r_has_data = await conn.exec_driver_sql("SELECT COUNT(*) FROM budget_lines")
+            if r_has_data.scalar() > 0:
+                today = date.today()
+                civil_label = str(today.year)
+                await conn.exec_driver_sql(
+                    "INSERT INTO fiscal_years (label, start_date, end_date, is_current, created_at) "
+                    "VALUES (?, ?, ?, 1, CURRENT_TIMESTAMP)",
+                    (civil_label, f"{today.year}-01-01", f"{today.year}-12-31"),
+                )
+                r_new = await conn.exec_driver_sql(
+                    "SELECT id FROM fiscal_years WHERE label = ?", (civil_label,)
+                )
+                fy_id = r_new.fetchone()[0]
+                for table in finance_tables_fy:
+                    await conn.exec_driver_sql(
+                        f"UPDATE {table} SET fiscal_year_id = ? WHERE fiscal_year_id IS NULL",
+                        (fy_id,),
+                    )
 

@@ -28,7 +28,7 @@
 
   {% if not selected_year %}
   <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-800">
-    Aucune année maçonnique configurée.
+    Aucune année civile configurée.
   </div>
   {% else %}
 
@@ -52,12 +52,7 @@
           <strong>Année close</strong> ({{ selected_year.label }})
           <span class="text-xs">— modifications déconseillées</span>
         {% else %}
-          <strong>Saison {{ selected_year.label }}</strong>
-        {% endif %}
-        {% if cfg and cfg.fiscal_year_label %}
-        <span class="text-xs bg-white/70 rounded-full px-2 py-0.5 font-mono">
-          Exercice {{ cfg.fiscal_year_label }}
-        </span>
+          <strong>Année {{ selected_year.label }}</strong>
         {% endif %}
       </div>
       <div class="text-xs">
@@ -320,17 +315,6 @@
 
             <div>
               <label class="block text-xs font-medium text-gray-700 mb-1">
-                Exercice budgétaire (année civile)
-              </label>
-              <input type="text" name="fiscal_year_label"
-                     value="{{ cfg.fiscal_year_label or '' if cfg else '' }}"
-                     placeholder="ex : 2027"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-              <p class="text-[10px] text-gray-400 mt-0.5">Saison maçonnique = sept→juin. Cotisations encaissées sur l'année civile.</p>
-            </div>
-
-            <div>
-              <label class="block text-xs font-medium text-gray-700 mb-1">
                 Capitations publiées le
               </label>
               <input type="date" name="capitations_published_at"
@@ -441,7 +425,7 @@
     {% if is_admin %}
     <button onclick="document.getElementById('modal-new-year').classList.remove('hidden')"
             class="inline-flex items-center gap-2 border border-loge-200 text-loge-700 px-4 py-2 rounded-lg text-sm hover:bg-loge-50">
-      📅 Nouvelle année maçonnique
+      📅 Voter le budget (nouvelle année civile)
     </button>
     {% endif %}
   </div>
@@ -486,22 +470,25 @@
 {% if is_admin %}
 <div id="modal-new-year" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-    <h2 class="text-lg font-bold text-gray-900 mb-4">📅 Nouvelle année maçonnique</h2>
+    <h2 class="text-lg font-bold text-gray-900 mb-4">📅 Voter le budget — nouvelle année civile</h2>
+    <p class="text-xs text-gray-500 mb-3">
+      Typiquement voté en décembre pour l'année civile suivante, ce qui déclenche l'appel à tranche.
+    </p>
     <form method="post" action="/finance/budget/new-year" class="space-y-3">
       <div>
-        <label class="block text-xs font-medium text-gray-700 mb-1">Label (ex: 6026-6027)</label>
-        <input type="text" name="label" required placeholder="6026-6027"
+        <label class="block text-xs font-medium text-gray-700 mb-1">Label (ex: 2027)</label>
+        <input type="text" name="label" required placeholder="2027" value="{{ default_label }}"
                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Début (1er sept)</label>
-          <input type="date" name="start_date" required
+          <label class="block text-xs font-medium text-gray-700 mb-1">Début (1er janvier)</label>
+          <input type="date" name="start_date" required value="{{ default_start }}"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
         <div>
-          <label class="block text-xs font-medium text-gray-700 mb-1">Fin (30 juin)</label>
-          <input type="date" name="end_date" required
+          <label class="block text-xs font-medium text-gray-700 mb-1">Fin (31 décembre)</label>
+          <input type="date" name="end_date" required value="{{ default_end }}"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
       </div>

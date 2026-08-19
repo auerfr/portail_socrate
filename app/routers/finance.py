@@ -22,7 +22,7 @@ from app.dependencies import require_auth, require_admin, require_finance_manage
 from app.models.finance import (
     BudgetLine, BudgetLineType, ContributionConfig, ContributionTier,
     MemberContribution, ContributionStatus, Payment, PaymentMethod, Quitus,
-    BudgetCategory, Transaction, TransactionType,
+    BudgetCategory, Transaction, TransactionType, FiscalYear,
 )
 from app.models.identity import Member, MemberStatus, MembershipType, User
 from app.models.lodge import MasonicYear
@@ -75,19 +75,34 @@ def _round2(v: float) -> Decimal:
     return Decimal(str(v)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
 
 
-async def _get_current_year(db: AsyncSession) -> Optional[MasonicYear]:
-    r = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True))
+async def _get_current_year(db: AsyncSession) -> Optional[FiscalYear]:
+    r = await db.execute(select(FiscalYear).where(FiscalYear.is_current == True))
     return r.scalar_one_or_none()
+
+
+async def _legacy_masonic_year_id(db: AsyncSession) -> Optional[int]:
+    """Valeur de compatibilité pour la colonne masonic_year_id des tables
+    finance — héritée (NOT NULL en base), mais sans rôle fonctionnel depuis la
+    bascule sur FiscalYear (année civile). On la renseigne juste pour
+    satisfaire la contrainte SQLite existante, sans jamais la lire ni la
+    filtrer côté application."""
+    r = await db.execute(select(MasonicYear.id).where(MasonicYear.is_current == True).limit(1))
+    my_id = r.scalar_one_or_none()
+    if my_id:
+        return my_id
+    r2 = await db.execute(select(MasonicYear.id).order_by(MasonicYear.id.desc()).limit(1))
+    return r2.scalar_one_or_none()
 
 
 async def _get_or_create_config(db: AsyncSession, year_id: int) -> ContributionConfig:
     r = await db.execute(
-        select(ContributionConfig).where(ContributionConfig.masonic_year_id == year_id)
+        select(ContributionConfig).where(ContributionConfig.fiscal_year_id == year_id)
     )
     cfg = r.scalar_one_or_none()
     if not cfg:
         cfg = ContributionConfig(
-            masonic_year_id=year_id,
+            fiscal_year_id=year_id,
+            masonic_year_id=await _legacy_masonic_year_id(db),
             reference_amount=0,
             national_capitation_rate=0,
             regional_capitation_rate=0,
@@ -126,7 +141,7 @@ async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
     # Total charges
     r = await db.execute(
         select(func.sum(BudgetLine.amount))
-        .where(BudgetLine.masonic_year_id == year_id)
+        .where(BudgetLine.fiscal_year_id == year_id)
     )
     total_charges = float(r.scalar_one() or 0)
 
@@ -141,7 +156,7 @@ async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
     r3 = await db.execute(
         select(ContributionTier.tier_number, func.count(MemberContribution.id))
         .join(MemberContribution, MemberContribution.tier_id == ContributionTier.id)
-        .where(MemberContribution.masonic_year_id == year_id)
+        .where(MemberContribution.fiscal_year_id == year_id)
         .group_by(ContributionTier.tier_number)
     )
     assigned_total = 0
@@ -177,12 +192,12 @@ async def finance_dashboard(
 ):
     user, member = ctx
 
-    r_years = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    r_years = await db.execute(select(FiscalYear).order_by(FiscalYear.start_date.desc()))
     years = r_years.scalars().all()
 
     year = None
     if year_id:
-        year = await db.get(MasonicYear, year_id)
+        year = await db.get(FiscalYear, year_id)
     if not year:
         year = next((y for y in years if y.is_current), years[0] if years else None)
 
@@ -207,7 +222,7 @@ async def finance_dashboard(
     # ── Contributions de l'année ──────────────────────────────────────────────
     rc = await db.execute(
         select(MemberContribution)
-        .where(MemberContribution.masonic_year_id == year.id)
+        .where(MemberContribution.fiscal_year_id == year.id)
         .options(selectinload(MemberContribution.payments),
                  selectinload(MemberContribution.quitus))
     )
@@ -215,6 +230,18 @@ async def finance_dashboard(
 
     # ── Tiers map ────────────────────────────────────────────────────────────
     tiers_map: dict[int, ContributionTier] = {t.id: t for t in cfg.tiers}
+
+    # ── Éligibilité au vote interne : à jour au prorata du temps écoulé sur
+    # l'année civile (ex. en juin, il faut avoir payé au moins 6/12 de la
+    # cotisation due) — pas besoin d'être totalement soldé.
+    today_ref = date.today()
+    if today_ref > year.end_date:
+        required_months = 12  # année passée : totalité exigible
+    elif today_ref < year.start_date:
+        required_months = 0   # année future : rien encore exigible
+    else:
+        required_months = today_ref.month
+    vote_required_ratio = required_months / 12
 
     # ── État par membre ───────────────────────────────────────────────────────
     member_states = []
@@ -230,10 +257,15 @@ async def finance_dashboard(
                 ContributionStatus.PAID, ContributionStatus.EXEMPT
             )
             is_ok = c.status in (ContributionStatus.PAID, ContributionStatus.EXEMPT) or remaining <= 0.005
+            if c.status == ContributionStatus.EXEMPT or due <= 0:
+                is_vote_ok = True
+            else:
+                is_vote_ok = paid >= (due * vote_required_ratio - 0.005)
         else:
             due = paid = remaining = advance = 0.0
             tier = is_late = None
             is_ok = False
+            is_vote_ok = False
 
         # Filtre texte
         if search:
@@ -257,6 +289,7 @@ async def finance_dashboard(
             "advance": advance,
             "is_late": is_late,
             "is_ok": is_ok,
+            "is_vote_ok": is_vote_ok,
         })
 
     # ── Stats globales (sur les membres non-admin uniquement) ────────────────
@@ -276,23 +309,39 @@ async def finance_dashboard(
 
     # Budget total
     rb = await db.execute(
-        select(func.sum(BudgetLine.amount)).where(BudgetLine.masonic_year_id == year.id)
+        select(func.sum(BudgetLine.amount)).where(BudgetLine.fiscal_year_id == year.id)
     )
     total_budget = float(rb.scalar_one() or 0)
 
     # Trésorerie théorique = initiale + encaissé + autres recettes - dépenses
     rt_income = await db.execute(
         select(func.sum(Transaction.amount))
-        .where(Transaction.masonic_year_id == year.id, Transaction.type == TransactionType.INCOME)
+        .where(Transaction.fiscal_year_id == year.id, Transaction.type == TransactionType.INCOME)
     )
     rt_expense = await db.execute(
         select(func.sum(Transaction.amount))
-        .where(Transaction.masonic_year_id == year.id, Transaction.type == TransactionType.EXPENSE)
+        .where(Transaction.fiscal_year_id == year.id, Transaction.type == TransactionType.EXPENSE)
     )
     other_income  = float(rt_income.scalar_one() or 0)
     total_expense = float(rt_expense.scalar_one() or 0)
     initial_treasury = float(cfg.initial_treasury or 0)
     theoretical_treasury = initial_treasury + total_paid + other_income - total_expense
+
+    # Capitations GODF — simple indicateur de suivi, non-bloquant (pas de
+    # gestion automatisée : la loge reverse les capitations collectées au
+    # GODF, pas de calendrier d'échéances à automatiser). Juste un repère
+    # avant l'obligation d'être soldé fin juillet (Convent fin août).
+    capitation_expected = sum(float(c.capitation_amount) for c in all_contribs)
+    rcap = await db.execute(
+        select(func.sum(Transaction.amount))
+        .join(BudgetCategory, Transaction.category_id == BudgetCategory.id)
+        .where(
+            Transaction.fiscal_year_id == year.id,
+            Transaction.type == TransactionType.EXPENSE,
+            BudgetCategory.name.ilike("%capitation%"),
+        )
+    )
+    capitation_paid = float(rcap.scalar_one() or 0)
 
     stats = {
         "total_due":      total_due,
@@ -308,6 +357,11 @@ async def finance_dashboard(
         "other_income":   other_income,
         "total_expense":  total_expense,
         "theoretical_treasury": theoretical_treasury,
+        "capitation_expected": capitation_expected,
+        "capitation_paid": capitation_paid,
+        "capitation_deadline": date(year.start_date.year, 7, 31),
+        "vote_required_months": required_months,
+        "vote_not_ok_count": sum(1 for ms in member_states if not ms["is_vote_ok"]),
     }
 
     # Top 10 retardataires (non filtré)
@@ -350,12 +404,12 @@ async def budget_view(
 ):
     user, member = ctx
     # Liste des années
-    r = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    r = await db.execute(select(FiscalYear).order_by(FiscalYear.start_date.desc()))
     years = r.scalars().all()
 
     selected_year = None
     if year_id:
-        selected_year = await db.get(MasonicYear, year_id)
+        selected_year = await db.get(FiscalYear, year_id)
     if not selected_year:
         selected_year = next((y for y in years if y.is_current), years[0] if years else None)
 
@@ -366,7 +420,7 @@ async def budget_view(
     if selected_year:
         r2 = await db.execute(
             select(BudgetLine)
-            .where(BudgetLine.masonic_year_id == selected_year.id)
+            .where(BudgetLine.fiscal_year_id == selected_year.id)
             .order_by(BudgetLine.order_position, BudgetLine.id)
         )
         budget_lines = r2.scalars().all()
@@ -385,7 +439,7 @@ async def budget_view(
     if cfg:
         try:
             from app.services.settings_store import get_setting
-            snap = await get_setting(f"finance_t3_snapshot_{cfg.masonic_year_id}", db=db)
+            snap = await get_setting(f"finance_t3_snapshot_{cfg.fiscal_year_id}", db=db)
             if snap and snap.get("ts"):
                 snap_dt = datetime.fromisoformat(snap["ts"])
                 if datetime.utcnow() - snap_dt < timedelta(hours=1):
@@ -394,7 +448,7 @@ async def budget_view(
         except Exception:
             pass
 
-    # Année courante au sens "is_current" (rituelle)
+    # Année civile courante au sens "is_current"
     current_year = next((y for y in years if y.is_current), None)
     is_current_selected = selected_year and selected_year.is_current
     is_future_selected = (
@@ -426,6 +480,9 @@ async def budget_view(
         "is_past_selected": is_past_selected,
         "today": date.today(),
         "undo_snapshot": undo_snapshot,
+        "default_label": str(date.today().year + 1),
+        "default_start": f"{date.today().year + 1}-01-01",
+        "default_end": f"{date.today().year + 1}-12-31",
     })
 
 
@@ -442,12 +499,13 @@ async def budget_add(
     notes: Annotated[str, Form()] = "",
 ):
     r = await db.execute(
-        select(func.count(BudgetLine.id)).where(BudgetLine.masonic_year_id == year_id)
+        select(func.count(BudgetLine.id)).where(BudgetLine.fiscal_year_id == year_id)
     )
     pos = r.scalar_one() or 0
 
     db.add(BudgetLine(
-        masonic_year_id=year_id,
+        fiscal_year_id=year_id,
+        masonic_year_id=await _legacy_masonic_year_id(db),
         label=label.strip(),
         type=BudgetLineType(btype),
         category_label=category_label.strip() or None,
@@ -479,9 +537,10 @@ async def budget_import_csv(
 
     # Compter les lignes existantes pour l'ordre
     r = await db.execute(
-        select(func.count(BudgetLine.id)).where(BudgetLine.masonic_year_id == year_id)
+        select(func.count(BudgetLine.id)).where(BudgetLine.fiscal_year_id == year_id)
     )
     pos = r.scalar_one() or 0
+    legacy_my_id = await _legacy_masonic_year_id(db)
 
     for row in reader:
         # Accepte différents noms de colonnes
@@ -496,7 +555,8 @@ async def budget_import_csv(
             amt = 0.0
 
         db.add(BudgetLine(
-            masonic_year_id=year_id,
+            fiscal_year_id=year_id,
+            masonic_year_id=legacy_my_id,
             label=lbl,
             type=BudgetLineType.CHARGE_FIXE,
             category_label=cat or None,
@@ -530,7 +590,7 @@ async def budget_edit(
     line.category_label = category_label.strip() or None
     line.notes = notes.strip() or None
     await db.commit()
-    return RedirectResponse(url=f"/finance/budget?year_id={line.masonic_year_id}", status_code=303)
+    return RedirectResponse(url=f"/finance/budget?year_id={line.fiscal_year_id}", status_code=303)
 
 
 @router.post("/budget/new-year")
@@ -545,13 +605,13 @@ async def budget_new_year(
     source_year_id: Annotated[Optional[int], Form()] = None,
 ):
     from datetime import date as _date
-    from app.services.masonic_year import create_new_masonic_year
+    from app.services.fiscal_year import create_new_fiscal_year
     user, member = ctx
     if not user.is_admin:
         raise HTTPException(403)
 
     try:
-        new_year = await create_new_masonic_year(
+        new_year = await create_new_fiscal_year(
             db,
             label,
             _date.fromisoformat(start_date),
@@ -574,7 +634,7 @@ async def budget_delete(
     line = await db.get(BudgetLine, line_id)
     if not line:
         raise HTTPException(404)
-    year_id = line.masonic_year_id
+    year_id = line.fiscal_year_id
     await db.delete(line)
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
@@ -740,7 +800,7 @@ async def config_update(
 
     open_r = await db.execute(
         select(MemberContribution).where(
-            MemberContribution.masonic_year_id == year_id,
+            MemberContribution.fiscal_year_id == year_id,
             MemberContribution.status.in_([ContributionStatus.PENDING, ContributionStatus.PARTIAL]),
         )
     )
@@ -765,7 +825,7 @@ async def export_retardataires_csv(
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Optional[int] = None,
 ):
-    year = await _get_current_year(db) if not year_id else await db.get(MasonicYear, year_id)
+    year = await _get_current_year(db) if not year_id else await db.get(FiscalYear, year_id)
     if not year:
         raise HTTPException(404)
 
@@ -777,7 +837,7 @@ async def export_retardataires_csv(
 
     rc = await db.execute(
         select(MemberContribution)
-        .where(MemberContribution.masonic_year_id == year.id)
+        .where(MemberContribution.fiscal_year_id == year.id)
         .options(selectinload(MemberContribution.payments))
     )
     cmap = {c.member_id: c for c in rc.scalars().all()}
@@ -820,12 +880,12 @@ async def cotisations_view(
     status_filter: Optional[str] = None,
 ):
     user, member = ctx
-    r = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    r = await db.execute(select(FiscalYear).order_by(FiscalYear.start_date.desc()))
     years = r.scalars().all()
 
     selected_year = None
     if year_id:
-        selected_year = await db.get(MasonicYear, year_id)
+        selected_year = await db.get(FiscalYear, year_id)
     if not selected_year:
         selected_year = next((y for y in years if y.is_current), years[0] if years else None)
 
@@ -854,7 +914,7 @@ async def cotisations_view(
         # Contributions existantes
         rc = await db.execute(
             select(MemberContribution)
-            .where(MemberContribution.masonic_year_id == selected_year.id)
+            .where(MemberContribution.fiscal_year_id == selected_year.id)
             .options(
                 selectinload(MemberContribution.payments),
                 selectinload(MemberContribution.quitus),
@@ -902,15 +962,15 @@ async def _close_appel_and_assign_defaults(
     await db.refresh(cfg, ["tiers"])
 
     # ── 1. Récupérer l'année courante pour trouver la précédente ────────────
-    r_yr = await db.execute(select(MasonicYear).where(MasonicYear.id == year_id))
+    r_yr = await db.execute(select(FiscalYear).where(FiscalYear.id == year_id))
     current_year = r_yr.scalar_one_or_none()
 
     prev_year = None
     if current_year:
         r_prev = await db.execute(
-            select(MasonicYear)
-            .where(MasonicYear.start_date < current_year.start_date)
-            .order_by(MasonicYear.start_date.desc())
+            select(FiscalYear)
+            .where(FiscalYear.start_date < current_year.start_date)
+            .order_by(FiscalYear.start_date.desc())
             .limit(1)
         )
         prev_year = r_prev.scalar_one_or_none()
@@ -924,7 +984,7 @@ async def _close_appel_and_assign_defaults(
     # ── 3. Cotisations existantes pour cette année ───────────────────────────
     r_existing = await db.execute(
         select(MemberContribution.member_id)
-        .where(MemberContribution.masonic_year_id == year_id)
+        .where(MemberContribution.fiscal_year_id == year_id)
     )
     already_assigned = {row[0] for row in r_existing.all()}
 
@@ -934,7 +994,7 @@ async def _close_appel_and_assign_defaults(
         r_prev_contribs = await db.execute(
             select(MemberContribution.member_id, ContributionTier.tier_number)
             .join(ContributionTier, ContributionTier.id == MemberContribution.tier_id)
-            .where(MemberContribution.masonic_year_id == prev_year.id)
+            .where(MemberContribution.fiscal_year_id == prev_year.id)
         )
         for member_id, tier_num in r_prev_contribs.all():
             prev_tier_by_member[member_id] = tier_num
@@ -946,6 +1006,7 @@ async def _close_appel_and_assign_defaults(
 
     # ── 6. Affecter les membres sans cotisation ──────────────────────────────
     auto_assigned = 0
+    legacy_my_id = await _legacy_masonic_year_id(db)
     for m in active_members:
         if m.id in already_assigned:
             continue
@@ -971,7 +1032,8 @@ async def _close_appel_and_assign_defaults(
         cap = 0.0 if m.id in affiliés else full_capitation
         new_contrib = MemberContribution(
             member_id=m.id,
-            masonic_year_id=year_id,
+            fiscal_year_id=year_id,
+            masonic_year_id=legacy_my_id,
             tier_id=tier.id,
             base_amount=float(tier.amount),
             capitation_amount=cap,
@@ -997,7 +1059,7 @@ async def _close_appel_and_assign_defaults(
 
     r_open = await db.execute(
         select(MemberContribution).where(
-            MemberContribution.masonic_year_id == year_id,
+            MemberContribution.fiscal_year_id == year_id,
             MemberContribution.status.in_([ContributionStatus.PENDING, ContributionStatus.PARTIAL]),
         )
     )
@@ -1075,7 +1137,7 @@ async def resync_contributions(
 
     open_r = await db.execute(
         select(MemberContribution).where(
-            MemberContribution.masonic_year_id == year_id,
+            MemberContribution.fiscal_year_id == year_id,
             MemberContribution.status.in_([ContributionStatus.PENDING, ContributionStatus.PARTIAL]),
         )
     )
@@ -1121,7 +1183,7 @@ async def assign_contribution(
     r = await db.execute(
         select(MemberContribution).where(
             and_(MemberContribution.member_id == member_id,
-                 MemberContribution.masonic_year_id == year_id)
+                 MemberContribution.fiscal_year_id == year_id)
         )
     )
     contrib = r.scalar_one_or_none()
@@ -1135,7 +1197,8 @@ async def assign_contribution(
     else:
         contrib = MemberContribution(
             member_id=member_id,
-            masonic_year_id=year_id,
+            fiscal_year_id=year_id,
+            masonic_year_id=await _legacy_masonic_year_id(db),
             tier_id=tier.id,
             base_amount=base,
             capitation_amount=cap,
@@ -1173,19 +1236,21 @@ async def assign_all_t3(
 
     rc = await db.execute(
         select(MemberContribution.member_id)
-        .where(MemberContribution.masonic_year_id == year_id)
+        .where(MemberContribution.fiscal_year_id == year_id)
     )
     already = {row[0] for row in rc.all()}
 
     capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
     base = float(tier3.amount)
     total = base + capitation
+    legacy_my_id = await _legacy_masonic_year_id(db)
 
     for m in all_active:
         if m.id not in already:
             db.add(MemberContribution(
                 member_id=m.id,
-                masonic_year_id=year_id,
+                fiscal_year_id=year_id,
+                masonic_year_id=legacy_my_id,
                 tier_id=tier3.id,
                 base_amount=base,
                 capitation_amount=capitation,
@@ -1232,7 +1297,7 @@ async def record_payment(
 
     await db.commit()
     return RedirectResponse(
-        url=f"/finance/cotisations?year_id={contrib.masonic_year_id}", status_code=303
+        url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303
     )
 
 
@@ -1251,7 +1316,7 @@ async def set_exempt(
         contrib.notes = notes.strip()
     await db.commit()
     return RedirectResponse(
-        url=f"/finance/cotisations?year_id={contrib.masonic_year_id}", status_code=303
+        url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303
     )
 
 
@@ -1269,7 +1334,7 @@ async def delete_contribution(
     contrib = r.scalar_one_or_none()
     if not contrib:
         raise HTTPException(404)
-    year_id = contrib.masonic_year_id
+    year_id = contrib.fiscal_year_id
 
     # Supprimer quitus, paiements, puis cotisation
     if contrib.quitus:
@@ -1303,7 +1368,8 @@ async def issue_quitus(
     if not contrib.quitus:
         db.add(Quitus(
             member_id=contrib.member_id,
-            masonic_year_id=contrib.masonic_year_id,
+            fiscal_year_id=contrib.fiscal_year_id,
+            masonic_year_id=await _legacy_masonic_year_id(db),
             contribution_id=contribution_id,
             issued_by_id=member.id,
             valid_until=date.fromisoformat(valid_until) if valid_until else None,
@@ -1311,7 +1377,7 @@ async def issue_quitus(
         ))
         await db.commit()
     return RedirectResponse(
-        url=f"/finance/cotisations?year_id={contrib.masonic_year_id}", status_code=303
+        url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303
     )
 
 
@@ -1332,8 +1398,8 @@ async def membre_finance_detail(
     if not target:
         raise HTTPException(404)
 
-    # Toutes les années maçonniques
-    r_years = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    # Toutes les années civiles
+    r_years = await db.execute(select(FiscalYear).order_by(FiscalYear.start_date.desc()))
     years = r_years.scalars().all()
 
     # Toutes les contributions du membre
@@ -1344,7 +1410,7 @@ async def membre_finance_detail(
             selectinload(MemberContribution.payments),
             selectinload(MemberContribution.quitus),
         )
-        .order_by(MemberContribution.masonic_year_id.desc())
+        .order_by(MemberContribution.fiscal_year_id.desc())
     )
     contributions = rc.scalars().all()
 
@@ -1355,7 +1421,7 @@ async def membre_finance_detail(
 
     # Configs par année (pour détail capitation)
     all_cfg_r = await db.execute(select(ContributionConfig))
-    cfg_map = {c.masonic_year_id: c for c in all_cfg_r.scalars().all()}
+    cfg_map = {c.fiscal_year_id: c for c in all_cfg_r.scalars().all()}
 
     return templates.TemplateResponse(request, "pages/finance/membre_detail.html", {
         "current_member": current_member,
@@ -1394,7 +1460,7 @@ async def choisir_tranche_form(
         .options(selectinload(MemberContribution.payments))
         .where(
             MemberContribution.member_id == member.id,
-            MemberContribution.masonic_year_id == year.id,
+            MemberContribution.fiscal_year_id == year.id,
         )
     )
     my_contrib = cr.scalar_one_or_none()
@@ -1403,6 +1469,34 @@ async def choisir_tranche_form(
         my_tier = next((t for t in tiers if t.id == my_contrib.tier_id), None)
 
     capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+
+    # Soldes impayés toutes années confondues (y compris années passées, hors
+    # année courante déjà affichée ci-dessus) — pour qu'un membre en retard sur
+    # une année antérieure le voie, même si l'année courante n'a rien à payer.
+    r_all = await db.execute(
+        select(MemberContribution)
+        .options(selectinload(MemberContribution.payments))
+        .where(
+            MemberContribution.member_id == member.id,
+            MemberContribution.fiscal_year_id != year.id,
+        )
+    )
+    other_contribs = r_all.scalars().all()
+    r_all_years = await db.execute(select(FiscalYear))
+    years_map = {y.id: y for y in r_all_years.scalars().all()}
+    unpaid_balances = []
+    for c in other_contribs:
+        if c.status in (ContributionStatus.PAID, ContributionStatus.EXEMPT):
+            continue
+        if c.amount_remaining <= 0.005:
+            continue
+        y = years_map.get(c.fiscal_year_id)
+        unpaid_balances.append({
+            "year": y,
+            "contrib": c,
+            "remaining": float(c.amount_remaining),
+        })
+    unpaid_balances.sort(key=lambda x: x["year"].start_date if x["year"] else date.min)
 
     return templates.TemplateResponse(request, "pages/finance/choisir_tranche.html", {
         "current_member": member,
@@ -1415,6 +1509,7 @@ async def choisir_tranche_form(
         "capitation": capitation,
         "tier_labels": TIER_LABELS,
         "appel_open": bool(cfg.tier_selection_open),
+        "unpaid_balances": unpaid_balances,
     })
 
 
@@ -1441,7 +1536,7 @@ async def choisir_tranche_save(
     cr = await db.execute(
         select(MemberContribution).where(
             MemberContribution.member_id == member.id,
-            MemberContribution.masonic_year_id == year.id,
+            MemberContribution.fiscal_year_id == year.id,
         )
     )
     existing = cr.scalar_one_or_none()
@@ -1460,7 +1555,8 @@ async def choisir_tranche_save(
     else:
         db.add(MemberContribution(
             member_id=member.id,
-            masonic_year_id=year.id,
+            fiscal_year_id=year.id,
+            masonic_year_id=await _legacy_masonic_year_id(db),
             tier_id=tier.id,
             base_amount=base,
             capitation_amount=capitation,
@@ -1485,12 +1581,12 @@ async def transactions_view(
     txn_type: Optional[str] = None,
 ):
     user, member = ctx
-    r = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    r = await db.execute(select(FiscalYear).order_by(FiscalYear.start_date.desc()))
     years = r.scalars().all()
 
     selected_year = None
     if year_id:
-        selected_year = await db.get(MasonicYear, year_id)
+        selected_year = await db.get(FiscalYear, year_id)
     if not selected_year:
         selected_year = next((y for y in years if y.is_current), years[0] if years else None)
 
@@ -1506,7 +1602,7 @@ async def transactions_view(
         bl_r = await db.execute(
             select(BudgetLine.category_label)
             .where(
-                BudgetLine.masonic_year_id == selected_year.id,
+                BudgetLine.fiscal_year_id == selected_year.id,
                 BudgetLine.category_label.is_not(None),
             )
             .distinct()
@@ -1515,16 +1611,19 @@ async def transactions_view(
 
         # Catégories existantes
         existing_r = await db.execute(
-            select(BudgetCategory).where(BudgetCategory.masonic_year_id == selected_year.id)
+            select(BudgetCategory).where(BudgetCategory.fiscal_year_id == selected_year.id)
         )
         existing_cats = existing_r.scalars().all()
         existing_names = {c.name for c in existing_cats}
 
         # Créer les manquantes (type EXPENSE par défaut pour le budget = charges)
+        if budget_cat_labels - existing_names:
+            legacy_my_id = await _legacy_masonic_year_id(db)
         for label in sorted(budget_cat_labels):
             if label not in existing_names:
                 db.add(BudgetCategory(
-                    masonic_year_id=selected_year.id,
+                    fiscal_year_id=selected_year.id,
+                    masonic_year_id=legacy_my_id,
                     name=label,
                     type=TransactionType.EXPENSE,
                     planned_amount=0,
@@ -1535,7 +1634,7 @@ async def transactions_view(
         # Recharger les catégories après sync
         rc = await db.execute(
             select(BudgetCategory)
-            .where(BudgetCategory.masonic_year_id == selected_year.id)
+            .where(BudgetCategory.fiscal_year_id == selected_year.id)
             .order_by(BudgetCategory.type, BudgetCategory.name)
         )
         categories = rc.scalars().all()
@@ -1544,7 +1643,7 @@ async def transactions_view(
         q = (
             select(Transaction)
             .options(selectinload(Transaction.category))
-            .where(Transaction.masonic_year_id == selected_year.id)
+            .where(Transaction.fiscal_year_id == selected_year.id)
         )
         if txn_type in ("INCOME", "EXPENSE"):
             q = q.where(Transaction.type == TransactionType(txn_type))
@@ -1592,12 +1691,14 @@ async def add_transaction(
     document: Optional[UploadFile] = File(None),
 ):
     _, rec_member = ctx
+    legacy_my_id = await _legacy_masonic_year_id(db)
 
     # Créer la catégorie à la volée si l'utilisateur en saisit une nouvelle
     cat_id = category_id or None
     if not cat_id and new_category.strip():
         cat = BudgetCategory(
-            masonic_year_id=year_id,
+            fiscal_year_id=year_id,
+            masonic_year_id=legacy_my_id,
             name=new_category.strip(),
             type=TransactionType(txn_type),
             planned_amount=0,
@@ -1607,7 +1708,8 @@ async def add_transaction(
         cat_id = cat.id
 
     txn = Transaction(
-        masonic_year_id=year_id,
+        fiscal_year_id=year_id,
+        masonic_year_id=legacy_my_id,
         date=date.fromisoformat(txn_date),
         label=label.strip(),
         amount=amount,
@@ -1642,7 +1744,7 @@ async def delete_transaction(
     txn = await db.get(Transaction, txn_id)
     if not txn:
         raise HTTPException(404)
-    year_id = txn.masonic_year_id
+    year_id = txn.fiscal_year_id
     # Supprimer le fichier joint si présent
     if txn.attachment_url:
         filepath = txn.attachment_url.lstrip("/")
@@ -1686,7 +1788,7 @@ async def attach_document(
     txn.attachment_url = f"/static/uploads/transactions/{filename}"
     await db.commit()
     return RedirectResponse(
-        url=f"/finance/transactions?year_id={txn.masonic_year_id}", status_code=303
+        url=f"/finance/transactions?year_id={txn.fiscal_year_id}", status_code=303
     )
 
 
@@ -1707,7 +1809,7 @@ async def detach_document(
         txn.attachment_url = None
         await db.commit()
     return RedirectResponse(
-        url=f"/finance/transactions?year_id={txn.masonic_year_id}", status_code=303
+        url=f"/finance/transactions?year_id={txn.fiscal_year_id}", status_code=303
     )
 
 
@@ -1717,7 +1819,7 @@ async def detach_document(
 
 async def _compute_bilan(
     db: AsyncSession,
-    selected_year: MasonicYear,
+    selected_year: FiscalYear,
     date_from: Optional[date] = None,
     date_to: Optional[date] = None,
 ):
@@ -1726,7 +1828,7 @@ async def _compute_bilan(
     q = (
         select(Transaction)
         .options(selectinload(Transaction.category))
-        .where(Transaction.masonic_year_id == selected_year.id)
+        .where(Transaction.fiscal_year_id == selected_year.id)
     )
     if date_from:
         q = q.where(Transaction.date >= date_from)
@@ -1755,7 +1857,7 @@ async def _compute_bilan(
     cot_q = (
         select(func.sum(Payment.amount))
         .join(MemberContribution, Payment.member_contribution_id == MemberContribution.id)
-        .where(MemberContribution.masonic_year_id == selected_year.id)
+        .where(MemberContribution.fiscal_year_id == selected_year.id)
     )
     if date_from:
         cot_q = cot_q.where(Payment.payment_date >= date_from)
@@ -1767,7 +1869,7 @@ async def _compute_bilan(
     # ── Budget prévisionnel ───────────────────────────────────────────────────
     rb = await db.execute(
         select(BudgetLine)
-        .where(BudgetLine.masonic_year_id == selected_year.id)
+        .where(BudgetLine.fiscal_year_id == selected_year.id)
         .order_by(BudgetLine.category_label, BudgetLine.order_position)
     )
     budget_lines = rb.scalars().all()
@@ -1782,7 +1884,7 @@ async def _compute_bilan(
     # (quelle que soit leur statut : c'est la capitation collectée ou à collecter)
     cap_due_r = await db.execute(
         select(func.sum(MemberContribution.capitation_amount))
-        .where(MemberContribution.masonic_year_id == selected_year.id)
+        .where(MemberContribution.fiscal_year_id == selected_year.id)
     )
     total_capitation_due = Decimal(str(cap_due_r.scalar_one() or 0))
 
@@ -1790,7 +1892,7 @@ async def _compute_bilan(
     # = capitation_due × (cotisations_encaissées / cotisations_dues_brutes)
     cot_brute_r = await db.execute(
         select(func.sum(MemberContribution.total_amount))
-        .where(MemberContribution.masonic_year_id == selected_year.id)
+        .where(MemberContribution.fiscal_year_id == selected_year.id)
     )
     total_cotisations_due_brut = Decimal(str(cot_brute_r.scalar_one() or 0))
 
@@ -1802,7 +1904,7 @@ async def _compute_bilan(
 
     # Config capitation (taux unitaires)
     cfg_r = await db.execute(
-        select(ContributionConfig).where(ContributionConfig.masonic_year_id == selected_year.id)
+        select(ContributionConfig).where(ContributionConfig.fiscal_year_id == selected_year.id)
     )
     contrib_cfg = cfg_r.scalar_one_or_none()
 
@@ -1850,12 +1952,12 @@ async def bilan_view(
     date_to: Optional[str] = None,
 ):
     user, member = ctx
-    r = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    r = await db.execute(select(FiscalYear).order_by(FiscalYear.start_date.desc()))
     years = r.scalars().all()
 
     selected_year = None
     if year_id:
-        selected_year = await db.get(MasonicYear, year_id)
+        selected_year = await db.get(FiscalYear, year_id)
     if not selected_year:
         selected_year = next((y for y in years if y.is_current), years[0] if years else None)
 
@@ -1895,9 +1997,9 @@ async def bilan_export_csv(
     _, member = ctx
     year = None
     if year_id:
-        year = await db.get(MasonicYear, year_id)
+        year = await db.get(FiscalYear, year_id)
     if not year:
-        r = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True).limit(1))
+        r = await db.execute(select(FiscalYear).where(FiscalYear.is_current == True).limit(1))
         year = r.scalar_one_or_none()
     if not year:
         raise HTTPException(404, "Aucune année configurée")
@@ -1984,7 +2086,7 @@ async def delete_payment(
             contrib.status = ContributionStatus.PAID
 
     await db.commit()
-    year_id = contrib.masonic_year_id if contrib else ""
+    year_id = contrib.fiscal_year_id if contrib else ""
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
 
 
@@ -2029,7 +2131,7 @@ async def edit_payment(
             contrib.status = ContributionStatus.PAID
 
     await db.commit()
-    year_id = contrib.masonic_year_id if contrib else ""
+    year_id = contrib.fiscal_year_id if contrib else ""
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
 
 
@@ -2064,4 +2166,4 @@ async def set_contribution_amount(
         contrib.status = ContributionStatus.PAID
 
     await db.commit()
-    return RedirectResponse(url=f"/finance/cotisations?year_id={contrib.masonic_year_id}", status_code=303)
+    return RedirectResponse(url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303)

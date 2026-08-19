@@ -9,6 +9,31 @@
     <p class="text-sm text-gray-500 mt-1">Barème de solidarité — {{ year.label if year else '' }}</p>
   </div>
 
+  {# ── Soldes impayés sur d'autres années ──────────────────────────────────── #}
+  {% if unpaid_balances %}
+  <div class="bg-red-50 border border-red-200 rounded-xl p-5 mb-6">
+    <div class="flex items-center gap-2 mb-2">
+      <span class="text-xl">⚠️</span>
+      <span class="font-semibold text-red-800">
+        Solde{{ 's' if unpaid_balances|length > 1 }} impayé{{ 's' if unpaid_balances|length > 1 }} sur
+        {{ 'une année antérieure' if unpaid_balances|length == 1 else unpaid_balances|length ~ ' années antérieures' }}
+      </span>
+    </div>
+    <div class="divide-y divide-red-100">
+      {% for ub in unpaid_balances %}
+      <div class="flex items-center justify-between py-2 text-sm">
+        <span class="text-red-700">
+          Cotisation {{ ub.year.label if ub.year else '?' }}
+          {% if ub.contrib.status.value == 'PARTIAL' %}<span class="text-xs text-red-500">(paiement partiel)</span>{% endif %}
+        </span>
+        <span class="font-bold text-red-700">{{ "%.2f"|format(ub.remaining) }} €</span>
+      </div>
+      {% endfor %}
+    </div>
+    <p class="text-xs text-red-500 mt-2">Contactez le trésorier pour régulariser — voir le détail complet sur votre fiche.</p>
+  </div>
+  {% endif %}
+
   {# ── CAS 1 : Tranche déjà choisie (figée) ───────────────────────────────── #}
   {% if my_contrib %}
   <div class="{% if my_contrib.status.value in ['PAID', 'EXEMPT'] %}bg-green-50 border-green-200
