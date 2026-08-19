@@ -1076,8 +1076,25 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 )
                 fy_id = r_new.fetchone()[0]
                 for table in finance_tables_fy:
-                    await conn.exec_driver_sql(
-                        f"UPDATE {table} SET fiscal_year_id = ? WHERE fiscal_year_id IS NULL",
-                        (fy_id,),
-                    )
+                    if table in ("contribution_configs", "accounting_reports"):
+                        # fiscal_year_id est UNIQUE sur ces tables (un config/bilan
+                        # par année) : ne rattacher que la ligne la plus ancienne.
+                        # D'éventuels doublons hérités (ex: config vide auto-créée
+                        # par erreur pour une année maçonnique avant cette bascule)
+                        # restent orphelins avec fiscal_year_id NULL — sans impact,
+                        # l'application ne les référence plus jamais.
+                        r_row = await conn.exec_driver_sql(
+                            f"SELECT id FROM {table} WHERE fiscal_year_id IS NULL ORDER BY id LIMIT 1"
+                        )
+                        row = r_row.fetchone()
+                        if row:
+                            await conn.exec_driver_sql(
+                                f"UPDATE {table} SET fiscal_year_id = ? WHERE id = ?",
+                                (fy_id, row[0]),
+                            )
+                    else:
+                        await conn.exec_driver_sql(
+                            f"UPDATE {table} SET fiscal_year_id = ? WHERE fiscal_year_id IS NULL",
+                            (fy_id,),
+                        )
 
