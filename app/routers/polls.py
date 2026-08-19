@@ -364,7 +364,15 @@ async def _compute_results(poll: Poll, my_option_ids: set, db: AsyncSession) -> 
             r["rank"] = i + 1
         total_votes = max((r["count"] for r in results), default=0)
     else:
-        total_votes = len(poll.votes)
+        # Pour un choix multiple (SCHEDULE ou CHOICE "choix multiples"), un
+        # même votant peut créer plusieurs lignes PollVote — le nombre de
+        # votants est donc le nombre de member_id DISTINCTS, pas le nombre
+        # brut de sélections (sinon "3 votes" peut en réalité être 2
+        # personnes ayant chacune coché plusieurs créneaux).
+        if poll.is_multiple and not poll.is_anonymous:
+            total_votes = len({v.member_id for v in poll.votes if v.member_id is not None})
+        else:
+            total_votes = len(poll.votes)
         results = []
         if poll.vote_type == "SCHEDULE":
             opts_sorted = sorted(poll.options, key=lambda o: o.slot_start or datetime.max)

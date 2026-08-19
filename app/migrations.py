@@ -1125,3 +1125,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if "slot_end" not in cols3:
             await conn.exec_driver_sql("ALTER TABLE poll_options ADD COLUMN slot_end DATETIME")
 
+        # Les sondages SCHEDULE (Framadate) créés avant que ce comportement ne
+        # soit forcé à la création doivent être rattrapés : l'anonymat n'a pas
+        # de sens pour un sondage de créneaux, on veut savoir qui sera présent.
+        if "vote_type" in cols:
+            await conn.exec_driver_sql(
+                "UPDATE polls SET is_public_vote = 1, is_anonymous = 0 "
+                "WHERE vote_type = 'SCHEDULE' AND (is_public_vote = 0 OR is_anonymous = 1)"
+            )
+
