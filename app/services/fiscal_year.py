@@ -20,7 +20,16 @@ async def create_new_fiscal_year(
     end_date: _date,
     copy_budget_from_year_id: Optional[int] = None,
 ) -> FiscalYear:
-    """Crée une nouvelle année civile et bascule `is_current`.
+    """Crée une nouvelle année civile comme **brouillon** (`is_current=False`).
+
+    Le budget, les taux de capitation et le barème peuvent être préparés
+    librement sur ce brouillon (rien ne dépend de `is_current` pour éditer)
+    avant de l'activer explicitement via `activate_fiscal_year` — typiquement
+    une fois le budget voté en assemblée.
+
+    Exception : si c'est la toute première année civile du système, elle
+    devient automatiquement courante (sinon l'application n'a aucune année
+    active).
 
     Lève ValueError si le libellé existe déjà.
     """
@@ -32,15 +41,14 @@ async def create_new_fiscal_year(
     if existing.scalar_one_or_none():
         raise ValueError("Une année civile porte déjà ce libellé")
 
-    r_cur = await db.execute(select(FiscalYear).where(FiscalYear.is_current == True))
-    for y in r_cur.scalars().all():
-        y.is_current = False
+    r_any = await db.execute(select(FiscalYear.id).limit(1))
+    is_bootstrap = r_any.scalar_one_or_none() is None
 
     new_year = FiscalYear(
         label=label,
         start_date=start_date,
         end_date=end_date,
-        is_current=True,
+        is_current=is_bootstrap,
     )
     db.add(new_year)
     await db.flush()
@@ -62,3 +70,18 @@ async def create_new_fiscal_year(
             ))
 
     return new_year
+
+
+async def activate_fiscal_year(db: AsyncSession, year_id: int) -> FiscalYear:
+    """Active une année civile (brouillon ou passée) comme année courante,
+    et bascule les autres à `is_current=False`."""
+    target = await db.get(FiscalYear, year_id)
+    if not target:
+        raise ValueError("Année civile introuvable")
+
+    r_cur = await db.execute(select(FiscalYear).where(FiscalYear.is_current == True))
+    for y in r_cur.scalars().all():
+        y.is_current = False
+
+    target.is_current = True
+    return target

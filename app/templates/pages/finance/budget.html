@@ -55,8 +55,17 @@
           <strong>Année {{ selected_year.label }}</strong>
         {% endif %}
       </div>
-      <div class="text-xs">
-        Aujourd'hui : <strong>{{ today.strftime('%d/%m/%Y') }}</strong>
+      <div class="flex items-center gap-3">
+        <span class="text-xs">Aujourd'hui : <strong>{{ today.strftime('%d/%m/%Y') }}</strong></span>
+        {% if is_admin and selected_year and not is_current_selected %}
+        <form method="post" action="/finance/budget/activate-year"
+              onsubmit="return confirm('Activer {{ selected_year.label }} comme année courante ? L\'année courante actuelle basculera en historique.');">
+          <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+          <button type="submit" class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg font-semibold hover:bg-loge-800">
+            Activer comme année courante
+          </button>
+        </form>
+        {% endif %}
       </div>
     </div>
 
@@ -425,7 +434,7 @@
     {% if is_admin %}
     <button onclick="document.getElementById('modal-new-year').classList.remove('hidden')"
             class="inline-flex items-center gap-2 border border-loge-200 text-loge-700 px-4 py-2 rounded-lg text-sm hover:bg-loge-50">
-      📅 Voter le budget (nouvelle année civile)
+      📅 Préparer le budget (nouvelle année civile)
     </button>
     {% endif %}
   </div>
@@ -470,9 +479,11 @@
 {% if is_admin %}
 <div id="modal-new-year" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
-    <h2 class="text-lg font-bold text-gray-900 mb-4">📅 Voter le budget — nouvelle année civile</h2>
+    <h2 class="text-lg font-bold text-gray-900 mb-4">📅 Préparer le budget — nouvelle année civile</h2>
     <p class="text-xs text-gray-500 mb-3">
-      Typiquement voté en décembre pour l'année civile suivante, ce qui déclenche l'appel à tranche.
+      Crée un <strong>brouillon</strong> : ajoutez, modifiez ou supprimez librement les lignes de
+      budget via le sélecteur d'année, sans rien changer pour l'année en cours. Une fois le budget
+      définitivement voté en assemblée, activez-le depuis le bandeau en haut de page.
     </p>
     <form method="post" action="/finance/budget/new-year" class="space-y-3">
       <div>
@@ -499,11 +510,11 @@
         <input type="hidden" name="source_year_id" value="{{ selected_year.id }}">
       </label>
       {% endif %}
-      <div class="bg-amber-50 border border-amber-200 rounded-lg p-3 text-xs text-amber-800">
-        ⚠ Cette action rend la nouvelle année <strong>courante</strong>. L'ancienne reste accessible via le sélecteur d'année.
+      <div class="bg-blue-50 border border-blue-200 rounded-lg p-3 text-xs text-blue-800">
+        ℹ️ Le brouillon n'est pas rendu courant automatiquement — l'année en cours n'est pas affectée tant que vous ne l'activez pas explicitement.
       </div>
       <div class="flex gap-3 pt-2">
-        <button type="submit" class="flex-1 bg-loge-700 text-white py-2 rounded-xl text-sm font-semibold hover:bg-loge-800">Créer</button>
+        <button type="submit" class="flex-1 bg-loge-700 text-white py-2 rounded-xl text-sm font-semibold hover:bg-loge-800">Créer le brouillon</button>
         <button type="button" onclick="document.getElementById('modal-new-year').classList.add('hidden')"
                 class="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
       </div>

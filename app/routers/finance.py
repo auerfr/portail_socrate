@@ -625,6 +625,28 @@ async def budget_new_year(
     return RedirectResponse(url=f"/finance/budget?year_id={new_year.id}", status_code=303)
 
 
+@router.post("/budget/activate-year")
+async def budget_activate_year(
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: Annotated[int, Form()],
+):
+    """Active un brouillon d'année civile comme année courante (ex: une fois
+    le budget définitivement voté en assemblée)."""
+    from app.services.fiscal_year import activate_fiscal_year
+    user, member = ctx
+    if not user.is_admin:
+        raise HTTPException(403)
+
+    try:
+        year = await activate_fiscal_year(db, year_id)
+    except ValueError as e:
+        raise HTTPException(400, str(e))
+
+    await db.commit()
+    return RedirectResponse(url=f"/finance/budget?year_id={year.id}", status_code=303)
+
+
 @router.post("/budget/{line_id}/delete")
 async def budget_delete(
     line_id: int,
