@@ -261,12 +261,14 @@ async def polls_create(
     except ValueError:
         r_winners = 3
 
+    # Un sondage SCHEDULE sert à savoir qui sera présent à quel créneau —
+    # l'anonymat n'a pas de sens ici, les noms sont donc toujours affichés.
     poll = Poll(
         title=title,
         description=description.strip() or None,
         is_multiple=(bool(is_multiple) and vt == "CHOICE") or vt == "SCHEDULE",
-        is_anonymous=bool(is_anonymous),
-        is_public_vote=bool(is_public_vote),
+        is_anonymous=False if vt == "SCHEDULE" else bool(is_anonymous),
+        is_public_vote=True if vt == "SCHEDULE" else bool(is_public_vote),
         min_grade=min_grade,
         target_group_id=target_group_id,
         target_member_ids=target_member_ids,
