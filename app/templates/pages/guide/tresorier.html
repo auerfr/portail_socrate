@@ -154,12 +154,27 @@
         </div>
       </details>
 
-      <details class="group py-2">
+      <details class="group border-b border-gray-100 py-2">
         <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
           Import CSV
           <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
         </summary>
         <p class="text-gray-600 mt-2">Si vous préparez le budget sous Excel/LibreOffice, exportez-le en CSV et importez-le via <span class="font-mono text-loge-700 text-xs">/finance/budget/import-csv</span>. Vérifiez le résultat ligne par ligne avant de valider.</p>
+      </details>
+
+      <details class="group py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Simuler le T3 et les tranches sur le brouillon
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Chaque année civile (brouillon ou courante) a son propre barème T3/capitations, totalement indépendant. Une fois le brouillon créé, sélectionnez-le dans le sélecteur d'année et testez librement différents taux de capitation avec « Recalculer le barème » — ça n'affecte jamais l'année en cours.</p>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-800">
+            ℹ️ Vous pouvez même lancer l'appel à tranche sur le brouillon pour vérifier son
+            comportement : « Ma cotisation » (côté membre) n'affiche jamais que l'année courante,
+            donc personne ne le verra tant que vous n'activez pas le brouillon.
+          </div>
+        </div>
       </details>
 
     </div>
@@ -196,6 +211,25 @@
             <li>Renseignez ou vérifiez le nombre de membres actifs.</li>
             <li>Cliquez <strong>« Recalculer »</strong> — le T3 est immédiatement mis à jour.</li>
           </ol>
+        </div>
+      </details>
+
+      <details class="group border-t border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Corriger un écart de trésorerie en cours d'année
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <div class="text-gray-600 mt-2 space-y-2">
+          <p>Le bloc <strong>« Ajuster la trésorerie »</strong> (sous "Paramètres T3 & capitation") permet de corriger le montant de trésorerie initiale à tout moment de l'année, si un écart apparaît avec le relevé bancaire.</p>
+          <ol class="list-decimal list-inside space-y-1">
+            <li>Saisissez le nouveau montant et un motif (obligatoire — ex : "écart relevé bancaire du 15/08").</li>
+            <li>Cliquez <strong>« Ajuster »</strong>.</li>
+          </ol>
+          <div class="bg-blue-50 border border-blue-200 rounded-lg p-2 text-xs text-blue-800">
+            ℹ️ Contrairement à « Recalculer le barème », cette action ne touche ni aux taux de
+            capitation ni au T3/tranches — uniquement le montant de trésorerie. Chaque ajustement est
+            tracé dans le journal d'audit avec son motif.
+          </div>
         </div>
       </details>
     </div>
