@@ -1098,3 +1098,21 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                             (fy_id,),
                         )
 
+    # ── Sondages : type "notation" (score par option, en plus du choix classique) ──
+    async with engine.begin() as conn:
+        r = await conn.exec_driver_sql("PRAGMA table_info(polls)")
+        cols = [row[1] for row in r.fetchall()]
+        if "vote_type" not in cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE polls ADD COLUMN vote_type VARCHAR(20) NOT NULL DEFAULT 'CHOICE'"
+            )
+        if "rating_scale" not in cols:
+            await conn.exec_driver_sql("ALTER TABLE polls ADD COLUMN rating_scale INTEGER")
+        if "rating_winners" not in cols:
+            await conn.exec_driver_sql("ALTER TABLE polls ADD COLUMN rating_winners INTEGER")
+
+        r2 = await conn.exec_driver_sql("PRAGMA table_info(poll_votes)")
+        cols2 = [row[1] for row in r2.fetchall()]
+        if "score" not in cols2:
+            await conn.exec_driver_sql("ALTER TABLE poll_votes ADD COLUMN score INTEGER")
+

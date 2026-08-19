@@ -46,6 +46,12 @@ class Poll(Base):
     is_multiple: Mapped[bool]    = mapped_column(Boolean, default=False)  # multi-réponses
     is_anonymous: Mapped[bool]   = mapped_column(Boolean, default=False)
     is_public_vote: Mapped[bool] = mapped_column(Boolean, default=False)  # vote public
+    # "CHOICE" (classique, un ou plusieurs choix) ou "RATING" (notation par
+    # option, classement par score moyen — ex. sélection des questions à
+    # l'étude selon un principe de type Condorcet/vote de valeur).
+    vote_type: Mapped[str]              = mapped_column(String(20), default="CHOICE")
+    rating_scale: Mapped[Optional[int]] = mapped_column(Integer)    # note max (RATING), ex. 5
+    rating_winners: Mapped[Optional[int]] = mapped_column(Integer)  # nb d'options mises en avant (RATING)
     ends_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     min_grade: Mapped[Optional[str]]    = mapped_column(String(50))
     target_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lodge_groups.id"), nullable=True)
@@ -77,6 +83,7 @@ class PollVote(Base):
     option_id: Mapped[int] = mapped_column(ForeignKey("poll_options.id", ondelete="CASCADE"))
     member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))  # null si anonyme
     voted_at: Mapped[datetime]       = mapped_column(DateTime, server_default=func.now())
+    score: Mapped[Optional[int]]     = mapped_column(Integer)  # sondages de type "RATING" uniquement
 
     poll: Mapped["Poll"]     = relationship(back_populates="votes")
     option: Mapped["PollOption"] = relationship(back_populates="votes")

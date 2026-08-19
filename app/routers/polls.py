@@ -161,6 +161,9 @@ async def polls_create(
     target: str = Form(""),
     ends_at: str = Form(""),
     notify_members: str = Form(""),
+    vote_type: str = Form("CHOICE"),
+    rating_scale: str = Form("5"),
+    rating_winners: str = Form("3"),
 ):
     user, member = ctx
     if not _can_manage(member, user.is_admin):
@@ -179,16 +182,29 @@ async def polls_create(
 
     min_grade, target_group_id = _parse_target(target)
 
+    vt = "RATING" if vote_type == "RATING" else "CHOICE"
+    try:
+        r_scale = max(2, min(10, int(rating_scale)))
+    except ValueError:
+        r_scale = 5
+    try:
+        r_winners = max(1, int(rating_winners))
+    except ValueError:
+        r_winners = 3
+
     poll = Poll(
         title=title,
         description=description.strip() or None,
-        is_multiple=bool(is_multiple),
+        is_multiple=bool(is_multiple) and vt == "CHOICE",
         is_anonymous=bool(is_anonymous),
         is_public_vote=bool(is_public_vote),
         min_grade=min_grade,
         target_group_id=target_group_id,
         ends_at=ea,
         created_by_id=member.id,
+        vote_type=vt,
+        rating_scale=r_scale if vt == "RATING" else None,
+        rating_winners=r_winners if vt == "RATING" else None,
     )
     db.add(poll)
     await db.flush()
@@ -241,24 +257,55 @@ async def poll_detail(
     my_option_ids = {v.option_id for v in my_votes}
     has_voted = bool(my_votes)
 
-    total_votes = len(poll.votes)
-    results = []
-    for opt in sorted(poll.options, key=lambda o: o.order_position):
-        count = sum(1 for v in poll.votes if v.option_id == opt.id)
-        pct = round(count * 100 / total_votes) if total_votes else 0
-        voters = []
-        if poll.is_public_vote and not poll.is_anonymous:
-            voter_ids = [v.member_id for v in poll.votes if v.option_id == opt.id and v.member_id]
-            if voter_ids:
-                vr = await db.execute(select(Member).where(Member.id.in_(voter_ids)))
-                voters = vr.scalars().all()
-        results.append({
-            "option": opt,
-            "count": count,
-            "pct": pct,
-            "is_mine": opt.id in my_option_ids,
-            "voters": voters,
-        })
+    if poll.vote_type == "RATING":
+        scale = poll.rating_scale or 5
+        results = []
+        for opt in sorted(poll.options, key=lambda o: o.order_position):
+            scores = [v.score for v in poll.votes if v.option_id == opt.id and v.score is not None]
+            avg = round(sum(scores) / len(scores), 2) if scores else 0.0
+            pct = round((avg / scale) * 100) if scale else 0
+            voters = []
+            if poll.is_public_vote and not poll.is_anonymous:
+                voter_ids = [v.member_id for v in poll.votes if v.option_id == opt.id and v.member_id]
+                if voter_ids:
+                    vr = await db.execute(select(Member).where(Member.id.in_(voter_ids)))
+                    voters = vr.scalars().all()
+            results.append({
+                "option": opt,
+                "count": len(scores),
+                "avg": avg,
+                "pct": pct,
+                "is_mine": opt.id in my_option_ids,
+                "voters": voters,
+            })
+        results.sort(key=lambda r: r["avg"], reverse=True)
+        n_winners = poll.rating_winners or 3
+        for i, r in enumerate(results):
+            r["is_winner"] = i < n_winners and r["avg"] > 0
+            r["rank"] = i + 1
+        # Approximation : nombre de participants = celui de l'option la plus
+        # notée (un votant peut s'abstenir sur certaines options sans que ce
+        # soit traçable individuellement une fois le vote anonymisé).
+        total_votes = max((r["count"] for r in results), default=0)
+    else:
+        total_votes = len(poll.votes)
+        results = []
+        for opt in sorted(poll.options, key=lambda o: o.order_position):
+            count = sum(1 for v in poll.votes if v.option_id == opt.id)
+            pct = round(count * 100 / total_votes) if total_votes else 0
+            voters = []
+            if poll.is_public_vote and not poll.is_anonymous:
+                voter_ids = [v.member_id for v in poll.votes if v.option_id == opt.id and v.member_id]
+                if voter_ids:
+                    vr = await db.execute(select(Member).where(Member.id.in_(voter_ids)))
+                    voters = vr.scalars().all()
+            results.append({
+                "option": opt,
+                "count": count,
+                "pct": pct,
+                "is_mine": opt.id in my_option_ids,
+                "voters": voters,
+            })
 
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 
@@ -302,26 +349,45 @@ async def poll_vote(
         return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
 
     form = await request.form()
-    option_ids_raw = form.getlist("option_id")
-    if not option_ids_raw:
-        return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
-
-    valid_ids = {opt.id for opt in poll.options}
-    chosen = []
-    for oid_str in option_ids_raw:
-        try:
-            oid = int(oid_str)
-            if oid in valid_ids:
-                chosen.append(oid)
-        except ValueError:
-            pass
-
-    if not poll.is_multiple and len(chosen) > 1:
-        chosen = chosen[:1]
-
     member_id = None if poll.is_anonymous else member.id
-    for oid in chosen:
-        db.add(PollVote(poll_id=poll_id, option_id=oid, member_id=member_id))
+
+    if poll.vote_type == "RATING":
+        valid_ids = {opt.id for opt in poll.options}
+        scale = poll.rating_scale or 5
+        any_score = False
+        for opt_id in valid_ids:
+            raw = form.get(f"score_{opt_id}", "")
+            if raw == "" or raw is None:
+                continue  # abstention sur cette option
+            try:
+                score = int(raw)
+            except ValueError:
+                continue
+            score = max(0, min(scale, score))
+            db.add(PollVote(poll_id=poll_id, option_id=opt_id, member_id=member_id, score=score))
+            any_score = True
+        if not any_score:
+            return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
+    else:
+        option_ids_raw = form.getlist("option_id")
+        if not option_ids_raw:
+            return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
+
+        valid_ids = {opt.id for opt in poll.options}
+        chosen = []
+        for oid_str in option_ids_raw:
+            try:
+                oid = int(oid_str)
+                if oid in valid_ids:
+                    chosen.append(oid)
+            except ValueError:
+                pass
+
+        if not poll.is_multiple and len(chosen) > 1:
+            chosen = chosen[:1]
+
+        for oid in chosen:
+            db.add(PollVote(poll_id=poll_id, option_id=oid, member_id=member_id))
 
     await db.commit()
     return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)

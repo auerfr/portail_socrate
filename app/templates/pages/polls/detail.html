@@ -29,7 +29,9 @@
             {% if poll.is_anonymous %}
             <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-2.5 py-1">🙈 Anonyme</span>
             {% endif %}
-            {% if poll.is_multiple %}
+            {% if poll.vote_type == 'RATING' %}
+            <span class="text-xs bg-purple-50 text-purple-600 rounded-full px-2.5 py-1">📊 Notation 0–{{ poll.rating_scale }}</span>
+            {% elif poll.is_multiple %}
             <span class="text-xs bg-blue-50 text-blue-600 rounded-full px-2.5 py-1">Choix multiples</span>
             {% endif %}
             {% if poll.min_grade %}
@@ -85,6 +87,21 @@
       {% if is_open and not has_voted and not is_creator %}
       <!-- Formulaire de vote -->
       <form method="post" action="/polls/{{ poll.id }}/vote" class="space-y-3">
+        {% if poll.vote_type == 'RATING' %}
+        <p class="text-xs text-gray-500 mb-1">Notez chaque option de 0 à {{ poll.rating_scale }} — laissez sur « — » pour vous abstenir sur une option.</p>
+        {% for r in results %}
+        <div class="flex items-center justify-between gap-3 p-3.5 rounded-xl border border-gray-200">
+          <span class="text-sm font-medium text-gray-800">{{ r.option.label }}</span>
+          <select name="score_{{ r.option.id }}"
+                  class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 bg-white shrink-0">
+            <option value="">—</option>
+            {% for n in range(0, poll.rating_scale + 1) %}
+            <option value="{{ n }}">{{ n }}</option>
+            {% endfor %}
+          </select>
+        </div>
+        {% endfor %}
+        {% else %}
         {% for r in results %}
         <label class="flex items-center gap-3 p-3.5 rounded-xl border border-gray-200 hover:border-loge-300 hover:bg-loge-50/30 cursor-pointer transition-colors group">
           {% if poll.is_multiple %}
@@ -97,10 +114,11 @@
           <span class="text-sm font-medium text-gray-800">{{ r.option.label }}</span>
         </label>
         {% endfor %}
+        {% endif %}
 
         <button type="submit"
                 class="w-full mt-2 bg-loge-700 hover:bg-loge-800 text-white py-2.5 rounded-xl text-sm font-medium transition-colors">
-          {% if poll.is_multiple %}Valider mes choix{% else %}Voter{% endif %}
+          {% if poll.vote_type == 'RATING' or poll.is_multiple %}Valider mes choix{% else %}Voter{% endif %}
         </button>
 
         {% if poll.is_anonymous %}
@@ -123,21 +141,35 @@
       </div>
       {% endif %}
 
+      {% if poll.vote_type == 'RATING' %}
+      <p class="text-xs text-gray-400 mb-3">Classées par note moyenne (0–{{ poll.rating_scale }}) — les {{ poll.rating_winners }} meilleures sont mises en avant.</p>
+      {% endif %}
       <div class="space-y-4">
         {% set max_pct = results | map(attribute='pct') | max if results else 0 %}
         {% for r in results %}
-        <div>
+        <div class="{% if poll.vote_type == 'RATING' and r.is_winner %}rounded-xl border-2 border-amber-300 bg-amber-50/50 p-3{% endif %}">
           <div class="flex items-center justify-between mb-1.5">
             <span class="text-sm font-medium text-gray-800 flex items-center gap-1.5">
-              {% if r.is_mine %}<span class="text-loge-600">✓</span>{% endif %}
+              {% if poll.vote_type == 'RATING' %}
+              <span class="text-xs text-gray-400 tabular-nums">#{{ r.rank }}</span>
+              {% if r.is_winner %}<span title="Parmi les mieux notées">🏆</span>{% endif %}
+              {% elif r.is_mine %}<span class="text-loge-600">✓</span>{% endif %}
               {{ r.option.label }}
             </span>
+            {% if poll.vote_type == 'RATING' %}
+            <span class="text-sm font-bold {% if r.is_winner %}text-amber-700{% else %}text-gray-500{% endif %}">
+              {{ r.avg }} / {{ poll.rating_scale }} <span class="font-normal text-gray-400">({{ r.count }} note{{ 's' if r.count != 1 }})</span>
+            </span>
+            {% else %}
             <span class="text-sm font-bold {% if r.pct == max_pct %}text-loge-700{% else %}text-gray-500{% endif %}">
               {{ r.count }} <span class="font-normal text-gray-400">({{ r.pct }}%)</span>
             </span>
+            {% endif %}
           </div>
           <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
-            <div class="h-full rounded-full transition-all duration-500 {% if r.is_mine %}bg-loge-600{% else %}bg-loge-300{% endif %}"
+            <div class="h-full rounded-full transition-all duration-500
+                        {% if poll.vote_type == 'RATING' %}{% if r.is_winner %}bg-amber-500{% else %}bg-gray-300{% endif %}
+                        {% else %}{% if r.is_mine %}bg-loge-600{% else %}bg-loge-300{% endif %}{% endif %}"
                  style="width: {{ r.pct }}%"></div>
           </div>
           {% if r.voters %}
