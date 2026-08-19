@@ -246,31 +246,9 @@ async def polls_create(
     return RedirectResponse(url=f"/polls/{poll.id}", status_code=303)
 
 
-@router.get("/{poll_id}", response_class=HTMLResponse)
-async def poll_detail(
-    poll_id: int,
-    request: Request,
-    ctx: Annotated[tuple, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    user, member = ctx
-    poll = await db.get(Poll, poll_id, options=[
-        selectinload(Poll.options).selectinload(PollOption.votes).selectinload(PollVote.poll),
-        selectinload(Poll.votes),
-    ])
-    if not poll:
-        raise HTTPException(status_code=404)
-    if not await _can_access(poll, member, user.is_admin, db):
-        raise HTTPException(status_code=403)
-
-    my_votes_r = await db.execute(
-        select(PollVote)
-        .where(PollVote.poll_id == poll_id, PollVote.member_id == member.id)
-    )
-    my_votes = my_votes_r.scalars().all()
-    my_option_ids = {v.option_id for v in my_votes}
-    has_voted = bool(my_votes)
-
+async def _compute_results(poll: Poll, my_option_ids: set, db: AsyncSession) -> tuple[list, int]:
+    """Calcule les résultats d'un sondage (CHOICE ou RANKING), factorisé pour
+    être partagé entre l'affichage web et l'export PDF."""
     if poll.vote_type == "RANKING":
         n_options = len(poll.options)
         results = []
@@ -318,6 +296,35 @@ async def poll_detail(
                 "is_mine": opt.id in my_option_ids,
                 "voters": voters,
             })
+    return results, total_votes
+
+
+@router.get("/{poll_id}", response_class=HTMLResponse)
+async def poll_detail(
+    poll_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    poll = await db.get(Poll, poll_id, options=[
+        selectinload(Poll.options).selectinload(PollOption.votes).selectinload(PollVote.poll),
+        selectinload(Poll.votes),
+    ])
+    if not poll:
+        raise HTTPException(status_code=404)
+    if not await _can_access(poll, member, user.is_admin, db):
+        raise HTTPException(status_code=403)
+
+    my_votes_r = await db.execute(
+        select(PollVote)
+        .where(PollVote.poll_id == poll_id, PollVote.member_id == member.id)
+    )
+    my_votes = my_votes_r.scalars().all()
+    my_option_ids = {v.option_id for v in my_votes}
+    has_voted = bool(my_votes)
+
+    results, total_votes = await _compute_results(poll, my_option_ids, db)
 
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 
@@ -336,6 +343,124 @@ async def poll_detail(
         "author": author,
         "is_creator": is_creator,
     })
+
+
+@router.get("/{poll_id}/export.pdf")
+async def poll_export_pdf(
+    poll_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    import io
+    import re as _re
+    from fastapi.responses import StreamingResponse
+    from reportlab.lib.pagesizes import A4
+    from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+    from reportlab.lib.units import cm
+    from reportlab.lib import colors
+    from reportlab.platypus import (
+        SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable,
+    )
+
+    user, member = ctx
+    poll = await db.get(Poll, poll_id, options=[
+        selectinload(Poll.options).selectinload(PollOption.votes),
+        selectinload(Poll.votes),
+    ])
+    if not poll:
+        raise HTTPException(status_code=404)
+    if not await _can_access(poll, member, user.is_admin, db):
+        raise HTTPException(status_code=403)
+
+    my_votes_r = await db.execute(
+        select(PollVote).where(PollVote.poll_id == poll_id, PollVote.member_id == member.id)
+    )
+    has_voted = bool(my_votes_r.scalars().first())
+    is_creator = bool(poll.created_by_id == member.id)
+    # Mêmes règles de visibilité que la page web : pas de résultats en avance
+    # sur un sondage encore ouvert tant qu'on n'a pas voté soi-même.
+    if _is_open(poll) and not has_voted and not is_creator and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Votez d'abord pour voir les résultats")
+
+    results, total_votes = await _compute_results(poll, set(), db)
+    author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
+
+    buf = io.BytesIO()
+    doc = SimpleDocTemplate(
+        buf, pagesize=A4,
+        leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm,
+        title=poll.title, author="Portail Socrate",
+    )
+
+    TEAL_DARK  = colors.HexColor("#1a5252")
+    TEAL       = colors.HexColor("#2c7a7b")
+    GRAY       = colors.HexColor("#374151")
+    GRAY_LIGHT = colors.HexColor("#9ca3af")
+    AMBER_BG   = colors.HexColor("#fffbeb")
+    AMBER_BR   = colors.HexColor("#fcd34d")
+    ROW_BG     = colors.HexColor("#f9fafb")
+
+    styles = getSampleStyleSheet()
+    H1   = ParagraphStyle("H1", parent=styles["Normal"], fontSize=16, textColor=TEAL_DARK,
+                           fontName="Helvetica-Bold", spaceAfter=4, leading=20)
+    META = ParagraphStyle("META", parent=styles["Normal"], fontSize=9, textColor=GRAY_LIGHT,
+                           fontName="Helvetica", spaceAfter=4)
+    RANK = ParagraphStyle("RANK", parent=styles["Normal"], fontSize=11, textColor=GRAY_LIGHT,
+                           fontName="Helvetica-Bold")
+    LABEL = ParagraphStyle("LABEL", parent=styles["Normal"], fontSize=11, textColor=GRAY,
+                            fontName="Helvetica-Bold", leading=14)
+    VALUE = ParagraphStyle("VALUE", parent=styles["Normal"], fontSize=10, textColor=GRAY,
+                            fontName="Helvetica", alignment=2)
+
+    story = [Paragraph(poll.title, H1)]
+    if poll.description:
+        story.append(Paragraph(poll.description, META))
+    meta_bits = [f"{total_votes} vote(s)"]
+    if author:
+        meta_bits.append(f"créé par {author.last_name or ''} {author.first_name or ''}".strip())
+    meta_bits.append("clôturé" if not _is_open(poll) else "en cours")
+    if poll.ends_at:
+        meta_bits.append(f"clôture {poll.ends_at.strftime('%d/%m/%Y à %H:%M')}")
+    meta_bits.append("classement" if poll.vote_type == "RANKING" else "choix")
+    story.append(Paragraph(" · ".join(meta_bits) +
+                            f" · exporté le {datetime.now().strftime('%d/%m/%Y à %H:%M')}", META))
+    story.append(HRFlowable(width="100%", color=TEAL, thickness=1.2, spaceBefore=4, spaceAfter=10))
+
+    for r in results:
+        if poll.vote_type == "RANKING":
+            rank_txt = f"#{r['rank']}"
+            value_txt = (f"rang {r['avg']}" if r["avg"] is not None else "—") + f"  ({r['count']} classement(s))"
+        else:
+            rank_txt = ""
+            value_txt = f"{r['count']}  ({r['pct']}%)"
+        row = Table(
+            [[Paragraph(rank_txt, RANK) if rank_txt else "",
+              Paragraph(r["option"].label, LABEL),
+              Paragraph(value_txt, VALUE)]],
+            colWidths=[1.2*cm if poll.vote_type == "RANKING" else 0, doc.width * 0.6, doc.width * 0.4 - (1.2*cm if poll.vote_type == "RANKING" else 0)],
+        )
+        is_winner = poll.vote_type == "RANKING" and r.get("is_winner")
+        row.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 8),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 8),
+            ("TOPPADDING", (0, 0), (-1, -1), 6),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+            ("BACKGROUND", (0, 0), (-1, -1), AMBER_BG if is_winner else ROW_BG),
+            ("BOX", (0, 0), (-1, -1), 0.6, AMBER_BR if is_winner else colors.HexColor("#e5e7eb")),
+        ]))
+        story.append(row)
+        story.append(Spacer(1, 4))
+
+    doc.build(story)
+    buf.seek(0)
+
+    safe_title = _re.sub(r"[^A-Za-z0-9_-]+", "_", poll.title)[:60] or f"sondage_{poll.id}"
+    filename = f"sondage_{poll.id}_{safe_title}.pdf"
+    return StreamingResponse(
+        buf, media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 @router.post("/{poll_id}/vote")
