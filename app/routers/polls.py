@@ -322,7 +322,9 @@ async def poll_detail(
     )
     my_votes = my_votes_r.scalars().all()
     my_option_ids = {v.option_id for v in my_votes}
+    my_ranks = {v.option_id: v.score for v in my_votes if v.score is not None}
     has_voted = bool(my_votes)
+    edit_mode = has_voted and request.query_params.get("edit") == "1"
 
     results, total_votes = await _compute_results(poll, my_option_ids, db)
 
@@ -344,6 +346,8 @@ async def poll_detail(
         "total_votes": total_votes,
         "has_voted": has_voted,
         "my_option_ids": my_option_ids,
+        "my_ranks": my_ranks,
+        "edit_mode": edit_mode,
         "is_open": _is_open(poll),
         "can_manage": _can_manage(member, user.is_admin),
         "author": author,
@@ -484,13 +488,17 @@ async def poll_vote(
     if not await _can_access(poll, member, user.is_admin, db):
         raise HTTPException(status_code=403)
     if not _is_open(poll):
-        raise HTTPException(status_code=400, detail="Sondage clôturé")
+        return RedirectResponse(url=f"/polls/{poll_id}?error=poll_closed", status_code=303)
 
     existing_r = await db.execute(
         select(PollVote).where(PollVote.poll_id == poll_id, PollVote.member_id == member.id)
     )
-    if existing_r.scalars().first():
-        return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
+    existing_votes = existing_r.scalars().all()
+    if existing_votes:
+        # Modification autorisée tant que le sondage est ouvert : on retire
+        # l'ancien vote avant d'enregistrer le nouveau.
+        for v in existing_votes:
+            await db.delete(v)
 
     form = await request.form()
     member_id = None if poll.is_anonymous else member.id
@@ -537,6 +545,29 @@ async def poll_vote(
         for oid in chosen:
             db.add(PollVote(poll_id=poll_id, option_id=oid, member_id=member_id))
 
+    await db.commit()
+    return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
+
+
+@router.post("/{poll_id}/vote/delete")
+async def poll_vote_delete(
+    poll_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Retire son propre vote tant que le sondage est ouvert."""
+    user, member = ctx
+    poll = await db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404)
+    if not await _can_access(poll, member, user.is_admin, db):
+        raise HTTPException(status_code=403)
+    if not _is_open(poll):
+        return RedirectResponse(url=f"/polls/{poll_id}?error=poll_closed", status_code=303)
+
+    await db.execute(
+        delete(PollVote).where(PollVote.poll_id == poll_id, PollVote.member_id == member.id)
+    )
     await db.commit()
     return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
 
