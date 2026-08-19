@@ -13,21 +13,32 @@
       </p>
     </div>
     {% if year %}
-    <div class="flex flex-wrap gap-2">
-      <a href="/finance/budget" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+    <div class="flex flex-wrap items-center gap-2">
+      <!-- Sélecteur d'année -->
+      <form method="get" class="flex items-center">
+        <select name="year_id" onchange="this.form.submit()"
+                class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          {% for y in years %}
+          <option value="{{ y.id }}" {% if y.id == year.id %}selected{% endif %}>
+            {{ y.label }}{% if y.is_current %} ★{% endif %}
+          </option>
+          {% endfor %}
+        </select>
+      </form>
+      <a href="/finance/budget?year_id={{ year.id }}" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
         📊 Budget
       </a>
-      <a href="/finance/cotisations" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+      <a href="/finance/cotisations?year_id={{ year.id }}" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
         💳 Cotisations
       </a>
-      <a href="/finance/transactions" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+      <a href="/finance/transactions?year_id={{ year.id }}" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
         ↕ Mouvements
       </a>
-      <a href="/finance/bilan" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
+      <a href="/finance/bilan?year_id={{ year.id }}" class="border border-gray-200 text-gray-700 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50">
         📋 Bilan
       </a>
       {% if is_admin %}
-      <a href="/finance/cotisations/export-csv" class="border border-loge-200 text-loge-700 px-3 py-1.5 rounded-lg text-sm hover:bg-loge-50">
+      <a href="/finance/cotisations/export-csv?year_id={{ year.id }}" class="border border-loge-200 text-loge-700 px-3 py-1.5 rounded-lg text-sm hover:bg-loge-50">
         ⬇ Export CSV
       </a>
       {% endif %}
@@ -122,7 +133,7 @@
           {% endfor %}
         </div>
         <div class="px-4 py-2.5 bg-gray-50 border-t border-gray-100">
-          <a href="/finance/cotisations/export-csv" class="text-xs text-loge-700 hover:underline">
+          <a href="/finance/cotisations/export-csv?year_id={{ year.id }}" class="text-xs text-loge-700 hover:underline">
             ⬇ Exporter CSV
           </a>
         </div>
@@ -136,17 +147,17 @@
       <!-- Filtres + recherche -->
       <div class="flex flex-col sm:flex-row sm:flex-wrap sm:items-center gap-2 mb-3">
         <div class="flex gap-1 flex-wrap">
-          <a href="/finance/?status_filter=all{% if search %}&search={{ search }}{% endif %}"
+          <a href="/finance/?year_id={{ year.id }}&status_filter=all{% if search %}&search={{ search }}{% endif %}"
              class="px-3 py-1.5 rounded-lg text-xs font-medium border
                     {% if status_filter == 'all' %}bg-gray-800 text-white border-gray-800{% else %}bg-white text-gray-600 border-gray-200 hover:border-gray-400{% endif %}">
             Tous ({{ stats.active_count }})
           </a>
-          <a href="/finance/?status_filter=retard{% if search %}&search={{ search }}{% endif %}"
+          <a href="/finance/?year_id={{ year.id }}&status_filter=retard{% if search %}&search={{ search }}{% endif %}"
              class="px-3 py-1.5 rounded-lg text-xs font-medium border
                     {% if status_filter == 'retard' %}bg-red-500 text-white border-red-500{% else %}bg-white text-gray-600 border-gray-200 hover:border-red-300{% endif %}">
             Retard ({{ stats.late_count }})
           </a>
-          <a href="/finance/?status_filter=ajour{% if search %}&search={{ search }}{% endif %}"
+          <a href="/finance/?year_id={{ year.id }}&status_filter=ajour{% if search %}&search={{ search }}{% endif %}"
              class="px-3 py-1.5 rounded-lg text-xs font-medium border
                     {% if status_filter == 'ajour' %}bg-green-600 text-white border-green-600{% else %}bg-white text-gray-600 border-gray-200 hover:border-green-300{% endif %}">
             À jour ({{ stats.paid_count }})
@@ -154,6 +165,7 @@
         </div>
 
         <form method="get" class="w-full sm:flex-1 sm:max-w-xs">
+          <input type="hidden" name="year_id" value="{{ year.id }}">
           <input type="hidden" name="status_filter" value="{{ status_filter }}">
           <input type="text" name="search" value="{{ search }}" placeholder="Recherche membre…"
                  class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">

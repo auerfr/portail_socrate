@@ -173,13 +173,23 @@ async def finance_dashboard(
     db: Annotated[AsyncSession, Depends(get_db)],
     search: Optional[str] = None,
     status_filter: Optional[str] = None,  # retard | ajour | all
+    year_id: Optional[int] = None,
 ):
     user, member = ctx
-    year = await _get_current_year(db)
+
+    r_years = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    years = r_years.scalars().all()
+
+    year = None
+    if year_id:
+        year = await db.get(MasonicYear, year_id)
+    if not year:
+        year = next((y for y in years if y.is_current), years[0] if years else None)
+
     if not year:
         return templates.TemplateResponse(request, "pages/finance/dashboard.html", {
             "current_member": member, "current_user": user,
-            "year": None, "stats": None, "member_states": [],
+            "years": years, "year": None, "stats": None, "member_states": [],
         })
 
     cfg = await _get_or_create_config(db, year.id)
@@ -313,6 +323,7 @@ async def finance_dashboard(
     return templates.TemplateResponse(request, "pages/finance/dashboard.html", {
         "current_member": member,
         "current_user": user,
+        "years": years,
         "year": year,
         "cfg": cfg,
         "stats": stats,
