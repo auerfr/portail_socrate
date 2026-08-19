@@ -656,8 +656,10 @@ async def add_visitor_standalone(
             existing.email = email.strip()
         if not existing.phone and phone.strip():
             existing.phone = phone.strip()
+        existing.program_optin = bool(program_optin)
+        visitor = existing
     else:
-        db.add(Visitor(
+        visitor = Visitor(
             civility=civility,
             last_name=last_name.strip().upper(),
             first_name=first_name.strip().title(),
@@ -669,7 +671,13 @@ async def add_visitor_standalone(
             email=email.strip() or None,
             phone=phone.strip() or None,
             program_optin=bool(program_optin),
-        ))
+        )
+        db.add(visitor)
+        await db.flush()
+
+    from app.services.visitor_optin import sync_visitor_program_optin
+    await sync_visitor_program_optin(db, visitor)
+
     await db.commit()
     return RedirectResponse(url="/attendance/visitors", status_code=303)
 
@@ -709,6 +717,10 @@ async def edit_visitor(
     visitor.email = email.strip() or None
     visitor.phone = phone.strip() or None
     visitor.program_optin = bool(program_optin)
+
+    from app.services.visitor_optin import sync_visitor_program_optin
+    await sync_visitor_program_optin(db, visitor)
+
     await db.commit()
     return RedirectResponse(url="/attendance/visitors", status_code=303)
 

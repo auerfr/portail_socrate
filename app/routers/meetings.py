@@ -2054,6 +2054,7 @@ async def public_register_submit(
     agape:             str = Form(""),
     agape_guests:      str = Form("0"),
     phone:             str = Form(""),
+    program_optin:     str = Form(""),
 ):
     """Traitement de l'inscription publique."""
     from app.dependencies import verify_password
@@ -2187,6 +2188,8 @@ async def public_register_submit(
             visitor.obedience = obedience
         if not visitor.phone and phone:
             visitor.phone = phone
+        if program_optin:
+            visitor.program_optin = True
     else:
         visitor = Visitor(
             civility=civility if civility in ("F", "S") else "F",
@@ -2199,9 +2202,13 @@ async def public_register_submit(
             masonic_grade=masonic_grade_str or None,
             is_vm=bool(is_vm),
             phone=phone or None,
+            program_optin=bool(program_optin),
         )
         db.add(visitor)
         await db.flush()
+
+    from app.services.visitor_optin import sync_visitor_program_optin
+    await sync_visitor_program_optin(db, visitor)
 
     # Éviter aussi un MeetingVisitor en double pour cette tenue
     existing_mv = await db.execute(

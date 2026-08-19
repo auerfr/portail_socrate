@@ -9,7 +9,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 LOGO_DIR = Path("app/static/uploads/logo")
 LOGO_DIR.mkdir(parents=True, exist_ok=True)
 _LOGO_ALLOWED = {".png", ".jpg", ".jpeg", ".gif", ".svg", ".webp"}
-from sqlalchemy import select, or_, func as _sqlfunc
+from sqlalchemy import select, delete, or_, func as _sqlfunc
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -683,6 +683,25 @@ async def external_contact_delete(
         raise HTTPException(403)
     contact = await db.get(ExternalContact, contact_id)
     if contact:
+        # Effacement RGPD complet. Les contraintes ondelete="CASCADE"/"SET NULL"
+        # déclarées sur les modèles ne sont PAS appliquées en pratique : SQLite
+        # n'active PRAGMA foreign_keys nulle part dans l'app, donc rien ne les
+        # déclenche réellement — suppression explicite ici plutôt que de s'y fier.
+        from app.models.mailing import MailingDelivery, MailingListExternal
+        await db.execute(
+            delete(MailingDelivery).where(MailingDelivery.external_id == contact_id)
+        )
+        await db.execute(
+            delete(MailingListExternal).where(MailingListExternal.external_id == contact_id)
+        )
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=member.id if member else None,
+            action="CONTACT_GDPR_DELETE",
+            target_type="external_contact", target_id=contact_id,
+            target_label=contact.name or contact.email,
+            details=f"Suppression RGPD complète (contact + historique d'envoi) : {contact.email}",
+        )
         await db.delete(contact)
         await db.commit()
     return RedirectResponse(url="/settings/?saved=contacts", status_code=303)
