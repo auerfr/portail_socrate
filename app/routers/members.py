@@ -537,6 +537,7 @@ async def member_edit_form(
         "errors": {},
         "form_action": f"/members/{member_id}/edit",
         "is_new": False,
+        "can_manage": can_manage_members(current_member) or user.is_admin,
     })
 
 
@@ -602,6 +603,7 @@ async def member_update(
             "errors": errors,
             "form_action": f"/members/{member_id}/edit",
             "is_new": False,
+            "can_manage": can_manage_members(current_member) or user.is_admin,
         }, status_code=422)
 
     def parse_date(s: str):
@@ -619,6 +621,13 @@ async def member_update(
     target.civility      = civility or None
     target.phone         = phone or None
     target.program_optin = bool(program_optin)
+
+    is_own_profile = (current_member.id == member_id)
+
+    # Le PIN agapes peut être changé par admin/VM/Secrétaire (pour n'importe
+    # quel membre) ou par le membre lui-même, depuis son propre profil.
+    if pin_code.strip() and (can_manage_members(current_member) or user.is_admin or is_own_profile):
+        target.pin_code_hash = hash_password(pin_code.strip())
 
     # Seuls admin/VM/Secrétaire peuvent changer grade/statut/fonction
     if can_manage_members(current_member) or user.is_admin:
@@ -649,13 +658,10 @@ async def member_update(
             for c in open_r.scalars().all():
                 c.status = ContributionStatus.EXEMPT
                 c.notes = (c.notes or "") + f"\nExempté automatiquement — {target.status.value} le {date.today()}"
-        if pin_code.strip():
-            target.pin_code_hash = hash_password(pin_code.strip())
 
     target.birth_date = parse_date(birth_date)
 
     # Mise à jour login (admin ou propre profil) + is_admin (admin uniquement)
-    is_own_profile = (current_member.id == member_id)
     if login.strip() and (user.is_admin or is_own_profile):
         user_result = await db.execute(select(User).where(User.member_id == member_id))
         target_user = user_result.scalar_one_or_none()

@@ -2101,10 +2101,18 @@ async def public_register_submit(
             target_member = m_r.scalar_one_or_none()
             if not target_member:
                 error = "Membre introuvable."
-            elif not target_member.pin_code_hash:
-                error = "Aucun code PIN configuré pour ce compte. Contactez le secrétaire."
-            elif not pin_code or not verify_password(pin_code, target_member.pin_code_hash):
-                error = "Code PIN incorrect."
+            else:
+                from app.services.settings_store import get_setting
+                general_pin = await get_setting("agape_general_pin", db=db)
+                pin_ok = bool(pin_code) and (
+                    (target_member.pin_code_hash and verify_password(pin_code, target_member.pin_code_hash))
+                    or (general_pin and general_pin.get("hash") and verify_password(pin_code, general_pin["hash"]))
+                )
+                if not pin_ok:
+                    if not target_member.pin_code_hash and not general_pin:
+                        error = "Aucun code PIN configuré pour ce compte. Contactez le secrétaire."
+                    else:
+                        error = "Code PIN incorrect."
 
         if error:
             from app.models.lodge import LodgeSettings as _LS

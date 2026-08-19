@@ -181,10 +181,14 @@
     </div>
 
     <!-- Code PIN agapes -->
-    {% if current_user.is_admin or can_manage %}
+    {% set is_own = target and current_member and target.id == current_member.id %}
+    {% if current_user.is_admin or can_manage or is_own %}
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
       <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-1">Code PIN agapes</h2>
-      <p class="text-xs text-gray-500 mb-4">Permet au membre de s'inscrire aux agapes via le lien public sans compte.</p>
+      <p class="text-xs text-gray-500 mb-4">
+        Permet de s'inscrire aux agapes via le lien public sans compte.
+        {% if is_own and not (current_user.is_admin or can_manage) %}C'est votre code personnel — vous seul(e) le connaissez.{% endif %}
+      </p>
       <div class="max-w-xs">
         <label class="block text-sm font-medium text-gray-700 mb-1">
           Nouveau PIN <span class="text-gray-400 font-normal">(4 chiffres — laisser vide pour ne pas changer)</span>

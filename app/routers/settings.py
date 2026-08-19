@@ -214,6 +214,9 @@ async def settings_page(
             key=lambda x: x["name"], reverse=True
         )[:5]
 
+    from app.services.settings_store import get_setting
+    agape_general_pin = await get_setting("agape_general_pin", db=db)
+
     return templates.TemplateResponse(request, "pages/settings/index.html", {
         "current_member": member,
         "current_user": user,
@@ -243,7 +246,34 @@ async def settings_page(
         "smtp_user": cfg.smtp_user,
         "smtp_from": cfg.smtp_from,
         "smtp_secure": cfg.smtp_secure,
+        "agape_general_pin_label": (agape_general_pin or {}).get("label") if agape_general_pin else None,
     })
+
+
+@router.post("/agape-pin")
+async def settings_save_agape_pin(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    pin: Annotated[str, Form()] = "",
+    label: Annotated[str, Form()] = "",
+):
+    """PIN général valable pour tous les membres — en complément du PIN individuel."""
+    user, member = ctx
+    from app.dependencies import can_manage_members, hash_password
+    if not (user.is_admin or can_manage_members(member)):
+        raise HTTPException(403)
+
+    pin = pin.strip()
+    if pin:
+        if not pin.isdigit() or not (4 <= len(pin) <= 6):
+            raise HTTPException(400, "Le PIN général doit comporter 4 à 6 chiffres")
+        from app.services.settings_store import set_setting
+        await set_setting(db, "agape_general_pin", {
+            "hash": hash_password(pin),
+            "label": label.strip() or str(datetime.now().year),
+        }, actor_id=member.id)
+
+    return RedirectResponse(url="/settings/#agape-pin", status_code=303)
 
 
 @router.post("/save")
