@@ -117,6 +117,14 @@ async def send_notification(
             delivered_at=now,
         ))
 
+    # Valider le message AVANT d'envoyer notifications push/email : ces envois
+    # sont lents (réseau, une pause de 300ms par destinataire pour l'email) et
+    # peuvent dépasser le temps imparti à la requête sur un hébergement
+    # partagé — si la requête est coupée en cours de route après cet appel,
+    # le message doit déjà exister en base, sinon un email peut partir avec
+    # un lien vers un message qui n'a en réalité jamais été enregistré (404).
+    await db.commit()
+
     # ── Push notifications ────────────────────────────────────────────
     try:
         from app.services.push import send_push_broadcast
