@@ -629,8 +629,10 @@ async def program_transmit(
             "date_civil": _date_civil,
             "inscription_url": lambda token: _inscription_url(request, token),
             "is_admin": False,   # mode consultation — pas de boutons admin
+            "can_manage_programs": False,
             "print_mode": True,
             "now": datetime.now(),
+            "email_sent": None,
             # Inject Tailwind CDN pour le fichier autonome
             "_standalone": True,
         },
