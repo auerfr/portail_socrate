@@ -939,11 +939,39 @@ async def program_transmit(
         doc_url = f"{base_url}/programs/{program_id}"
         push_url = f"/programs/{program_id}"
 
+    # L'audience de la notification doit correspondre à qui peut réellement
+    # ouvrir le document archivé — sinon certains membres reçoivent un lien
+    # qui leur renvoie une 403 (dossier/espace GED restreint par grade ou
+    # groupe). On reprend la restriction la plus stricte entre le dossier et
+    # l'espace documentaire.
+    notif_min_grade: Optional[str] = None
+    notif_group_id: Optional[int] = None
+    if ged_folder:
+        from app.models.documents import DocSpace as _DocSpace, MinGrade as _MinGrade
+        doc_space = await db.get(_DocSpace, ged_folder.space_id)
+        if ged_folder.group_id:
+            notif_group_id = ged_folder.group_id
+        elif doc_space and doc_space.group_id:
+            notif_group_id = doc_space.group_id
+        else:
+            _lvl = {_MinGrade.ALL: 0, _MinGrade.APPRENTI: 1, _MinGrade.COMPAGNON: 2, _MinGrade.MAITRE: 3}
+            effective = max(
+                _lvl.get(ged_folder.min_grade, 0),
+                _lvl.get(doc_space.min_grade, 0) if doc_space else 0,
+            )
+            if effective >= 3:
+                notif_min_grade = "MAITRE"
+            elif effective >= 2:
+                notif_min_grade = "COMPAGNON"
+            # ALL / APPRENTI → aucune restriction, tout membre actif y a accès
+
     from app.utils.notifications import send_notification
     await send_notification(
         db, member.id,
         f"📋 Programme archivé : {program.title}",
         f"Le programme « {program.title} » a été transmis et archivé, vous pouvez le consulter dans la bibliothèque :\n\n{doc_url}",
+        min_grade=notif_min_grade,
+        target_group_id=notif_group_id,
         send_email=True,
         portal_base_url=base_url,
         push_url=push_url,
