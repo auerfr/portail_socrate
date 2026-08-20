@@ -1,4 +1,5 @@
 """Router Programmes — génération mensuelle avec URL d'inscription et QR codes"""
+import asyncio
 import base64
 import io
 import logging
@@ -404,6 +405,8 @@ async def program_detail(
         "external_contacts": external_contacts,
         "mailing_lists_for_program": mailing_lists_for_program,
         "email_sent": request.query_params.get("email_sent"),
+        "email_already": request.query_params.get("email_already"),
+        "email_attempted": request.query_params.get("email_attempted"),
         "imap_inbox": __import__('app.config', fromlist=['get_settings']).get_settings().imap_user or None,
     })
 
@@ -633,6 +636,8 @@ async def program_transmit(
             "print_mode": True,
             "now": datetime.now(),
             "email_sent": None,
+            "email_already": None,
+            "email_attempted": None,
             # Inject Tailwind CDN pour le fichier autonome
             "_standalone": True,
         },
@@ -656,6 +661,7 @@ async def program_transmit(
     ged_folder = await _find_ged_folder(db, year_label)
 
     # ── 4. Créer l'entrée Document dans la GED ──────────────────────────────
+    doc_id: Optional[int] = None
     if ged_folder:
         # Vérifier si ce programme est déjà archivé (éviter doublons)
         existing_doc = await db.execute(
@@ -674,6 +680,7 @@ async def program_transmit(
             existing.storage_path = str(dest_path)
             existing.original_filename = filename
             existing.file_size = dest_path.stat().st_size
+            doc_id = existing.id
         else:
             doc = Document(
                 folder_id=ged_folder.id,
@@ -686,12 +693,41 @@ async def program_transmit(
                 author_id=member.id,
             )
             db.add(doc)
+            await db.flush()
+            doc_id = doc.id
 
     # ── 5. Marquer le programme comme transmis ───────────────────────────────
     program.sent_at = datetime.now()
     program.sent_by_id = member.id
     program.pdf_path = str(dest_path)  # réutilise le champ pour stocker le chemin
 
+    await db.commit()
+
+    # ── 6. Notifier les membres (message interne + email) ────────────────────
+    # Un programme archivé n'est utile que si les membres savent où le trouver —
+    # contrairement à l'envoi aux correspondants externes (bouton séparé), ceci
+    # les prévient simplement que la version archivée est disponible.
+    base_url = str(request.base_url).rstrip("/")
+    if doc_id:
+        doc_url = f"{base_url}/documents/file/{doc_id}/view"
+        push_url = f"/documents/file/{doc_id}/view"
+    elif ged_folder:
+        doc_url = f"{base_url}/documents/folder/{ged_folder.id}"
+        push_url = f"/documents/folder/{ged_folder.id}"
+    else:
+        doc_url = f"{base_url}/programs/{program_id}"
+        push_url = f"/programs/{program_id}"
+
+    from app.utils.notifications import send_notification
+    await send_notification(
+        db, member.id,
+        f"📋 Programme archivé : {program.title}",
+        f"Le programme « {program.title} » a été transmis et archivé, vous pouvez le consulter dans la bibliothèque :\n\n{doc_url}",
+        send_email=True,
+        portal_base_url=base_url,
+        push_url=push_url,
+        push_body=f"Disponible dans la bibliothèque — {program.title}",
+    )
     await db.commit()
 
     return RedirectResponse(
@@ -1029,6 +1065,26 @@ async def program_send_external(
     subject = f"[{lodge_name}] {program.title}"
     base_url = str(request.base_url).rstrip("/")
 
+    # Ne jamais renvoyer à quelqu'un qui a déjà reçu CE programme avec succès —
+    # permet de recliquer sur "Envoyer" après un envoi partiellement échoué
+    # (ex : relais SMTP saturé en cours de route) sans spammer ceux qui l'ont
+    # déjà reçu. Le sujet identifie le programme de façon fiable.
+    from app.models.system import EmailLog, EmailStatus
+    r_already_sent = await db.execute(
+        select(EmailLog.recipient).where(
+            EmailLog.subject == subject, EmailLog.status == EmailStatus.SENT
+        )
+    )
+    already_sent = {r.strip().lower() for r in r_already_sent.scalars().all()}
+    skipped = [r for r in recipients if r[1].strip().lower() in already_sent]
+    recipients = [r for r in recipients if r[1].strip().lower() not in already_sent]
+
+    if not recipients:
+        return RedirectResponse(
+            url=f"/programs/{program_id}?email_sent=0&email_already={len(skipped)}&email_attempted=0",
+            status_code=303,
+        )
+
     # QR codes en images inline (cid:) — référencées dans emails/programme.html
     inline_images = [
         (f"qr{meeting_id}", png, "image/png") for meeting_id, png in qr_pngs.items()
@@ -1078,5 +1134,12 @@ async def program_send_external(
         )
         if ok:
             sent += 1
+        # Pause entre chaque envoi — un relais mutualisé (LWS/cPanel) rejette
+        # en rafale les envois en masse ouverts trop vite (cf. NOTIFY_EMAIL_DELAY_MS
+        # dans app/routers/messages.py, même logique ici).
+        await asyncio.sleep(0.3)
 
-    return RedirectResponse(url=f"/programs/{program_id}?email_sent={sent}", status_code=303)
+    return RedirectResponse(
+        url=f"/programs/{program_id}?email_sent={sent}&email_already={len(skipped)}&email_attempted={len(recipients)}",
+        status_code=303,
+    )

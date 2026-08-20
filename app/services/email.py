@@ -195,6 +195,18 @@ async def _send_raw(
                 if m:
                     code = int(m.group(1))
             is_transient = code is not None and 400 <= code < 500
+            if not is_transient and code is None:
+                # Le relais coupe parfois la connexion sans réponse SMTP propre
+                # (surcharge, anti-flood sur un pic d'envois) — aiosmtplib lève
+                # alors une erreur de connexion sans code numérique. Fréquent sur
+                # les relais mutualisés lors d'un envoi en masse ; à retenter
+                # comme une erreur transitoire plutôt qu'abandonner définitivement.
+                msg = str(exc).lower()
+                if any(s in msg for s in (
+                    "unexpected eof", "connection reset", "disconnected",
+                    "timed out", "timeout", "broken pipe", "connection closed",
+                )):
+                    is_transient = True
 
             if is_transient and attempt < max_attempts:
                 logger.warning(

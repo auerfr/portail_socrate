@@ -16,6 +16,9 @@ _GRADE_ORDER = {
 }
 
 
+_NOTIFY_EMAIL_DELAY_MS = 300  # même convention que app/routers/messages.py — évite de saturer le relais SMTP
+
+
 async def send_notification(
     db: AsyncSession,
     sender_id: int,
@@ -26,9 +29,13 @@ async def send_notification(
     member_ids: Optional[list[int]] = None,
     push_url: str = "/messages",
     push_body: Optional[str] = None,
+    send_email: bool = False,
+    portal_base_url: Optional[str] = None,
 ) -> None:
     """Envoie un message interne à tous les membres actifs éligibles (hors expéditeur).
-    Envoie également une notification push aux abonnés."""
+    Envoie également une notification push aux abonnés, et — si send_email=True —
+    un email individuel à chacun (mêmes gabarit et délai anti-saturation SMTP que
+    la messagerie interne classique)."""
     r = await db.execute(
         select(Member).where(Member.status == MemberStatus.ACTIVE)
     )
@@ -121,3 +128,33 @@ async def send_notification(
         await send_push_broadcast(db, recipient_ids, push_title, pb, push_url)
     except Exception:
         pass  # ne jamais bloquer l'envoi du message interne sur un échec push
+
+    # ── Emails individuels (optionnel) ──────────────────────────────────
+    if send_email:
+        import asyncio
+        from app.services.email import notify_new_message
+
+        sender = next((m for m in all_members if m.id == sender_id), None)
+        if sender:
+            sender_name = f"{'S∴' if sender.civility == 'S' else 'F∴'} {sender.last_name} {sender.first_name}"
+        else:
+            sender_name = "Portail Loge"
+        base_url = (portal_base_url or "https://portail.amisdesocrate.fr").rstrip("/")
+
+        recipient_emails = [
+            m.email for m in all_members
+            if m.id in recipient_ids and m.email
+        ]
+        for email in recipient_emails:
+            try:
+                await notify_new_message(
+                    recipient_email=email,
+                    sender_name=sender_name,
+                    subject=subject,
+                    body=body,
+                    message_id=msg.id,
+                    portal_base_url=base_url,
+                )
+            except Exception:
+                pass
+            await asyncio.sleep(_NOTIFY_EMAIL_DELAY_MS / 1000.0)
