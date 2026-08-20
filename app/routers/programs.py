@@ -191,6 +191,209 @@ async def _render_program_pdf_via_browser(request: Request, program_id: int) -> 
         return None
 
 
+async def _generate_program_pdf(
+    request: Request, program_id: int, program: "Program", pm_sorted: list,
+    lodge, qr_pngs: dict[int, bytes],
+) -> Optional[bytes]:
+    """Génère le PDF d'un programme : rendu fidèle via navigateur headless
+    (identique à la page du site) avec repli ReportLab si indisponible.
+    Partagé entre l'envoi aux correspondants externes et l'archivage GED —
+    les deux doivent produire le même document."""
+    pdf_bytes = await _render_program_pdf_via_browser(request, program_id)
+    if pdf_bytes:
+        return pdf_bytes
+
+    # Repli : génération ReportLab (fiable partout, mise en page simplifiée)
+    try:
+        from reportlab.lib.pagesizes import A4
+        from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
+        from reportlab.lib.units import cm
+        from reportlab.lib import colors
+        from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
+        from reportlab.lib.enums import TA_CENTER, TA_LEFT
+        import os as _os
+
+        buf = io.BytesIO()
+        doc = SimpleDocTemplate(
+            buf, pagesize=A4,
+            leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm,
+        )
+
+        TEAL = colors.HexColor("#1a5252")
+        TEAL_LIGHT = colors.HexColor("#ecfdf5")
+        TEAL_BORDER = colors.HexColor("#d1fae5")
+        GRAY = colors.HexColor("#374151")
+        GRAY_LIGHT = colors.HexColor("#9ca3af")
+
+        styles = getSampleStyleSheet()
+        h1 = ParagraphStyle("h1", parent=styles["Normal"], fontSize=16, textColor=colors.white,
+                             fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=2)
+        sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#a7d4d4"),
+                             fontName="Helvetica", alignment=TA_CENTER)
+        body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, textColor=GRAY,
+                              fontName="Helvetica", leading=14, spaceAfter=4)
+        meeting_title = ParagraphStyle("mt", parent=styles["Normal"], fontSize=11, textColor=TEAL,
+                                       fontName="Helvetica-Bold", leading=14)
+        small = ParagraphStyle("small", parent=styles["Normal"], fontSize=9, textColor=GRAY,
+                               fontName="Helvetica", leading=12)
+        url_style = ParagraphStyle("url", parent=styles["Normal"], fontSize=8, textColor=TEAL,
+                                   fontName="Helvetica", leading=10)
+        footer_label = ParagraphStyle("fl", parent=styles["Normal"], fontSize=9, textColor=TEAL,
+                                      fontName="Helvetica-Bold", leading=12)
+        footer_val = ParagraphStyle("fv", parent=styles["Normal"], fontSize=9, textColor=GRAY,
+                                    fontName="Helvetica", leading=12)
+
+        story = []
+
+        # ── En-tête ──
+        lodge_name = lodge.name if lodge else "Socrate — Raison et Progrès"
+        obedience = lodge.obedience if lodge else "Grand Orient de France"
+        orient = lodge.orient_city if lodge else ""
+        loge_num = f" — R∴L∴ n°{lodge.loge_number}" if lodge and lodge.loge_number else ""
+        rite = lodge.rite if lodge and lodge.rite else None
+
+        header_text = [
+            Paragraph(lodge_name, h1),
+            Paragraph(f"Au nom et sous les auspices du {obedience}<br/>Or∴ de {orient}{loge_num}", sub),
+        ]
+        if rite:
+            header_text.append(Paragraph(f"— ϕ — {rite} — ϕ —", sub))
+
+        seal_path = _os.path.join("app", "static", "img", "sceau-socrate-transparent.png")
+        seal_img = Image(seal_path, width=1.6*cm, height=1.6*cm) if _os.path.exists(seal_path) else None
+
+        if seal_img:
+            header_table = Table([[seal_img, header_text]], colWidths=[2.4*cm, doc.width - 2.4*cm])
+        else:
+            header_table = Table([[header_text]], colWidths=[doc.width])
+        header_table.setStyle(TableStyle([
+            ("BACKGROUND", (0, 0), (-1, -1), TEAL),
+            ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
+            ("TOPPADDING", (0, 0), (-1, -1), 14),
+            ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
+            ("LEFTPADDING", (0, 0), (-1, -1), 16),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 16),
+            ("ROUNDEDCORNERS", [6, 6, 6, 6]),
+        ]))
+        story.append(header_table)
+        story.append(Spacer(1, 0.4*cm))
+
+        # ── Salutation / intro ──
+        story.append(Paragraph("Mon T∴C∴F∴, ma T∴C∴S∴,", body))
+        if program.content_html:
+            import re as _re
+            clean_intro = _re.sub(r"<[^>]+>", " ", program.content_html).strip()
+            story.append(Paragraph(clean_intro, body))
+        story.append(Spacer(1, 0.3*cm))
+
+        # ── Tenues ──
+        MEETING_TYPE_SHORT = {
+            "BLANCHE": "Ten∴ Bl∴", "SOLENNELLE": "Ten∴ Sol∴", "INSTRUCTION": "Ten∴ d'Instr∴",
+            "INITIATION": "Ten∴ d'Init∴", "INSTALLATION": "Installation",
+            "ELECTION": "Élection du V∴M∴", "PASSAGE": "Passage au 2e degré",
+            "ELEVATION": "Élévation au 3e degré", "FETE": "Fête mac∴", "EXTRA": "Ten∴ extraordinaire",
+        }
+
+        for pm in pm_sorted:
+            m = pm.meeting
+            url = pm.registration_url or _inscription_url(request, m.token)
+
+            n = m.meeting_number
+            num_label = f"{n}{'ère' if n == 1 else 'ème'} " if n else ""
+            type_label = MEETING_TYPE_SHORT.get(m.type.value, m.type.value)
+            grade_label = {"APPRENTI": "App∴", "COMPAGNON": "Comp∴", "MAITRE": "M∴"}.get(m.grade.value, "TLR∴")
+            title_str = f"▲ {num_label}{type_label} du {_date_civil(m.meeting_date)} en Loge d'{grade_label}"
+
+            card_rows = [[Paragraph(title_str, meeting_title)]]
+
+            if m.agenda_html:
+                agenda_markup = _html_to_reportlab_markup(m.agenda_html)
+                card_rows.append([Paragraph(agenda_markup, small)])
+
+            if m.degrees and len(m.degrees) > 1:
+                for deg in m.degrees:
+                    deg_label = deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value)
+                    card_rows.append([Paragraph(f"• {deg_label}", small)])
+
+            if m.agape_enabled:
+                agape_text = f"• Agape fraternelle à l'issue"
+                if m.agape_location:
+                    agape_text += f" — {m.agape_location}"
+                agape_text += " <font color='#b45309'><b>(Réservation impérative)</b></font>"
+                card_rows.append([Paragraph(agape_text, small)])
+
+            card_rows.append([Paragraph(f"Inscription : {url}", url_style)])
+            if qr_pngs.get(m.id):
+                card_rows.append([Image(io.BytesIO(qr_pngs[m.id]), width=2.0*cm, height=2.0*cm)])
+
+            card = Table(card_rows, colWidths=[doc.width])
+            card.setStyle(TableStyle([
+                ("BACKGROUND", (0, 0), (0, 0), TEAL_LIGHT),
+                ("BACKGROUND", (0, 1), (-1, -1), colors.white),
+                ("BOX", (0, 0), (-1, -1), 0.5, TEAL_BORDER),
+                ("LINEBELOW", (0, 0), (0, 0), 0.5, TEAL_BORDER),
+                ("TOPPADDING", (0, 0), (-1, -1), 6),
+                ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
+                ("LEFTPADDING", (0, 0), (-1, -1), 10),
+                ("RIGHTPADDING", (0, 0), (-1, -1), 10),
+                ("ROUNDEDCORNERS", [4, 4, 4, 4]),
+            ]))
+            story.append(card)
+            story.append(Spacer(1, 0.3*cm))
+
+        # ── Ordre du jour commun ──
+        if lodge and lodge.common_agenda:
+            story.append(Paragraph("▲ Ordre du jour commun à toutes les TTen∴", meeting_title))
+            for line in lodge.common_agenda.split("\n"):
+                stripped = line.strip()
+                if stripped:
+                    story.append(Paragraph(stripped, small))
+            story.append(Spacer(1, 0.3*cm))
+
+        # ── À noter ──
+        if program.next_meetings_text:
+            import re as _re
+            note_clean = _re.sub(r"<[^>]+>", " ", program.next_meetings_text).strip()
+            story.append(Paragraph(note_clean, body))
+            story.append(Spacer(1, 0.3*cm))
+
+        # ── Footer VM / Temple / Sec ──
+        story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb")))
+        story.append(Spacer(1, 0.2*cm))
+
+        vm_lines = [Paragraph("V∴M∴", footer_label)]
+        if lodge and lodge.vm_name_display:
+            vm_lines.append(Paragraph(lodge.vm_name_display, footer_val))
+        if lodge and lodge.vm_email_display:
+            vm_lines.append(Paragraph(lodge.vm_email_display, footer_val))
+
+        temple_lines = [Paragraph("Temple", footer_label)]
+        if lodge and lodge.temple_name:
+            temple_lines.append(Paragraph(lodge.temple_name, footer_val))
+        if lodge and lodge.temple_address:
+            temple_lines.append(Paragraph(lodge.temple_address, footer_val))
+
+        sec_lines = [Paragraph("Sec∴", footer_label)]
+        if lodge and lodge.secretary_name_display:
+            sec_lines.append(Paragraph(lodge.secretary_name_display, footer_val))
+        if lodge and lodge.secretary_email_display:
+            sec_lines.append(Paragraph(lodge.secretary_email_display, footer_val))
+
+        footer_table = Table([[vm_lines, temple_lines, sec_lines]], colWidths=[doc.width/3]*3)
+        footer_table.setStyle(TableStyle([
+            ("VALIGN", (0, 0), (-1, -1), "TOP"),
+            ("LEFTPADDING", (0, 0), (-1, -1), 4),
+            ("RIGHTPADDING", (0, 0), (-1, -1), 4),
+        ]))
+        story.append(footer_table)
+
+        doc.build(story)
+        return buf.getvalue()
+    except Exception as _e:
+        logger.warning("PDF non généré (ReportLab) : %s", _e, exc_info=True)
+        return None
+
+
 async def _get_lodge(db: AsyncSession) -> Optional[LodgeSettings]:
     r = await db.execute(select(LodgeSettings).limit(1))
     return r.scalar_one_or_none()
@@ -590,7 +793,8 @@ async def program_transmit(
 ):
     """
     Marque le programme comme transmis et l'archive dans la GED.
-    Génère une version HTML autonome consultable depuis la bibliothèque.
+    Archive le même PDF que celui envoyé aux correspondants externes
+    (mise en page et QR codes préservés, contrairement à un export HTML).
     """
     user, member = ctx
 
@@ -608,48 +812,64 @@ async def program_transmit(
     lodge = await _get_lodge(db)
     masonic_year = await db.get(MasonicYear, program.masonic_year_id) if program.masonic_year_id else None
 
-    # ── 1. Rendre le programme en HTML autonome ──────────────────────────────
+    # ── 1. Générer le PDF du programme (même document que l'envoi externe) ──
     pm_sorted = sorted(program.meetings, key=lambda pm: pm.meeting.meeting_date)
-    qr_codes: dict[int, str] = {}
+    qr_pngs: dict[int, bytes] = {}
     for pm in pm_sorted:
-        url = _inscription_url(request, pm.meeting.token)
-        qr_codes[pm.meeting_id] = _qr_svg(url)
+        url = pm.registration_url or _inscription_url(request, pm.meeting.token)
+        qr_pngs[pm.meeting_id] = _qr_png(url)
 
-    html_content = templates.TemplateResponse(
-        request,
-        "pages/programs/detail.html",
-        {
-            "current_member": member,
-            "current_user": user,
-            "program": program,
-            "pm_sorted": pm_sorted,
-            "qr_codes": qr_codes,
-            "lodge": lodge,
-            "MOIS_FR": MOIS_FR,
-            "MEETING_TYPE_LABELS": MEETING_TYPE_LABELS,
-            "GRADE_LABELS": GRADE_LABELS,
-            "date_al": _date_al,
-            "date_civil": _date_civil,
-            "inscription_url": lambda token: _inscription_url(request, token),
-            "is_admin": False,   # mode consultation — pas de boutons admin
-            "can_manage_programs": False,
-            "print_mode": True,
-            "now": datetime.now(),
-            "email_sent": None,
-            "email_already": None,
-            "email_attempted": None,
-            # Inject Tailwind CDN pour le fichier autonome
-            "_standalone": True,
-        },
-    )
-    html_str = html_content.body.decode("utf-8")
+    pdf_bytes = await _generate_program_pdf(request, program_id, program, pm_sorted, lodge, qr_pngs)
 
-    # ── 2. Sauvegarder le fichier HTML ───────────────────────────────────────
+    # ── 2. Sauvegarder le fichier ─────────────────────────────────────────
     safe_title = "".join(c for c in program.title if c.isalnum() or c in " -_").strip()
-    filename    = f"{safe_title}.html"
-    stored_name = f"{uuid.uuid4().hex}.html"
-    dest_path   = PROG_UPLOAD_DIR / stored_name
-    dest_path.write_text(html_str, encoding="utf-8")
+    if pdf_bytes:
+        filename    = f"{safe_title}.pdf"
+        stored_name = f"{uuid.uuid4().hex}.pdf"
+        dest_path   = PROG_UPLOAD_DIR / stored_name
+        dest_path.write_bytes(pdf_bytes)
+        mime_type = "application/pdf"
+    else:
+        # Repli extrême (rendu navigateur ET ReportLab indisponibles) :
+        # version HTML autonome, pour ne jamais bloquer l'archivage.
+        logger.warning("PDF indisponible pour l'archivage du programme %s, repli HTML", program_id)
+        qr_codes: dict[int, str] = {}
+        for pm in pm_sorted:
+            url = pm.registration_url or _inscription_url(request, pm.meeting.token)
+            qr_codes[pm.meeting_id] = _qr_svg(url)
+        html_content = templates.TemplateResponse(
+            request,
+            "pages/programs/detail.html",
+            {
+                "current_member": member,
+                "current_user": user,
+                "program": program,
+                "pm_sorted": pm_sorted,
+                "qr_codes": qr_codes,
+                "lodge": lodge,
+                "MOIS_FR": MOIS_FR,
+                "MEETING_TYPE_LABELS": MEETING_TYPE_LABELS,
+                "GRADE_LABELS": GRADE_LABELS,
+                "date_al": _date_al,
+                "date_civil": _date_civil,
+                "inscription_url": lambda token: _inscription_url(request, token),
+                "is_admin": False,   # mode consultation — pas de boutons admin
+                "can_manage_programs": False,
+                "print_mode": True,
+                "now": datetime.now(),
+                "email_sent": None,
+                "email_already": None,
+                "email_attempted": None,
+                # Inject Tailwind CDN pour le fichier autonome
+                "_standalone": True,
+            },
+        )
+        html_str = html_content.body.decode("utf-8")
+        filename    = f"{safe_title}.html"
+        stored_name = f"{uuid.uuid4().hex}.html"
+        dest_path   = PROG_UPLOAD_DIR / stored_name
+        dest_path.write_text(html_str, encoding="utf-8")
+        mime_type = "text/html"
 
     # ── 3. Trouver / créer le dossier GED ───────────────────────────────────
     if masonic_year:
@@ -679,6 +899,7 @@ async def program_transmit(
                 pass
             existing.storage_path = str(dest_path)
             existing.original_filename = filename
+            existing.mime_type = mime_type
             existing.file_size = dest_path.stat().st_size
             doc_id = existing.id
         else:
@@ -686,7 +907,7 @@ async def program_transmit(
                 folder_id=ged_folder.id,
                 name=program.title,
                 original_filename=filename,
-                mime_type="text/html",
+                mime_type=mime_type,
                 file_size=dest_path.stat().st_size,
                 storage_path=str(dest_path),
                 status=DocStatus.PUBLISHED,
@@ -865,201 +1086,9 @@ async def program_send_external(
         qr_pngs[m.id] = _qr_png(qr_url)
 
     # ── PDF du programme (pièce jointe systématique) ───────────────────────
-    # 1. Rendu fidèle : on "imprime" la vraie page /programs/{id}?print_mode=true
-    #    via un navigateur headless — identique au bouton "Imprimer / PDF" du site.
-    pdf_bytes = await _render_program_pdf_via_browser(request, program_id)
+    pdf_bytes = await _generate_program_pdf(request, program_id, program, pm_sorted, lodge, qr_pngs)
     if pdf_bytes:
         attachments.insert(0, (f"{program.title}.pdf", pdf_bytes, "application/pdf"))
-    else:
-        # 2. Repli : génération ReportLab (fiable partout, mise en page simplifiée)
-        try:
-            from reportlab.lib.pagesizes import A4
-            from reportlab.lib.styles import getSampleStyleSheet, ParagraphStyle
-            from reportlab.lib.units import cm
-            from reportlab.lib import colors
-            from reportlab.platypus import SimpleDocTemplate, Paragraph, Spacer, Table, TableStyle, HRFlowable, Image
-            from reportlab.lib.enums import TA_CENTER, TA_LEFT
-            import os as _os
-
-            buf = io.BytesIO()
-            doc = SimpleDocTemplate(
-                buf, pagesize=A4,
-                leftMargin=2*cm, rightMargin=2*cm, topMargin=2*cm, bottomMargin=2*cm,
-            )
-
-            TEAL = colors.HexColor("#1a5252")
-            TEAL_LIGHT = colors.HexColor("#ecfdf5")
-            TEAL_BORDER = colors.HexColor("#d1fae5")
-            GRAY = colors.HexColor("#374151")
-            GRAY_LIGHT = colors.HexColor("#9ca3af")
-
-            styles = getSampleStyleSheet()
-            h1 = ParagraphStyle("h1", parent=styles["Normal"], fontSize=16, textColor=colors.white,
-                                 fontName="Helvetica-Bold", alignment=TA_CENTER, spaceAfter=2)
-            sub = ParagraphStyle("sub", parent=styles["Normal"], fontSize=9, textColor=colors.HexColor("#a7d4d4"),
-                                 fontName="Helvetica", alignment=TA_CENTER)
-            body = ParagraphStyle("body", parent=styles["Normal"], fontSize=10, textColor=GRAY,
-                                  fontName="Helvetica", leading=14, spaceAfter=4)
-            meeting_title = ParagraphStyle("mt", parent=styles["Normal"], fontSize=11, textColor=TEAL,
-                                           fontName="Helvetica-Bold", leading=14)
-            small = ParagraphStyle("small", parent=styles["Normal"], fontSize=9, textColor=GRAY,
-                                   fontName="Helvetica", leading=12)
-            url_style = ParagraphStyle("url", parent=styles["Normal"], fontSize=8, textColor=TEAL,
-                                       fontName="Helvetica", leading=10)
-            footer_label = ParagraphStyle("fl", parent=styles["Normal"], fontSize=9, textColor=TEAL,
-                                          fontName="Helvetica-Bold", leading=12)
-            footer_val = ParagraphStyle("fv", parent=styles["Normal"], fontSize=9, textColor=GRAY,
-                                        fontName="Helvetica", leading=12)
-
-            story = []
-
-            # ── En-tête ──
-            lodge_name = lodge.name if lodge else "Socrate — Raison et Progrès"
-            obedience = lodge.obedience if lodge else "Grand Orient de France"
-            orient = lodge.orient_city if lodge else ""
-            loge_num = f" — R∴L∴ n°{lodge.loge_number}" if lodge and lodge.loge_number else ""
-            rite = lodge.rite if lodge and lodge.rite else None
-
-            header_text = [
-                Paragraph(lodge_name, h1),
-                Paragraph(f"Au nom et sous les auspices du {obedience}<br/>Or∴ de {orient}{loge_num}", sub),
-            ]
-            if rite:
-                header_text.append(Paragraph(f"— ϕ — {rite} — ϕ —", sub))
-
-            seal_path = _os.path.join("app", "static", "img", "sceau-socrate-transparent.png")
-            seal_img = Image(seal_path, width=1.6*cm, height=1.6*cm) if _os.path.exists(seal_path) else None
-
-            if seal_img:
-                header_table = Table([[seal_img, header_text]], colWidths=[2.4*cm, doc.width - 2.4*cm])
-            else:
-                header_table = Table([[header_text]], colWidths=[doc.width])
-            header_table.setStyle(TableStyle([
-                ("BACKGROUND", (0, 0), (-1, -1), TEAL),
-                ("VALIGN", (0, 0), (-1, -1), "MIDDLE"),
-                ("TOPPADDING", (0, 0), (-1, -1), 14),
-                ("BOTTOMPADDING", (0, 0), (-1, -1), 14),
-                ("LEFTPADDING", (0, 0), (-1, -1), 16),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 16),
-                ("ROUNDEDCORNERS", [6, 6, 6, 6]),
-            ]))
-            story.append(header_table)
-            story.append(Spacer(1, 0.4*cm))
-
-            # ── Salutation / intro ──
-            story.append(Paragraph("Mon T∴C∴F∴, ma T∴C∴S∴,", body))
-            if program.content_html:
-                import re as _re
-                clean_intro = _re.sub(r"<[^>]+>", " ", program.content_html).strip()
-                story.append(Paragraph(clean_intro, body))
-            story.append(Spacer(1, 0.3*cm))
-
-            # ── Tenues ──
-            MEETING_TYPE_SHORT = {
-                "BLANCHE": "Ten∴ Bl∴", "SOLENNELLE": "Ten∴ Sol∴", "INSTRUCTION": "Ten∴ d'Instr∴",
-                "INITIATION": "Ten∴ d'Init∴", "INSTALLATION": "Installation",
-                "ELECTION": "Élection du V∴M∴", "PASSAGE": "Passage au 2e degré",
-                "ELEVATION": "Élévation au 3e degré", "FETE": "Fête mac∴", "EXTRA": "Ten∴ extraordinaire",
-            }
-
-            for pm in pm_sorted:
-                m = pm.meeting
-                url = pm.registration_url or _inscription_url(request, m.token)
-
-                n = m.meeting_number
-                num_label = f"{n}{'ère' if n == 1 else 'ème'} " if n else ""
-                type_label = MEETING_TYPE_SHORT.get(m.type.value, m.type.value)
-                grade_label = {"APPRENTI": "App∴", "COMPAGNON": "Comp∴", "MAITRE": "M∴"}.get(m.grade.value, "TLR∴")
-                title_str = f"▲ {num_label}{type_label} du {_date_civil(m.meeting_date)} en Loge d'{grade_label}"
-
-                card_rows = [[Paragraph(title_str, meeting_title)]]
-
-                if m.agenda_html:
-                    agenda_markup = _html_to_reportlab_markup(m.agenda_html)
-                    card_rows.append([Paragraph(agenda_markup, small)])
-
-                if m.degrees and len(m.degrees) > 1:
-                    for deg in m.degrees:
-                        deg_label = deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value)
-                        card_rows.append([Paragraph(f"• {deg_label}", small)])
-
-                if m.agape_enabled:
-                    agape_text = f"• Agape fraternelle à l'issue"
-                    if m.agape_location:
-                        agape_text += f" — {m.agape_location}"
-                    agape_text += " <font color='#b45309'><b>(Réservation impérative)</b></font>"
-                    card_rows.append([Paragraph(agape_text, small)])
-
-                card_rows.append([Paragraph(f"Inscription : {url}", url_style)])
-                if qr_pngs.get(m.id):
-                    card_rows.append([Image(io.BytesIO(qr_pngs[m.id]), width=2.0*cm, height=2.0*cm)])
-
-                card = Table(card_rows, colWidths=[doc.width])
-                card.setStyle(TableStyle([
-                    ("BACKGROUND", (0, 0), (0, 0), TEAL_LIGHT),
-                    ("BACKGROUND", (0, 1), (-1, -1), colors.white),
-                    ("BOX", (0, 0), (-1, -1), 0.5, TEAL_BORDER),
-                    ("LINEBELOW", (0, 0), (0, 0), 0.5, TEAL_BORDER),
-                    ("TOPPADDING", (0, 0), (-1, -1), 6),
-                    ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
-                    ("LEFTPADDING", (0, 0), (-1, -1), 10),
-                    ("RIGHTPADDING", (0, 0), (-1, -1), 10),
-                    ("ROUNDEDCORNERS", [4, 4, 4, 4]),
-                ]))
-                story.append(card)
-                story.append(Spacer(1, 0.3*cm))
-
-            # ── Ordre du jour commun ──
-            if lodge and lodge.common_agenda:
-                story.append(Paragraph("▲ Ordre du jour commun à toutes les TTen∴", meeting_title))
-                for line in lodge.common_agenda.split("\n"):
-                    stripped = line.strip()
-                    if stripped:
-                        story.append(Paragraph(stripped, small))
-                story.append(Spacer(1, 0.3*cm))
-
-            # ── À noter ──
-            if program.next_meetings_text:
-                import re as _re
-                note_clean = _re.sub(r"<[^>]+>", " ", program.next_meetings_text).strip()
-                story.append(Paragraph(note_clean, body))
-                story.append(Spacer(1, 0.3*cm))
-
-            # ── Footer VM / Temple / Sec ──
-            story.append(HRFlowable(width="100%", thickness=0.5, color=colors.HexColor("#e5e7eb")))
-            story.append(Spacer(1, 0.2*cm))
-
-            vm_lines = [Paragraph("V∴M∴", footer_label)]
-            if lodge and lodge.vm_name_display:
-                vm_lines.append(Paragraph(lodge.vm_name_display, footer_val))
-            if lodge and lodge.vm_email_display:
-                vm_lines.append(Paragraph(lodge.vm_email_display, footer_val))
-
-            temple_lines = [Paragraph("Temple", footer_label)]
-            if lodge and lodge.temple_name:
-                temple_lines.append(Paragraph(lodge.temple_name, footer_val))
-            if lodge and lodge.temple_address:
-                temple_lines.append(Paragraph(lodge.temple_address, footer_val))
-
-            sec_lines = [Paragraph("Sec∴", footer_label)]
-            if lodge and lodge.secretary_name_display:
-                sec_lines.append(Paragraph(lodge.secretary_name_display, footer_val))
-            if lodge and lodge.secretary_email_display:
-                sec_lines.append(Paragraph(lodge.secretary_email_display, footer_val))
-
-            footer_table = Table([[vm_lines, temple_lines, sec_lines]], colWidths=[doc.width/3]*3)
-            footer_table.setStyle(TableStyle([
-                ("VALIGN", (0, 0), (-1, -1), "TOP"),
-                ("LEFTPADDING", (0, 0), (-1, -1), 4),
-                ("RIGHTPADDING", (0, 0), (-1, -1), 4),
-            ]))
-            story.append(footer_table)
-
-            doc.build(story)
-            pdf_bytes = buf.getvalue()
-            attachments.insert(0, (f"{program.title}.pdf", pdf_bytes, "application/pdf"))
-        except Exception as _e:
-            logger.warning("PDF non généré (ReportLab) : %s", _e, exc_info=True)
 
     lodge_name = lodge.name if lodge else "La Loge"
     subject = f"[{lodge_name}] {program.title}"
