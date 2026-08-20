@@ -123,6 +123,15 @@ def _qr_png(url: str) -> bytes:
     return buf.getvalue()
 
 
+def _escape_stray_amp(text: str) -> str:
+    """Échappe les « & » isolés (pas déjà une entité XML valide) — le parseur
+    XML minimal de reportlab Paragraph plante sinon dès qu'un texte saisi
+    librement (ordre du jour, intro…) contient un « & » brut, ce qui faisait
+    échouer silencieusement toute la génération PDF pour repli HTML."""
+    import re as _re
+    return _re.sub(r"&(?!amp;|lt;|gt;|quot;|#\d+;|#x[0-9a-fA-F]+;)", "&amp;", text)
+
+
 def _html_to_reportlab_markup(html: str) -> str:
     """Convertit le HTML (Quill) d'un champ « ordre du jour » en balisage
     compatible avec reportlab Paragraph. Paragraph supporte nativement
@@ -144,7 +153,27 @@ def _html_to_reportlab_markup(html: str) -> str:
     text = _re.sub(r"</?(?!b>|/b>|i>|/i>|u>|/u>|a[ >]|/a>|br/?>)[a-zA-Z][^>]*>", "", text)
     # Retire un <br/> de fin superflu
     text = _re.sub(r"(<br/>)+$", "", text).strip()
+    text = _escape_stray_amp(text)
     return text
+
+
+def _safe_paragraph(markup: str, style, plain_fallback: Optional[str] = None):
+    """Construit un Paragraph reportlab en tolérant un balisage invalide —
+    un seul champ de texte libre mal formé (ordre du jour, intro…) ne doit
+    jamais faire échouer tout le PDF. Retourne None si même le repli échoue
+    (le champ sera simplement omis plutôt que de bloquer tout le document)."""
+    from reportlab.platypus import Paragraph
+    import re as _re
+    try:
+        return Paragraph(markup, style)
+    except Exception as _e:
+        logger.warning("Paragraph PDF invalide, repli texte brut : %s", _e)
+        plain = plain_fallback if plain_fallback is not None else _re.sub(r"<[^>]+>", "", markup)
+        plain = _escape_stray_amp(plain)
+        try:
+            return Paragraph(plain, style)
+        except Exception:
+            return None
 
 
 async def _render_program_pdf_via_browser(request: Request, program_id: int) -> Optional[bytes]:
@@ -246,11 +275,11 @@ async def _generate_program_pdf(
         story = []
 
         # ── En-tête ──
-        lodge_name = lodge.name if lodge else "Socrate — Raison et Progrès"
-        obedience = lodge.obedience if lodge else "Grand Orient de France"
-        orient = lodge.orient_city if lodge else ""
+        lodge_name = _escape_stray_amp(lodge.name if lodge else "Socrate — Raison et Progrès")
+        obedience = _escape_stray_amp(lodge.obedience if lodge else "Grand Orient de France")
+        orient = _escape_stray_amp(lodge.orient_city if lodge else "")
         loge_num = f" — R∴L∴ n°{lodge.loge_number}" if lodge and lodge.loge_number else ""
-        rite = lodge.rite if lodge and lodge.rite else None
+        rite = _escape_stray_amp(lodge.rite) if lodge and lodge.rite else None
 
         header_text = [
             Paragraph(lodge_name, h1),
@@ -282,8 +311,10 @@ async def _generate_program_pdf(
         story.append(Paragraph("Mon T∴C∴F∴, ma T∴C∴S∴,", body))
         if program.content_html:
             import re as _re
-            clean_intro = _re.sub(r"<[^>]+>", " ", program.content_html).strip()
-            story.append(Paragraph(clean_intro, body))
+            clean_intro = _escape_stray_amp(_re.sub(r"<[^>]+>", " ", program.content_html).strip())
+            p = _safe_paragraph(clean_intro, body)
+            if p:
+                story.append(p)
         story.append(Spacer(1, 0.3*cm))
 
         # ── Tenues ──
@@ -308,19 +339,25 @@ async def _generate_program_pdf(
 
             if m.agenda_html:
                 agenda_markup = _html_to_reportlab_markup(m.agenda_html)
-                card_rows.append([Paragraph(agenda_markup, small)])
+                p = _safe_paragraph(agenda_markup, small)
+                if p:
+                    card_rows.append([p])
 
             if m.degrees and len(m.degrees) > 1:
                 for deg in m.degrees:
-                    deg_label = deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value)
-                    card_rows.append([Paragraph(f"• {deg_label}", small)])
+                    deg_label = _escape_stray_amp(deg.description or GRADE_LABELS.get(deg.grade.value, deg.grade.value))
+                    p = _safe_paragraph(f"• {deg_label}", small)
+                    if p:
+                        card_rows.append([p])
 
             if m.agape_enabled:
                 agape_text = f"• Agape fraternelle à l'issue"
                 if m.agape_location:
-                    agape_text += f" — {m.agape_location}"
+                    agape_text += f" — {_escape_stray_amp(m.agape_location)}"
                 agape_text += " <font color='#b45309'><b>(Réservation impérative)</b></font>"
-                card_rows.append([Paragraph(agape_text, small)])
+                p = _safe_paragraph(agape_text, small)
+                if p:
+                    card_rows.append([p])
 
             card_rows.append([Paragraph(f"Inscription : {url}", url_style)])
             if qr_pngs.get(m.id):
@@ -347,14 +384,18 @@ async def _generate_program_pdf(
             for line in lodge.common_agenda.split("\n"):
                 stripped = line.strip()
                 if stripped:
-                    story.append(Paragraph(stripped, small))
+                    p = _safe_paragraph(_escape_stray_amp(stripped), small)
+                    if p:
+                        story.append(p)
             story.append(Spacer(1, 0.3*cm))
 
         # ── À noter ──
         if program.next_meetings_text:
             import re as _re
-            note_clean = _re.sub(r"<[^>]+>", " ", program.next_meetings_text).strip()
-            story.append(Paragraph(note_clean, body))
+            note_clean = _escape_stray_amp(_re.sub(r"<[^>]+>", " ", program.next_meetings_text).strip())
+            p = _safe_paragraph(note_clean, body)
+            if p:
+                story.append(p)
             story.append(Spacer(1, 0.3*cm))
 
         # ── Footer VM / Temple / Sec ──
@@ -363,21 +404,21 @@ async def _generate_program_pdf(
 
         vm_lines = [Paragraph("V∴M∴", footer_label)]
         if lodge and lodge.vm_name_display:
-            vm_lines.append(Paragraph(lodge.vm_name_display, footer_val))
+            vm_lines.append(_safe_paragraph(_escape_stray_amp(lodge.vm_name_display), footer_val) or Paragraph("", footer_val))
         if lodge and lodge.vm_email_display:
-            vm_lines.append(Paragraph(lodge.vm_email_display, footer_val))
+            vm_lines.append(_safe_paragraph(_escape_stray_amp(lodge.vm_email_display), footer_val) or Paragraph("", footer_val))
 
         temple_lines = [Paragraph("Temple", footer_label)]
         if lodge and lodge.temple_name:
-            temple_lines.append(Paragraph(lodge.temple_name, footer_val))
+            temple_lines.append(_safe_paragraph(_escape_stray_amp(lodge.temple_name), footer_val) or Paragraph("", footer_val))
         if lodge and lodge.temple_address:
-            temple_lines.append(Paragraph(lodge.temple_address, footer_val))
+            temple_lines.append(_safe_paragraph(_escape_stray_amp(lodge.temple_address), footer_val) or Paragraph("", footer_val))
 
         sec_lines = [Paragraph("Sec∴", footer_label)]
         if lodge and lodge.secretary_name_display:
-            sec_lines.append(Paragraph(lodge.secretary_name_display, footer_val))
+            sec_lines.append(_safe_paragraph(_escape_stray_amp(lodge.secretary_name_display), footer_val) or Paragraph("", footer_val))
         if lodge and lodge.secretary_email_display:
-            sec_lines.append(Paragraph(lodge.secretary_email_display, footer_val))
+            sec_lines.append(_safe_paragraph(_escape_stray_amp(lodge.secretary_email_display), footer_val) or Paragraph("", footer_val))
 
         footer_table = Table([[vm_lines, temple_lines, sec_lines]], colWidths=[doc.width/3]*3)
         footer_table.setStyle(TableStyle([
