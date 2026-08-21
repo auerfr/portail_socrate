@@ -13,7 +13,7 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
-from app.models.documents import DocFolder, DocSpace, DocStatus, Document, DocumentVersion, MinGrade
+from app.models.documents import DocFolder, DocSpace, DocStatus, Document, DocumentVersion, MinGrade, PlancheEntry
 import json as _json
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.identity import MasonicGrade, Member, LodgeFunction
@@ -22,6 +22,7 @@ from sqlalchemy import select as _select_stmt
 
 router = APIRouter(prefix="/documents", tags=["documents"])
 from app.template_engine import templates
+from app.services.planche_importer import ESPACE_NOM as PLANCHES_ESPACE_NOM
 
 UPLOAD_DIR = Path("uploads/documents")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -369,6 +370,21 @@ async def documents_folder(
     documents = docs_r.scalars().all()
     versions_by_doc = {doc.id: sorted(doc.versions, key=lambda v: v.version_number) for doc in documents}
 
+    # Fiches "planches reçues" (Loge / Degré / Date tenue / Lieu) — uniquement
+    # utile pour l'espace GED alimenté par l'import IMAP des planches externes.
+    is_planches_space = bool(space and space.name == PLANCHES_ESPACE_NOM)
+    planche_entries_by_doc: dict[int, list[PlancheEntry]] = {}
+    planche_entries_summary: list[PlancheEntry] = []
+    if is_planches_space and documents:
+        pe_r = await db.execute(
+            select(PlancheEntry)
+            .where(PlancheEntry.document_id.in_([d.id for d in documents]))
+            .order_by(PlancheEntry.date_tenue.asc().nulls_last())
+        )
+        for entry in pe_r.scalars().all():
+            planche_entries_by_doc.setdefault(entry.document_id, []).append(entry)
+            planche_entries_summary.append(entry)
+
     # Groupes pour badges
     group_ids = {f.group_id for f in subfolders if f.group_id}
     if folder.group_id:
@@ -436,6 +452,9 @@ async def documents_folder(
         "all_folders_flat": all_folders_flat,
         "current_folder_id": folder_id,
         "versions_by_doc": versions_by_doc,
+        "is_planches_space": is_planches_space,
+        "planche_entries_by_doc": planche_entries_by_doc,
+        "planche_entries_summary": planche_entries_summary,
     })
 
 
@@ -1235,6 +1254,59 @@ async def document_rename(
     doc.name = name.strip()
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
+
+
+# ── Fiches "planches reçues" (Loge / Degré / Date de tenue / Lieu) ───────────
+
+@router.post("/file/{doc_id}/planche-entries/add")
+async def planche_entry_add(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    loge: str = Form(...),
+    degre: str = Form(""),
+    date_tenue: str = Form(""),
+    lieu: str = Form(""),
+    synthese: str = Form(""),
+):
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404)
+
+    parsed_date = None
+    if date_tenue:
+        try:
+            parsed_date = datetime.strptime(date_tenue, "%Y-%m-%d")
+        except ValueError:
+            pass
+
+    entry = PlancheEntry(
+        document_id=doc.id,
+        loge=loge.strip(),
+        degre=degre.strip() or None,
+        date_tenue=parsed_date,
+        lieu=lieu.strip() or None,
+        synthese=synthese.strip() or None,
+    )
+    db.add(entry)
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
+
+
+@router.post("/planche-entries/{entry_id}/delete")
+async def planche_entry_delete(
+    entry_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    entry = await db.get(PlancheEntry, entry_id)
+    if not entry:
+        raise HTTPException(status_code=404)
+    doc = await db.get(Document, entry.document_id)
+    folder_id = doc.folder_id if doc else None
+    await db.delete(entry)
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
 
 
 # ── Feature 2 — Recherche ─────────────────────────────────────────────────────

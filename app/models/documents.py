@@ -141,9 +141,34 @@ class Document(Base):
 
     folder: Mapped["DocFolder"]                 = relationship(back_populates="documents")
     versions: Mapped[list["DocumentVersion"]]   = relationship(back_populates="document")
+    planche_entries: Mapped[list["PlancheEntry"]] = relationship(
+        back_populates="document", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<Document {self.name}>"
+
+
+class PlancheEntry(Base):
+    """Fiche d'identification d'une tenue annoncée par une planche reçue
+    (une planche peut annoncer plusieurs tenues — plusieurs fiches par document)."""
+    __tablename__ = "planche_entries"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    document_id: Mapped[int] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
+
+    loge: Mapped[Optional[str]]     = mapped_column(String(200))
+    degre: Mapped[Optional[str]]    = mapped_column(String(100))
+    date_tenue: Mapped[Optional[datetime]] = mapped_column(DateTime)
+    lieu: Mapped[Optional[str]]     = mapped_column(String(200))
+    synthese: Mapped[Optional[str]] = mapped_column(Text)
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+
+    document: Mapped["Document"] = relationship(back_populates="planche_entries")
+
+    def __repr__(self) -> str:
+        return f"<PlancheEntry {self.loge} {self.date_tenue}>"
 
 
 class DocumentVersion(Base):
