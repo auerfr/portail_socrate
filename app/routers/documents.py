@@ -1264,6 +1264,7 @@ async def planche_entry_add(
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
     loge: str = Form(...),
+    obedience: str = Form(""),
     degre: str = Form(""),
     date_tenue: str = Form(""),
     lieu: str = Form(""),
@@ -1283,6 +1284,7 @@ async def planche_entry_add(
     entry = PlancheEntry(
         document_id=doc.id,
         loge=loge.strip(),
+        obedience=obedience.strip() or None,
         degre=degre.strip() or None,
         date_tenue=parsed_date,
         lieu=lieu.strip() or None,

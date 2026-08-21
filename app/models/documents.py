@@ -158,6 +158,7 @@ class PlancheEntry(Base):
     document_id: Mapped[int] = mapped_column(ForeignKey("documents.id", ondelete="CASCADE"))
 
     loge: Mapped[Optional[str]]     = mapped_column(String(200))
+    obedience: Mapped[Optional[str]] = mapped_column(String(100))
     degre: Mapped[Optional[str]]    = mapped_column(String(100))
     date_tenue: Mapped[Optional[datetime]] = mapped_column(DateTime)
     lieu: Mapped[Optional[str]]     = mapped_column(String(200))
