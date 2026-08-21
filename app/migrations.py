@@ -1134,3 +1134,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "WHERE vote_type = 'SCHEDULE' AND (is_public_vote = 0 OR is_anonymous = 1)"
             )
 
+    # ── Planches reçues : fiches de tenue (loge / obédience / degré / date) ──
+    async with engine.begin() as conn:
+        r_pe = await conn.exec_driver_sql("PRAGMA table_info(planche_entries)")
+        cols_pe = [row[1] for row in r_pe.fetchall()]
+        if cols_pe and "obedience" not in cols_pe:
+            await conn.exec_driver_sql(
+                "ALTER TABLE planche_entries ADD COLUMN obedience VARCHAR(100)"
+            )
+
