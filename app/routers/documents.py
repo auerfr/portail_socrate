@@ -3,6 +3,7 @@ import uuid
 from datetime import datetime
 from pathlib import Path
 from typing import Annotated, List, Optional, Union
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -754,11 +755,21 @@ async def documents_preview(
     mime = doc.mime_type or _MIME_MAP.get(ext, "application/octet-stream")
     content = path.read_bytes()
 
+    fname = doc.original_filename or "fichier"
+    quoted = quote(fname)
+    if quoted != fname:
+        # Nom de fichier avec caractères hors ASCII (accents, "œ", etc.) :
+        # encodage RFC 6266, sinon Starlette/uvicorn lève une erreur latin-1
+        # en tentant d'écrire l'en-tête (même logique que FileResponse).
+        content_disposition = f"inline; filename*=utf-8''{quoted}"
+    else:
+        content_disposition = f'inline; filename="{fname}"'
+
     return _Response(
         content=content,
         media_type=mime,
         headers={
-            "Content-Disposition": f"inline; filename=\"{doc.original_filename or 'fichier'}\"",
+            "Content-Disposition": content_disposition,
             "Cache-Control": "private, max-age=3600",
         },
     )
