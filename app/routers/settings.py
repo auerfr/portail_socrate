@@ -246,6 +246,11 @@ async def settings_page(
         "smtp_user": cfg.smtp_user,
         "smtp_from": cfg.smtp_from,
         "smtp_secure": cfg.smtp_secure,
+        "imap_saved": request.query_params.get("imap_saved"),
+        "imap_host": cfg.imap_host,
+        "imap_port": cfg.imap_port,
+        "imap_user": cfg.imap_user,
+        "imap_folder": cfg.imap_folder,
         "agape_general_pin_label": (agape_general_pin or {}).get("label") if agape_general_pin else None,
     })
 
@@ -512,6 +517,34 @@ async def settings_save_smtp(
     get_settings.cache_clear()
 
     return RedirectResponse(url="/settings/?smtp_saved=1", status_code=303)
+
+
+# ── Configuration IMAP — réception des planches par email (admin seulement) ──
+
+@router.post("/imap")
+async def settings_save_imap(
+    ctx: Annotated[object, Depends(require_admin)],
+    imap_host: str = Form(""),
+    imap_port: str = Form("993"),
+    imap_user: str = Form(""),
+    imap_pass: str = Form(""),
+    imap_folder: str = Form("INBOX"),
+):
+    """Écrit les paramètres IMAP (réception des planches d'autres loges) dans le .env."""
+    if imap_host.strip():
+        _update_env("IMAP_HOST", imap_host.strip())
+    if imap_port.strip():
+        _update_env("IMAP_PORT", imap_port.strip())
+    if imap_user.strip():
+        _update_env("IMAP_USER", imap_user.strip())
+    if imap_pass.strip():          # ne pas écraser si vide = "ne pas changer"
+        _update_env("IMAP_PASS", imap_pass.strip())
+    if imap_folder.strip():
+        _update_env("IMAP_FOLDER", imap_folder.strip())
+
+    get_settings.cache_clear()
+
+    return RedirectResponse(url="/settings/?imap_saved=1", status_code=303)
 
 
 @router.post("/smtp/test")

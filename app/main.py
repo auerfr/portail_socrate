@@ -154,6 +154,13 @@ async def lifespan(app: FastAPI):
     from app.services.mailing_scheduler import mailing_scheduler_loop
     _mailing_sched_task = asyncio.ensure_future(mailing_scheduler_loop())
 
+    # ── Import automatique des planches reçues par email (IMAP) ──────────────
+    # Service entièrement écrit mais jamais démarré jusqu'ici — les planches
+    # envoyées sur la boîte configurée (ex: cloud@amisdesocrate.fr) restaient
+    # simplement non lues, sans jamais être classées dans la bibliothèque.
+    from app.services.planche_importer import planche_import_loop
+    _planche_import_task = asyncio.ensure_future(planche_import_loop())
+
     # ── Pré-chargement du cache des libellés personnalisés ───────────────────
     try:
         from app.services.labels import _load_all as _load_labels
@@ -184,6 +191,7 @@ async def lifespan(app: FastAPI):
     _task_reminder_task.cancel()
     _contrib_reminder_task.cancel()
     _mailing_sched_task.cancel()
+    _planche_import_task.cancel()
     await engine.dispose()
 
 

@@ -984,6 +984,89 @@
         Envoyer un email de test
       </button>
     </form>
+
+    <!-- ── Réception des planches d'autres loges (IMAP) ── -->
+    <form method="post" action="/settings/imap" class="mt-6">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">
+            Réception des planches (IMAP)
+          </h2>
+          <span class="text-xs text-gray-400">Classement automatique dans la bibliothèque</span>
+        </div>
+
+        {% if imap_saved %}
+        <div class="flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 text-sm">
+          <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+          </svg>
+          Paramètres IMAP enregistrés.
+        </div>
+        {% endif %}
+
+        {% if imap_user %}
+        <div class="p-3 bg-teal-50 border border-teal-100 rounded-lg text-sm text-teal-800">
+          📥 Adresse à communiquer aux autres loges pour l'envoi de leurs programmes/planches :
+          <strong class="font-mono">{{ imap_user }}</strong>
+        </div>
+        {% else %}
+        <div class="p-3 bg-amber-50 border border-amber-100 rounded-lg text-xs text-amber-700">
+          ⚠ Aucune adresse configurée pour l'instant — les emails reçus ne seront pas classés dans la bibliothèque tant que ce n'est pas renseigné ci-dessous.
+        </div>
+        {% endif %}
+
+        <div class="grid sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Serveur IMAP</label>
+            <input type="text" name="imap_host" value="{{ imap_host }}"
+                   placeholder="mail.amisdesocrate.fr"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Port</label>
+            <input type="number" name="imap_port" value="{{ imap_port }}"
+                   placeholder="993"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Adresse de réception</label>
+            <input type="email" name="imap_user" value="{{ imap_user }}"
+                   placeholder="cloud@amisdesocrate.fr"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">
+              Mot de passe
+              <span class="text-gray-400 font-normal">(laisser vide pour ne pas changer)</span>
+            </label>
+            <input type="password" name="imap_pass" value=""
+                   placeholder="••••••••"
+                   autocomplete="new-password"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1">Dossier IMAP</label>
+            <input type="text" name="imap_folder" value="{{ imap_folder or 'INBOX' }}"
+                   placeholder="INBOX"
+                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+        </div>
+
+        <div class="p-3 bg-blue-50 border border-blue-100 rounded-lg text-xs text-blue-700">
+          💡 Toute pièce jointe (PDF, Word, image…) reçue sur cette adresse est automatiquement classée
+          dans Bibliothèque → « Planches reçues » → dossier du mois, et les membres sont notifiés.
+          Vérification toutes les 15 minutes. Écrit dans le fichier <code>.env</code>, pris en compte
+          au prochain passage sans redémarrage.
+        </div>
+      </div>
+
+      <div class="mt-4 flex items-center gap-3 flex-wrap">
+        <button type="submit"
+                class="px-6 py-2.5 bg-loge-700 text-white text-sm font-semibold rounded-xl hover:bg-loge-800 transition-colors">
+          Enregistrer
+        </button>
+      </div>
+    </form>
   </div>
 
   <!-- ═══════════════════════════════════
