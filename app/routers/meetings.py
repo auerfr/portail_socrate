@@ -587,12 +587,17 @@ async def meeting_trace(
     # bloc "Suppléances" du tracé — ne garder que les offices vacants/remplacés.
     officer_rows = [r for r in await _build_officer_rows(db, meeting) if r["needs_substitute"] or r["substitute"]]
 
-    # Offices pour afficher les fonctions des membres
+    # Offices pour afficher les fonctions des membres — un même membre peut
+    # cumuler plusieurs offices (ex: Hospitalier + Maître des Banquets) : il
+    # ne faut pas les écraser, mais les cumuler pour l'affichage.
     offices_r = await db.execute(
         select(LodgeOffice).where(LodgeOffice.member_id.isnot(None))
+        .order_by(LodgeOffice.sort_order, LodgeOffice.label)
     )
     offices = offices_r.scalars().all()
-    member_office: dict[int, str] = {o.member_id: o.label for o in offices}
+    member_office_lists: dict[int, list[str]] = {}
+    for o in offices:
+        member_office_lists.setdefault(o.member_id, []).append(o.label)
 
     # Substituts désignés pour cette tenue : remplacent ou complètent member_office
     meeting_subs = (await db.execute(
@@ -604,8 +609,12 @@ async def meeting_trace(
         # Le substitut hérite du label de cet office pour cette tenue
         # (note: si le titulaire est aussi présent, le label reste sur le titulaire ;
         # ici on l'écrase pour le substitut s'il n'a pas déjà un autre office)
-        if ms.substitute_member_id not in member_office:
-            member_office[ms.substitute_member_id] = ms.office_label + " remplaçant"
+        if ms.substitute_member_id not in member_office_lists:
+            member_office_lists[ms.substitute_member_id] = [ms.office_label + " remplaçant"]
+
+    member_office: dict[int, str] = {
+        mid: " · ".join(labels) for mid, labels in member_office_lists.items()
+    }
 
     # Lodge infos
     lodge_r = await db.execute(select(LodgeSettings).limit(1))
@@ -794,15 +803,23 @@ async def trace_approve(
         lodge_r = await db.execute(select(LodgeSettings).limit(1))
         lodge = lodge_r.scalar_one_or_none()
 
-        offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
+        offices_r = await db.execute(
+            select(LodgeOffice).where(LodgeOffice.member_id.isnot(None))
+            .order_by(LodgeOffice.sort_order, LodgeOffice.label)
+        )
         offices = offices_r.scalars().all()
-        member_office: dict[int, str] = {o.member_id: o.label for o in offices}
+        member_office_lists: dict[int, list[str]] = {}
+        for o in offices:
+            member_office_lists.setdefault(o.member_id, []).append(o.label)
         meeting_subs = (await db.execute(
             select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
         )).scalars().all()
         for ms in meeting_subs:
-            if ms.substitute_member_id and ms.substitute_member_id not in member_office:
-                member_office[ms.substitute_member_id] = ms.office_label + " remplaçant"
+            if ms.substitute_member_id and ms.substitute_member_id not in member_office_lists:
+                member_office_lists[ms.substitute_member_id] = [ms.office_label + " remplaçant"]
+        member_office: dict[int, str] = {
+            mid: " · ".join(labels) for mid, labels in member_office_lists.items()
+        }
         officer_rows = [r for r in await _build_officer_rows(db, meeting) if r["needs_substitute"] or r["substitute"]]
 
         present  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.PRESENT], key=lambda a: a.member.last_name)

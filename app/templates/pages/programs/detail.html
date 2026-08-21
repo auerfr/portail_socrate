@@ -521,12 +521,18 @@
     <!-- CORPS -->
     <div class="body">
 
+      {% if not print_mode %}
+      <!-- Les propos du V∴M∴ prennent trop de place et décalent la mise en
+           page sur le PDF/impression — ils restent ici en aperçu écran mais
+           sont retirés du PDF et de l'archive ; ils continuent à être
+           envoyés dans l'email d'accompagnement (emails/programme.html). -->
       <div class="intro-block">
         <p class="salutation">Mon T∴C∴F∴, ma T∴C∴S∴,</p>
         <p class="invitation">
           {% if program.content_html %}{{ program.content_html }}{% else %}Nous avons le plaisir de t'inviter à partager les joies du Trav∴ Maç∴ lors de nos prochaines TTen∴{% endif %}
         </p>
       </div>
+      {% endif %}
 
       <!-- ── TENUES ── -->
       <div class="meetings-block">

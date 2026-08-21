@@ -307,15 +307,10 @@ async def _generate_program_pdf(
         story.append(header_table)
         story.append(Spacer(1, 0.4*cm))
 
-        # ── Salutation / intro ──
-        story.append(Paragraph("Mon T∴C∴F∴, ma T∴C∴S∴,", body))
-        if program.content_html:
-            import re as _re
-            clean_intro = _escape_stray_amp(_re.sub(r"<[^>]+>", " ", program.content_html).strip())
-            p = _safe_paragraph(clean_intro, body)
-            if p:
-                story.append(p)
-        story.append(Spacer(1, 0.3*cm))
+        # Les propos du V∴M∴ (program.content_html) ne sont volontairement pas
+        # repris ici — ils prennent trop de place et décalent la mise en page
+        # du PDF ; ils restent envoyés dans l'email d'accompagnement
+        # (emails/programme.html) et visibles en aperçu écran du site.
 
         # ── Tenues ──
         MEETING_TYPE_SHORT = {

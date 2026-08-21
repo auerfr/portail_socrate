@@ -205,16 +205,21 @@ async def finance_dashboard(
         return templates.TemplateResponse(request, "pages/finance/dashboard.html", {
             "current_member": member, "current_user": user,
             "years": years, "year": None, "stats": None, "member_states": [],
+            "is_admin": user.is_admin,
+            "can_manage": user.is_admin or can_manage_finance(member),
         })
 
     cfg = await _get_or_create_config(db, year.id)
     await db.refresh(cfg, ["tiers"])
 
-    # ── Membres actifs (hors super-admins) ───────────────────────────────────
-    _admin_ids = select(User.member_id).where(User.is_admin == True, User.member_id.isnot(None))
+    # ── Membres actifs ────────────────────────────────────────────────────────
+    # Un membre avec des droits admin reste un cotisant réel — ne pas
+    # l'exclure du suivi des cotisations (seul le compte technique "admin" de
+    # démarrage n'est pas un vrai membre, mais ça se règle par son statut,
+    # pas en excluant tous les comptes admin).
     rm = await db.execute(
         select(Member)
-        .where(Member.status == MemberStatus.ACTIVE, Member.id.not_in(_admin_ids))
+        .where(Member.status == MemberStatus.ACTIVE)
         .order_by(Member.last_name, Member.first_name)
     )
     all_members = rm.scalars().all()
@@ -383,6 +388,7 @@ async def finance_dashboard(
         "stats": stats,
         "tier_labels": TIER_LABELS,
         "is_admin": user.is_admin,
+        "can_manage": user.is_admin or can_manage_finance(member),
         "member_states": member_states,
         "top_late": top_late,
         "search": search or "",
@@ -878,7 +884,7 @@ async def config_adjust_treasury(
 
 @router.get("/cotisations/export-csv")
 async def export_retardataires_csv(
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Optional[int] = None,
 ):
@@ -952,13 +958,9 @@ async def cotisations_view(
     cfg = None
 
     if selected_year:
-        # Membres actifs (hors super-admins)
-        admin_ids = select(User.member_id).where(
-            User.is_admin == True, User.member_id.isnot(None)
-        )
         rm = await db.execute(
             select(Member)
-            .where(Member.status == MemberStatus.ACTIVE, Member.id.not_in(admin_ids))
+            .where(Member.status == MemberStatus.ACTIVE)
             .order_by(Member.last_name, Member.first_name)
         )
         members_list = rm.scalars().all()
@@ -1285,9 +1287,8 @@ async def assign_all_t3(
     if not tier3:
         raise HTTPException(400)
 
-    _adm = select(User.member_id).where(User.is_admin == True, User.member_id.isnot(None))
     rm = await db.execute(
-        select(Member).where(Member.status == MemberStatus.ACTIVE, Member.id.not_in(_adm))
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
     )
     all_active = rm.scalars().all()
 
