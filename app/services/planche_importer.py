@@ -13,7 +13,7 @@ import imaplib
 import logging
 import ssl
 import uuid
-from datetime import datetime
+from datetime import datetime, timedelta
 from pathlib import Path
 
 logger = logging.getLogger(__name__)
@@ -126,14 +126,35 @@ def _get_body_text(msg) -> str:
     return ""
 
 
-async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
-    """Traite un email et importe ses PJ dans la GED. Retourne le nb de fichiers importés."""
+async def _import_one(db, msg_bytes: bytes, upload_dir: Path, skip_duplicates: bool = False) -> int:
+    """Traite un email et importe ses PJ dans la GED. Retourne le nb de fichiers importés.
+
+    skip_duplicates : si True, n'importe pas une pièce jointe si un document du
+    même nom existe déjà dans le dossier cible — utilisé pour le rattrapage
+    ponctuel (run_since), qui peut retraiter des emails déjà passés par le
+    polling normal (celui-ci ne filtre pas par lu/non-lu)."""
+    from sqlalchemy import select
     from app.models.documents import Document, DocStatus, DocFolder
+
     msg = email.message_from_bytes(msg_bytes)
     sender_raw = msg.get("From", "Inconnu")
     sender = _decode_header(sender_raw)
     subject = _decode_header(msg.get("Subject", "Sans objet"))
+
+    # Date réelle d'envoi de l'email (pas la date de traitement) — important
+    # pour le rattrapage ponctuel où on traite des emails reçus il y a
+    # plusieurs jours, afin de les classer dans le bon dossier mensuel.
     received_at = datetime.now()
+    date_header = msg.get("Date")
+    if date_header:
+        try:
+            import email.utils as _eu
+            parsed = _eu.parsedate_to_datetime(date_header)
+            if parsed:
+                received_at = parsed.replace(tzinfo=None)
+        except Exception:
+            pass
+
     folder_name = received_at.strftime("%Y-%m")
     body_text = _get_body_text(msg)
     sender_label = _extract_sender_label(sender_raw, body_text)
@@ -157,6 +178,17 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path) -> int:
         content = part.get_payload(decode=True)
         if not content:
             continue
+
+        if skip_duplicates:
+            dup_r = await db.execute(
+                select(Document.id).where(
+                    Document.folder_id == folder.id,
+                    Document.original_filename == filename,
+                )
+            )
+            if dup_r.scalar_one_or_none() is not None:
+                logger.info("Planche déjà présente, ignorée : %s (%s)", filename, sender)
+                continue
 
         # Nommage enrichi : date + expéditeur + nom original
         base = Path(filename).stem
@@ -250,7 +282,7 @@ async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int
         ctx = ssl.create_default_context()
         ctx.check_hostname = False
         ctx.verify_mode = ssl.CERT_NONE
-        conn = imaplib.IMAP4_SSL(s.imap_host, s.imap_port, ssl_context=ctx)
+        conn = imaplib.IMAP4_SSL(s.imap_host, s.imap_port, ssl_context=ctx, timeout=20)
         conn.login(s.imap_user, s.imap_pass)
         conn.select(s.imap_folder)
 
@@ -285,6 +317,60 @@ async def run_once(upload_dir: str = "uploads/documents/planches_recues") -> int
     except Exception as e:
         logger.error("Erreur IMAP planche importer : %s", e)
 
+    return total
+
+
+async def run_since(days: int = 7, upload_dir: str = "uploads/documents/planches_recues") -> int:
+    """Rattrapage ponctuel : reprend tous les emails des N derniers jours,
+    lus ou non (contrairement à run_once qui ne traite que les non-lus) —
+    pour rattraper une période où le service n'était pas démarré. Protégé
+    contre les doublons (même nom de fichier déjà présent dans le dossier
+    cible), et marque les emails comme lus une fois traités."""
+    from app.config import get_settings
+    from app.database import AsyncSessionLocal
+
+    import app.models.documents
+    import app.models.identity
+    import app.models.groups
+    import app.models.lodge
+    import app.models.meetings
+
+    s = get_settings()
+    if not s.imap_host or not s.imap_user or not s.imap_pass:
+        return 0
+
+    dest_dir = Path(upload_dir)
+    dest_dir.mkdir(parents=True, exist_ok=True)
+
+    total = 0
+    since_date = (datetime.now() - timedelta(days=days)).strftime("%d-%b-%Y")
+
+    ctx = ssl.create_default_context()
+    ctx.check_hostname = False
+    ctx.verify_mode = ssl.CERT_NONE
+    conn = imaplib.IMAP4_SSL(s.imap_host, s.imap_port, ssl_context=ctx, timeout=20)
+    conn.login(s.imap_user, s.imap_pass)
+    conn.select(s.imap_folder)
+
+    _, uids = conn.search(None, f'(SINCE "{since_date}")')
+    uid_list = uids[0].split()
+    logger.info("Rattrapage planches : %d email(s) depuis %s", len(uid_list), since_date)
+
+    if uid_list:
+        async with AsyncSessionLocal() as db:
+            for uid in uid_list:
+                _, data = conn.fetch(uid, "(RFC822)")
+                if not data or not data[0]:
+                    continue
+                msg_bytes = data[0][1]
+                try:
+                    n = await _import_one(db, msg_bytes, dest_dir, skip_duplicates=True)
+                    total += n
+                    conn.store(uid, "+FLAGS", "\\Seen")
+                except Exception as e:
+                    logger.error("Erreur rattrapage email uid=%s : %s", uid, e)
+
+    conn.logout()
     return total
 
 

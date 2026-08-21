@@ -247,6 +247,9 @@ async def settings_page(
         "smtp_from": cfg.smtp_from,
         "smtp_secure": cfg.smtp_secure,
         "imap_saved": request.query_params.get("imap_saved"),
+        "imap_import_ok": request.query_params.get("imap_import_ok"),
+        "imap_import_fail": request.query_params.get("imap_import_fail"),
+        "imap_import_err": request.query_params.get("imap_import_err"),
         "imap_host": cfg.imap_host,
         "imap_port": cfg.imap_port,
         "imap_user": cfg.imap_user,
@@ -545,6 +548,26 @@ async def settings_save_imap(
     get_settings.cache_clear()
 
     return RedirectResponse(url="/settings/?imap_saved=1", status_code=303)
+
+
+@router.post("/imap/import-recent")
+async def settings_import_recent_planches(
+    ctx: Annotated[object, Depends(require_admin)],
+    days: str = Form("7"),
+):
+    """Rattrapage ponctuel : reprend les emails des N derniers jours (lus ou
+    non), pour rattraper une période où le service n'était pas démarré."""
+    from app.services.planche_importer import run_since
+    try:
+        d = max(1, min(int(days), 90))
+    except ValueError:
+        d = 7
+    try:
+        n = await run_since(days=d)
+        return RedirectResponse(url=f"/settings/?imap_import_ok={n}", status_code=303)
+    except Exception as e:
+        from urllib.parse import quote
+        return RedirectResponse(url=f"/settings/?imap_import_fail=1&imap_import_err={quote(str(e)[:300])}", status_code=303)
 
 
 @router.post("/smtp/test")

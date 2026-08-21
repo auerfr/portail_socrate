@@ -1067,6 +1067,40 @@
         </button>
       </div>
     </form>
+
+    {% if imap_import_ok is not none %}
+    <div class="mt-3 flex items-center gap-2 bg-green-50 border border-green-200 text-green-700 rounded-lg px-3 py-2 text-sm">
+      <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 12.75l6 6 9-13.5"/>
+      </svg>
+      Rattrapage terminé — {{ imap_import_ok }} planche{{ 's' if imap_import_ok != '1' }} importée{{ 's' if imap_import_ok != '1' }} dans la bibliothèque.
+    </div>
+    {% endif %}
+    {% if imap_import_fail %}
+    <div class="mt-3 bg-red-50 border border-red-200 text-red-700 rounded-lg px-3 py-2 text-sm">
+      <div class="font-medium">Échec du rattrapage.</div>
+      {% if imap_import_err %}
+      <code class="block text-xs text-red-600 bg-red-100 rounded px-2 py-1 mt-1 break-all">{{ imap_import_err }}</code>
+      {% endif %}
+    </div>
+    {% endif %}
+
+    <form method="post" action="/settings/imap/import-recent" class="mt-3 flex items-center gap-2 flex-wrap"
+          onsubmit="return confirm('Reprendre les emails récents (lus ou non) et importer leurs pièces jointes ? Les doublons déjà présents sont ignorés.')">
+      <label class="text-sm text-gray-600">Rattraper les emails des</label>
+      <input type="number" name="days" value="7" min="1" max="90"
+             class="w-20 border border-gray-200 rounded-lg px-2 py-2 text-sm text-center focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <span class="text-sm text-gray-600">derniers jours</span>
+      <button type="submit"
+              class="inline-flex items-center gap-2 px-5 py-2 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition-colors whitespace-nowrap">
+        📥 Importer maintenant
+      </button>
+    </form>
+    <p class="text-xs text-gray-400 mt-1">
+      À utiliser une fois après avoir renseigné l'adresse ci-dessus, pour récupérer ce qui a pu arriver
+      pendant que l'import n'était pas encore configuré — inutile ensuite, le contrôle automatique
+      (toutes les 15 min) prend le relais.
+    </p>
   </div>
 
   <!-- ═══════════════════════════════════
