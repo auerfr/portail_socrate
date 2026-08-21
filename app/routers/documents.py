@@ -379,9 +379,15 @@ async def documents_folder(
         pe_r = await db.execute(
             select(PlancheEntry)
             .where(PlancheEntry.document_id.in_([d.id for d in documents]))
-            .order_by(PlancheEntry.date_tenue.asc().nulls_last())
         )
-        for entry in pe_r.scalars().all():
+        # Tri en Python (plutôt que NULLS LAST en SQL, non supporté par
+        # toutes les versions de SQLite en production) : dates renseignées
+        # d'abord par ordre chronologique, fiches sans date à la fin.
+        all_entries = sorted(
+            pe_r.scalars().all(),
+            key=lambda e: (e.date_tenue is None, e.date_tenue or datetime.min),
+        )
+        for entry in all_entries:
             planche_entries_by_doc.setdefault(entry.document_id, []).append(entry)
             planche_entries_summary.append(entry)
 
