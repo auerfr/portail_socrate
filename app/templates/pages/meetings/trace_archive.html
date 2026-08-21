@@ -52,11 +52,11 @@
     <tbody>
       {% for i in range(0, present|length, 2) %}
       <tr>
-        <td style="width:33%;">{{ present[i].member.last_name | upper }} {{ present[i].member.first_name }}</td>
-        <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i].member_id, '') }}</td>
+        <td style="width:33%;">{{ present[i].member.last_name | upper }} {{ present[i].member.first_name }}&nbsp;</td>
+        <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i].member_id, '') }}&nbsp;</td>
         {% if i + 1 < present|length %}
-        <td style="width:33%;">{{ present[i+1].member.last_name | upper }} {{ present[i+1].member.first_name }}</td>
-        <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i+1].member_id, '') }}</td>
+        <td style="width:33%;">{{ present[i+1].member.last_name | upper }} {{ present[i+1].member.first_name }}&nbsp;</td>
+        <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i+1].member_id, '') }}&nbsp;</td>
         {% else %}
         <td></td><td></td>
         {% endif %}
@@ -98,9 +98,9 @@
     <tbody>
       {% for mv in visitors %}
       <tr>
-        <td style="width:25%;">{{ mv.visitor.last_name | upper }} {{ mv.visitor.first_name }}</td>
-        <td style="width:40%; color:#555;">R∴L∴ {{ mv.visitor.lodge_name or '—' }}</td>
-        <td style="width:15%; color:#666; font-size:9.5pt;">{{ mv.visitor.obedience or '' }}</td>
+        <td style="width:25%;">{{ mv.visitor.last_name | upper }} {{ mv.visitor.first_name }}&nbsp;</td>
+        <td style="width:40%; color:#555;">R∴L∴ {{ mv.visitor.lodge_name or '—' }}&nbsp;</td>
+        <td style="width:15%; color:#666; font-size:9.5pt;">{{ mv.visitor.obedience or '' }}&nbsp;</td>
         <td style="color:#666; font-size:9.5pt;">{% if mv.visitor.orient_city %}Or∴ de {{ mv.visitor.orient_city }}{% endif %}</td>
       </tr>
       {% endfor %}

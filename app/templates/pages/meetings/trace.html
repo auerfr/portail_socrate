@@ -153,17 +153,17 @@
             {% for i in range(0, present|length, 2) %}
             <tr>
               <td class="border border-gray-300 px-3 py-1.5 w-1/3">
-                {{ present_list[i].member.last_name | upper }} {{ present_list[i].member.first_name }}
+                {{ present_list[i].member.last_name | upper }} {{ present_list[i].member.first_name }}&nbsp;
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-1/6 text-gray-500 italic text-xs">
-                {{ member_office.get(present_list[i].member_id, '') }}
+                {{ member_office.get(present_list[i].member_id, '') }}&nbsp;
               </td>
               {% if i + 1 < present|length %}
               <td class="border border-gray-300 px-3 py-1.5 w-1/3">
-                {{ present_list[i+1].member.last_name | upper }} {{ present_list[i+1].member.first_name }}
+                {{ present_list[i+1].member.last_name | upper }} {{ present_list[i+1].member.first_name }}&nbsp;
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-1/6 text-gray-500 italic text-xs">
-                {{ member_office.get(present_list[i+1].member_id, '') }}
+                {{ member_office.get(present_list[i+1].member_id, '') }}&nbsp;
               </td>
               {% else %}
               <td class="border border-gray-300 px-3 py-1.5 w-1/3"></td>
