@@ -1135,7 +1135,8 @@
       <!-- Ajouter une tenue -->
       <div class="border border-gray-200 rounded-xl p-4 space-y-3">
         <h3 class="text-sm font-semibold text-gray-700">Ajouter une tenue</h3>
-        <form id="planche-entry-form" method="post" action="" class="space-y-3">
+        <form id="planche-entry-form" method="post" action="" class="space-y-3"
+              x-data="{ rows: [{ degre: '', date_tenue: '' }] }">
           <div class="grid grid-cols-2 gap-3">
             <div>
               <label class="block text-xs font-medium text-gray-600 mb-1">Loge *</label>
@@ -1159,28 +1160,42 @@
               </datalist>
             </div>
           </div>
-          <div class="grid grid-cols-2 gap-3">
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Degré</label>
-              <input type="text" name="degre" list="degre-suggestions" placeholder="ex : Maître"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
-              <datalist id="degre-suggestions">
-                <option value="Apprenti">
-                <option value="Compagnon">
-                <option value="Maître">
-                <option value="Tous grades">
-              </datalist>
-            </div>
-            <div>
-              <label class="block text-xs font-medium text-gray-600 mb-1">Date de tenue</label>
-              <input type="date" name="date_tenue"
-                     class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
-            </div>
-          </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Lieu</label>
             <input type="text" name="lieu" placeholder="ex : Temple de… / Orient de…"
                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+          </div>
+
+          <!-- Une même planche peut annoncer plusieurs tenues (ex : Apprenti le
+               4/09 et Maître le 18/09) — une ligne Degré+Date par tenue. -->
+          <div class="space-y-2">
+            <label class="block text-xs font-medium text-gray-600">Tenue(s) annoncée(s)</label>
+            <template x-for="(row, i) in rows" :key="i">
+              <div class="grid grid-cols-[1fr_1fr_auto] gap-2 items-start">
+                <div>
+                  <input type="text" name="degre" list="degre-suggestions" placeholder="Degré (ex : Maître)"
+                         x-model="row.degre"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+                </div>
+                <div>
+                  <input type="date" name="date_tenue"
+                         x-model="row.date_tenue"
+                         class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+                </div>
+                <button type="button" x-show="rows.length > 1" @click="rows.splice(i, 1)"
+                        class="text-gray-300 hover:text-red-500 px-1.5 py-1.5" title="Retirer cette tenue">✕</button>
+              </div>
+            </template>
+            <datalist id="degre-suggestions">
+              <option value="Apprenti">
+              <option value="Compagnon">
+              <option value="Maître">
+              <option value="Tous grades">
+            </datalist>
+            <button type="button" @click="rows.push({ degre: '', date_tenue: '' })"
+                    class="text-xs font-medium text-loge-700 hover:text-loge-900">
+              + Ajouter une autre tenue (2ème date)
+            </button>
           </div>
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Synthèse / programme <span class="font-normal text-gray-400">(optionnel)</span></label>

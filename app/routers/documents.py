@@ -1267,36 +1267,57 @@ async def document_rename(
 @router.post("/file/{doc_id}/planche-entries/add")
 async def planche_entry_add(
     doc_id: int,
+    request: Request,
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    loge: str = Form(...),
-    obedience: str = Form(""),
-    degre: str = Form(""),
-    date_tenue: str = Form(""),
-    lieu: str = Form(""),
-    synthese: str = Form(""),
 ):
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404)
 
-    parsed_date = None
-    if date_tenue:
-        try:
-            parsed_date = datetime.strptime(date_tenue, "%Y-%m-%d")
-        except ValueError:
-            pass
+    form = await request.form()
+    loge = (form.get("loge") or "").strip()
+    obedience = (form.get("obedience") or "").strip() or None
+    lieu = (form.get("lieu") or "").strip() or None
+    synthese = (form.get("synthese") or "").strip() or None
+    if not loge:
+        raise HTTPException(status_code=400, detail="Loge requise")
 
-    entry = PlancheEntry(
-        document_id=doc.id,
-        loge=loge.strip(),
-        obedience=obedience.strip() or None,
-        degre=degre.strip() or None,
-        date_tenue=parsed_date,
-        lieu=lieu.strip() or None,
-        synthese=synthese.strip() or None,
-    )
-    db.add(entry)
+    # Une même planche peut annoncer plusieurs tenues (ex : 2 degrés à des
+    # dates différentes) — le formulaire envoie une liste parallèle de
+    # degré/date, une fiche par ligne non vide.
+    degres = form.getlist("degre")
+    dates = form.getlist("date_tenue")
+    rows = list(zip(degres, dates)) if degres or dates else [("", "")]
+
+    created = 0
+    for degre_raw, date_raw in rows:
+        degre = (degre_raw or "").strip()
+        date_raw = (date_raw or "").strip()
+        if not degre and not date_raw:
+            continue
+        parsed_date = None
+        if date_raw:
+            try:
+                parsed_date = datetime.strptime(date_raw, "%Y-%m-%d")
+            except ValueError:
+                pass
+        db.add(PlancheEntry(
+            document_id=doc.id,
+            loge=loge,
+            obedience=obedience,
+            degre=degre or None,
+            date_tenue=parsed_date,
+            lieu=lieu,
+            synthese=synthese,
+        ))
+        created += 1
+
+    if created == 0:
+        # Aucune ligne degré/date remplie : on enregistre quand même une
+        # fiche minimale (loge seule), plutôt que de perdre la saisie.
+        db.add(PlancheEntry(document_id=doc.id, loge=loge, obedience=obedience, lieu=lieu, synthese=synthese))
+
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
 
