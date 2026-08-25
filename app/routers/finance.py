@@ -24,7 +24,7 @@ from app.models.finance import (
     MemberContribution, ContributionStatus, Payment, PaymentMethod, Quitus,
     BudgetCategory, Transaction, TransactionType, FiscalYear,
 )
-from app.models.identity import Member, MemberStatus, MembershipType, User
+from app.models.identity import Member, MemberStatus, MembershipType, User, member_liable_for_year_condition
 from app.models.lodge import MasonicYear
 
 router = APIRouter(prefix="/finance", tags=["finance"])
@@ -145,9 +145,12 @@ async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
     )
     total_charges = float(r.scalar_one() or 0)
 
-    # Nombre de membres actifs
+    # Nombre de membres redevables de cette année (actifs, ou partis
+    # pendant/après le début de l'année — capitation due en année pleine)
+    fy = await db.get(FiscalYear, year_id)
+    liable_condition = member_liable_for_year_condition(fy.start_date) if fy else Member.status == MemberStatus.ACTIVE
     r2 = await db.execute(
-        select(func.count(Member.id)).where(Member.status == MemberStatus.ACTIVE)
+        select(func.count(Member.id)).where(liable_condition)
     )
     active_count = r2.scalar_one() or 1
 
@@ -219,7 +222,7 @@ async def finance_dashboard(
     # pas en excluant tous les comptes admin).
     rm = await db.execute(
         select(Member)
-        .where(Member.status == MemberStatus.ACTIVE)
+        .where(member_liable_for_year_condition(year.start_date))
         .order_by(Member.last_name, Member.first_name)
     )
     all_members = rm.scalars().all()
@@ -893,7 +896,7 @@ async def export_retardataires_csv(
         raise HTTPException(404)
 
     rm = await db.execute(
-        select(Member).where(Member.status == MemberStatus.ACTIVE)
+        select(Member).where(member_liable_for_year_condition(year.start_date))
         .order_by(Member.last_name, Member.first_name)
     )
     members = rm.scalars().all()
@@ -960,7 +963,7 @@ async def cotisations_view(
     if selected_year:
         rm = await db.execute(
             select(Member)
-            .where(Member.status == MemberStatus.ACTIVE)
+            .where(member_liable_for_year_condition(selected_year.start_date))
             .order_by(Member.last_name, Member.first_name)
         )
         members_list = rm.scalars().all()
@@ -1034,9 +1037,14 @@ async def _close_appel_and_assign_defaults(
         )
         prev_year = r_prev.scalar_one_or_none()
 
-    # ── 2. Membres actifs ────────────────────────────────────────────────────
+    # ── 2. Membres redevables de cette année (actifs, ou partis en cours
+    # d'année — capitation due en année pleine) ──────────────────────────────
+    liable_condition = (
+        member_liable_for_year_condition(current_year.start_date)
+        if current_year else Member.status == MemberStatus.ACTIVE
+    )
     r_members = await db.execute(
-        select(Member).where(Member.status == MemberStatus.ACTIVE)
+        select(Member).where(liable_condition)
     )
     active_members = r_members.scalars().all()
 
@@ -1279,7 +1287,7 @@ async def assign_all_t3(
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Annotated[int, Form()],
 ):
-    """Assigne T3 à tous les membres actifs sans cotisation pour cette année."""
+    """Assigne T3 à tous les membres redevables sans cotisation pour cette année."""
     cfg = await _get_or_create_config(db, year_id)
     await db.refresh(cfg, ["tiers"])
 
@@ -1287,8 +1295,10 @@ async def assign_all_t3(
     if not tier3:
         raise HTTPException(400)
 
+    fy = await db.get(FiscalYear, year_id)
+    liable_condition = member_liable_for_year_condition(fy.start_date) if fy else Member.status == MemberStatus.ACTIVE
     rm = await db.execute(
-        select(Member).where(Member.status == MemberStatus.ACTIVE)
+        select(Member).where(liable_condition)
     )
     all_active = rm.scalars().all()
 

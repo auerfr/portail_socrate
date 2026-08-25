@@ -2,7 +2,7 @@
 import enum
 from datetime import datetime, date as date_type
 from typing import Optional
-from sqlalchemy import String, Enum, Boolean, DateTime, Date, Integer, ForeignKey, Text, UniqueConstraint, func
+from sqlalchemy import String, Enum, Boolean, DateTime, Date, Integer, ForeignKey, Text, UniqueConstraint, func, or_, and_
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -182,6 +182,44 @@ class Member(Base):
     @property
     def active_responsibilities(self) -> list["MemberResponsibility"]:
         return [r for r in self.responsibilities if r.is_active]
+
+
+# Statuts de départ : un membre y reste rattaché tant que sa date de départ
+# (status_date) n'est pas encore dépassée, et redevable de la capitation pour
+# l'année civile où le départ intervient (règle de la loge : capitation due
+# en année pleine, quel que soit le mois de départ).
+_LEAVING_STATUSES = (MemberStatus.RESIGNED, MemberStatus.STRUCK, MemberStatus.DECEASED)
+
+
+def member_active_now_condition():
+    """Condition SQLAlchemy : membre actif aujourd'hui — y compris un départ
+    déjà enregistré (démission/radiation/décès) dont la date n'est pas encore
+    atteinte, qui reste donc actif jusqu'à cette date."""
+    today = date_type.today()
+    return or_(
+        Member.status == MemberStatus.ACTIVE,
+        and_(
+            Member.status.in_(_LEAVING_STATUSES),
+            Member.status_date.isnot(None),
+            Member.status_date > today,
+        ),
+    )
+
+
+def member_liable_for_year_condition(year_start: date_type):
+    """Condition SQLAlchemy : membre redevable de la capitation pour l'année
+    civile commençant à year_start — actif, ou parti pendant/après cette
+    année (donc présent au moins une partie de l'année, capitation due en
+    année pleine). Un membre parti AVANT le début de cette année n'apparaît
+    plus (mais reste consultable via sa fiche pour l'historique/les
+    éventuels arriérés en cas de réintégration)."""
+    return or_(
+        Member.status == MemberStatus.ACTIVE,
+        and_(
+            Member.status.in_(_LEAVING_STATUSES),
+            or_(Member.status_date.is_(None), Member.status_date >= year_start),
+        ),
+    )
 
 
 class MemberResponsibility(Base):

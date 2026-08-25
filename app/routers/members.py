@@ -15,7 +15,7 @@ from app.dependencies import (
 from app.models.identity import (
     Member, User, MasonicGrade, MemberStatus, LodgeFunction, MembershipType,
     MemberResponsibility, ResponsibilityType, RoleQualifier,
-    Group, GroupType,
+    Group, GroupType, member_active_now_condition,
 )
 from app.models.lodge import MasonicYear, LodgeOffice
 from app.models.finance import MemberContribution, ContributionTier, ContributionStatus
@@ -174,9 +174,12 @@ def _filtered_members_query(search: str = "", grade: str = "", status_filter: st
         .where(Member.id.not_in(admin_member_ids))
         .order_by(Member.last_name, Member.first_name)
     )
-    # Les membres sans rôle de gestion ne voient que les membres actifs
+    # Les membres sans rôle de gestion ne voient que les membres actifs. Un
+    # départ (démission/radiation/décès) déjà enregistré mais dont la date
+    # n'est pas encore atteinte compte comme encore actif — cf.
+    # member_active_now_condition().
     if not is_manager and not status_filter:
-        query = query.where(Member.status == MemberStatus.ACTIVE)
+        query = query.where(member_active_now_condition())
     if search:
         term = f"%{search}%"
         query = query.where(
@@ -185,7 +188,10 @@ def _filtered_members_query(search: str = "", grade: str = "", status_filter: st
     if grade:
         query = query.where(Member.masonic_grade == grade)
     if status_filter:
-        query = query.where(Member.status == status_filter)
+        if status_filter == MemberStatus.ACTIVE.value:
+            query = query.where(member_active_now_condition())
+        else:
+            query = query.where(Member.status == status_filter)
     return query
 
 
@@ -642,22 +648,15 @@ async def member_update(
         target.status_date            = parse_date(status_date)
         await _assign_office(db, member_id, int(office_id) if office_id.isdigit() else None)
 
-        # Démission / radiation → exempter cotisations + auto-remplir date de départ
+        # Démission / radiation / décès → auto-remplir la date de départ si
+        # absente. La cotisation de l'année en cours N'EST PAS exemptée
+        # automatiquement : la loge applique la règle "capitation due en
+        # année pleine" — le membre reste redevable de l'année de son départ
+        # (à exempter manuellement au cas par cas si besoin réel).
         leaving = {MemberStatus.RESIGNED, MemberStatus.STRUCK, MemberStatus.DECEASED}
         if target.status in leaving and prev_status not in leaving:
             if not target.status_date:
                 target.status_date = date.today()
-        if target.status in leaving and prev_status not in leaving:
-            from app.models.finance import MemberContribution, ContributionStatus
-            open_r = await db.execute(
-                select(MemberContribution).where(
-                    MemberContribution.member_id == member_id,
-                    MemberContribution.status.in_([ContributionStatus.PENDING, ContributionStatus.PARTIAL]),
-                )
-            )
-            for c in open_r.scalars().all():
-                c.status = ContributionStatus.EXEMPT
-                c.notes = (c.notes or "") + f"\nExempté automatiquement — {target.status.value} le {date.today()}"
 
     target.birth_date = parse_date(birth_date)
 
