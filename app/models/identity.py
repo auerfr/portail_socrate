@@ -191,17 +191,19 @@ class Member(Base):
 _LEAVING_STATUSES = (MemberStatus.RESIGNED, MemberStatus.STRUCK, MemberStatus.DECEASED)
 
 
-def member_active_now_condition():
-    """Condition SQLAlchemy : membre actif aujourd'hui — y compris un départ
-    déjà enregistré (démission/radiation/décès) dont la date n'est pas encore
-    atteinte, qui reste donc actif jusqu'à cette date."""
-    today = date_type.today()
+def member_active_now_condition(as_of: date_type | None = None):
+    """Condition SQLAlchemy : membre actif à la date as_of (aujourd'hui par
+    défaut) — y compris un départ déjà enregistré (démission/radiation/décès)
+    dont la date n'était pas encore atteinte à cette date-là, donc encore
+    actif à ce moment. Avec as_of = date d'une tenue passée, permet de savoir
+    qui était membre ce jour-là (ex : feuille d'émargement)."""
+    ref = as_of or date_type.today()
     return or_(
         Member.status == MemberStatus.ACTIVE,
         and_(
             Member.status.in_(_LEAVING_STATUSES),
             Member.status_date.isnot(None),
-            Member.status_date > today,
+            Member.status_date > ref,
         ),
     )
 
