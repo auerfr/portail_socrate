@@ -24,6 +24,7 @@ from sqlalchemy import select
 ORIENT_TO_ADDRESS = {
     "METZ (57)": "9b rue Devilly, 57000 Metz",
     "NANCY (54) Drouin": "15 rue Drouin, 54000 Nancy",
+    "NANCY (54) Garenne": "rue de la Garenne, 54000 Nancy",
     "THIONVILLE (57) Yutz": "9 rue des Métiers, 57970 Yutz",
 }
 
