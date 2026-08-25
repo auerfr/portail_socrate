@@ -51,6 +51,8 @@ async def lodges_directory_list(
     search: str = "",
     region: str = "",
     rite: str = "",
+    obedience: str = "",
+    ville: str = "",
 ):
     user, member = ctx
 
@@ -64,14 +66,23 @@ async def lodges_directory_list(
         query = query.where(NeighboringLodge.region == region)
     if rite:
         query = query.where(NeighboringLodge.rite == rite)
+    if obedience:
+        query = query.where(NeighboringLodge.obedience == obedience)
+    if ville:
+        query = query.where(NeighboringLodge.orient == ville)
 
     r = await db.execute(query)
     lodges = r.scalars().all()
 
-    all_r = await db.execute(select(NeighboringLodge.region, NeighboringLodge.rite))
+    all_r = await db.execute(select(
+        NeighboringLodge.region, NeighboringLodge.rite,
+        NeighboringLodge.obedience, NeighboringLodge.orient,
+    ))
     all_rows = all_r.all()
     regions = sorted({row[0] for row in all_rows if row[0]})
     rites = sorted({row[1] for row in all_rows if row[1]})
+    obediences = sorted({row[2] for row in all_rows if row[2]})
+    villes = sorted({row[3] for row in all_rows if row[3]})
 
     schedule_labels = {lg.id: _schedule_label(lg.schedule) for lg in lodges}
 
@@ -82,9 +93,13 @@ async def lodges_directory_list(
         "schedule_labels": schedule_labels,
         "regions": regions,
         "rites": rites,
+        "obediences": obediences,
+        "villes": villes,
         "search": search,
         "region_filter": region,
         "rite_filter": rite,
+        "obedience_filter": obedience,
+        "ville_filter": ville,
         "can_manage": _can_manage(user, member),
     })
 
@@ -119,6 +134,8 @@ async def lodges_directory_calendar(
     month: int = 0,
     region: str = "",
     rite: str = "",
+    obedience: str = "",
+    ville: str = "",
 ):
     user, member = ctx
     today = date.today()
@@ -132,6 +149,10 @@ async def lodges_directory_calendar(
         query = query.where(NeighboringLodge.region == region)
     if rite:
         query = query.where(NeighboringLodge.rite == rite)
+    if obedience:
+        query = query.where(NeighboringLodge.obedience == obedience)
+    if ville:
+        query = query.where(NeighboringLodge.orient == ville)
     r = await db.execute(query)
     lodges = r.scalars().all()
 
@@ -152,10 +173,15 @@ async def lodges_directory_calendar(
     prev_month, prev_year = (12, y - 1) if m == 1 else (m - 1, y)
     next_month, next_year = (1, y + 1) if m == 12 else (m + 1, y)
 
-    all_r = await db.execute(select(NeighboringLodge.region, NeighboringLodge.rite))
+    all_r = await db.execute(select(
+        NeighboringLodge.region, NeighboringLodge.rite,
+        NeighboringLodge.obedience, NeighboringLodge.orient,
+    ))
     all_rows = all_r.all()
     regions = sorted({row[0] for row in all_rows if row[0]})
     rites = sorted({row[1] for row in all_rows if row[1]})
+    obediences = sorted({row[2] for row in all_rows if row[2]})
+    villes = sorted({row[3] for row in all_rows if row[3]})
 
     return templates.TemplateResponse(request, "pages/lodges_directory/calendar.html", {
         "current_user": user,
@@ -168,7 +194,11 @@ async def lodges_directory_calendar(
         "today": today,
         "regions": regions,
         "rites": rites,
+        "obediences": obediences,
+        "villes": villes,
         "region_filter": region,
+        "obedience_filter": obedience,
+        "ville_filter": ville,
         "rite_filter": rite,
     })
 

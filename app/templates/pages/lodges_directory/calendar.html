@@ -14,13 +14,19 @@
 
   <!-- Navigation mois + filtres -->
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+    {% set qs = (
+      (('&region=' ~ (region_filter | urlencode)) if region_filter else '')
+      ~ (('&rite=' ~ (rite_filter | urlencode)) if rite_filter else '')
+      ~ (('&obedience=' ~ (obedience_filter | urlencode)) if obedience_filter else '')
+      ~ (('&ville=' ~ (ville_filter | urlencode)) if ville_filter else '')
+    ) %}
     <div class="flex items-center justify-between">
-      <a href="/loges-voisines/calendrier?year={{ prev_year }}&month={{ prev_month }}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if rite_filter %}&rite={{ rite_filter }}{% endif %}"
+      <a href="/loges-voisines/calendrier?year={{ prev_year }}&month={{ prev_month }}{{ qs }}"
          class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
         <i class="ti ti-chevron-left"></i>
       </a>
       <div class="text-lg font-semibold text-gray-900 capitalize">{{ month_label }}</div>
-      <a href="/loges-voisines/calendrier?year={{ next_year }}&month={{ next_month }}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if rite_filter %}&rite={{ rite_filter }}{% endif %}"
+      <a href="/loges-voisines/calendrier?year={{ next_year }}&month={{ next_month }}{{ qs }}"
          class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
         <i class="ti ti-chevron-right"></i>
       </a>
@@ -43,6 +49,24 @@
           <option value="">Tous</option>
           {% for r in rites %}
           <option value="{{ r }}" {% if rite_filter == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Obédience</label>
+        <select name="obedience" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="">Toutes</option>
+          {% for o in obediences %}
+          <option value="{{ o }}" {% if obedience_filter == o %}selected{% endif %}>{{ o }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Ville</label>
+        <select name="ville" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="">Toutes</option>
+          {% for v in villes %}
+          <option value="{{ v }}" {% if ville_filter == v %}selected{% endif %}>{{ v }}</option>
           {% endfor %}
         </select>
       </div>
