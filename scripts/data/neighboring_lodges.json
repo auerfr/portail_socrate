@@ -1,0 +1,5569 @@
+[
+ {
+  "orient": "DUISBURG (De)",
+  "region": "allemagne",
+  "name": "UNIONSKETTE ÜBER DEM FREIEN RHEIM",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "16:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Samedi"
+   },
+   {
+    "week": 1,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "MANNHEIM (DE)",
+  "region": "allemagne",
+  "name": "ORDRE DU CŒUR / ORDNUNG DES HERZENS",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "15:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "KARLSRUHE (DE)",
+  "region": "allemagne",
+  "name": "COMENIUS ZUR TOLERANZ UND FREUNDSCHAFT",
+  "rite": "REAA",
+  "obedience": "Huma- nitas",
+  "meeting_time": "16:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   },
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "BADEN-BADEN (DE)",
+  "region": "allemagne",
+  "name": "MONT TONNERRE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "17:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "BADEN-BADEN (DE)",
+  "region": "allemagne",
+  "name": "MONT TONNERRE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "KARLSRUHE (DE)",
+  "region": "allemagne",
+  "name": "ZUR WAHRHEIT",
+  "rite": "RSE",
+  "obedience": "GODF",
+  "meeting_time": "15:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   },
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "STUTTGART (DE)",
+  "region": "Allemagne",
+  "name": "AM ROTENBERG",
+  "rite": "RSE",
+  "obedience": "GODF",
+  "meeting_time": "15:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   },
+   {
+    "week": 5,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "LA ROSE ET L'EQUERRE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "OMBRE ET LUMIERE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "OMBRE ET LUMIERE au 1°",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "17:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "OMBRE ET LUMIERE au 2° ou 3°",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "15:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "HAGUENAU (67) Herrlisheim",
+  "region": "Alsace",
+  "name": "ERASME L'ESPRIT LIBRE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "ESPRIT HUMANISTE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "LUMIERE INITIATIQUE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "PROGRES INITIATIQUE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "TRAVAIL INITIATIQUE ET FRATERNITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   },
+   {
+    "week": 5,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-LOUIS (68)",
+  "region": "Alsace",
+  "name": "TRIADE INITIATIQUE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "SAVERNE (67)",
+  "region": "Alsace",
+  "name": "LES TROIS VERSANTS",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SOULTZ (68) Guebwiller",
+  "region": "Alsace",
+  "name": "SARMENT D'HUMANISME",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   },
+   {
+    "week": 5,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Finkmatt",
+  "region": "Alsace",
+  "name": "CELEBRATION HUMANISTE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Finkmatt",
+  "region": "Alsace",
+  "name": "FLEURS D'HUMANISME",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Finkmatt",
+  "region": "Alsace",
+  "name": "HUMANITUDE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Finkmatt",
+  "region": "Alsace",
+  "name": "LE BUISSON ARDENT",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Finkmatt",
+  "region": "Alsace",
+  "name": "LUMIERES DU RHIN",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "14:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Finkmatt",
+  "region": "Alsace",
+  "name": "VICTOR SCHŒLCHER",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "COULEURS D'ARC EN CIEL",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "PAIX ET BONTE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "WITTENHEIM (68) Guebwiller",
+  "region": "Alsace",
+  "name": "LE SEL DE LA TERRE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "ALTKIRCH (68) Guebwiller",
+  "region": "Alsace",
+  "name": "TOLERANCE ET FRATERNITE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Chasseur",
+  "region": "Alsace",
+  "name": "BARTHOLDI *",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   },
+   {
+    "week": 5,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Chasseur",
+  "region": "Alsace",
+  "name": "LE CHANTIER*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Chasseur",
+  "region": "Alsace",
+  "name": "LES TROIS EPIS*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "GUEBWILLER/CERNAY (68)",
+  "region": "Alsace",
+  "name": "FRATERNITAS PRAENOBILIS*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "HAGUENAU (67) Herrlisheim",
+  "region": "Alsace",
+  "name": "LA ROSE RHENANE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "RAISON ET TRADITION*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "TOLERANCE ET CONCORDE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-LOUIS (68)",
+  "region": "Alsace",
+  "name": "LE TRIANGLE RHENAN*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SÉLESTAT (67) à COLMAR Chasseur",
+  "region": "Alsace",
+  "name": "ESPRIT ET TRADITION*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Schiltigheim",
+  "region": "Alsace",
+  "name": "JEAN HULTZ*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Schiltigheim",
+  "region": "Alsace",
+  "name": "LUMIERE ET AMOUR*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Schiltigheim",
+  "region": "Alsace",
+  "name": "ERWIN DE STEINBACH*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "19:45",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Schiltigheim",
+  "region": "Alsace",
+  "name": "LA ROSACE INITIATIQUE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Schiltigheim",
+  "region": "Alsace",
+  "name": "PONS EUROPEUS*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "LES NEUF SŒURS",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "ORPHEE",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "19:45",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "L'OLIVIER",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Chasseur",
+  "region": "Alsace",
+  "name": "UNION",
+  "rite": "REAA",
+  "obedience": "GLMF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68) à Guebwiller",
+  "region": "Alsace",
+  "name": "LES PONTS DE LUMIERE",
+  "rite": "REAA",
+  "obedience": "GLMF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-LOUIS (68)",
+  "region": "Alsace",
+  "name": "L'OR DU RHIN",
+  "rite": "REAA",
+  "obedience": "GLMF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SÉLESTAT (67) à COLMAR Clemenceau",
+  "region": "Alsace",
+  "name": "LE CHÊNE ET L'ETOILE",
+  "rite": "REAA",
+  "obedience": "GLMF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Eckbolsheim",
+  "region": "Alsace",
+  "name": "CONSTELLATION",
+  "rite": "REAA",
+  "obedience": "GLMF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "LA NOUVELLE CONCORDE",
+  "rite": "REAA",
+  "obedience": "GLMF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "ATHENES",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "HARMONIE ESPERANCE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   },
+   {
+    "week": 5,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "CANDEUR ET LEGALITE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "EUROPA",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "SAINT JEAN AU TEMPLE DE L'AMITIE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "JOHANNES TAULER",
+  "rite": "RER",
+  "obedience": "GLTSO",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "OR DU RHIN*",
+  "rite": "RER",
+  "obedience": "GLTSO",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "LA PARFAITE ESPERANCE*",
+  "rite": "RER",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "PYTHAGORE",
+  "rite": "RF",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   },
+   {
+    "week": 5,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Chasseur",
+  "region": "Alsace",
+  "name": "LA FIDELITE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "CLEMENCEAU",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Samedi"
+   },
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "ERASMUS",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "GEORGES MANDEL",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "9:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   },
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "GUEBWILLER (68)",
+  "region": "Alsace",
+  "name": "HOMO FABER",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "GUEBWILLER (68)",
+  "region": "Alsace",
+  "name": "LA PARFAITE ALLIANCE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "GUEBWILLER (68)",
+  "region": "Alsace",
+  "name": "RECHERCHE ET PROGRES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "LA PARFAITE HARMONIE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "NICOLAS KOECHLIN",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Samedi"
+   },
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-LOUIS (68)",
+  "region": "Alsace",
+  "name": "LA TRIPLE LUMIERE DE HUNINGUE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-LOUIS (68)",
+  "region": "Alsace",
+  "name": "LES TROIS FRONTIERES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SELESTAT à STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "HUMANISME RENAISSANCE ET AVENIR",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "FRATERNITE ET PROGRES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "GUTENBERG",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "JEAN MACE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "LES FRERES REUNIS",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "OLYMPE DE GOUGES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "L'UNIVERSELLE",
+  "rite": "RF 1801",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) et le monde",
+  "region": "Alsace",
+  "name": "FRATERNITAS EUROPAE",
+  "rite": "RFM",
+  "obedience": "a - ob",
+  "meeting_time": null,
+  "schedule": []
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "ROUGET DE LISLE",
+  "rite": "RFM",
+  "obedience": "GLMF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "BIENVEILLANCE ET FRATERNITE",
+  "rite": "RFP",
+  "obedience": "GLMF",
+  "meeting_time": "9:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Chasseur",
+  "region": "Alsace",
+  "name": "OSIRIS",
+  "rite": "RFR",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "MULHOUSE (68)",
+  "region": "Alsace",
+  "name": "ALBERT SCHWEITZER*",
+  "rite": "RFT",
+  "obedience": "GLTSO",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "BEATUS RHENANUS*",
+  "rite": "RFT",
+  "obedience": "GLTSO",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Joffre",
+  "region": "Alsace",
+  "name": "NOUN",
+  "rite": "RMM",
+  "obedience": "GLFMM",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Schiltigheim",
+  "region": "Alsace",
+  "name": "LE FIL D'ARIANE",
+  "rite": "RMM",
+  "obedience": "GLFMM",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "GUEBWILLER (68)",
+  "region": "Alsace",
+  "name": "SAGESSE DU NIL ET HARMONIE DU RHIN",
+  "rite": "RMM",
+  "obedience": "GLMMM",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Finkmatt",
+  "region": "Alsace",
+  "name": "MEMNON",
+  "rite": "RMM",
+  "obedience": "GLMMM",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "COLMAR (68) Clemenceau",
+  "region": "Alsace",
+  "name": "NEPHTYS",
+  "rite": "RMM",
+  "obedience": "GLSF",
+  "meeting_time": "14:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Eckbolsheim",
+  "region": "Alsace",
+  "name": "ORION",
+  "rite": "RMM",
+  "obedience": "GLSF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "STRASBOURG (67) Cronenbourg",
+  "region": "Alsace",
+  "name": "SEKHMET NESERET",
+  "rite": "RMM",
+  "obedience": null,
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MARCHE-EN-FAMENNE (Be) à Vesqueville",
+  "region": "Belgique-Luxembourg",
+  "name": "LES FRERES REUNIS*",
+  "rite": "RB",
+  "obedience": "GLB",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "ARLON (Be)",
+  "region": "Belgique-Luxembourg",
+  "name": "ETOILE ET VERITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "LUXEMBOURG-VILLE (GRUND)",
+  "region": "Belgique-Luxembourg",
+  "name": "L'ARBRE ET LE CRISTAL",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "LUXEMBOURG-VILLE (GRUND)",
+  "region": "Belgique-Luxembourg",
+  "name": "L'ARBRE ET LE CRISTAL",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "LUXEMBOURG-VILLE (GRUND)",
+  "region": "Belgique-Luxembourg",
+  "name": "LUX LABOR LIBERTAS",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "TOURNAI (Be)",
+  "region": "Belgique-Luxembourg",
+  "name": "GERMAINE DEVALET PERSÉVÉRANCE NOUVELLE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "TOURNAI (Be)",
+  "region": "Belgique-Luxembourg",
+  "name": "GERMAINE DEVALET PERSÉVÉRANCE NOUVELLE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "17:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "VIRTON (Be) Marbehan",
+  "region": "Belgique-Luxembourg",
+  "name": "TENACITE FRANCISCO FERRER",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "15:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Samedi"
+   },
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "LuXembourg (Grund)",
+  "region": "Belgique-Luxembourg",
+  "name": "EUROPE ET FRATERNITE",
+  "rite": "REAA",
+  "obedience": "GOL",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "LUXEMBOURG à Arlon (Be)",
+  "region": "Belgique-Luxembourg",
+  "name": "LA PARFAITE UNION",
+  "rite": "RFM",
+  "obedience": "GLMF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "AUXERRE - BASSOU (89)",
+  "region": "Bourgogne",
+  "name": "HARMONIE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "AUXERRE - BASSOU (89)",
+  "region": "Bourgogne",
+  "name": "HARMONIE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "9:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "BEAUNE (21)",
+  "region": "Bourgogne",
+  "name": "LES CHEMINS DE LA LIBERTE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "CHALON-SUR-SAÔNE (71)",
+  "region": "Bourgogne",
+  "name": "PAMINA TAMINO",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "CHALON-SUR-SAÔNE (71)",
+  "region": "Bourgogne",
+  "name": "PAMINA TAMINO",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "16:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "CHÂLONS-EN- CHAMPAGNE (51)",
+  "region": "Bourgogne",
+  "name": "CITOYEN DU MONDE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:45",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "DIJON (21) Estaunié",
+  "region": "Bourgogne",
+  "name": "AVERROES",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "DIJON (21) Estaunié",
+  "region": "Bourgogne",
+  "name": "FLORIAN",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "DIJON (21) Estaunié",
+  "region": "Bourgogne",
+  "name": "OMEGA",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MÂCON (71)",
+  "region": "Bourgogne",
+  "name": "LA PORTE DU SUD",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "SENS (89)",
+  "region": "Bourgogne",
+  "name": "HARMONIE ET PROGRES",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "VÉZELAY (89)",
+  "region": "Bourgogne",
+  "name": "AU CŒUR DE LA LUMIERE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "17:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "DIJON (21) Cour des Frères",
+  "region": "Bourgogne",
+  "name": "FORCE ET LUMIERE",
+  "rite": "REAA",
+  "obedience": "GLMF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "CHÂLONS-EN- CHAMPAGNE (51)",
+  "region": "Bourgogne",
+  "name": "LES CHEVALIERS DE SAINT BERNARD*",
+  "rite": "RER",
+  "obedience": "GLTSO",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "CHÂLONS-EN- CHAMPAGNE (51)",
+  "region": "Bourgogne",
+  "name": "LA BIENFAISANCE CHÂLONNAISE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SENS (89)",
+  "region": "Bourgogne",
+  "name": "LA CONCORDE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "SENS (89)",
+  "region": "Bourgogne",
+  "name": "LA CONCORDE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "CHARLEVILLE-MÉZIÈRES (08)",
+  "region": "Champagne Ardennes",
+  "name": "AR DEAN",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "CHAUMONT (52)",
+  "region": "Champagne Ardennes",
+  "name": "LES ENFANTS DE LA LUMIERE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "CHAUMONT (52)",
+  "region": "Champagne Ardennes",
+  "name": "LES ENFANTS DE LA LUMIERE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "17:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPERNAY (51)",
+  "region": "Champagne Ardennes",
+  "name": "LES TROIS COUPES",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "DEVENIR",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "LE NIVEAU",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Cormontreuil",
+  "region": "Champagne Ardennes",
+  "name": "PAIX ET PROGRES POUR L'HUMANITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-DIZIER (52)",
+  "region": "Champagne Ardennes",
+  "name": "LA FORGE NEUVE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "TENDRE ET FRATERNEL ACCUEIL",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "TENDRE ET FRATERNEL ACCUEIL",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "VITRY-LE-FRANÇOIS (51)",
+  "region": "Champagne Ardennes",
+  "name": "LA SERENITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "VITRY-LE-FRANÇOIS (51)",
+  "region": "Champagne Ardennes",
+  "name": "LA SERENITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "18:30",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "NOGENT-SUR-SEINE (10)",
+  "region": "Champagne Ardennes",
+  "name": "PARACLESIS*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "NOGENT-SUR-SEINE (10)",
+  "region": "Champagne Ardennes",
+  "name": "PARACLESIS*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Cormontreuil",
+  "region": "Champagne Ardennes",
+  "name": "ANATOLE FRANCE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Cormontreuil",
+  "region": "Champagne Ardennes",
+  "name": "EVOLUTION SOCIALE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SEDAN (08)",
+  "region": "Champagne Ardennes",
+  "name": "TRAVAIL ET LUMIERE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "CHRESTIEN DE TROYES*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "9:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "HUGUES DE PAYNS*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "VITRY-LE-FRANÇOIS (51)",
+  "region": "Champagne Ardennes",
+  "name": "AVEC*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "CHARLEVILLE-MÉZIÈRES (08)",
+  "region": "Champagne Ardennes",
+  "name": "LE TRAIT D'UNION",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "LA SOURCE DE VIE",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "LA SOURCE DE VIE",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "14:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Cormontreuil",
+  "region": "Champagne Ardennes",
+  "name": "LA PIERRE ANGULAIRE",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "ALTAIR",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   },
+   {
+    "week": 5,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "LUMIERE ET LIBERTE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "SAINT BERNARD*",
+  "rite": "RER",
+  "obedience": "GLTSO",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "LA NEF*",
+  "rite": "RF",
+  "obedience": "GLTSO",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "BAMAKO à Reims (51)",
+  "region": "Champagne Ardennes",
+  "name": "LUMIERE DU MANDE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "CHARLEVILLE-MÉZIÈRES (08)",
+  "region": "Champagne Ardennes",
+  "name": "LA FRATERNITE GEORGES CORNEAU",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPERNAY (51)",
+  "region": "Champagne Ardennes",
+  "name": "PRIEUR DE LA MARNE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "HUMANISME ET PERPSECTIVES Loge de recherche, travaille au 1er",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "LA SINCERITE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "LA TRIPLE UNION",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "L'AMITIE*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "VALMY - FRATRENITE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SEDAN (08)",
+  "region": "Champagne Ardennes",
+  "name": "EGALITE, JUSTICE, PROGRES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SEDAN (08)",
+  "region": "Champagne Ardennes",
+  "name": "EGALITE, JUSTICE, PROGRES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "IMAGINE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "L'AURORE SOCIALE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "TROYES (10)",
+  "region": "Champagne Ardennes",
+  "name": "SINE CERA",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "VITRY-LE-FRANÇOIS (51)",
+  "region": "Champagne Ardennes",
+  "name": "ALMAS LES VERTUS REUNIES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "CHARLEVILLE-MÉZIÈRES (08)",
+  "region": "Champagne Ardennes",
+  "name": "SAINT JEAN LES AMIS REUNIS DES ARDENNES",
+  "rite": "RF 1785",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "PROJET",
+  "rite": "RFM",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "MNEMOSYNE",
+  "rite": "RMM",
+  "obedience": "GLSF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "VITRY-LE-FRANÇOIS (51)",
+  "region": "Champagne Ardennes",
+  "name": "LA SALAMANDRE *",
+  "rite": "RMM",
+  "obedience": "GLSF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Cormontreuil",
+  "region": "Champagne Ardennes",
+  "name": "KHEPRI",
+  "rite": "RMM",
+  "obedience": null,
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REIMS (51) Buirette",
+  "region": "Champagne Ardennes",
+  "name": "PRAXIS",
+  "rite": "ROS",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   },
+   {
+    "week": 5,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "BELFORT (90) Sermamagny",
+  "region": "Franche Comté",
+  "name": "OUVERTURE ET FRATERNITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "18:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "BELFORT (90) Sermamagny",
+  "region": "Franche Comté",
+  "name": "OUVERTURE ET FRATERNITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "BESANÇON (25)",
+  "region": "Franche Comté",
+  "name": "CHEMIN D'HUMANITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "BESANÇON (25)",
+  "region": "Franche Comté",
+  "name": "DEMETER",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "BESANÇON (25)",
+  "region": "Franche Comté",
+  "name": "DEMETER",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "DOLE (39)",
+  "region": "Franche Comté",
+  "name": "LA CHAÎNE D'AMBRE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "LONS LE SAUNIER (39)",
+  "region": "Franche Comté",
+  "name": "MOSAÏQUE D'ESPOIR",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "LONS-LE-SAUNIER (39)",
+  "region": "Franche Comté",
+  "name": "MOSAÏQUE D'ESPOIR",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "18:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "MONTBÉLIARD (25) Jules Grosjean",
+  "region": "Franche Comté",
+  "name": "PERSEPHONE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "MONTBÉLIARD (25) Jules Grosjean",
+  "region": "Franche Comté",
+  "name": "PERSEPHONE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "18:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "VESOUL (70)",
+  "region": "Franche Comté",
+  "name": "TERRE LUMIERE EVOLUTION",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "PONTARLIER (25)",
+  "region": "Franche Comté",
+  "name": "CHEMINS DES HORLOGERS",
+  "rite": "REAA",
+  "obedience": "DH Fr et CH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "BELFORT (90) Sermamagny",
+  "region": "Franche Comté",
+  "name": "LA PORTE DE BOURGOGNE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "DELLE (25) à MONTBELIARD Bois Bourgeois",
+  "region": "Franche Comté",
+  "name": "COURBET*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "DOLE (39)",
+  "region": "Franche Comté",
+  "name": "PASTEUR, TOLERANCE ET SPIRITUALITE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "BELFORT (90) Sermamagny",
+  "region": "Franche Comté",
+  "name": "LES BONS AMIS DE LA MIOTTE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "BELFORT (90) Sermamagny",
+  "region": "Franche Comté",
+  "name": "LES BONS AMIS DE LA MIOTTE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "BELFORT (90) Sermamagny",
+  "region": "Franche Comté",
+  "name": "TOLERANCE ET FRATERNITE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MONTBÉLIARD (25) Jules Grosjean",
+  "region": "Franche Comté",
+  "name": "LES AMIS EPROUVES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "PONTARLIER (25)",
+  "region": "Franche Comté",
+  "name": "AMITIE - PROGRES",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "MONTBELIARD (25) Jules Grosjean",
+  "region": "Franche Comté",
+  "name": "LA PORTE D'ORIENT",
+  "rite": "RFMR",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "BESANÇON (25)",
+  "region": "Franche Comté",
+  "name": "SPUCAR* (Sincérité, Parfaite Union et Constante Amitié Réunies)",
+  "rite": "RFMR RER",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "BESANÇON (25)",
+  "region": "Franche Comté",
+  "name": "SPUCAR* (Sincérité, Parfaite Union et Constante Amitié Réunies)",
+  "rite": "RFMR RER",
+  "obedience": "GODF",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "BESANÇON (25)",
+  "region": "Franche Comté",
+  "name": "NOLI ME TANGERE",
+  "rite": "ROS",
+  "obedience": "OITAR",
+  "meeting_time": "9:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "PONT-A-MOUSSON (54)",
+  "region": "Lorraine",
+  "name": "SOCRATE - RAISON ET PROGRES",
+  "rite": "RFP",
+  "obedience": "GODF",
+  "meeting_time": "20:00:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "PONT-A-MOUSSON (54)",
+  "region": "Lorraine",
+  "name": "DE SAINT ANTOINE ET DES AMIS REUNIS",
+  "rite": "GODF Rite Français dit d' Argenteui",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "BAR-LE-DUC (55)",
+  "region": "Lorraine",
+  "name": "LUMIERE ET HARMONIE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "17:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "BAR-LE-DUC (55)",
+  "region": "Lorraine",
+  "name": "LUMIERE ET HARMONIE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPINAL (88)",
+  "region": "Lorraine",
+  "name": "JEAN MACE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "LUNÉVILLE (54)",
+  "region": "Lorraine",
+  "name": "LA ROSE ET L'ATHANOR",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "L'ARCHE D'ALLIANCE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "AGORA",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "ICI ET MAINTENANT",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "9:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   },
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "LES PORTEURS DE LUMIERE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "MEDIATION",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "17:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "MEDIATION",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "STOA",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "JEAN LAMOUR",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "MOZART",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "PAIX ET HUMANITE - BERTHE BOUCHET",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "RITE ET RAISON",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "NEUCHÂTEAU (88)",
+  "region": "Lorraine",
+  "name": "LES PASSEURS DE SOLIDARITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REMIREMONT (88)",
+  "region": "Lorraine",
+  "name": "UNE ETOILE AU COEUR DU GRANIT",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "REMIREMONT (88)",
+  "region": "Lorraine",
+  "name": "UNE ETOILE AU COEUR DU GRANIT",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-AVOLD (57)",
+  "region": "Lorraine",
+  "name": "LE DELTA DE L'EUROPE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-DIÉ-DES-VOSGES (88)",
+  "region": "Lorraine",
+  "name": "UNE PIERRE POUR LA CITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SARREGUEMINES (57)",
+  "region": "Lorraine",
+  "name": "OUROBOROS",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "SARREGUEMINES (57)",
+  "region": "Lorraine",
+  "name": "OUROBOROS",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "THIONVILLE (57) Yutz",
+  "region": "Lorraine",
+  "name": "UNION ET SERENITE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "VERDUN (55)",
+  "region": "Lorraine",
+  "name": "AU FIL DE LA MEUSE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "BAR-LE-DUC (55)",
+  "region": "Lorraine",
+  "name": "ALLIANCE ET HUMANISME*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPINAL (88)",
+  "region": "Lorraine",
+  "name": "EUROPA LIBERA*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "FORBACH (57) à SAINT-AVOLD",
+  "region": "Lorraine",
+  "name": "LOGOS*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "19:45",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   },
+   {
+    "week": 5,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "ENSEMBLE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "L'ECOLE DE LA SAGESSE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "ZOROASTRE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "MIRECOURT (88) Victor Hugo",
+  "region": "Lorraine",
+  "name": "LA PARFAITE HARMONIE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Garenne",
+  "region": "Lorraine",
+  "name": "CHARLES DE MONTESQUIEU*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Garenne",
+  "region": "Lorraine",
+  "name": "LE CHARDON ECOSSAIS DE LORRAINE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Garenne",
+  "region": "Lorraine",
+  "name": "SAINT NICOLAS DE LORRAINE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Garenne",
+  "region": "Lorraine",
+  "name": "STELLA EUROPA*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-DIÉ-DES-VOSGES (88)",
+  "region": "Lorraine",
+  "name": "LA BIENVEILLANCE *",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-DIÉ-DES-VOSGES (88)",
+  "region": "Lorraine",
+  "name": "LES HAUTS DE VOSGES*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   },
+   {
+    "week": 5,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "THIONVILLE (57) Yutz",
+  "region": "Lorraine",
+  "name": "LES CHEMINS DE LA TRADITION*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "THIONVILLE (57) Yutz",
+  "region": "Lorraine",
+  "name": "RECHERCHE ET TRADITION*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "BAR-LE-DUC (55)",
+  "region": "Lorraine",
+  "name": "IDUNA",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "KETHER",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "REMIREMONT (88)",
+  "region": "Lorraine",
+  "name": "LES SŒURS DE LA FRANCHE PIERRE",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-DIÉ-DES-VOSGES (88)",
+  "region": "Lorraine",
+  "name": "DIONYSOS",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "THIONVILLE (57) Yutz",
+  "region": "Lorraine",
+  "name": "SIRONA",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "RUDYARD KIPLING*",
+  "rite": "REAA",
+  "obedience": "GLTSO",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "BRIEY (54)",
+  "region": "Lorraine",
+  "name": "LES AMIS DU JEUNE HENRI",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPINAL (88)",
+  "region": "Lorraine",
+  "name": "COURAGE ET VERITE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPINAL (88)",
+  "region": "Lorraine",
+  "name": "PROMETHEE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "VITRUVE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "L'ARBRE ET LA PIERRE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "LES TROIS PILIERS",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "LA VRAIE LUMIERE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "SIRIUS ET VEGA",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-AVOLD (57)",
+  "region": "Lorraine",
+  "name": "LA FLAMME DE ZOROASTRE",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAVERNE - RÉDING (57)",
+  "region": "Lorraine",
+  "name": "LES TROIS VERSANTS - FLORA TRISTAN",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:15",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "VERDUN (55)",
+  "region": "Lorraine",
+  "name": "LES FRERES AMIS",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "LEONARD DE VINCI*",
+  "rite": "RER",
+  "obedience": "GLTSO",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Garenne",
+  "region": "Lorraine",
+  "name": "LE TEMPLE DE CRYSTAL*",
+  "rite": "RER",
+  "obedience": "GLTSO",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "L'ARBRE D'ESPERANCE",
+  "rite": "RF",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPINAL (88)",
+  "region": "Lorraine",
+  "name": "DEMOCRATIA",
+  "rite": "RF",
+  "obedience": "GLFF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "CONCORDIA",
+  "rite": "RF",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "CONCORDIA",
+  "rite": "RF",
+  "obedience": "GLFF",
+  "meeting_time": "14:30",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "UTOPIA",
+  "rite": "RF",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-AVOLD (57)",
+  "region": "Lorraine",
+  "name": "LES SŒURS D'ANTIGONE",
+  "rite": "RF",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-AVOLD (57)",
+  "region": "Lorraine",
+  "name": "L'ARBRE SUR LE TERRIL",
+  "rite": "RF",
+  "obedience": "GLMF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-AVOLD (57)",
+  "region": "Lorraine",
+  "name": "L'ARBRE SUR LE TERRIL",
+  "rite": "RF",
+  "obedience": "GLMU",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "BAR-LE-DUC (55)",
+  "region": "Lorraine",
+  "name": "LA REGENERATION",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPINAL (88)",
+  "region": "Lorraine",
+  "name": "ENSEMBLE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "ÉPINAL (88)",
+  "region": "Lorraine",
+  "name": "LA FRATERNITE VOSGIENNE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:15",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "LONGWY (54)",
+  "region": "Lorraine",
+  "name": "DE LA REUNION PHILANTROPIQUE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "LONGWY (54)",
+  "region": "Lorraine",
+  "name": "DEVOIR ET LIBERTE*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "LUNÉVILLE (54)",
+  "region": "Lorraine",
+  "name": "ABBE GREGOIRE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "PIERRE PERRAT A L'ETOILE FLAMBOYANTE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "SAINT JEAN AU TEMPLE DE LA PAIX*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "LA NOBLE AMITIE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "LA REPUBLIQUE A L'ECOLE DE LA FRATERNITE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "LES AMIS DE LA VERITE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "EDMOND ABOUT",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "SAINT JEAN DE JERUSALEM",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "NEUCHÂTEAU (88)",
+  "region": "Lorraine",
+  "name": "FRANCHISE ET SOLIDARITE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "RÉDING - PHALSBOURG (57)",
+  "region": "Lorraine",
+  "name": "VICTOR HUGO",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "REMIREMONT (88)",
+  "region": "Lorraine",
+  "name": "LE TRAVAIL",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAARBRÜCKEN (DE)",
+  "region": "Lorraine",
+  "name": "FRATERNITE EUROPEENNE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-AVOLD (57)",
+  "region": "Lorraine",
+  "name": "FRANÇOIS RABELAIS",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-DIÉ-DES-VOSGES (88)",
+  "region": "Lorraine",
+  "name": "JULES FERRY",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "17:45",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-DIÉ-DES-VOSGES (88)",
+  "region": "Lorraine",
+  "name": "JULES FERRY",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:45",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SARREGUEMINES (57)",
+  "region": "Lorraine",
+  "name": "GEORGES-JACQUES DANTON*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SARREGUEMINES (57)",
+  "region": "Lorraine",
+  "name": "LES AMIS DE LA LIBERTE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "THIONVILLE (57) Yutz",
+  "region": "Lorraine",
+  "name": "AMOUR ET LIBERTE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "THIONVILLE (57) Yutz",
+  "region": "Lorraine",
+  "name": "LES ENFANTS DE LA DOUBLE UNION",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "TOUL (54) à NANCY - Drouin",
+  "region": "Lorraine",
+  "name": "JOSEPH CAREZ",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   },
+   {
+    "week": 5,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "LA REGLE ET L'INFINI",
+  "rite": "RF/REAA",
+  "obedience": "GODF",
+  "meeting_time": "20:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SARREGUEMINES",
+  "region": "Lorraine",
+  "name": "NICOLAS-HENRY JACOBI",
+  "rite": "RFM",
+  "obedience": "GLMF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "VANDOEUVRE-LES- NANCY à NANCY Drouin (54)",
+  "region": "Lorraine",
+  "name": "FRANÇOIS DE LORRAINE",
+  "rite": "RFM",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Lundi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "JACQUES CALLOT",
+  "rite": "RFMR",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mardi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "LE CAIRN ET L'ACACIA",
+  "rite": "RFMR",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "NANCY (54) Drouin",
+  "region": "Lorraine",
+  "name": "PROGRES ET DIVERSITE - EMILIE DU CHATELET",
+  "rite": "RFMR",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "PONT-A-MOUSSON (54)",
+  "region": "Lorraine",
+  "name": "SOCRATE - RAISON ET PROGRES",
+  "rite": "RFP",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Jeudi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "MAITRE VILLARD DE HONNECOURT",
+  "rite": "RFT",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "MIRECOURT (88) Clemenceau",
+  "region": "Lorraine",
+  "name": "SAINT JEAN LE PARFAIT DESINTERESSEMENT",
+  "rite": "Rite de Mirecourt 1760",
+  "obedience": "GODF",
+  "meeting_time": "19:15",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ à Augny (57)",
+  "region": "Lorraine",
+  "name": "DJHOUTY",
+  "rite": "RMM",
+  "obedience": "GLMF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-AVOLD (57)",
+  "region": "Lorraine",
+  "name": "HORUS HAROERIS",
+  "rite": "RMM",
+  "obedience": "GLMF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   },
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "BAR-LE-DUC (55)",
+  "region": "Lorraine",
+  "name": "BAR OSIRIS*",
+  "rite": "RMM",
+  "obedience": "GLSF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "METZ (57)",
+  "region": "Lorraine",
+  "name": "HELIOPOLIS RENAISSANTE",
+  "rite": "RMM",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "CHÂTEAU-THIERRY (02)",
+  "region": "Picardie",
+  "name": "CAMILLE CLAUDEL LE FEU DANS LA PIERRE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-QUENTIN (02)",
+  "region": "Picardie",
+  "name": "L'EQUERRE ET LE COMPAS",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Lundi"
+   },
+   {
+    "week": 3,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "SOISSONS (02)",
+  "region": "Picardie",
+  "name": "LA CARRIERE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "TERGNIER (02) Vouël",
+  "region": "Picardie",
+  "name": "VIVAT LIBERTE CHERIE",
+  "rite": "REAA",
+  "obedience": "DH",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "LAON (02)",
+  "region": "Picardie",
+  "name": "FRATERNITE ET TRADITION*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-QUENTIN (02)",
+  "region": "Picardie",
+  "name": "BERECHIT 02*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-QUENTIN (02) 3 rue d'Alsace",
+  "region": "Picardie",
+  "name": "TRADITION ET LIBERTE*",
+  "rite": "REAA",
+  "obedience": "GLDF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "LAON (02)",
+  "region": "Picardie",
+  "name": "LA MONTAGNE COURONNEE",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-QUENTIN (02)",
+  "region": "Picardie",
+  "name": "TOLERANCE ET FRATERNITE",
+  "rite": "REAA",
+  "obedience": "GLFF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Lundi"
+   }
+  ]
+ },
+ {
+  "orient": "LAON (02)",
+  "region": "Picardie",
+  "name": "DANS L'INTERET DES FRERES",
+  "rite": "REAA",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "CHÂTEAU-THIERRY (02)",
+  "region": "Picardie",
+  "name": "JEAN DE LA FONTAINE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "CHÂTEAU-THIERRY (02)",
+  "region": "Picardie",
+  "name": "JEAN DE LA FONTAINE",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "9:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "LAON (02)",
+  "region": "Picardie",
+  "name": "LES FRERES DU MONT LAONNOIS",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Samedi"
+   },
+   {
+    "week": 3,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-QUENTIN (02)",
+  "region": "Picardie",
+  "name": "BABEUF ET CONDORCET*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mardi"
+   },
+   {
+    "week": 3,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "SAINT-QUENTIN (02)",
+  "region": "Picardie",
+  "name": "JUSTICE ET VERITE*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Vendredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "SOISSONS (02)",
+  "region": "Picardie",
+  "name": "LE PHARE SOISSONNAIS",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "TERGNIER - CHAUNY (02) Vouël",
+  "region": "Picardie",
+  "name": "LA MAISON D'HORUS",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 1,
+    "day": "Mercredi"
+   },
+   {
+    "week": 3,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "TERGNIER (02) Vouël",
+  "region": "Picardie",
+  "name": "LES FILS D'ISIS*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "TERGNIER (02) Vouël",
+  "region": "Picardie",
+  "name": "LES FILS D'ISIS*",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Vendredi"
+   }
+  ]
+ },
+ {
+  "orient": "VERMAND (02) Saint-Quentin",
+  "region": "Picardie",
+  "name": "TERRE ET CIEL",
+  "rite": "RF",
+  "obedience": "GODF",
+  "meeting_time": "19:45",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Mardi"
+   }
+  ]
+ },
+ {
+  "orient": "VERVINS (02)",
+  "region": "Picardie",
+  "name": "LE GRAND ŒUVRE",
+  "rite": "RFM",
+  "obedience": "GODF",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Mercredi"
+   },
+   {
+    "week": 4,
+    "day": "Mercredi"
+   },
+   {
+    "week": 5,
+    "day": "Mercredi"
+   }
+  ]
+ },
+ {
+  "orient": "SOISSONS (02)",
+  "region": "Picardie",
+  "name": "ASET-ASTARTE",
+  "rite": "RMM",
+  "obedience": "GLTI",
+  "meeting_time": "20:00",
+  "schedule": [
+   {
+    "week": 2,
+    "day": "Jeudi"
+   },
+   {
+    "week": 4,
+    "day": "Jeudi"
+   }
+  ]
+ },
+ {
+  "orient": "VALLORBE (CH)",
+  "region": "suisse",
+  "name": "CHEMINS DES HORLOGERS",
+  "rite": "REAA",
+  "obedience": "DH Fr et CH",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Samedi"
+   }
+  ]
+ },
+ {
+  "orient": "PORRENTRUY - CH (Jura)",
+  "region": "suisse",
+  "name": "LA TOLERANCE*",
+  "rite": "REAA/ Schroeder",
+  "obedience": "GLSA",
+  "meeting_time": "10:00",
+  "schedule": [
+   {
+    "week": 3,
+    "day": "Dimanche"
+   }
+  ]
+ },
+ {
+  "orient": "LE LOCLE (CH)",
+  "region": "suisse",
+  "name": "LES VRAIS FRERES UNIS*",
+  "rite": "Rituel de Schroeder",
+  "obedience": "GLSA",
+  "meeting_time": "19:30",
+  "schedule": [
+   {
+    "week": 4,
+    "day": "Mercredi"
+   }
+  ]
+ }
+]

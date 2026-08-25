@@ -48,6 +48,7 @@ from app.routers import search as search_router
 from app.routers import notifications as notifications_router
 from app.routers import engagement as engagement_router
 from app.routers import secretariat as secretariat_router
+from app.routers import lodges_directory as lodges_directory_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -62,6 +63,7 @@ import app.models.forum         # noqa: F401  # ForumTheme/Subject/Message/Subsc
 import app.models.mailing       # noqa: F401  # MailingList/Campaign/Delivery
 import app.models.bookmarks     # noqa: F401  # Bookmark
 import app.models.analytics     # noqa: F401  # PageView
+import app.models.lodges_directory  # noqa: F401  # NeighboringLodge
 from sqlalchemy import select, func as sql_func, or_
 from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -565,6 +567,7 @@ app.include_router(contact_confirmation_router.router)
 app.include_router(search_router.router)
 app.include_router(notifications_router.router)
 app.include_router(engagement_router.router)
+app.include_router(lodges_directory_router.router)
 # app.include_router(admin.router)
 
 

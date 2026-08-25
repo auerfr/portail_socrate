@@ -1,0 +1,106 @@
+{% extends "base.html" %}
+{% block title %}{{ 'Modifier' if lodge else 'Ajouter' }} une loge voisine — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="/loges-voisines/" class="text-gray-400 hover:text-gray-600 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+      </svg>
+    </a>
+    <h1 class="text-xl font-bold text-gray-900">{{ 'Modifier' if lodge else 'Ajouter' }} une loge voisine</h1>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+    <form method="post" action="{{ '/loges-voisines/' ~ lodge.id ~ '/edit' if lodge else '/loges-voisines/new' }}" class="space-y-5">
+
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Orient (ville) *</label>
+          <input type="text" name="orient" required value="{{ lodge.orient | e if lodge else '' }}" placeholder="ex : NANCY (54)"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Région</label>
+          <input type="text" name="region" value="{{ lodge.region | e if lodge else '' }}" placeholder="ex : Lorraine"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom de la loge *</label>
+        <input type="text" name="name" required value="{{ lodge.name | e if lodge else '' }}"
+               class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Rite</label>
+          <input type="text" name="rite" value="{{ lodge.rite | e if lodge else '' }}" placeholder="ex : REAA"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Obédience</label>
+          <input type="text" name="obedience" value="{{ lodge.obedience | e if lodge else '' }}" placeholder="ex : GLNF"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1.5">Horaire</label>
+          <input type="text" name="meeting_time" value="{{ lodge.meeting_time | e if lodge else '' }}" placeholder="ex : 20:00"
+                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Rythme théorique de réunion</label>
+        <p class="text-xs text-gray-400 mb-2">Cochez la ou les semaines du mois où cette loge se réunit, pour chaque jour concerné.</p>
+        <div class="overflow-x-auto border border-gray-100 rounded-xl">
+          <table class="w-full text-xs">
+            <thead>
+              <tr class="bg-gray-50 text-gray-500">
+                <th class="px-3 py-2 text-left font-medium">Jour</th>
+                {% for w in range(1, 6) %}
+                <th class="px-2 py-2 font-medium">S{{ w }}</th>
+                {% endfor %}
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-gray-50">
+              {% for day in jours %}
+              <tr>
+                <td class="px-3 py-1.5 text-gray-700">{{ day }}</td>
+                {% for w in range(1, 6) %}
+                <td class="px-2 py-1.5 text-center">
+                  <input type="checkbox" name="week_{{ day }}" value="{{ w }}"
+                         {% if checked and (day, w) in checked %}checked{% endif %}
+                         class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+                </td>
+                {% endfor %}
+              </tr>
+              {% endfor %}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Notes <span class="font-normal text-gray-400">(optionnel)</span></label>
+        <textarea name="notes" rows="2"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none">{{ lodge.notes or '' if lodge else '' }}</textarea>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <a href="/loges-voisines/"
+           class="flex-1 text-center border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+          Annuler
+        </a>
+        <button type="submit"
+                class="flex-1 bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

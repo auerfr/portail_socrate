@@ -1,0 +1,105 @@
+{% extends "base.html" %}
+{% block title %}Loges voisines — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 space-y-5">
+
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Loges voisines</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Répertoire de référence — rythme théorique de réunion, pour repérer une loge à visiter</p>
+    </div>
+    {% if can_manage %}
+    <a href="/loges-voisines/new"
+       class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+      <i class="ti ti-plus"></i>Ajouter une loge
+    </a>
+    {% endif %}
+  </div>
+
+  <!-- Filtres -->
+  <form method="get" action="/loges-voisines/" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3 items-end">
+    <div class="flex-1 min-w-[160px]">
+      <label class="block text-xs font-medium text-gray-500 mb-1">Recherche</label>
+      <input type="text" name="search" value="{{ search }}" placeholder="Nom de loge, orient…"
+             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Région</label>
+      <select name="region" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Toutes</option>
+        {% for r in regions %}
+        <option value="{{ r }}" {% if region_filter == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Rite</label>
+      <select name="rite" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Tous</option>
+        {% for r in rites %}
+        <option value="{{ r }}" {% if rite_filter == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      Filtrer
+    </button>
+    {% if search or region_filter or rite_filter %}
+    <a href="/loges-voisines/" class="text-xs text-gray-400 hover:text-gray-600">Réinitialiser</a>
+    {% endif %}
+  </form>
+
+  <!-- Tableau -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-3 border-b border-gray-100 text-sm text-gray-500">
+      {{ lodges|length }} loge{{ 's' if lodges|length > 1 }}
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+            <th class="px-4 py-2 font-medium">Orient</th>
+            <th class="px-4 py-2 font-medium">Loge</th>
+            <th class="px-4 py-2 font-medium">Rite</th>
+            <th class="px-4 py-2 font-medium">Obédience</th>
+            <th class="px-4 py-2 font-medium">Rythme</th>
+            <th class="px-4 py-2 font-medium">Horaire</th>
+            {% if can_manage %}<th class="px-4 py-2"></th>{% endif %}
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% for lg in lodges %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-4 py-2.5 whitespace-nowrap">
+              <div class="text-gray-800">{{ lg.orient }}</div>
+              {% if lg.region %}<div class="text-xs text-gray-400">{{ lg.region }}</div>{% endif %}
+            </td>
+            <td class="px-4 py-2.5 font-medium text-gray-800">{{ lg.name }}</td>
+            <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ lg.rite or '—' }}</td>
+            <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ lg.obedience or '—' }}</td>
+            <td class="px-4 py-2.5 text-gray-600">{{ schedule_labels.get(lg.id, '—') }}</td>
+            <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ lg.meeting_time or '—' }}</td>
+            {% if can_manage %}
+            <td class="px-4 py-2.5 whitespace-nowrap">
+              <a href="/loges-voisines/{{ lg.id }}/edit" class="text-gray-300 hover:text-loge-700 transition-colors mr-2" title="Modifier">
+                <i class="ti ti-pencil"></i>
+              </a>
+              <form method="post" action="/loges-voisines/{{ lg.id }}/delete" class="inline" onsubmit="return confirm('Supprimer cette loge du répertoire ?')">
+                <button type="submit" class="text-gray-300 hover:text-red-500 transition-colors" title="Supprimer">
+                  <i class="ti ti-trash"></i>
+                </button>
+              </form>
+            </td>
+            {% endif %}
+          </tr>
+          {% endfor %}
+        </tbody>
+      </table>
+      {% if not lodges %}
+      <div class="px-5 py-10 text-center text-sm text-gray-400">Aucune loge trouvée.</div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}
