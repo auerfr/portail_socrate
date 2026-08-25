@@ -1143,3 +1143,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE planche_entries ADD COLUMN obedience VARCHAR(100)"
             )
 
+    # ── Forum : ciblage par groupe des catégories (en plus du grade déjà en place) ──
+    async with engine.begin() as conn:
+        r_ft = await conn.exec_driver_sql("PRAGMA table_info(forum_themes)")
+        cols_ft = [row[1] for row in r_ft.fetchall()]
+        if cols_ft and "group_id" not in cols_ft:
+            await conn.exec_driver_sql(
+                "ALTER TABLE forum_themes ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
+            )
+

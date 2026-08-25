@@ -21,7 +21,8 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
 from app.dependencies import require_auth, can_manage_members
-from app.models.identity import Member, MemberStatus
+from app.models.identity import Member, MemberStatus, LodgeFunction
+from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.forum import (
     ForumTheme, ForumSubject, ForumMessage,
     ForumSubscription, ForumDecision, ForumStance, StancePosition,
@@ -37,9 +38,75 @@ ALLOWED_LINK_PREFIXES = ("http://", "https://")
 router = APIRouter(prefix="/forum", tags=["forum"])
 from app.template_engine import templates
 
+_GRADE_ORDER = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3}
+
+_OFFICER_FUNCTIONS = {
+    LodgeFunction.VM, LodgeFunction.PREMIER_S, LodgeFunction.SECOND_S,
+    LodgeFunction.ORATEUR, LodgeFunction.SECRETAIRE, LodgeFunction.TRESORIER,
+    LodgeFunction.EXPERT, LodgeFunction.MAITRE_CEREMONIES, LodgeFunction.HARMONISTE,
+    LodgeFunction.HOSPITALIER, LodgeFunction.TUILEUR, LodgeFunction.ARCHITECTE,
+    LodgeFunction.MAITRE_BANQUETS,
+}
+
 
 def _is_admin_or_manager(user, member) -> bool:
     return bool(getattr(user, "is_admin", False) or can_manage_members(member))
+
+
+async def _check_group_access(member: Member, group_id: int, db: AsyncSession) -> bool:
+    group = await db.get(LodgeGroup, group_id)
+    if not group:
+        return False
+    if group.group_type == GroupType.GRADE:
+        if group.grade_filter is None:
+            return True
+        return bool(member.masonic_grade and member.masonic_grade.value == group.grade_filter)
+    elif group.group_type == GroupType.COUNCIL:
+        return member.lodge_function in _OFFICER_FUNCTIONS
+    elif group.group_type == GroupType.PAIR:
+        import json
+        functions = set(json.loads(group.function_filter or "[]"))
+        return bool(member.lodge_function and member.lodge_function.value in functions)
+    else:
+        r = await db.execute(
+            select(GroupMembership).where(
+                GroupMembership.group_id == group_id,
+                GroupMembership.member_id == member.id,
+            )
+        )
+        return r.scalar_one_or_none() is not None
+
+
+async def _can_access_theme(theme: ForumTheme, member: Member, is_admin: bool, db: AsyncSession) -> bool:
+    if is_admin:
+        return True
+    if theme.group_id:
+        return await _check_group_access(member, theme.group_id, db)
+    if theme.min_grade:
+        return _GRADE_ORDER.get(member.masonic_grade.value, 0) >= _GRADE_ORDER.get(theme.min_grade, 0)
+    return True
+
+
+async def _load_groups(db: AsyncSession) -> list[LodgeGroup]:
+    r = await db.execute(select(LodgeGroup).order_by(LodgeGroup.name))
+    return r.scalars().all()
+
+
+def _parse_target(target: str) -> tuple[Optional[str], Optional[int]]:
+    if not target:
+        return None, None
+    if target.startswith("group:"):
+        try:
+            return None, int(target[6:])
+        except ValueError:
+            return None, None
+    return target, None
+
+
+def _target_value(theme: ForumTheme) -> str:
+    if theme.group_id:
+        return f"group:{theme.group_id}"
+    return theme.min_grade or ""
 
 
 async def _attach_to_message(
@@ -129,11 +196,12 @@ async def forum_index(
 ):
     user, member = ctx
 
-    # Catégories ordonnées
+    # Catégories ordonnées, filtrées par ciblage (grade/groupe)
     r = await db.execute(
         select(ForumTheme).order_by(ForumTheme.order_position, ForumTheme.id)
     )
-    themes = r.scalars().all()
+    all_themes = r.scalars().all()
+    themes = [th for th in all_themes if await _can_access_theme(th, member, user.is_admin, db)]
 
     # Comptes par thème — 3 requêtes fixes au lieu de 3×N
     sub_counts_r = await db.execute(
@@ -184,6 +252,7 @@ async def forum_index(
         "theme_stats": theme_stats,
         "recent_subjects": recent_subjects,
         "can_manage": _is_admin_or_manager(user, member),
+        "groups": await _load_groups(db),
     })
 
 
@@ -204,6 +273,8 @@ async def forum_category(
     )).scalar_one_or_none()
     if not th:
         raise HTTPException(404, "Catégorie introuvable")
+    if not await _can_access_theme(th, member, user.is_admin, db):
+        raise HTTPException(403, "Catégorie réservée")
 
     r = await db.execute(
         select(ForumSubject)
@@ -261,6 +332,8 @@ async def forum_thread(
     )).scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Sujet introuvable")
+    if not await _can_access_theme(s.theme, member, user.is_admin, db):
+        raise HTTPException(403, "Catégorie réservée")
 
     # Messages + attachments
     mr = await db.execute(
@@ -348,7 +421,8 @@ async def forum_new_form(
     r = await db.execute(
         select(ForumTheme).order_by(ForumTheme.order_position, ForumTheme.id)
     )
-    themes = r.scalars().all()
+    all_themes = r.scalars().all()
+    themes = [th for th in all_themes if await _can_access_theme(th, member, user.is_admin, db)]
     return templates.TemplateResponse(request, "pages/forum/new.html", {
         "current_user": user,
         "current_member": member,
@@ -386,6 +460,8 @@ async def forum_create_subject(
     )).scalar_one_or_none()
     if not th:
         raise HTTPException(404, "Catégorie introuvable")
+    if not await _can_access_theme(th, member, user.is_admin, db):
+        raise HTTPException(403, "Catégorie réservée")
 
     now = datetime.utcnow()
     s = ForumSubject(
@@ -441,10 +517,12 @@ async def forum_post(
         files = [files]
 
     s = (await db.execute(
-        select(ForumSubject).where(ForumSubject.id == subject_id)
+        select(ForumSubject).options(selectinload(ForumSubject.theme)).where(ForumSubject.id == subject_id)
     )).scalar_one_or_none()
     if not s:
         raise HTTPException(404)
+    if not await _can_access_theme(s.theme, member, user.is_admin, db):
+        raise HTTPException(403, "Catégorie réservée")
     if s.is_locked and not _is_admin_or_manager(user, member):
         raise HTTPException(403, "Sujet verrouillé")
 
@@ -499,6 +577,75 @@ async def forum_post(
         pass
 
     return RedirectResponse(url=f"/forum/t/{subject_id}#m-{msg.id}", status_code=303)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+#  Modération d'un message (auteur ou admin/gestionnaire)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _can_moderate_message(msg: ForumMessage, user, member) -> bool:
+    return bool(
+        (member and msg.created_by_id == member.id) or _is_admin_or_manager(user, member)
+    )
+
+
+@router.get("/messages/{message_id}/edit", response_class=HTMLResponse)
+async def forum_message_edit_form(
+    message_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    msg = await db.get(ForumMessage, message_id)
+    if not msg or msg.deleted_at:
+        raise HTTPException(404)
+    if not _can_moderate_message(msg, user, member):
+        raise HTTPException(403)
+    return templates.TemplateResponse(request, "pages/forum/message_edit.html", {
+        "current_user": user,
+        "current_member": member,
+        "msg": msg,
+    })
+
+
+@router.post("/messages/{message_id}/edit")
+async def forum_message_edit(
+    message_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    content: str = Form(...),
+):
+    user, member = ctx
+    msg = await db.get(ForumMessage, message_id)
+    if not msg or msg.deleted_at:
+        raise HTTPException(404)
+    if not _can_moderate_message(msg, user, member):
+        raise HTTPException(403)
+    text = content.strip()
+    if not text:
+        raise HTTPException(400, "Message vide")
+    msg.content_html = text
+    await db.commit()
+    return RedirectResponse(url=f"/forum/t/{msg.subject_id}#m-{msg.id}", status_code=303)
+
+
+@router.post("/messages/{message_id}/delete")
+async def forum_message_delete(
+    message_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    msg = await db.get(ForumMessage, message_id)
+    if not msg or msg.deleted_at:
+        raise HTTPException(404)
+    if not _can_moderate_message(msg, user, member):
+        raise HTTPException(403)
+    subject_id = msg.subject_id
+    msg.deleted_at = datetime.utcnow()
+    await db.commit()
+    return RedirectResponse(url=f"/forum/t/{subject_id}", status_code=303)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -675,19 +822,74 @@ async def forum_create_theme(
     color: str = Form(""),
     description: str = Form(""),
     order_position: int = Form(0),
+    target: str = Form(""),
 ):
     user, member = ctx
     if not _is_admin_or_manager(user, member):
         raise HTTPException(403)
 
+    min_grade, target_group_id = _parse_target(target)
     th = ForumTheme(
         name=name.strip(),
         color=color.strip() or None,
         description=description.strip() or None,
         order_position=order_position,
         created_by_id=member.id,
+        min_grade=min_grade,
+        group_id=target_group_id,
     )
     db.add(th)
+    await db.commit()
+    return RedirectResponse(url="/forum/", status_code=303)
+
+
+@router.get("/themes/{theme_id}/edit", response_class=HTMLResponse)
+async def forum_theme_edit_form(
+    theme_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not _is_admin_or_manager(user, member):
+        raise HTTPException(403)
+    th = await db.get(ForumTheme, theme_id)
+    if not th:
+        raise HTTPException(404)
+    return templates.TemplateResponse(request, "pages/forum/theme_edit.html", {
+        "current_user": user,
+        "current_member": member,
+        "theme": th,
+        "groups": await _load_groups(db),
+        "target_value": _target_value(th),
+    })
+
+
+@router.post("/themes/{theme_id}/edit")
+async def forum_theme_edit(
+    theme_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(...),
+    color: str = Form(""),
+    description: str = Form(""),
+    order_position: int = Form(0),
+    target: str = Form(""),
+):
+    user, member = ctx
+    if not _is_admin_or_manager(user, member):
+        raise HTTPException(403)
+    th = await db.get(ForumTheme, theme_id)
+    if not th:
+        raise HTTPException(404)
+
+    min_grade, target_group_id = _parse_target(target)
+    th.name = name.strip()
+    th.color = color.strip() or None
+    th.description = description.strip() or None
+    th.order_position = order_position
+    th.min_grade = min_grade
+    th.group_id = target_group_id
     await db.commit()
     return RedirectResponse(url="/forum/", status_code=303)
 

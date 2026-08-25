@@ -21,7 +21,12 @@ class ForumTheme(Base):
     name: Mapped[str]   = mapped_column(String(200))
     color: Mapped[Optional[str]] = mapped_column(String(10))
     description: Mapped[Optional[str]] = mapped_column(Text)
+    # Ciblage par public — group_id prioritaire sur min_grade si les deux
+    # sont définis (même convention que DocFolder/DocSpace dans la GED)
     min_grade: Mapped[Optional[str]]   = mapped_column(String(50))
+    group_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("lodge_groups.id", ondelete="SET NULL"), nullable=True
+    )
     order_position: Mapped[int]        = mapped_column(default=0)
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

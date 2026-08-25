@@ -40,15 +40,38 @@
                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
         <div>
-          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Couleur (hex)</label>
-          <input type="text" name="color" placeholder="#4a9d8f"
-                 class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Couleur</label>
+          <div class="flex items-center gap-2">
+            <input type="color" name="color" value="#4a9d8f"
+                   class="w-11 h-9 border border-gray-200 rounded-lg cursor-pointer p-0.5 bg-white">
+            <span class="text-xs text-gray-400">Couleur de la catégorie</span>
+          </div>
         </div>
       </div>
-      <div>
-        <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Description</label>
-        <textarea name="description" rows="2"
-                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Description</label>
+          <textarea name="description" rows="2"
+                    class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-semibold text-gray-500 uppercase tracking-wider mb-1.5">Public cible</label>
+          <select name="target"
+                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="">Tous les membres</option>
+            <optgroup label="Par grade">
+              <option value="COMPAGNON">Compagnon et au-dessus</option>
+              <option value="MAITRE">Maîtres uniquement</option>
+            </optgroup>
+            {% if groups %}
+            <optgroup label="Par groupe">
+              {% for g in groups %}
+              <option value="group:{{ g.id }}">{{ g.name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+          </select>
+        </div>
       </div>
       <div class="flex items-center justify-end gap-2">
         <button type="button" @click="showThemeForm = false"
@@ -69,15 +92,22 @@
     <ul class="divide-y divide-gray-100">
       {% for th in themes %}
       {% set st = theme_stats.get(th.id, {}) %}
-      <li>
+      <li class="flex items-center hover:bg-gray-50 transition-colors">
         <a href="/forum/c/{{ th.id }}"
-           class="flex items-center gap-4 px-5 py-4 hover:bg-gray-50 transition-colors">
+           class="flex items-center gap-4 px-5 py-4 flex-1 min-w-0">
           <div class="w-10 h-10 rounded-xl flex items-center justify-center shrink-0"
                style="background: {{ th.color or '#e6f4f1' }}22; color: {{ th.color or '#2c7a7b' }}">
             <i class="ti ti-message-circle text-lg"></i>
           </div>
           <div class="flex-1 min-w-0">
-            <div class="font-semibold text-gray-900 text-sm">{{ th.name }}</div>
+            <div class="font-semibold text-gray-900 text-sm flex items-center gap-2">
+              {{ th.name }}
+              {% if th.group_id or th.min_grade %}
+              <span class="inline-flex items-center gap-1 text-[10px] font-medium uppercase tracking-wide text-amber-700 bg-amber-50 border border-amber-200 rounded-full px-1.5 py-0.5">
+                <i class="ti ti-lock text-[10px]"></i>Restreint
+              </span>
+              {% endif %}
+            </div>
             {% if th.description %}
             <p class="text-xs text-gray-500 mt-0.5 line-clamp-2">{{ th.description }}</p>
             {% endif %}
@@ -87,6 +117,12 @@
             <div>{{ st.messages or 0 }} message{{ 's' if (st.messages or 0) > 1 else '' }}</div>
           </div>
         </a>
+        {% if can_manage %}
+        <a href="/forum/themes/{{ th.id }}/edit" title="Modifier la catégorie"
+           class="px-4 text-gray-300 hover:text-loge-700 transition-colors shrink-0">
+          <i class="ti ti-pencil"></i>
+        </a>
+        {% endif %}
       </li>
       {% endfor %}
     </ul>

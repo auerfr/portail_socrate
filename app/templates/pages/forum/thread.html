@@ -119,7 +119,20 @@ function gedPicker() {
           <div class="text-sm font-semibold text-gray-900">
             {% if author %}{{ author.last_name | anon_nom }} {{ author.first_name }}{% else %}—{% endif %}
           </div>
-          <div class="text-xs text-gray-400">{{ msg.created_at.strftime('%d/%m/%Y à %H:%M') }}</div>
+          <div class="flex items-center gap-2 text-xs text-gray-400">
+            {% if msg.updated_at and msg.updated_at != msg.created_at %}<span class="italic">modifié</span>{% endif %}
+            <span>{{ msg.created_at.strftime('%d/%m/%Y à %H:%M') }}</span>
+            {% if can_manage or msg.created_by_id == current_member.id %}
+            <a href="/forum/messages/{{ msg.id }}/edit" class="hover:text-loge-700 transition-colors" title="Modifier">
+              <i class="ti ti-pencil"></i>
+            </a>
+            <form method="post" action="/forum/messages/{{ msg.id }}/delete" onsubmit="return confirm('Supprimer ce message ?')" class="inline">
+              <button type="submit" class="hover:text-red-500 transition-colors" title="Supprimer">
+                <i class="ti ti-trash"></i>
+              </button>
+            </form>
+            {% endif %}
+          </div>
         </div>
         <div class="prose prose-sm max-w-none mt-2 text-gray-700 whitespace-pre-wrap break-words">{{ msg.content_html }}</div>
 
