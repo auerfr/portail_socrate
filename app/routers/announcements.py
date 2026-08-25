@@ -35,7 +35,10 @@ async def announcements_index(
 
     result = await db.execute(
         select(Announcement)
-        .options(selectinload(Announcement.author), selectinload(Announcement.reads))
+        .options(
+            selectinload(Announcement.author),
+            selectinload(Announcement.reads).selectinload(AnnouncementRead.member),
+        )
         .order_by(Announcement.is_pinned.desc(), Announcement.created_at.desc())
     )
     announcements = result.scalars().all()
