@@ -106,10 +106,17 @@
       </div>
 
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1.5">Notes <span class="font-normal text-gray-400">(optionnel)</span></label>
-        <textarea name="notes" rows="2"
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Commentaire <span class="font-normal text-gray-400">(optionnel)</span></label>
+        <textarea name="notes" rows="2" placeholder="ex : loge en sommeil, temple temporairement fermé…"
                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none">{{ lodge.notes or '' if lodge else '' }}</textarea>
       </div>
+
+      <label class="flex items-center gap-2.5 bg-gray-50 border border-gray-100 rounded-xl px-4 py-3 cursor-pointer">
+        <input type="checkbox" name="active" value="true"
+               {% if (lodge and lodge.active) or not lodge %}checked{% endif %}
+               class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+        <span class="text-sm text-gray-700">Loge active <span class="text-gray-400 font-normal">— décochez si elle est en sommeil, dissoute ou ne se réunit plus actuellement</span></span>
+      </label>
 
       <div class="flex gap-3 pt-2">
         <a href="/loges-voisines/"

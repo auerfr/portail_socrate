@@ -53,6 +53,7 @@ async def lodges_directory_list(
     rite: str = "",
     obedience: str = "",
     ville: str = "",
+    statut: str = "active",
 ):
     user, member = ctx
 
@@ -70,6 +71,10 @@ async def lodges_directory_list(
         query = query.where(NeighboringLodge.obedience == obedience)
     if ville:
         query = query.where(NeighboringLodge.orient == ville)
+    if statut == "active":
+        query = query.where(NeighboringLodge.active.is_(True))
+    elif statut == "inactive":
+        query = query.where(NeighboringLodge.active.is_(False))
 
     r = await db.execute(query)
     lodges = r.scalars().all()
@@ -100,6 +105,7 @@ async def lodges_directory_list(
         "rite_filter": rite,
         "obedience_filter": obedience,
         "ville_filter": ville,
+        "statut_filter": statut,
         "can_manage": _can_manage(user, member),
     })
 
@@ -136,6 +142,7 @@ async def lodges_directory_calendar(
     rite: str = "",
     obedience: str = "",
     ville: str = "",
+    statut: str = "active",
 ):
     user, member = ctx
     today = date.today()
@@ -153,6 +160,10 @@ async def lodges_directory_calendar(
         query = query.where(NeighboringLodge.obedience == obedience)
     if ville:
         query = query.where(NeighboringLodge.orient == ville)
+    if statut == "active":
+        query = query.where(NeighboringLodge.active.is_(True))
+    elif statut == "inactive":
+        query = query.where(NeighboringLodge.active.is_(False))
     r = await db.execute(query)
     lodges = r.scalars().all()
 
@@ -200,6 +211,8 @@ async def lodges_directory_calendar(
         "obedience_filter": obedience,
         "ville_filter": ville,
         "rite_filter": rite,
+        "statut_filter": statut,
+        "can_manage": _can_manage(user, member),
     })
 
 
@@ -212,8 +225,10 @@ async def lodges_directory_map(
     rite: str = "",
     obedience: str = "",
     ville: str = "",
+    statut: str = "active",
 ):
     user, member = ctx
+    can_manage = _can_manage(user, member)
 
     query = select(NeighboringLodge)
     if region:
@@ -224,6 +239,10 @@ async def lodges_directory_map(
         query = query.where(NeighboringLodge.obedience == obedience)
     if ville:
         query = query.where(NeighboringLodge.orient == ville)
+    if statut == "active":
+        query = query.where(NeighboringLodge.active.is_(True))
+    elif statut == "inactive":
+        query = query.where(NeighboringLodge.active.is_(False))
     r = await db.execute(query)
     lodges = r.scalars().all()
 
@@ -237,8 +256,11 @@ async def lodges_directory_map(
             "meeting_time": lg.meeting_time,
             "address": lg.address,
             "schedule_label": _schedule_label(lg.schedule),
+            "notes": lg.notes,
+            "active": lg.active,
             "lat": lg.latitude,
             "lon": lg.longitude,
+            "edit_url": f"/loges-voisines/{lg.id}/edit" if can_manage else None,
         }
         for lg in lodges if lg.latitude is not None and lg.longitude is not None
     ]
@@ -267,6 +289,8 @@ async def lodges_directory_map(
         "rite_filter": rite,
         "obedience_filter": obedience,
         "ville_filter": ville,
+        "statut_filter": statut,
+        "can_manage": can_manage,
     })
 
 
@@ -315,6 +339,7 @@ async def lodge_create(
     longitude: str = Form(""),
     meeting_time: str = Form(""),
     notes: str = Form(""),
+    active: bool = Form(False),
 ):
     user, member = ctx
     if not _can_manage(user, member):
@@ -332,6 +357,7 @@ async def lodge_create(
         meeting_time=meeting_time.strip() or None,
         schedule=_parse_schedule(form) or None,
         notes=notes.strip() or None,
+        active=active,
         created_by_id=member.id,
     )
     db.add(lodge)
@@ -378,6 +404,7 @@ async def lodge_edit(
     longitude: str = Form(""),
     meeting_time: str = Form(""),
     notes: str = Form(""),
+    active: bool = Form(False),
 ):
     user, member = ctx
     if not _can_manage(user, member):
@@ -397,8 +424,29 @@ async def lodge_edit(
     lodge.meeting_time = meeting_time.strip() or None
     lodge.schedule = _parse_schedule(form) or None
     lodge.notes = notes.strip() or None
+    lodge.active = active
     await db.commit()
     return RedirectResponse(url="/loges-voisines/", status_code=303)
+
+
+@router.post("/{lodge_id}/toggle-active")
+async def lodge_toggle_active(
+    lodge_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Bascule rapide actif/inactif depuis la liste, sans passer par le formulaire complet."""
+    user, member = ctx
+    if not _can_manage(user, member):
+        raise HTTPException(403)
+    lodge = await db.get(NeighboringLodge, lodge_id)
+    if not lodge:
+        raise HTTPException(404)
+    lodge.active = not lodge.active
+    await db.commit()
+    referer = request.headers.get("referer") or "/loges-voisines/"
+    return RedirectResponse(url=referer, status_code=303)
 
 
 @router.post("/{lodge_id}/delete")

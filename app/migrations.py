@@ -1168,4 +1168,8 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE neighboring_lodges ADD COLUMN longitude FLOAT"
             )
+        if cols_nl and "active" not in cols_nl:
+            await conn.exec_driver_sql(
+                "ALTER TABLE neighboring_lodges ADD COLUMN active BOOLEAN DEFAULT 1"
+            )
 

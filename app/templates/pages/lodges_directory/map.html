@@ -61,10 +61,18 @@
         {% endfor %}
       </select>
     </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Statut</label>
+      <select name="statut" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="active" {% if statut_filter == 'active' %}selected{% endif %}>Actives</option>
+        <option value="inactive" {% if statut_filter == 'inactive' %}selected{% endif %}>Inactives</option>
+        <option value="all" {% if statut_filter == 'all' %}selected{% endif %}>Toutes</option>
+      </select>
+    </div>
     <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
       Filtrer
     </button>
-    {% if region_filter or rite_filter or obedience_filter or ville_filter %}
+    {% if region_filter or rite_filter or obedience_filter or ville_filter or statut_filter != 'active' %}
     <a href="/loges-voisines/carte" class="text-xs text-gray-400 hover:text-gray-600">Réinitialiser</a>
     {% endif %}
   </form>
@@ -89,6 +97,11 @@
 <script>
 (function () {
   var pins = {{ pins | tojson }};
+  function esc(s) {
+    return String(s == null ? '' : s).replace(/[&<>"']/g, function (c) {
+      return { '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c];
+    });
+  }
   var map = L.map('lodges-map').setView([48.4, 5.5], 7);
   L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
     maxZoom: 19,
@@ -104,19 +117,28 @@
     var bounds = [];
     pins.forEach(function (p) {
       var marker = L.marker([p.lat, p.lon]);
+      var title = esc(p.name) + (p.active === false ? ' <span style="font-weight:400;color:#6b7280;font-size:11px;border:1px solid #e5e7eb;border-radius:9999px;padding:1px 6px;">Inactive</span>' : '');
       var lines = [
-        '<div style="font-weight:600;margin-bottom:2px;">' + p.name + '</div>',
-        '<div style="color:#6b7280;">' + p.orient + '</div>',
+        '<div style="font-weight:600;margin-bottom:2px;">' + title + '</div>',
+        '<div style="color:#6b7280;">' + esc(p.orient) + '</div>',
       ];
       var meta = [p.rite, p.obedience, p.meeting_time].filter(Boolean).join(' · ');
-      if (meta) lines.push('<div style="color:#6b7280;">' + meta + '</div>');
+      if (meta) lines.push('<div style="color:#6b7280;">' + esc(meta) + '</div>');
       if (p.schedule_label && p.schedule_label !== '—') {
-        lines.push('<div style="color:#6b7280;">' + p.schedule_label + '</div>');
+        lines.push('<div style="color:#6b7280;">' + esc(p.schedule_label) + '</div>');
       }
+      if (p.notes) {
+        lines.push('<div style="color:#9ca3af;font-style:italic;">' + esc(p.notes) + '</div>');
+      }
+      var links = [];
       if (p.address) {
-        lines.push('<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address) +
+        links.push('<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address) +
           '" target="_blank" rel="noopener" style="color:#7a5230;">Voir le temple</a>');
       }
+      if (p.edit_url) {
+        links.push('<a href="' + p.edit_url + '" style="color:#7a5230;">Modifier</a>');
+      }
+      if (links.length) lines.push('<div style="margin-top:4px;display:flex;gap:10px;">' + links.join('') + '</div>');
       marker.bindPopup(lines.join(''));
       cluster.addLayer(marker);
       bounds.push([p.lat, p.lon]);

@@ -22,6 +22,7 @@
       ~ (('&rite=' ~ (rite_filter | urlencode)) if rite_filter else '')
       ~ (('&obedience=' ~ (obedience_filter | urlencode)) if obedience_filter else '')
       ~ (('&ville=' ~ (ville_filter | urlencode)) if ville_filter else '')
+      ~ (('&statut=' ~ (statut_filter | urlencode)) if statut_filter and statut_filter != 'active' else '')
     ) %}
     <div class="flex items-center justify-between">
       <a href="/loges-voisines/calendrier?year={{ prev_year }}&month={{ prev_month }}{{ qs }}"
@@ -73,6 +74,14 @@
           {% endfor %}
         </select>
       </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Statut</label>
+        <select name="statut" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="active" {% if statut_filter == 'active' %}selected{% endif %}>Actives</option>
+          <option value="inactive" {% if statut_filter == 'inactive' %}selected{% endif %}>Inactives</option>
+          <option value="all" {% if statut_filter == 'all' %}selected{% endif %}>Toutes</option>
+        </select>
+      </div>
       <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">
         Filtrer
       </button>
@@ -93,20 +102,35 @@
         {% set lg = e.lodge %}
         <li class="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
           <div class="min-w-0">
-            <div class="font-medium text-gray-900 text-sm">{{ lg.name }}</div>
+            <div class="font-medium text-gray-900 text-sm flex items-center gap-1.5">
+              {{ lg.name }}
+              {% if not lg.active %}
+              <span class="text-xs font-normal text-gray-500 bg-gray-100 border border-gray-200 rounded-full px-2 py-0.5">Inactive</span>
+              {% endif %}
+            </div>
             <div class="text-xs text-gray-500 mt-0.5">
               {{ lg.orient }}
               {% if lg.rite %}· {{ lg.rite }}{% endif %}
               {% if lg.obedience %}· {{ lg.obedience }}{% endif %}
               {% if lg.meeting_time %}· {{ lg.meeting_time }}{% endif %}
             </div>
+            {% if lg.notes %}
+            <div class="text-xs text-gray-400 mt-0.5 italic">{{ lg.notes }}</div>
+            {% endif %}
           </div>
-          {% if lg.address %}
-          <a href="https://www.google.com/maps/search/?api=1&query={{ lg.address | urlencode }}" target="_blank" rel="noopener"
-             class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline shrink-0">
-            <i class="ti ti-map-pin"></i>Voir le temple
-          </a>
-          {% endif %}
+          <div class="flex items-center gap-3 shrink-0">
+            {% if lg.address %}
+            <a href="https://www.google.com/maps/search/?api=1&query={{ lg.address | urlencode }}" target="_blank" rel="noopener"
+               class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline">
+              <i class="ti ti-map-pin"></i>Voir le temple
+            </a>
+            {% endif %}
+            {% if can_manage %}
+            <a href="/loges-voisines/{{ lg.id }}/edit" class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline">
+              <i class="ti ti-pencil"></i>Modifier
+            </a>
+            {% endif %}
+          </div>
         </li>
         {% endfor %}
       </ul>
