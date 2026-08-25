@@ -1,0 +1,119 @@
+{% extends "base.html" %}
+{% block title %}Carte des loges voisines — Portail Socrate{% endblock %}
+
+{% block head %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+{% endblock %}
+
+{% block content %}
+<div class="max-w-5xl mx-auto px-4 py-6 space-y-5">
+
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Carte des loges voisines</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Repérez une loge à visiter géographiquement</p>
+    </div>
+    <div class="flex items-center gap-3">
+      <a href="/loges-voisines/calendrier" class="text-sm text-loge-700 hover:underline">Vue calendrier</a>
+      <a href="/loges-voisines/" class="text-sm text-loge-700 hover:underline">← Vue liste</a>
+    </div>
+  </div>
+
+  <!-- Filtres -->
+  <form method="get" action="/loges-voisines/carte" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 flex flex-wrap gap-3 items-end">
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Région</label>
+      <select name="region" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Toutes</option>
+        {% for r in regions %}
+        <option value="{{ r }}" {% if region_filter == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Rite</label>
+      <select name="rite" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Tous</option>
+        {% for r in rites %}
+        <option value="{{ r }}" {% if rite_filter == r %}selected{% endif %}>{{ r }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Obédience</label>
+      <select name="obedience" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Toutes</option>
+        {% for o in obediences %}
+        <option value="{{ o }}" {% if obedience_filter == o %}selected{% endif %}>{{ o }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <div>
+      <label class="block text-xs font-medium text-gray-500 mb-1">Ville</label>
+      <select name="ville" class="border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">Toutes</option>
+        {% for v in villes %}
+        <option value="{{ v }}" {% if ville_filter == v %}selected{% endif %}>{{ v }}</option>
+        {% endfor %}
+      </select>
+    </div>
+    <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+      Filtrer
+    </button>
+    {% if region_filter or rite_filter or obedience_filter or ville_filter %}
+    <a href="/loges-voisines/carte" class="text-xs text-gray-400 hover:text-gray-600">Réinitialiser</a>
+    {% endif %}
+  </form>
+
+  {% if missing_count %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-700 text-xs rounded-xl px-4 py-2.5">
+    {{ missing_count }} loge{{ 's' if missing_count > 1 }} sans coordonnées ne {{ "sont" if missing_count > 1 else "s'" }}affiche{{ "nt" if missing_count > 1 }} pas sur la carte (position à renseigner dans la fiche de la loge).
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div id="lodges-map" style="height: 65vh; min-height: 420px;"></div>
+  </div>
+
+  {% if not pins %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-10 text-center text-sm text-gray-400">
+    Aucune loge géolocalisée{% if region_filter or rite_filter or obedience_filter or ville_filter %} avec ces filtres{% endif %}.
+  </div>
+  {% endif %}
+</div>
+
+<script>
+(function () {
+  var pins = {{ pins | tojson }};
+  var map = L.map('lodges-map').setView([48.4, 5.5], 7);
+  L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+    maxZoom: 19,
+    attribution: '&copy; <a href="https://www.openstreetmap.org/copyright">OpenStreetMap</a>'
+  }).addTo(map);
+
+  if (pins.length) {
+    var group = [];
+    pins.forEach(function (p) {
+      var marker = L.marker([p.lat, p.lon]).addTo(map);
+      var lines = [
+        '<div style="font-weight:600;margin-bottom:2px;">' + p.name + '</div>',
+        '<div style="color:#6b7280;">' + p.orient + '</div>',
+      ];
+      var meta = [p.rite, p.obedience, p.meeting_time].filter(Boolean).join(' · ');
+      if (meta) lines.push('<div style="color:#6b7280;">' + meta + '</div>');
+      if (p.schedule_label && p.schedule_label !== '—') {
+        lines.push('<div style="color:#6b7280;">' + p.schedule_label + '</div>');
+      }
+      if (p.address) {
+        lines.push('<a href="https://www.google.com/maps/search/?api=1&query=' + encodeURIComponent(p.address) +
+          '" target="_blank" rel="noopener" style="color:#7a5230;">Voir le temple</a>');
+      }
+      marker.bindPopup(lines.join(''));
+      group.push([p.lat, p.lon]);
+    });
+    map.fitBounds(group, { padding: [30, 30], maxZoom: 12 });
+  }
+})();
+</script>
+{% endblock %}

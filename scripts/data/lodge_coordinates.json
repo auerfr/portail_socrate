@@ -1,0 +1,406 @@
+{
+  "ALTKIRCH (68) Guebwiller": [
+    47.6167,
+    7.25
+  ],
+  "ARLON (Be)": [
+    49.6833,
+    5.8167
+  ],
+  "AUXERRE - BASSOU (89)": [
+    47.7983,
+    3.5736
+  ],
+  "BADEN-BADEN (DE)": [
+    48.7606,
+    8.24
+  ],
+  "BAMAKO à Reims (51)": [
+    49.2583,
+    4.0317
+  ],
+  "BAR-LE-DUC (55)": [
+    48.7708,
+    5.1611
+  ],
+  "BEAUNE (21)": [
+    47.0244,
+    4.8397
+  ],
+  "BELFORT (90) Sermamagny": [
+    47.6386,
+    6.8631
+  ],
+  "BESANÇON (25)": [
+    47.238,
+    6.0243
+  ],
+  "BRIEY (54)": [
+    49.25,
+    5.9333
+  ],
+  "CHALON-SUR-SAÔNE (71)": [
+    46.7806,
+    4.8531
+  ],
+  "CHARLEVILLE-MÉZIÈRES (08)": [
+    49.7728,
+    4.7178
+  ],
+  "CHAUMONT (52)": [
+    48.1114,
+    5.1394
+  ],
+  "CHÂLONS-EN- CHAMPAGNE (51)": [
+    48.9564,
+    4.3653
+  ],
+  "CHÂTEAU-THIERRY (02)": [
+    49.0472,
+    3.4
+  ],
+  "COLMAR (68) Chasseur": [
+    48.0794,
+    7.3585
+  ],
+  "COLMAR (68) Clemenceau": [
+    48.0794,
+    7.3585
+  ],
+  "COLMAR (68) et le monde": [
+    48.0794,
+    7.3585
+  ],
+  "DELLE (25) à MONTBELIARD Bois Bourgeois": [
+    47.5105,
+    6.7975
+  ],
+  "DIJON (21) Cour des Frères": [
+    47.322,
+    5.0415
+  ],
+  "DIJON (21) Estaunié": [
+    47.322,
+    5.0415
+  ],
+  "DOLE (39)": [
+    47.0922,
+    5.4892
+  ],
+  "DUISBURG (De)": [
+    51.4344,
+    6.7623
+  ],
+  "FORBACH (57) à SAINT-AVOLD": [
+    49.0975,
+    6.7092
+  ],
+  "GUEBWILLER (68)": [
+    47.9086,
+    7.2119
+  ],
+  "GUEBWILLER/CERNAY (68)": [
+    47.9086,
+    7.2119
+  ],
+  "HAGUENAU (67) Herrlisheim": [
+    48.8156,
+    7.79
+  ],
+  "KARLSRUHE (DE)": [
+    49.0069,
+    8.4037
+  ],
+  "LAON (02)": [
+    49.5642,
+    3.6217
+  ],
+  "LE LOCLE (CH)": [
+    47.0567,
+    6.7481
+  ],
+  "LONGWY (54)": [
+    49.5192,
+    5.7614
+  ],
+  "LONS LE SAUNIER (39)": [
+    46.6742,
+    5.5522
+  ],
+  "LONS-LE-SAUNIER (39)": [
+    46.6742,
+    5.5522
+  ],
+  "LUNÉVILLE (54)": [
+    48.5919,
+    6.4939
+  ],
+  "LUXEMBOURG à Arlon (Be)": [
+    49.6833,
+    5.8167
+  ],
+  "LUXEMBOURG-VILLE (GRUND)": [
+    49.6116,
+    6.1319
+  ],
+  "LuXembourg (Grund)": [
+    49.6116,
+    6.1319
+  ],
+  "MANNHEIM (DE)": [
+    49.4875,
+    8.466
+  ],
+  "MARCHE-EN-FAMENNE (Be) à Vesqueville": [
+    50.2281,
+    5.3444
+  ],
+  "METZ (57)": [
+    49.1193,
+    6.1757
+  ],
+  "METZ à Augny (57)": [
+    49.1193,
+    6.1757
+  ],
+  "MIRECOURT (88) Clemenceau": [
+    48.2917,
+    6.1319
+  ],
+  "MIRECOURT (88) Victor Hugo": [
+    48.2917,
+    6.1319
+  ],
+  "MONTBELIARD (25) Jules Grosjean": [
+    47.5105,
+    6.7975
+  ],
+  "MONTBÉLIARD (25) Jules Grosjean": [
+    47.5105,
+    6.7975
+  ],
+  "MULHOUSE (68)": [
+    47.7508,
+    7.3359
+  ],
+  "MULHOUSE (68) à Guebwiller": [
+    47.9086,
+    7.2119
+  ],
+  "MÂCON (71)": [
+    46.3069,
+    4.8283
+  ],
+  "NANCY (54) Drouin": [
+    48.6921,
+    6.1844
+  ],
+  "NANCY (54) Garenne": [
+    48.6921,
+    6.1844
+  ],
+  "NEUCHÂTEAU (88)": [
+    48.3567,
+    5.6953
+  ],
+  "NOGENT-SUR-SEINE (10)": [
+    48.49,
+    3.5075
+  ],
+  "PONT-A-MOUSSON (54)": [
+    48.9042,
+    6.0522
+  ],
+  "PONTARLIER (25)": [
+    46.9058,
+    6.3547
+  ],
+  "PORRENTRUY - CH (Jura)": [
+    47.4167,
+    7.0667
+  ],
+  "REIMS (51) Buirette": [
+    49.2583,
+    4.0317
+  ],
+  "REIMS (51) Cormontreuil": [
+    49.2583,
+    4.0317
+  ],
+  "REMIREMONT (88)": [
+    48.0164,
+    6.5919
+  ],
+  "RÉDING - PHALSBOURG (57)": [
+    48.7667,
+    7.25
+  ],
+  "SAARBRÜCKEN (DE)": [
+    49.2401,
+    6.9969
+  ],
+  "SAINT-AVOLD (57)": [
+    49.0975,
+    6.7092
+  ],
+  "SAINT-DIZIER (52)": [
+    48.6372,
+    4.9497
+  ],
+  "SAINT-DIÉ-DES-VOSGES (88)": [
+    48.2833,
+    6.95
+  ],
+  "SAINT-LOUIS (68)": [
+    47.59,
+    7.5647
+  ],
+  "SAINT-QUENTIN (02)": [
+    49.8489,
+    3.2872
+  ],
+  "SAINT-QUENTIN (02) 3 rue d'Alsace": [
+    49.8489,
+    3.2872
+  ],
+  "SARREGUEMINES": [
+    49.1097,
+    7.0664
+  ],
+  "SARREGUEMINES (57)": [
+    49.1097,
+    7.0664
+  ],
+  "SAVERNE (67)": [
+    48.7419,
+    7.3617
+  ],
+  "SAVERNE - RÉDING (57)": [
+    48.7419,
+    7.3617
+  ],
+  "SEDAN (08)": [
+    49.7017,
+    4.9439
+  ],
+  "SELESTAT à STRASBOURG (67) Joffre": [
+    48.5734,
+    7.7521
+  ],
+  "SENS (89)": [
+    48.1975,
+    3.2836
+  ],
+  "SOISSONS (02)": [
+    49.3803,
+    3.3236
+  ],
+  "SOULTZ (68) Guebwiller": [
+    47.8628,
+    7.2439
+  ],
+  "STRASBOURG (67) Cronenbourg": [
+    48.5734,
+    7.7521
+  ],
+  "STRASBOURG (67) Eckbolsheim": [
+    48.5734,
+    7.7521
+  ],
+  "STRASBOURG (67) Finkmatt": [
+    48.5734,
+    7.7521
+  ],
+  "STRASBOURG (67) Joffre": [
+    48.5734,
+    7.7521
+  ],
+  "STRASBOURG (67) Schiltigheim": [
+    48.5734,
+    7.7521
+  ],
+  "STUTTGART (DE)": [
+    48.7758,
+    9.1829
+  ],
+  "SÉLESTAT (67) à COLMAR Chasseur": [
+    48.0794,
+    7.3585
+  ],
+  "SÉLESTAT (67) à COLMAR Clemenceau": [
+    48.0794,
+    7.3585
+  ],
+  "TERGNIER (02) Vouël": [
+    49.6564,
+    3.2967
+  ],
+  "TERGNIER - CHAUNY (02) Vouël": [
+    49.6564,
+    3.2967
+  ],
+  "THIONVILLE (57) Yutz": [
+    49.3578,
+    6.1678
+  ],
+  "TOUL (54) à NANCY - Drouin": [
+    48.6921,
+    6.1844
+  ],
+  "TOURNAI (Be)": [
+    50.6053,
+    3.3892
+  ],
+  "TROYES (10)": [
+    48.2973,
+    4.0744
+  ],
+  "VALLORBE (CH)": [
+    46.7075,
+    6.3708
+  ],
+  "VANDOEUVRE-LES- NANCY à NANCY Drouin (54)": [
+    48.6921,
+    6.1844
+  ],
+  "VERDUN (55)": [
+    49.1594,
+    5.3814
+  ],
+  "VERMAND (02) Saint-Quentin": [
+    49.8489,
+    3.2872
+  ],
+  "VERVINS (02)": [
+    49.8339,
+    3.9058
+  ],
+  "VESOUL (70)": [
+    47.6236,
+    6.1553
+  ],
+  "VIRTON (Be) Marbehan": [
+    49.5667,
+    5.5333
+  ],
+  "VITRY-LE-FRANÇOIS (51)": [
+    48.7264,
+    4.5867
+  ],
+  "VÉZELAY (89)": [
+    47.4667,
+    3.75
+  ],
+  "WITTENHEIM (68) Guebwiller": [
+    47.8092,
+    7.3364
+  ],
+  "ÉPERNAY (51)": [
+    49.0433,
+    3.96
+  ],
+  "ÉPINAL (88)": [
+    48.1747,
+    6.4497
+  ]
+}

@@ -4,7 +4,7 @@ from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -203,6 +203,73 @@ async def lodges_directory_calendar(
     })
 
 
+@router.get("/carte", response_class=HTMLResponse)
+async def lodges_directory_map(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    region: str = "",
+    rite: str = "",
+    obedience: str = "",
+    ville: str = "",
+):
+    user, member = ctx
+
+    query = select(NeighboringLodge)
+    if region:
+        query = query.where(NeighboringLodge.region == region)
+    if rite:
+        query = query.where(NeighboringLodge.rite == rite)
+    if obedience:
+        query = query.where(NeighboringLodge.obedience == obedience)
+    if ville:
+        query = query.where(NeighboringLodge.orient == ville)
+    r = await db.execute(query)
+    lodges = r.scalars().all()
+
+    pins = [
+        {
+            "id": lg.id,
+            "name": lg.name,
+            "orient": lg.orient,
+            "rite": lg.rite,
+            "obedience": lg.obedience,
+            "meeting_time": lg.meeting_time,
+            "address": lg.address,
+            "schedule_label": _schedule_label(lg.schedule),
+            "lat": lg.latitude,
+            "lon": lg.longitude,
+        }
+        for lg in lodges if lg.latitude is not None and lg.longitude is not None
+    ]
+    missing_count = sum(1 for lg in lodges if lg.latitude is None or lg.longitude is None)
+
+    all_r = await db.execute(select(
+        NeighboringLodge.region, NeighboringLodge.rite,
+        NeighboringLodge.obedience, NeighboringLodge.orient,
+    ))
+    all_rows = all_r.all()
+    regions = sorted({row[0] for row in all_rows if row[0]})
+    rites = sorted({row[1] for row in all_rows if row[1]})
+    obediences = sorted({row[2] for row in all_rows if row[2]})
+    villes = sorted({row[3] for row in all_rows if row[3]})
+
+    return templates.TemplateResponse(request, "pages/lodges_directory/map.html", {
+        "current_user": user,
+        "current_member": member,
+        "pins": pins,
+        "missing_count": missing_count,
+        "regions": regions,
+        "rites": rites,
+        "obediences": obediences,
+        "villes": villes,
+        "region_filter": region,
+        "rite_filter": rite,
+        "obedience_filter": obedience,
+        "ville_filter": ville,
+    })
+
+
 @router.get("/new", response_class=HTMLResponse)
 async def lodge_new_form(
     request: Request,
@@ -244,6 +311,8 @@ async def lodge_create(
     rite: str = Form(""),
     obedience: str = Form(""),
     address: str = Form(""),
+    latitude: str = Form(""),
+    longitude: str = Form(""),
     meeting_time: str = Form(""),
     notes: str = Form(""),
 ):
@@ -258,6 +327,8 @@ async def lodge_create(
         rite=rite.strip() or None,
         obedience=obedience.strip() or None,
         address=address.strip() or None,
+        latitude=float(latitude) if latitude.strip() else None,
+        longitude=float(longitude) if longitude.strip() else None,
         meeting_time=meeting_time.strip() or None,
         schedule=_parse_schedule(form) or None,
         notes=notes.strip() or None,
@@ -303,6 +374,8 @@ async def lodge_edit(
     rite: str = Form(""),
     obedience: str = Form(""),
     address: str = Form(""),
+    latitude: str = Form(""),
+    longitude: str = Form(""),
     meeting_time: str = Form(""),
     notes: str = Form(""),
 ):
@@ -319,6 +392,8 @@ async def lodge_edit(
     lodge.rite = rite.strip() or None
     lodge.obedience = obedience.strip() or None
     lodge.address = address.strip() or None
+    lodge.latitude = float(latitude) if latitude.strip() else None
+    lodge.longitude = float(longitude) if longitude.strip() else None
     lodge.meeting_time = meeting_time.strip() or None
     lodge.schedule = _parse_schedule(form) or None
     lodge.notes = notes.strip() or None

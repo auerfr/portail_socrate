@@ -6,7 +6,7 @@ repérer une loge à visiter. Rythme théorique uniquement (pas de dates
 réelles confirmées — voir le module "Planches reçues" pour ça)."""
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Text, DateTime, JSON, ForeignKey, func
+from sqlalchemy import String, Text, DateTime, JSON, ForeignKey, Float, func
 from sqlalchemy.orm import Mapped, mapped_column
 from app.database import Base
 
@@ -22,6 +22,8 @@ class NeighboringLodge(Base):
     rite: Mapped[Optional[str]]      = mapped_column(String(100))
     obedience: Mapped[Optional[str]] = mapped_column(String(100))
     address: Mapped[Optional[str]]   = mapped_column(String(300))  # adresse du temple
+    latitude: Mapped[Optional[float]]  = mapped_column(Float)
+    longitude: Mapped[Optional[float]] = mapped_column(Float)
     meeting_time: Mapped[Optional[str]] = mapped_column(String(20))
     # Rythme théorique : liste de {"week": 1-5, "day": "Lundi".."Dimanche"}
     schedule: Mapped[Optional[list]] = mapped_column(JSON)

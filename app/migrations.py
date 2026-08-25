@@ -1160,4 +1160,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE neighboring_lodges ADD COLUMN address VARCHAR(300)"
             )
+        if cols_nl and "latitude" not in cols_nl:
+            await conn.exec_driver_sql(
+                "ALTER TABLE neighboring_lodges ADD COLUMN latitude FLOAT"
+            )
+        if cols_nl and "longitude" not in cols_nl:
+            await conn.exec_driver_sql(
+                "ALTER TABLE neighboring_lodges ADD COLUMN longitude FLOAT"
+            )
 
