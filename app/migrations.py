@@ -1152,3 +1152,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE forum_themes ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id) ON DELETE SET NULL"
             )
 
+    # ── Loges voisines : adresse du temple ────────────────────────────────────
+    async with engine.begin() as conn:
+        r_nl = await conn.exec_driver_sql("PRAGMA table_info(neighboring_lodges)")
+        cols_nl = [row[1] for row in r_nl.fetchall()]
+        if cols_nl and "address" not in cols_nl:
+            await conn.exec_driver_sql(
+                "ALTER TABLE neighboring_lodges ADD COLUMN address VARCHAR(300)"
+            )
+

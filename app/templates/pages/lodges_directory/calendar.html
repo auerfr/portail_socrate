@@ -1,0 +1,95 @@
+{% extends "base.html" %}
+{% block title %}Calendrier des loges voisines — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-6 space-y-5">
+
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">Calendrier des loges voisines</h1>
+      <p class="text-sm text-gray-500 mt-0.5">Rythme théorique — qu'est-ce que je peux visiter, et quand ?</p>
+    </div>
+    <a href="/loges-voisines/" class="text-sm text-loge-700 hover:underline">← Vue liste</a>
+  </div>
+
+  <!-- Navigation mois + filtres -->
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+    <div class="flex items-center justify-between">
+      <a href="/loges-voisines/calendrier?year={{ prev_year }}&month={{ prev_month }}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if rite_filter %}&rite={{ rite_filter }}{% endif %}"
+         class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+        <i class="ti ti-chevron-left"></i>
+      </a>
+      <div class="text-lg font-semibold text-gray-900 capitalize">{{ month_label }}</div>
+      <a href="/loges-voisines/calendrier?year={{ next_year }}&month={{ next_month }}{% if region_filter %}&region={{ region_filter }}{% endif %}{% if rite_filter %}&rite={{ rite_filter }}{% endif %}"
+         class="w-9 h-9 flex items-center justify-center rounded-lg border border-gray-200 text-gray-500 hover:bg-gray-50 transition-colors">
+        <i class="ti ti-chevron-right"></i>
+      </a>
+    </div>
+    <form method="get" action="/loges-voisines/calendrier" class="flex flex-wrap gap-3 items-end justify-center pt-2 border-t border-gray-100">
+      <input type="hidden" name="year" value="{{ year }}">
+      <input type="hidden" name="month" value="{{ month }}">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Région</label>
+        <select name="region" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="">Toutes</option>
+          {% for r in regions %}
+          <option value="{{ r }}" {% if region_filter == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Rite</label>
+        <select name="rite" class="border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="">Tous</option>
+          {% for r in rites %}
+          <option value="{{ r }}" {% if rite_filter == r %}selected{% endif %}>{{ r }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <button type="submit" class="bg-gray-100 hover:bg-gray-200 text-gray-700 text-sm font-medium px-4 py-1.5 rounded-lg transition-colors">
+        Filtrer
+      </button>
+    </form>
+  </div>
+
+  <!-- Liste des jours -->
+  {% if sorted_days %}
+  <div class="space-y-3">
+    {% for d, entries in sorted_days %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden {% if d == today %}ring-2 ring-loge-400{% endif %}">
+      <div class="px-5 py-2.5 bg-gray-50 border-b border-gray-100 text-sm font-semibold text-gray-700 flex items-center gap-2">
+        {{ d | datefr('%A %d %B') | capitalize }}
+        {% if d == today %}<span class="text-xs font-medium text-loge-700 bg-loge-50 border border-loge-200 rounded-full px-2 py-0.5">Aujourd'hui</span>{% endif %}
+      </div>
+      <ul class="divide-y divide-gray-50">
+        {% for e in entries %}
+        {% set lg = e.lodge %}
+        <li class="px-5 py-3 flex items-center justify-between gap-3 flex-wrap">
+          <div class="min-w-0">
+            <div class="font-medium text-gray-900 text-sm">{{ lg.name }}</div>
+            <div class="text-xs text-gray-500 mt-0.5">
+              {{ lg.orient }}
+              {% if lg.rite %}· {{ lg.rite }}{% endif %}
+              {% if lg.obedience %}· {{ lg.obedience }}{% endif %}
+              {% if lg.meeting_time %}· {{ lg.meeting_time }}{% endif %}
+            </div>
+          </div>
+          {% if lg.address %}
+          <a href="https://www.google.com/maps/search/?api=1&query={{ lg.address | urlencode }}" target="_blank" rel="noopener"
+             class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline shrink-0">
+            <i class="ti ti-map-pin"></i>Voir le temple
+          </a>
+          {% endif %}
+        </li>
+        {% endfor %}
+      </ul>
+    </div>
+    {% endfor %}
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-12 text-center text-sm text-gray-400">
+    Aucune tenue théorique référencée ce mois-ci{% if region_filter or rite_filter %} avec ces filtres{% endif %}.
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

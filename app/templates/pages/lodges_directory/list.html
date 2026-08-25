@@ -9,12 +9,18 @@
       <h1 class="text-xl font-bold text-gray-900">Loges voisines</h1>
       <p class="text-sm text-gray-500 mt-0.5">Répertoire de référence — rythme théorique de réunion, pour repérer une loge à visiter</p>
     </div>
-    {% if can_manage %}
-    <a href="/loges-voisines/new"
-       class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
-      <i class="ti ti-plus"></i>Ajouter une loge
-    </a>
-    {% endif %}
+    <div class="flex items-center gap-2">
+      <a href="/loges-voisines/calendrier"
+         class="inline-flex items-center gap-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+        <i class="ti ti-calendar"></i>Vue calendrier
+      </a>
+      {% if can_manage %}
+      <a href="/loges-voisines/new"
+         class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+        <i class="ti ti-plus"></i>Ajouter une loge
+      </a>
+      {% endif %}
+    </div>
   </div>
 
   <!-- Filtres -->
@@ -74,6 +80,12 @@
             <td class="px-4 py-2.5 whitespace-nowrap">
               <div class="text-gray-800">{{ lg.orient }}</div>
               {% if lg.region %}<div class="text-xs text-gray-400">{{ lg.region }}</div>{% endif %}
+              {% if lg.address %}
+              <a href="https://www.google.com/maps/search/?api=1&query={{ lg.address | urlencode }}" target="_blank" rel="noopener"
+                 class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline mt-0.5">
+                <i class="ti ti-map-pin"></i>Voir le temple
+              </a>
+              {% endif %}
             </td>
             <td class="px-4 py-2.5 font-medium text-gray-800">{{ lg.name }}</td>
             <td class="px-4 py-2.5 text-gray-600 whitespace-nowrap">{{ lg.rite or '—' }}</td>

@@ -1,4 +1,6 @@
 """Router — Répertoire des loges voisines (annuaire externe)"""
+import calendar as _calendar_mod
+from datetime import date
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -87,6 +89,90 @@ async def lodges_directory_list(
     })
 
 
+_MOIS_FR = ["janvier", "février", "mars", "avril", "mai", "juin", "juillet",
+            "août", "septembre", "octobre", "novembre", "décembre"]
+
+
+def _nth_weekday_date(year: int, month: int, day_name: str, n: int) -> Optional[date]:
+    """Retourne la date du n-ième 'day_name' (ex: 'Samedi') du mois donné, ou
+    None si ce mois n'a pas de n-ième occurrence de ce jour (ex: pas de
+    5e mardi certains mois)."""
+    if day_name not in _JOURS or n < 1:
+        return None
+    weekday_index = _JOURS.index(day_name)  # Lundi=0 … Dimanche=6, comme date.weekday()
+    _, days_in_month = _calendar_mod.monthrange(year, month)
+    occurrence = 0
+    for d in range(1, days_in_month + 1):
+        if date(year, month, d).weekday() == weekday_index:
+            occurrence += 1
+            if occurrence == n:
+                return date(year, month, d)
+    return None
+
+
+@router.get("/calendrier", response_class=HTMLResponse)
+async def lodges_directory_calendar(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year: int = 0,
+    month: int = 0,
+    region: str = "",
+    rite: str = "",
+):
+    user, member = ctx
+    today = date.today()
+    y = year or today.year
+    m = month or today.month
+    if m < 1 or m > 12:
+        m = today.month
+
+    query = select(NeighboringLodge).where(NeighboringLodge.schedule.isnot(None))
+    if region:
+        query = query.where(NeighboringLodge.region == region)
+    if rite:
+        query = query.where(NeighboringLodge.rite == rite)
+    r = await db.execute(query)
+    lodges = r.scalars().all()
+
+    days: dict[date, list[dict]] = {}
+    for lg in lodges:
+        for entry in (lg.schedule or []):
+            d = _nth_weekday_date(y, m, entry.get("day"), entry.get("week", 0))
+            if not d:
+                continue
+            days.setdefault(d, []).append({
+                "lodge": lg,
+                "day_label": entry.get("day"),
+            })
+
+    sorted_days = sorted(days.items())
+
+    # Navigation mois précédent/suivant
+    prev_month, prev_year = (12, y - 1) if m == 1 else (m - 1, y)
+    next_month, next_year = (1, y + 1) if m == 12 else (m + 1, y)
+
+    all_r = await db.execute(select(NeighboringLodge.region, NeighboringLodge.rite))
+    all_rows = all_r.all()
+    regions = sorted({row[0] for row in all_rows if row[0]})
+    rites = sorted({row[1] for row in all_rows if row[1]})
+
+    return templates.TemplateResponse(request, "pages/lodges_directory/calendar.html", {
+        "current_user": user,
+        "current_member": member,
+        "sorted_days": sorted_days,
+        "month_label": f"{_MOIS_FR[m - 1]} {y}",
+        "year": y, "month": m,
+        "prev_year": prev_year, "prev_month": prev_month,
+        "next_year": next_year, "next_month": next_month,
+        "today": today,
+        "regions": regions,
+        "rites": rites,
+        "region_filter": region,
+        "rite_filter": rite,
+    })
+
+
 @router.get("/new", response_class=HTMLResponse)
 async def lodge_new_form(
     request: Request,
@@ -127,6 +213,7 @@ async def lodge_create(
     name: str = Form(...),
     rite: str = Form(""),
     obedience: str = Form(""),
+    address: str = Form(""),
     meeting_time: str = Form(""),
     notes: str = Form(""),
 ):
@@ -140,6 +227,7 @@ async def lodge_create(
         name=name.strip(),
         rite=rite.strip() or None,
         obedience=obedience.strip() or None,
+        address=address.strip() or None,
         meeting_time=meeting_time.strip() or None,
         schedule=_parse_schedule(form) or None,
         notes=notes.strip() or None,
@@ -184,6 +272,7 @@ async def lodge_edit(
     name: str = Form(...),
     rite: str = Form(""),
     obedience: str = Form(""),
+    address: str = Form(""),
     meeting_time: str = Form(""),
     notes: str = Form(""),
 ):
@@ -199,6 +288,7 @@ async def lodge_edit(
     lodge.name = name.strip()
     lodge.rite = rite.strip() or None
     lodge.obedience = obedience.strip() or None
+    lodge.address = address.strip() or None
     lodge.meeting_time = meeting_time.strip() or None
     lodge.schedule = _parse_schedule(form) or None
     lodge.notes = notes.strip() or None

@@ -21,6 +21,7 @@ class NeighboringLodge(Base):
     name: Mapped[str]                = mapped_column(String(300))
     rite: Mapped[Optional[str]]      = mapped_column(String(100))
     obedience: Mapped[Optional[str]] = mapped_column(String(100))
+    address: Mapped[Optional[str]]   = mapped_column(String(300))  # adresse du temple
     meeting_time: Mapped[Optional[str]] = mapped_column(String(20))
     # Rythme théorique : liste de {"week": 1-5, "day": "Lundi".."Dimanche"}
     schedule: Mapped[Optional[list]] = mapped_column(JSON)
