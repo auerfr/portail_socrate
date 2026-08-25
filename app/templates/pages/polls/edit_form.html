@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Modifier le sondage — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <div class="flex items-center gap-3 mb-6">
+    <a href="/polls/{{ poll.id }}" class="text-gray-400 hover:text-gray-600 transition-colors">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M10.5 19.5L3 12m0 0l7.5-7.5M3 12h18"/>
+      </svg>
+    </a>
+    <h1 class="text-xl font-bold text-gray-900">Modifier le sondage</h1>
+  </div>
+
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 sm:p-8">
+    <form method="post" action="/polls/{{ poll.id }}/edit" class="space-y-5">
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Question / titre *</label>
+        <input type="text" name="title" required value="{{ poll.title | e }}"
+               class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Description <span class="font-normal text-gray-400">(optionnel)</span></label>
+        <textarea name="description" rows="3"
+                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none">{{ poll.description or '' }}</textarea>
+      </div>
+
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Clôture automatique</label>
+        <input type="datetime-local" name="ends_at"
+               value="{{ poll.ends_at.strftime('%Y-%m-%dT%H:%M') if poll.ends_at else '' }}"
+               class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <p class="text-xs text-gray-400 mt-1">Repoussez cette date pour rouvrir un sondage déjà clôturé, ou videz le champ pour supprimer toute date limite.</p>
+      </div>
+
+      <div class="p-3.5 bg-gray-50 border border-gray-100 rounded-xl">
+        <p class="text-xs text-gray-500">
+          Les options de réponse ne sont pas modifiables depuis cet écran (pour ne pas fausser d'éventuels votes déjà exprimés) — seuls le titre, la description et la date de clôture peuvent être changés ici.
+        </p>
+      </div>
+
+      <div class="flex gap-3 pt-2">
+        <a href="/polls/{{ poll.id }}"
+           class="flex-1 text-center border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors">
+          Annuler
+        </a>
+        <button type="submit"
+                class="flex-1 bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold py-2.5 rounded-xl transition-colors">
+          Enregistrer
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+{% endblock %}

@@ -464,6 +464,61 @@ async def poll_detail(
     })
 
 
+@router.get("/{poll_id}/edit", response_class=HTMLResponse)
+async def poll_edit_form(
+    poll_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not _can_manage(member, user.is_admin):
+        raise HTTPException(status_code=403)
+    poll = await db.get(Poll, poll_id, options=[selectinload(Poll.votes)])
+    if not poll:
+        raise HTTPException(status_code=404)
+    return templates.TemplateResponse(request, "pages/polls/edit_form.html", {
+        "current_member": member,
+        "current_user": user,
+        "poll": poll,
+        "has_votes": bool(poll.votes),
+    })
+
+
+@router.post("/{poll_id}/edit")
+async def poll_edit(
+    poll_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    title: str = Form(""),
+    description: str = Form(""),
+    ends_at: str = Form(""),
+):
+    user, member = ctx
+    if not _can_manage(member, user.is_admin):
+        raise HTTPException(status_code=403)
+    poll = await db.get(Poll, poll_id)
+    if not poll:
+        raise HTTPException(status_code=404)
+
+    title = title.strip()
+    if not title:
+        raise HTTPException(status_code=400, detail="Titre requis")
+    poll.title = title
+    poll.description = description.strip() or None
+
+    if ends_at.strip():
+        try:
+            poll.ends_at = datetime.fromisoformat(ends_at)
+        except ValueError:
+            pass
+    else:
+        poll.ends_at = None
+
+    await db.commit()
+    return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
+
+
 @router.get("/{poll_id}/export.pdf")
 async def poll_export_pdf(
     poll_id: int,
