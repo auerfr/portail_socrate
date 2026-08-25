@@ -3,7 +3,10 @@
 
 {% block head %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/MarkerCluster.Default.css" />
 <script src="https://cdn.jsdelivr.net/npm/leaflet@1.9.4/dist/leaflet.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/leaflet.markercluster@1.5.3/dist/leaflet.markercluster.js"></script>
 {% endblock %}
 
 {% block content %}
@@ -93,9 +96,14 @@
   }).addTo(map);
 
   if (pins.length) {
-    var group = [];
+    var cluster = L.markerClusterGroup({
+      spiderfyOnMaxZoom: true,
+      showCoverageOnHover: false,
+      maxClusterRadius: 40,
+    });
+    var bounds = [];
     pins.forEach(function (p) {
-      var marker = L.marker([p.lat, p.lon]).addTo(map);
+      var marker = L.marker([p.lat, p.lon]);
       var lines = [
         '<div style="font-weight:600;margin-bottom:2px;">' + p.name + '</div>',
         '<div style="color:#6b7280;">' + p.orient + '</div>',
@@ -110,9 +118,11 @@
           '" target="_blank" rel="noopener" style="color:#7a5230;">Voir le temple</a>');
       }
       marker.bindPopup(lines.join(''));
-      group.push([p.lat, p.lon]);
+      cluster.addLayer(marker);
+      bounds.push([p.lat, p.lon]);
     });
-    map.fitBounds(group, { padding: [30, 30], maxZoom: 12 });
+    map.addLayer(cluster);
+    map.fitBounds(bounds, { padding: [30, 30], maxZoom: 12 });
   }
 })();
 </script>
