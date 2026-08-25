@@ -537,6 +537,12 @@
         Agenda
       </a>
 
+      <a href="/loges-voisines/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/loges-voisines' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-map-pin text-lg opacity-70"></i>
+        Loges voisines
+      </a>
+
       <a href="/groups/" @click="moreOpen=false"
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/groups' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-users-group text-lg opacity-70"></i>
