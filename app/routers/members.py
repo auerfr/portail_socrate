@@ -18,7 +18,7 @@ from app.models.identity import (
     Group, GroupType, member_active_now_condition,
 )
 from app.models.lodge import MasonicYear, LodgeOffice
-from app.models.finance import MemberContribution, ContributionTier, ContributionStatus
+from app.models.finance import MemberContribution, ContributionTier, ContributionStatus, FiscalYear
 
 router = APIRouter(prefix="/members", tags=["members"])
 from app.template_engine import templates
@@ -322,9 +322,11 @@ async def member_detail(
     user_result = await db.execute(select(User).where(User.member_id == member_id))
     target_user = user_result.scalar_one_or_none()
 
-    # Cotisation de l'année en cours
+    # Cotisation de l'année en cours (année fiscale/civile — masonic_year_id
+    # sur MemberContribution est un champ legacy non fonctionnel, cf.
+    # _legacy_masonic_year_id dans finance.py : ne jamais filtrer dessus)
     from sqlalchemy.orm import selectinload as _sil
-    year_r = await db.execute(select(MasonicYear).where(MasonicYear.is_current == True).limit(1))
+    year_r = await db.execute(select(FiscalYear).where(FiscalYear.is_current == True).limit(1))
     current_year = year_r.scalar_one_or_none()
     member_contrib = None
     contrib_tier = None
@@ -334,7 +336,7 @@ async def member_detail(
             .options(_sil(MemberContribution.payments), _sil(MemberContribution.quitus))
             .where(
                 MemberContribution.member_id == member_id,
-                MemberContribution.masonic_year_id == current_year.id,
+                MemberContribution.fiscal_year_id == current_year.id,
             )
         )
         member_contrib = cr.scalar_one_or_none()
@@ -343,6 +345,25 @@ async def member_detail(
                 select(ContributionTier).where(ContributionTier.id == member_contrib.tier_id)
             )
             contrib_tier = tier_r.scalar_one_or_none()
+
+    # Historique complet des cotisations (toutes années) — permet de voir en
+    # un coup d'œil si un membre parti (démissionnaire/radié) est à jour ou
+    # redevable envers la loge, utile en cas de demande de réintégration.
+    hist_r = await db.execute(
+        select(MemberContribution, FiscalYear.label)
+        .options(_sil(MemberContribution.payments), _sil(MemberContribution.quitus))
+        .join(FiscalYear, FiscalYear.id == MemberContribution.fiscal_year_id)
+        .where(MemberContribution.member_id == member_id)
+        .order_by(FiscalYear.start_date.desc())
+    )
+    contrib_history = [
+        {"contrib": c, "year_label": lbl} for c, lbl in hist_r.all()
+    ]
+    total_remaining_all = sum(
+        float(row["contrib"].amount_remaining) for row in contrib_history
+        if row["contrib"].status not in (ContributionStatus.PAID, ContributionStatus.EXEMPT)
+        and row["contrib"].amount_remaining > 0
+    )
 
     # Libellé de l'office rituel (LodgeOffice) — plus précis que lodge_function
     office_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id == target.id).limit(1))
@@ -379,6 +400,8 @@ async def member_detail(
         "contrib_tier": contrib_tier,
         "ContributionStatus": ContributionStatus,
         "office_label": office_label,
+        "contrib_history": contrib_history,
+        "total_remaining_all": total_remaining_all,
     })
 
 
