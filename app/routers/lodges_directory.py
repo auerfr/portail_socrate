@@ -3,6 +3,7 @@ import calendar as _calendar_mod
 from datetime import date
 from typing import Annotated, Optional
 
+import httpx
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
 from sqlalchemy import select, or_
@@ -292,6 +293,38 @@ async def lodges_directory_map(
         "statut_filter": statut,
         "can_manage": can_manage,
     })
+
+
+@router.post("/geocode")
+async def lodge_geocode(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    q: str = Form(...),
+):
+    """Géolocalisation à la demande (bouton "Localiser automatiquement" du
+    formulaire) via l'API publique Nominatim/OpenStreetMap. Best-effort : si
+    le service est injoignable (ex : politique réseau restrictive de
+    l'hébergeur) ou ne trouve rien, l'admin renseigne les coordonnées à la
+    main — les champs restent modifiables dans tous les cas."""
+    user, member = ctx
+    if not _can_manage(user, member):
+        raise HTTPException(403)
+    query = q.strip()
+    if not query:
+        return JSONResponse({"error": "Requête vide"}, status_code=400)
+    try:
+        async with httpx.AsyncClient(timeout=8.0) as client:
+            resp = await client.get(
+                "https://nominatim.openstreetmap.org/search",
+                params={"q": query, "format": "json", "limit": 1},
+                headers={"User-Agent": "PortailSocrate-LogesVoisines/1.0"},
+            )
+        resp.raise_for_status()
+        results = resp.json()
+        if not results:
+            return JSONResponse({"error": "Aucun résultat trouvé pour cette recherche"}, status_code=404)
+        return JSONResponse({"lat": float(results[0]["lat"]), "lon": float(results[0]["lon"])})
+    except Exception:
+        return JSONResponse({"error": "Service de géolocalisation indisponible pour le moment"}, status_code=502)
 
 
 @router.get("/new", response_class=HTMLResponse)

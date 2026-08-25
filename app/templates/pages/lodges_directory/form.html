@@ -19,7 +19,7 @@
       <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1.5">Orient (ville) *</label>
-          <input type="text" name="orient" required value="{{ lodge.orient | e if lodge else '' }}" placeholder="ex : NANCY (54)"
+          <input type="text" id="lodge-orient" name="orient" required value="{{ lodge.orient | e if lodge else '' }}" placeholder="ex : NANCY (54)"
                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
         <div>
@@ -37,24 +37,33 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Adresse du temple <span class="font-normal text-gray-400">(optionnel)</span></label>
-        <input type="text" name="address" value="{{ lodge.address | e if lodge else '' }}" placeholder="ex : 12 rue de la Paix, 54000 Nancy"
+        <input type="text" id="lodge-address" name="address" value="{{ lodge.address | e if lodge else '' }}" placeholder="ex : 12 rue de la Paix, 54000 Nancy"
                class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         <p class="text-xs text-gray-400 mt-1">Permet d'ouvrir directement le temple sur une carte depuis le répertoire.</p>
       </div>
 
-      <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Latitude <span class="font-normal text-gray-400">(optionnel)</span></label>
-          <input type="text" name="latitude" value="{{ lodge.latitude if lodge and lodge.latitude is not none else '' }}" placeholder="ex : 48.6921" inputmode="decimal"
-                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <div>
+        <div class="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Latitude <span class="font-normal text-gray-400">(optionnel)</span></label>
+            <input type="text" id="lodge-lat" name="latitude" value="{{ lodge.latitude if lodge and lodge.latitude is not none else '' }}" placeholder="ex : 48.6921" inputmode="decimal"
+                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
+          <div>
+            <label class="block text-sm font-medium text-gray-700 mb-1.5">Longitude <span class="font-normal text-gray-400">(optionnel)</span></label>
+            <input type="text" id="lodge-lon" name="longitude" value="{{ lodge.longitude if lodge and lodge.longitude is not none else '' }}" placeholder="ex : 6.1844" inputmode="decimal"
+                   class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </div>
         </div>
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1.5">Longitude <span class="font-normal text-gray-400">(optionnel)</span></label>
-          <input type="text" name="longitude" value="{{ lodge.longitude if lodge and lodge.longitude is not none else '' }}" placeholder="ex : 6.1844" inputmode="decimal"
-                 class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <div class="flex items-center gap-3 mt-2">
+          <button type="button" id="lodge-geocode-btn"
+                  class="inline-flex items-center gap-1.5 text-xs font-medium text-loge-700 border border-loge-200 hover:bg-loge-50 rounded-lg px-3 py-1.5 transition-colors">
+            <i class="ti ti-map-pin-search"></i>Localiser automatiquement
+          </button>
+          <span id="lodge-geocode-status" class="text-xs text-gray-400"></span>
         </div>
+        <p class="text-xs text-gray-400 mt-1.5">Position affichée sur la carte des loges voisines. Si ces champs sont vides, la loge n'apparaîtra pas sur la carte. Coordonnées approximatives (niveau ville) — ajustez-les si besoin, ou utilisez le bouton ci-dessus pour les retrouver à partir de l'orient/l'adresse.</p>
       </div>
-      <p class="text-xs text-gray-400 -mt-3">Position affichée sur la carte des loges voisines. Coordonnées approximatives (niveau ville) pré-remplies à l'import ; ajustez-les si besoin.</p>
 
       <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
         <div>
@@ -131,4 +140,43 @@
     </form>
   </div>
 </div>
+
+<script>
+(function () {
+  var btn = document.getElementById('lodge-geocode-btn');
+  var status = document.getElementById('lodge-geocode-status');
+  var latInput = document.getElementById('lodge-lat');
+  var lonInput = document.getElementById('lodge-lon');
+  var addressInput = document.getElementById('lodge-address');
+  var orientInput = document.getElementById('lodge-orient');
+
+  btn.addEventListener('click', function () {
+    var q = (addressInput.value.trim() || orientInput.value.trim());
+    if (!q) {
+      status.textContent = "Renseignez d'abord l'orient ou l'adresse.";
+      return;
+    }
+    btn.disabled = true;
+    status.textContent = 'Recherche en cours…';
+    var body = new URLSearchParams({ q: q });
+    fetch('/loges-voisines/geocode', { method: 'POST', body: body })
+      .then(function (r) { return r.json().then(function (data) { return { ok: r.ok, data: data }; }); })
+      .then(function (res) {
+        if (res.ok) {
+          latInput.value = res.data.lat;
+          lonInput.value = res.data.lon;
+          status.textContent = 'Position trouvée — vérifiez et ajustez si besoin.';
+        } else {
+          status.textContent = res.data.error || 'Aucun résultat.';
+        }
+      })
+      .catch(function () {
+        status.textContent = 'Service de géolocalisation indisponible.';
+      })
+      .finally(function () {
+        btn.disabled = false;
+      });
+  });
+})();
+</script>
 {% endblock %}
