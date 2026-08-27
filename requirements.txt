@@ -43,6 +43,7 @@ pydantic-settings==2.2.1
 python-dotenv==1.0.1
 httpx==0.27.0
 itsdangerous==2.2.0
+tzdata==2024.1  # base de données de fuseaux horaires (secours si absente du système)
 
 # WebPush (notifications PWA)
 pywebpush==2.0.0

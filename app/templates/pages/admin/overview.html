@@ -143,7 +143,7 @@
       <li class="px-5 py-2.5">
         <div class="flex items-center justify-between gap-2">
           <span class="font-semibold text-gray-800">{% if au %}{{ au.last_name }} {{ au.first_name }}{% else %}<span class="text-gray-400">système</span>{% endif %}</span>
-          <span class="text-[10px] text-gray-400">{{ a.created_at.strftime('%d/%m %H:%M') }}</span>
+          <span class="text-[10px] text-gray-400">{{ a.created_at | localdt('%d/%m %H:%M') }}</span>
         </div>
         <div class="text-xs text-gray-500">
           <span class="font-mono text-[11px] bg-gray-100 px-1 rounded">{{ a.action }}</span>

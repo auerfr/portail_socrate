@@ -34,6 +34,26 @@ def _datefr(value, fmt="%d %B %Y"):
 templates.env.filters["datefr"] = _datefr
 
 
+# ── Filtre conversion UTC → heure locale (Europe/Paris) ────────────────────
+from zoneinfo import ZoneInfo
+_PARIS_TZ = ZoneInfo("Europe/Paris")
+
+def _localdt(value, fmt="%d/%m/%Y %H:%M:%S"):
+    """Convertit un datetime naïf stocké en UTC (ex : created_at des logs
+    d'audit, server_default=func.now() sur SQLite) vers l'heure de Paris
+    avant affichage. Sans ça les horodatages « s'est produit à » affichent
+    l'heure UTC brute, décalée de 1h ou 2h selon la saison."""
+    if value is None:
+        return ""
+    import datetime as _dt
+    if isinstance(value, _dt.datetime):
+        v = value if value.tzinfo else value.replace(tzinfo=_dt.timezone.utc)
+        return v.astimezone(_PARIS_TZ).strftime(fmt)
+    return str(value)
+
+templates.env.filters["localdt"] = _localdt
+
+
 # ── Filtre anonymisation noms de famille ──────────────────────────────────────
 # Règle : consonnes seulement (si < 2 consonnes → initiale + …)
 # Visible en clair uniquement pour : admin, VM, Secrétaire, Trésorier

@@ -51,7 +51,7 @@
         {% for e in entries %}
         {% set au = actors.get(e.actor_id) %}
         <tr class="hover:bg-gray-50 align-top">
-          <td class="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{{ e.created_at.strftime('%d/%m/%Y %H:%M:%S') }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{{ e.created_at | localdt }}</td>
           <td class="px-4 py-2.5 text-sm">
             {% if au %}<span class="font-medium text-gray-900">{{ au.last_name }} {{ au.first_name }}</span>
             {% else %}<span class="text-gray-400">système</span>{% endif %}
