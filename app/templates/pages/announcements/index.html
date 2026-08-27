@@ -117,7 +117,7 @@
                 {{ ann.author.last_name | anon_nom }} {{ ann.author.first_name }}
               </span>
               <span>·</span>
-              <span>{{ ann.created_at.strftime('%d/%m/%Y à %H:%M') }}</span>
+              <span>{{ ann.created_at | localdt('%d/%m/%Y à %H:%M') }}</span>
               {% if ann.expires_at %}
               <span>·</span>
               {% if expired %}

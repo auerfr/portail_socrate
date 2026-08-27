@@ -14,6 +14,7 @@ from app.dependencies import require_engagement_viewer
 from app.models.system import EmailLog, EmailStatus
 from app.models.meetings import Attendance, AttendanceStatus, Meeting
 from app.models.lodge import MasonicYear
+from app.utils.tz import to_paris
 
 router = APIRouter(prefix="/engagement", tags=["engagement"])
 from app.template_engine import templates
@@ -47,7 +48,7 @@ async def engagement_dashboard(
     logs6 = r6.scalars().all()
     by_month: dict[str, dict[str, int]] = {}
     for l in logs6:
-        key = l.created_at.strftime("%Y-%m")
+        key = to_paris(l.created_at).strftime("%Y-%m")
         m = by_month.setdefault(key, {"sent": 0, "opened": 0})
         if l.status == EmailStatus.SENT:
             m["sent"] += 1

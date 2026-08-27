@@ -38,7 +38,7 @@
           <td class="px-4 py-2.5 text-xs text-gray-600 max-w-[200px] truncate" title="{{ s.user_agent or '' }}">
             {{ (s.user_agent or '—')[:60] }}
           </td>
-          <td class="px-4 py-2.5 text-xs text-gray-600">{{ s.created_at.strftime('%d/%m %H:%M') }}</td>
+          <td class="px-4 py-2.5 text-xs text-gray-600">{{ s.created_at | localdt('%d/%m %H:%M') }}</td>
           <td class="px-4 py-2.5 text-xs {% if s.expires_at and s.expires_at < now %}text-rose-600{% else %}text-gray-600{% endif %}">
             {{ s.expires_at.strftime('%d/%m %H:%M') if s.expires_at else '—' }}
           </td>

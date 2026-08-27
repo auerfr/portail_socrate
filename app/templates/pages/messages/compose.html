@@ -52,7 +52,7 @@
     <div class="text-xs text-amber-700">
       De :
       {% if forward_sender %}{{ forward_sender.last_name }} {{ forward_sender.first_name }}{% else %}Membre inconnu{% endif %}
-      · le {{ forward_msg.sent_at.strftime('%d/%m/%Y à %H:%M') if forward_msg.sent_at else '' }}
+      · le {{ forward_msg.sent_at | localdt('%d/%m/%Y à %H:%M') }}
     </div>
     <div class="text-xs text-amber-600 mt-1">Choisissez le(s) destinataire(s) ci-dessous.</div>
   </div>
@@ -641,7 +641,7 @@ function pickDoc(doc) {
   {% if forward_msg %}
   (function() {
     const senderName = {{ ((forward_sender.last_name ~ ' ' ~ forward_sender.first_name) if forward_sender else 'Membre inconnu') | tojson }};
-    const sentDate   = {{ (forward_msg.sent_at.strftime('%d/%m/%Y à %H:%M') if forward_msg.sent_at else '') | tojson }};
+    const sentDate   = {{ (forward_msg.sent_at | localdt('%d/%m/%Y à %H:%M')) | tojson }};
     const origHtml   = {{ (forward_msg.body_html or '') | tojson }};
     const sepHtml =
       '<p><br></p>' +

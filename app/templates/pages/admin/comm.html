@@ -85,7 +85,7 @@
       <tbody class="divide-y divide-gray-100">
         {% for r in rows %}
         <tr class="hover:bg-gray-50">
-          <td class="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{{ r.created_at.strftime('%d/%m %H:%M:%S') }}</td>
+          <td class="px-4 py-2 text-xs text-gray-500 whitespace-nowrap">{{ r.created_at | localdt('%d/%m %H:%M:%S') }}</td>
           <td class="px-4 py-2 text-xs text-gray-700 truncate max-w-[200px]">{{ r.recipient }}</td>
           <td class="px-4 py-2 text-sm text-gray-800 truncate max-w-md">
             {% if r.has_attachment %}<i class="ti ti-paperclip text-gray-400"></i>{% endif %}

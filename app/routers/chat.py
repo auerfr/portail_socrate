@@ -19,6 +19,7 @@ from app.models.chat import (
     ChannelType, MessageContentType,
 )
 from app.models.groups import LodgeGroup
+from app.utils.tz import to_paris
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 from app.template_engine import templates
@@ -370,8 +371,8 @@ async def chat_messages_poll(
             "is_mine": m.sender_id == member.id,
             "content": m.content or "",
             "content_type": m.content_type.value,
-            "created_at": m.created_at.strftime("%H:%M"),
-            "created_date": m.created_at.strftime("%d/%m/%Y"),
+            "created_at": to_paris(m.created_at).strftime("%H:%M"),
+            "created_date": to_paris(m.created_at).strftime("%d/%m/%Y"),
             "reply": reply,
             "presence": presence_status(m.sender),
         }

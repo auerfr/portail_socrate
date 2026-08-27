@@ -15,6 +15,7 @@ from app.models.forum import ForumSubject, ForumMessage
 from app.models.messaging import Message, MessageRecipient
 from app.models.meetings import Meeting
 from app.models.planches import Planche
+from app.utils.tz import to_paris
 
 router = APIRouter(tags=["search"])
 from app.template_engine import templates
@@ -122,7 +123,7 @@ async def global_search(
         if msg_hits:
             categories.append({
                 "key": "messages", "label": "Messages", "icon": "ti-mail",
-                "entries": [{"label": m.subject, "sub": m.sent_at.strftime("%d/%m/%Y") if m.sent_at else "", "url": f"/messages/{m.id}"} for m in msg_hits],
+                "entries": [{"label": m.subject, "sub": to_paris(m.sent_at).strftime("%d/%m/%Y") if m.sent_at else "", "url": f"/messages/{m.id}"} for m in msg_hits],
             })
 
         # ── Tenues ───────────────────────────────────────────────────────

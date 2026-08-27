@@ -112,9 +112,9 @@
               {% if not log %}
               <span class="text-gray-400">Jamais envoyé</span>
               {% elif log.status.value == 'SENT' %}
-              <span class="text-emerald-700" title="{{ log.created_at }}"><i class="ti ti-circle-check"></i> {{ log.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+              <span class="text-emerald-700" title="{{ log.created_at }}"><i class="ti ti-circle-check"></i> {{ log.created_at | localdt('%d/%m/%Y %H:%M') }}</span>
               {% elif log.status.value == 'FAILED' %}
-              <span class="text-rose-700" title="{{ log.error or '' }}"><i class="ti ti-circle-x"></i> Échec {{ log.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+              <span class="text-rose-700" title="{{ log.error or '' }}"><i class="ti ti-circle-x"></i> Échec {{ log.created_at | localdt('%d/%m/%Y %H:%M') }}</span>
               {% else %}
               <span class="text-blue-600"><i class="ti ti-clock"></i> En cours…</span>
               {% endif %}

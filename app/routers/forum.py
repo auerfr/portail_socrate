@@ -29,6 +29,7 @@ from app.models.forum import (
     ForumAttachment, AttachmentKind,
 )
 from app.models.documents import Document, DocStatus, DocFolder
+from app.utils.tz import to_paris
 
 UPLOAD_DIR = Path("uploads/forum")
 MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25 Mo
@@ -1181,7 +1182,7 @@ async def forum_export_pdf(
     story.append(Paragraph(s.title, H1))
     story.append(Paragraph(
         f"Catégorie : {s.theme.name if s.theme else '—'} · "
-        f"Créé par {_author_name(s.created_by_id)} le {s.created_at.strftime('%d/%m/%Y à %H:%M')} · "
+        f"Créé par {_author_name(s.created_by_id)} le {to_paris(s.created_at).strftime('%d/%m/%Y à %H:%M')} · "
         f"{len(messages)} message(s) · {len(decisions)} décision(s)",
         META,
     ))
@@ -1192,7 +1193,7 @@ async def forum_export_pdf(
         for m in messages:
             head = Table(
                 [[Paragraph(_author_name(m.created_by_id), AUTHOR),
-                  Paragraph(m.created_at.strftime('%d/%m/%Y %H:%M'), TIME)]],
+                  Paragraph(to_paris(m.created_at).strftime('%d/%m/%Y %H:%M'), TIME)]],
                 colWidths=[doc.width * 0.6, doc.width * 0.4],
             )
             head.setStyle(TableStyle([
@@ -1230,9 +1231,9 @@ async def forum_export_pdf(
 
             status_lbl = "Clôturée" if d.closed_at else "En cours"
             meta = (f"Proposée par {_author_name(d.created_by_id)} le "
-                    f"{d.created_at.strftime('%d/%m/%Y')}  ·  Statut : {status_lbl}")
+                    f"{to_paris(d.created_at).strftime('%d/%m/%Y')}  ·  Statut : {status_lbl}")
             if d.closed_at:
-                meta += f" (le {d.closed_at.strftime('%d/%m/%Y')})"
+                meta += f" (le {to_paris(d.closed_at).strftime('%d/%m/%Y')})"
 
             inner = [
                 [Paragraph(d.title, DEC_T)],

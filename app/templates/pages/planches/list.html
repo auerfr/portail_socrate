@@ -32,7 +32,7 @@
         <div class="min-w-0">
           <p class="font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ p.title }}</p>
           <p class="text-xs text-gray-400 mt-0.5">
-            {{ p.created_at.strftime('%d/%m/%Y') }}
+            {{ p.created_at | localdt('%d/%m/%Y') }}
             {% if p.file_path %} · 📎 Fichier{% endif %}
             {% if p.meeting %} · {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}{% endif %}
           </p>

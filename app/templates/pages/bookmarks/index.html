@@ -78,7 +78,7 @@
         </div>
         <div class="text-[10px] text-gray-400">
           {% if author %}{{ author.last_name }} {{ author.first_name }} · {% endif %}
-          {{ bk.created_at.strftime('%d/%m/%Y') }}
+          {{ bk.created_at | localdt('%d/%m/%Y') }}
         </div>
       </div>
     </div>

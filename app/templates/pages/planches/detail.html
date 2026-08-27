@@ -45,7 +45,7 @@
       {% endif %}
       <span>· {{ (planche.published_at or planche.created_at).strftime('%d/%m/%Y') }}</span>
       {% if planche.updated_at %}
-      <span>· modifiée le {{ planche.updated_at.strftime('%d/%m/%Y') }}</span>
+      <span>· modifiée le {{ planche.updated_at | localdt('%d/%m/%Y') }}</span>
       {% endif %}
     </div>
 
@@ -124,7 +124,7 @@
             <span class="text-sm font-medium text-gray-800">
               {% if c.author %}{{ c.author.first_name }} {{ c.author.last_name | anon_nom | first }}∴{% else %}Frère{% endif %}
             </span>
-            <span class="text-xs text-gray-400">{{ c.created_at.strftime('%d/%m/%Y %H:%M') }}</span>
+            <span class="text-xs text-gray-400">{{ c.created_at | localdt('%d/%m/%Y %H:%M') }}</span>
           </div>
           <p class="text-sm text-gray-700 whitespace-pre-wrap">{{ c.content }}</p>
         </div>

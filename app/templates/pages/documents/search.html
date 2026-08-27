@@ -84,7 +84,7 @@
               · {% if doc.file_size > 1048576 %}{{ "%.1f"|format(doc.file_size / 1048576) }} Mo
               {% else %}{{ (doc.file_size // 1024) }} Ko{% endif %}
               {% endif %}
-              · {{ doc.created_at.strftime('%d/%m/%Y') if doc.created_at else '' }}
+              · {{ doc.created_at | localdt('%d/%m/%Y') }}
             </div>
 
             <!-- Extrait du contenu avec highlights -->

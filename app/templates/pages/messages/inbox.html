@@ -128,7 +128,7 @@
                 {% endif %}
               </div>
               <span class="text-xs text-gray-400 flex-shrink-0">
-                {{ msg.sent_at.strftime('%d/%m %H:%M') if msg.sent_at else '' }}
+                {{ msg.sent_at | localdt('%d/%m %H:%M') }}
               </span>
             </div>
             <div class="text-xs text-gray-500 mt-0.5">
@@ -212,7 +212,7 @@
           <div class="flex-1 min-w-0">
             <div class="flex items-center justify-between gap-2">
               <span class="text-sm font-medium text-gray-900 truncate">{{ msg.subject }}</span>
-              <span class="text-xs text-gray-400 flex-shrink-0">{{ msg.sent_at.strftime('%d/%m %H:%M') if msg.sent_at else '' }}</span>
+              <span class="text-xs text-gray-400 flex-shrink-0">{{ msg.sent_at | localdt('%d/%m %H:%M') }}</span>
             </div>
             <div class="text-xs text-gray-500 mt-0.5">
               À : {{ target_description(msg.target_type, msg.target_filter) }}

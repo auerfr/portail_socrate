@@ -493,7 +493,7 @@
                 {% else %}{{ doc.file_size }} o{% endif %}</span>
                 {% endif %}
                 {% if doc.created_at %}
-                <span>·</span><span>{{ doc.created_at.strftime('%d/%m/%Y') }}</span>
+                <span>·</span><span>{{ doc.created_at | localdt('%d/%m/%Y') }}</span>
                 {% endif %}
               {% endif %}
               {% if doc.download_count %}
@@ -1108,7 +1108,7 @@
       "version_number": {{ v.version_number }},
       "file_size": {{ v.file_size or 'null' }},
       "change_notes": {{ (v.change_notes or '') | tojson }},
-      "created_at": {{ v.created_at.strftime('%d/%m/%Y %H:%M') | tojson }}
+      "created_at": {{ v.created_at | localdt('%d/%m/%Y %H:%M') | tojson }}
     }{% if not loop.last %},{% endif %}
     {% endfor %}
   ]{% if not loop.last %},{% endif %}

@@ -164,7 +164,7 @@
 
       {% set prev_date = namespace(val='') %}
       {% for msg in messages %}
-      {% set msg_date = msg.created_at.strftime('%d/%m/%Y') %}
+      {% set msg_date = msg.created_at | localdt('%d/%m/%Y') %}
       {% if msg_date != prev_date.val %}
       <div class="flex items-center gap-3 my-4">
         <div class="flex-1 h-px bg-gray-200"></div>
@@ -211,7 +211,7 @@
             </div>
           </div>
           <div class="text-xs text-gray-400 mt-0.5 {% if is_mine %}flex items-center justify-end gap-0.5 pr-1{% else %}pl-1{% endif %}">
-            <span>{{ msg.created_at.strftime('%H:%M') }}</span>
+            <span>{{ msg.created_at | localdt('%H:%M') }}</span>
             {% if is_mine %}
             {% set read = msg.id <= (max_other_read_id | default(0)) %}
             {% if read %}

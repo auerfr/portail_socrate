@@ -70,7 +70,7 @@
           </a>
           <div class="text-xs text-gray-500">
             {% if ml %}{{ ml.name }} ·{% endif %}
-            {{ c.created_at.strftime('%d/%m/%Y %H:%M') }}
+            {{ c.created_at | localdt('%d/%m/%Y %H:%M') }}
           </div>
         </div>
         <div class="flex items-center gap-1.5 justify-end text-xs flex-shrink-0">

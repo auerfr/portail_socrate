@@ -60,7 +60,7 @@ function gedPicker() {
         </div>
         <h1 class="text-xl lg:text-2xl font-bold text-gray-900">{{ subject.title }}</h1>
         <p class="text-xs text-gray-400 mt-1">
-          Créé le {{ subject.created_at.strftime('%d/%m/%Y à %H:%M') }}
+          Créé le {{ subject.created_at | localdt('%d/%m/%Y à %H:%M') }}
         </p>
       </div>
       <div class="flex items-center gap-2 shrink-0">
@@ -121,7 +121,7 @@ function gedPicker() {
           </div>
           <div class="flex items-center gap-2 text-xs text-gray-400">
             {% if msg.updated_at and msg.updated_at != msg.created_at %}<span class="italic">modifié</span>{% endif %}
-            <span>{{ msg.created_at.strftime('%d/%m/%Y à %H:%M') }}</span>
+            <span>{{ msg.created_at | localdt('%d/%m/%Y à %H:%M') }}</span>
             {% if can_manage or msg.created_by_id == current_member.id %}
             <a href="/forum/messages/{{ msg.id }}/edit" class="hover:text-loge-700 transition-colors" title="Modifier">
               <i class="ti ti-pencil"></i>

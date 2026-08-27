@@ -236,7 +236,7 @@
       <li class="px-5 py-3 flex items-center justify-between gap-3 hover:bg-gray-50">
         <a href="/mailing/campaigns/{{ c.id }}" class="flex-1 min-w-0">
           <div class="font-medium text-gray-900 truncate">{{ c.subject }}</div>
-          <div class="text-xs text-gray-500">{{ c.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+          <div class="text-xs text-gray-500">{{ c.created_at | localdt('%d/%m/%Y %H:%M') }}</div>
         </a>
         <div class="flex items-center gap-2 justify-end text-xs whitespace-nowrap flex-shrink-0">
           {% set st = c.status.value %}

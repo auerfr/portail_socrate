@@ -49,7 +49,7 @@
       <div class="flex-1 min-w-0">
         <div class="text-xs text-gray-400">Reçu de {{ ((sender.last_name | anon_nom) ~ ' ' ~ sender.first_name) if sender else '?' }}</div>
         <div class="text-sm font-medium text-gray-700 truncate">{{ rec.message.subject }}</div>
-        <div class="text-xs text-gray-400">{{ rec.message.sent_at.strftime('%d/%m/%Y') if rec.message.sent_at else '' }}</div>
+        <div class="text-xs text-gray-400">{{ rec.message.sent_at | localdt('%d/%m/%Y') }}</div>
       </div>
       <form method="post" action="/messages/{{ rec.message_id }}/restore" class="shrink-0">
         <button type="submit" class="text-xs text-loge-600 hover:text-loge-800 border border-loge-200 hover:bg-loge-50 px-2 py-1 rounded-lg">
@@ -68,7 +68,7 @@
       <div class="flex-1 min-w-0">
         <div class="text-xs text-gray-400">Envoyé · {{ msg.recipients | length }} destinataire{{ 's' if msg.recipients | length > 1 }}</div>
         <div class="text-sm font-medium text-gray-700 truncate">{{ msg.subject }}</div>
-        <div class="text-xs text-gray-400">{{ msg.sent_at.strftime('%d/%m/%Y') if msg.sent_at else '' }}</div>
+        <div class="text-xs text-gray-400">{{ msg.sent_at | localdt('%d/%m/%Y') }}</div>
       </div>
       <form method="post" action="/messages/{{ msg.id }}/restore" class="shrink-0">
         <button type="submit" class="text-xs text-loge-600 hover:text-loge-800 border border-loge-200 hover:bg-loge-50 px-2 py-1 rounded-lg">

@@ -71,7 +71,7 @@
           <span class="text-sm shrink-0">{% if article.is_featured %}📌{% else %}📰{% endif %}</span>
           <div class="flex-1 min-w-0">
             <div class="text-xs font-medium text-gray-800 group-hover:text-loge-700 truncate leading-snug">{{ article.title }}</div>
-            <div class="text-[10px] text-gray-400">{{ article.created_at.strftime('%d/%m') }}</div>
+            <div class="text-[10px] text-gray-400">{{ article.created_at | localdt('%d/%m') }}</div>
           </div>
         </a>
         {% endfor %}
@@ -438,7 +438,7 @@
             <span class="text-sm shrink-0">{% if article.is_featured %}📌{% else %}📰{% endif %}</span>
             <div class="flex-1 min-w-0">
               <div class="text-xs font-medium text-gray-800 group-hover:text-loge-700 truncate leading-snug">{{ article.title }}</div>
-              <div class="text-[10px] text-gray-400">{{ article.created_at.strftime('%d %b') }}</div>
+              <div class="text-[10px] text-gray-400">{{ article.created_at | localdt('%d %b') }}</div>
             </div>
           </a>
           {% endfor %}

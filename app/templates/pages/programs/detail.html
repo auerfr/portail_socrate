@@ -299,7 +299,7 @@
       </div>
       <div style="display:flex;gap:8px;align-items:center;">
         {% if program.sent_at %}
-        <span style="font-size:11px;color:#6b7280;">Transmis le {{ program.sent_at.strftime('%d/%m/%Y') }}</span>
+        <span style="font-size:11px;color:#6b7280;">Transmis le {{ program.sent_at | localdt('%d/%m/%Y') }}</span>
         {% endif %}
         <button onclick="window.print()"
                 style="font-size:12px;padding:7px 18px;background:#374151;color:white;border:none;border-radius:6px;font-weight:600;cursor:pointer;">

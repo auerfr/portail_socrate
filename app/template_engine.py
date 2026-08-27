@@ -35,8 +35,7 @@ templates.env.filters["datefr"] = _datefr
 
 
 # ── Filtre conversion UTC → heure locale (Europe/Paris) ────────────────────
-from zoneinfo import ZoneInfo
-_PARIS_TZ = ZoneInfo("Europe/Paris")
+from app.utils.tz import to_paris as _to_paris
 
 def _localdt(value, fmt="%d/%m/%Y %H:%M:%S"):
     """Convertit un datetime naïf stocké en UTC (ex : created_at des logs
@@ -47,8 +46,7 @@ def _localdt(value, fmt="%d/%m/%Y %H:%M:%S"):
         return ""
     import datetime as _dt
     if isinstance(value, _dt.datetime):
-        v = value if value.tzinfo else value.replace(tzinfo=_dt.timezone.utc)
-        return v.astimezone(_PARIS_TZ).strftime(fmt)
+        return _to_paris(value).strftime(fmt)
     return str(value)
 
 templates.env.filters["localdt"] = _localdt

@@ -26,8 +26,8 @@
       <div class="min-w-0">
         <h1 class="text-xl font-bold text-gray-900">{{ campaign.subject }}</h1>
         <p class="text-xs text-gray-500 mt-1">
-          {{ campaign.created_at.strftime('%d/%m/%Y %H:%M') }}
-          {% if campaign.sent_at %} · envoyé le {{ campaign.sent_at.strftime('%d/%m/%Y %H:%M') }}{% endif %}
+          {{ campaign.created_at | localdt('%d/%m/%Y %H:%M') }}
+          {% if campaign.sent_at %} · envoyé le {{ campaign.sent_at | localdt('%d/%m/%Y %H:%M') }}{% endif %}
           {% if mlist %} · liste « {{ mlist.name }} »{% endif %}
         </p>
       </div>

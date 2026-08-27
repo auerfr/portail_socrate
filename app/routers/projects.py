@@ -20,6 +20,7 @@ from app.models.projects import (
     ProjectTemplate, ProjectTemplateTask,
 )
 from app.models.forum import ForumSubject
+from app.utils.tz import to_paris
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 from app.template_engine import templates
@@ -1015,7 +1016,7 @@ async def project_export_csv(
             t.progress,
             "Oui" if t.is_milestone else "Non",
             t.parent_task_id or "",
-            t.created_at.strftime("%d/%m/%Y") if t.created_at else "",
+            to_paris(t.created_at).strftime("%d/%m/%Y") if t.created_at else "",
         ])
 
     fname = f"projet-{project_id}-taches.csv"

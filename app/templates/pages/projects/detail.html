@@ -663,7 +663,7 @@
             <div class="flex items-center justify-between text-[11px] text-gray-500 mb-1">
               <span class="font-semibold text-gray-700">{% if au %}{{ au.last_name | anon_nom }} {{ au.first_name }}{% else %}—{% endif %}</span>
               <span class="flex items-center gap-2">
-                <span>{{ c.created_at.strftime('%d/%m %H:%M') }}</span>
+                <span>{{ c.created_at | localdt('%d/%m %H:%M') }}</span>
                 {% if c.author_id == current_member.id or current_user.is_admin %}
                 <form method="post" action="/projects/tasks/comments/{{ c.id }}/delete">
                   <button type="submit" class="text-rose-500 hover:text-rose-700"><i class="ti ti-x"></i></button>
@@ -785,7 +785,7 @@
             {% if a.target %}<span class="text-gray-700">« {{ a.target }} »</span>{% endif %}
           </div>
           {% if a.details %}<div class="text-xs text-gray-500 truncate">{{ a.details }}</div>{% endif %}
-          <div class="text-[10px] text-gray-400">{{ a.created_at.strftime('%d/%m/%Y %H:%M') }}</div>
+          <div class="text-[10px] text-gray-400">{{ a.created_at | localdt('%d/%m/%Y %H:%M') }}</div>
         </div>
       </li>
       {% endfor %}
