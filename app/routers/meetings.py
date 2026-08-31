@@ -38,22 +38,33 @@ from app.template_engine import templates
 
 
 async def _count_agapes(db: AsyncSession, meeting_id: int) -> int:
-    """Compte le total de couverts agapes pour une tenue (membres + visiteurs confirmés)."""
+    """Compte le total de couverts agapes pour une tenue (membres + leurs invités,
+    maçons visiteurs confirmés + leurs invités, invités profanes confirmés).
+    Source unique — réutilisée par le tableau de bord, la fiche de tenue et le
+    contrôle de capacité, pour ne jamais diverger entre ces affichages."""
     # Membres
     r1 = await db.execute(
         select(sql_func.sum(Attendance.agape_guests + 1))
         .where(Attendance.meeting_id == meeting_id, Attendance.agape == True)
     )
     m = r1.scalar() or 0
-    # Visiteurs confirmés
+    # Visiteurs (maçons passants) confirmés
     r2 = await db.execute(
         select(sql_func.sum(MeetingVisitor.agape_guests + 1))
         .where(MeetingVisitor.meeting_id == meeting_id,
                MeetingVisitor.agape == True,
-               MeetingVisitor.status == "CONFIRMED")
+               MeetingVisitor.status == VisitorStatus.CONFIRMED)
     )
     v = r2.scalar() or 0
-    return int(m + v)
+    # Invités profanes confirmés
+    r3 = await db.execute(
+        select(sql_func.count())
+        .where(MeetingGuest.meeting_id == meeting_id,
+               MeetingGuest.agape == True,
+               MeetingGuest.status == GuestStatus.CONFIRMED)
+    )
+    g = r3.scalar() or 0
+    return int(m + v + g)
 
 
 def _type_label(t) -> str:
@@ -250,18 +261,8 @@ async def meeting_detail(
         (a for a in meeting.attendances if a.member_id == member.id), None
     )
 
-    # Compter agapes
-    agape_count = sum(
-        (1 if a.agape else 0) + a.agape_guests
-        for a in meeting.attendances
-    ) + sum(
-        (1 if mv.agape else 0) + mv.agape_guests
-        for mv in meeting.meeting_visitors
-        if mv.status.value == "CONFIRMED"
-    ) + sum(
-        1 for g in meeting.meeting_guests
-        if g.status.value == "CONFIRMED" and g.agape
-    )
+    # Compter agapes — même calcul que le tableau de bord et le contrôle de capacité
+    agape_count = await _count_agapes(db, meeting_id)
 
     present_count = sum(1 for a in meeting.attendances if a.status.value == "PRESENT")
     excused_count = sum(1 for a in meeting.attendances if a.status.value == "EXCUSED")
