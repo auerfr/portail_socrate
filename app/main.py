@@ -615,14 +615,7 @@ async def home(
         )
         next_inscriptions = ins_r.scalar() or 0
 
-        agape_r = await db.execute(
-            select(sql_func.count()).where(
-                Attendance.meeting_id == next_meeting.id,
-                Attendance.status == AttendanceStatus.PRESENT,
-                Attendance.agape == True,
-            )
-        )
-        next_agape = agape_r.scalar() or 0
+        next_agape = await meetings._count_agapes(db, next_meeting.id)
 
         vis_r = await db.execute(
             select(sql_func.count()).where(
