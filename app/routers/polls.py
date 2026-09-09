@@ -664,7 +664,12 @@ async def poll_vote(
             await db.delete(v)
 
     form = await request.form()
-    member_id = None if poll.is_anonymous else member.id
+    # L'identité de l'électeur est toujours enregistrée (nécessaire pour
+    # retrouver/modifier son propre vote et pour empêcher un second vote) —
+    # l'anonymat d'un sondage joue uniquement sur l'affichage : "qui a voté
+    # quoi" n'est jamais montré aux autres membres pour un sondage anonyme
+    # (cf. poll_detail).
+    member_id = member.id
 
     if poll.vote_type == "RANKING":
         option_ids = [opt.id for opt in poll.options]

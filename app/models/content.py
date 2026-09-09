@@ -89,7 +89,7 @@ class PollVote(Base):
     id: Mapped[int] = mapped_column(primary_key=True)
     poll_id: Mapped[int]   = mapped_column(ForeignKey("polls.id", ondelete="CASCADE"))
     option_id: Mapped[int] = mapped_column(ForeignKey("poll_options.id", ondelete="CASCADE"))
-    member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))  # null si anonyme
+    member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))  # toujours renseigné — l'anonymat se joue à l'affichage, pas au stockage
     voted_at: Mapped[datetime]       = mapped_column(DateTime, server_default=func.now())
     score: Mapped[Optional[int]]     = mapped_column(Integer)  # sondages de type "RANKING" uniquement : le rang (1=préféré)
 
