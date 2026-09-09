@@ -156,6 +156,31 @@ async def _eligible_members(poll: Poll, db: AsyncSession) -> list[Member]:
     return eligible
 
 
+def _count_voters(poll: Poll) -> int:
+    """Nombre de VOTANTS distincts (pas de lignes PollVote — un même votant
+    peut créer plusieurs lignes : choix multiples, classement = une ligne
+    par option). member_id est toujours renseigné pour un vote posté après
+    le correctif du 9 septembre 2026 ; les votes anonymes antérieurs ont
+    member_id=NULL ("orphelins") — leur contenu est intact mais l'identité
+    est perdue. On reconstitue quand même un compte fiable dans les cas non
+    ambigus : RANKING (permutation complète -> lignes / nb d'options) et
+    CHOICE non-multiple (1 ligne = 1 votant). Pour un choix multiple ou des
+    créneaux (SCHEDULE), impossible de savoir combien de personnes se
+    cachent derrière N lignes orphelines — on ne les compte pas plutôt que
+    de deviner faux."""
+    identified = len({v.member_id for v in poll.votes if v.member_id is not None})
+    orphaned = [v for v in poll.votes if v.member_id is None]
+    if not orphaned:
+        return identified
+    if poll.vote_type == "RANKING" and poll.options:
+        orphaned_voters = len(orphaned) // len(poll.options)
+    elif poll.vote_type == "CHOICE" and not poll.is_multiple:
+        orphaned_voters = len(orphaned)
+    else:
+        orphaned_voters = 0
+    return identified + orphaned_voters
+
+
 def _is_open(poll: Poll) -> bool:
     if poll.ends_at and poll.ends_at < datetime.now():
         return False
@@ -190,12 +215,14 @@ async def polls_list(
     )
     my_votes = my_votes_r.scalars().all()
     voted_poll_ids = {v.poll_id for v in my_votes}
+    voter_counts = {p.id: _count_voters(p) for p in polls}
 
     return templates.TemplateResponse(request, "pages/polls/list.html", {
         "current_member": member,
         "current_user": user,
         "polls": polls,
         "voted_poll_ids": voted_poll_ids,
+        "voter_counts": voter_counts,
         "is_open": _is_open,
         "can_manage": _can_manage(member, user.is_admin),
         "now": datetime.now(),
@@ -350,12 +377,7 @@ async def polls_create(
 async def _compute_results(poll: Poll, my_option_ids: set, db: AsyncSession) -> tuple[list, int]:
     """Calcule les résultats d'un sondage (CHOICE ou RANKING), factorisé pour
     être partagé entre l'affichage web et l'export PDF."""
-    # Nombre de VOTANTS (member_id distincts), pas de lignes PollVote — un
-    # même votant peut créer plusieurs lignes (choix multiples, classement :
-    # une ligne par option classée). member_id est toujours renseigné, même
-    # pour un sondage anonyme (cf. poll_vote) — seul l'affichage par option
-    # respecte l'anonymat (voir plus bas).
-    total_votes = len({v.member_id for v in poll.votes if v.member_id is not None})
+    total_votes = _count_voters(poll)
     if poll.vote_type == "RANKING":
         n_options = len(poll.options)
         results = []

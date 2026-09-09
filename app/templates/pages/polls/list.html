@@ -55,7 +55,7 @@
           <p class="text-sm text-gray-500 mt-1 line-clamp-1">{{ poll.description }}</p>
           {% endif %}
           <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
-            {% set voter_count = poll.votes | map(attribute='member_id') | unique | list | length %}
+            {% set voter_count = voter_counts.get(poll.id, 0) %}
             <span>{{ voter_count }} votant{{ 's' if voter_count != 1 }}</span>
             <span>·</span>
             <span>{{ poll.options | length }} option{{ 's' if poll.options | length != 1 }}</span>
@@ -97,7 +97,7 @@
       <span class="text-base">🔒</span>
       <div class="flex-1 min-w-0">
         <div class="text-sm font-medium text-gray-700 truncate">{{ poll.title }}</div>
-        {% set voter_count = poll.votes | map(attribute='member_id') | unique | list | length %}
+        {% set voter_count = voter_counts.get(poll.id, 0) %}
         <div class="text-xs text-gray-400">{{ voter_count }} votant{{ 's' if voter_count != 1 }} · clôturé {{ poll.ends_at.strftime('%d/%m/%Y') if poll.ends_at else '' }}</div>
       </div>
     </a>
