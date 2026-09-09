@@ -13,10 +13,10 @@ from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
-from app.models.documents import DocFolder, DocSpace, DocStatus, Document, DocumentVersion, MinGrade, PlancheEntry
+from app.models.documents import DocFolder, DocFolderDelegate, DocSpace, DocStatus, Document, DocumentVersion, MinGrade, PlancheEntry
 import json as _json
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
-from app.models.identity import MasonicGrade, Member, LodgeFunction
+from app.models.identity import MasonicGrade, Member, LodgeFunction, MemberStatus
 from app.routers.groups import resolve_group_member_ids
 from sqlalchemy import select as _select_stmt
 
@@ -128,16 +128,48 @@ async def _can_download(member: Member, user, folder: DocFolder, db: AsyncSessio
     return True
 
 
+async def _is_folder_delegate(member: Member, folder: DocFolder, db: AsyncSession) -> bool:
+    """Le membre a-t-il reçu une délégation active (non expirée) sur ce
+    dossier, ou sur l'un de ses dossiers parents ? La délégation se
+    transmet aux sous-dossiers — déléguer « Chantiers d'apprentis » donne
+    la main sur tout ce qui est créé dessous."""
+    now = datetime.now()
+    current: Optional[DocFolder] = folder
+    depth = 0
+    while current is not None and depth < 20:
+        r = await db.execute(
+            _select_stmt(DocFolderDelegate).where(
+                DocFolderDelegate.folder_id == current.id,
+                DocFolderDelegate.member_id == member.id,
+            )
+        )
+        for d in r.scalars().all():
+            if d.expires_at is None or d.expires_at > now:
+                return True
+        if current.parent_id is None:
+            break
+        current = await db.get(DocFolder, current.parent_id)
+        depth += 1
+    return False
+
+
 async def _can_write(member: Member, user, folder: DocFolder, db: AsyncSession) -> bool:
-    """Peut-on écrire (upload / édition / suppression) dans ce dossier ?
+    """Peut-on écrire (upload / édition / suppression / créer un sous-dossier)
+    dans ce dossier ?
 
     Priorités :
     1. Admin → toujours oui
-    2. write_group_id défini → seulement ce groupe
-    3. write_min_grade → grade minimum requis
-    4. si les deux sont à leur valeur par défaut (ALL + pas de groupe) → même règle que la lecture
+    2. Dossier personnel → seulement son propriétaire
+    3. Délégation active sur ce dossier ou un parent → oui
+    4. write_group_id défini → seulement ce groupe
+    5. write_min_grade → grade minimum requis
+    6. si les deux sont à leur valeur par défaut (ALL + pas de groupe) → même règle que la lecture
     """
     if user.is_admin:
+        return True
+    if folder.personal_owner_id is not None:
+        return member.id == folder.personal_owner_id
+    if await _is_folder_delegate(member, folder, db):
         return True
     if folder.write_group_id:
         return await _can_access(member, user, MinGrade.ALL, folder.write_group_id, db)
@@ -145,6 +177,18 @@ async def _can_write(member: Member, user, folder: DocFolder, db: AsyncSession) 
     member_lvl = _GRADE_ORDER.get(member.masonic_grade, 0)
     required   = _MIN_GRADE_ORDER.get(folder.write_min_grade, 0)
     return member_lvl >= required
+
+
+async def _can_view_folder(member: Member, user, folder: DocFolder, db: AsyncSession) -> bool:
+    """Lecture normale, complétée par la délégation : un délégué doit pouvoir
+    voir le dossier sur lequel il a la main même si son grade ne le lui
+    aurait pas permis autrement."""
+    if await _can_access(
+        member, user, folder.min_grade, folder.group_id, db,
+        personal_owner_id=folder.personal_owner_id,
+    ):
+        return True
+    return await _is_folder_delegate(member, folder, db)
 
 
 async def _get_or_create_personal_space(db: AsyncSession) -> DocSpace:
@@ -321,10 +365,7 @@ async def documents_folder(
     user, member = ctx
 
     folder = await db.get(DocFolder, folder_id)
-    if not folder or not await _can_access(
-        member, user, folder.min_grade, folder.group_id, db,
-        personal_owner_id=folder.personal_owner_id,
-    ):
+    if not folder or not await _can_view_folder(member, user, folder, db):
         raise HTTPException(status_code=404)
 
     is_personal_folder = folder.personal_owner_id is not None
@@ -435,6 +476,32 @@ async def documents_folder(
     can_dl    = await _can_download(member, user, folder, db)
     can_write = await _can_write(member, user, folder, db)
 
+    # Délégués actifs sur ce dossier (gestion réservée aux admins)
+    delegates = []
+    active_members_for_delegate = []
+    if user.is_admin:
+        deleg_r = await db.execute(
+            select(DocFolderDelegate)
+            .where(DocFolderDelegate.folder_id == folder_id)
+            .order_by(DocFolderDelegate.granted_at.desc())
+        )
+        delegate_rows = deleg_r.scalars().all()
+        if delegate_rows:
+            mids = {d.member_id for d in delegate_rows}
+            mr = await db.execute(select(Member).where(Member.id.in_(mids)))
+            members_map = {m.id: m for m in mr.scalars().all()}
+            now = datetime.now()
+            delegates = [
+                {"delegate": d, "member": members_map.get(d.member_id),
+                 "expired": bool(d.expires_at and d.expires_at <= now)}
+                for d in delegate_rows
+            ]
+        am_r = await db.execute(
+            select(Member).where(Member.status == MemberStatus.ACTIVE)
+            .order_by(Member.last_name, Member.first_name)
+        )
+        active_members_for_delegate = am_r.scalars().all()
+
     return templates.TemplateResponse(request, "pages/documents/folder.html", {
         "current_member": member,
         "current_user": user,
@@ -461,6 +528,8 @@ async def documents_folder(
         "is_planches_space": is_planches_space,
         "planche_entries_by_doc": planche_entries_by_doc,
         "planche_entries_summary": planche_entries_summary,
+        "delegates": delegates,
+        "active_members_for_delegate": active_members_for_delegate,
     })
 
 
@@ -487,10 +556,7 @@ async def documents_upload(
         files = [files]
 
     folder = await db.get(DocFolder, folder_id)
-    if not folder or not await _can_access(
-        member, user, folder.min_grade, folder.group_id, db,
-        personal_owner_id=folder.personal_owner_id,
-    ):
+    if not folder or not await _can_write(member, user, folder, db):
         raise HTTPException(status_code=403)
 
     errors = []
@@ -663,10 +729,7 @@ async def documents_add_link(
     user, member = ctx
 
     folder = await db.get(DocFolder, folder_id)
-    if not folder or not await _can_access(
-        member, user, folder.min_grade, folder.group_id, db,
-        personal_owner_id=folder.personal_owner_id,
-    ):
+    if not folder or not await _can_write(member, user, folder, db):
         raise HTTPException(status_code=403)
 
     link_url = url.strip()
@@ -687,6 +750,89 @@ async def documents_add_link(
     db.add(doc)
     await db.commit()
 
+    return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
+
+
+# ── Créer un sous-dossier (ouvert à qui a la main sur le dossier parent —
+# écriture normale ou délégation, pas réservé aux admins comme /admin/folder) ─
+
+@router.post("/folder/{folder_id}/new-subfolder")
+async def documents_new_subfolder(
+    folder_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: str = Form(...),
+):
+    user, member = ctx
+    parent = await db.get(DocFolder, folder_id)
+    if not parent or not await _can_write(member, user, parent, db):
+        raise HTTPException(status_code=403)
+
+    name = name.strip()
+    if not name:
+        return RedirectResponse(url=f"/documents/folder/{folder_id}?error=empty_name", status_code=303)
+
+    sub = DocFolder(
+        name=name,
+        space_id=parent.space_id,
+        parent_id=parent.id,
+        # Un sous-dossier créé par un délégué hérite des mêmes règles de
+        # lecture que son parent — sinon il pourrait créer un dossier que
+        # lui-même (ou les personnes visées) ne peuvent plus voir ensuite.
+        min_grade=parent.min_grade,
+        group_id=parent.group_id,
+        created_by_id=member.id,
+    )
+    db.add(sub)
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
+
+
+# ── Délégation de droits d'écriture sur un dossier à un membre précis
+# (temporaire ou permanente) — réservé aux admins ────────────────────────────
+
+@router.post("/folder/{folder_id}/delegate")
+async def documents_delegate_add(
+    folder_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    member_id: int = Form(...),
+    expires_at: str = Form(""),
+):
+    user, member = ctx
+    folder = await db.get(DocFolder, folder_id)
+    if not folder:
+        raise HTTPException(status_code=404)
+    target = await db.get(Member, member_id)
+    if not target:
+        raise HTTPException(status_code=404)
+
+    exp = None
+    if expires_at.strip():
+        try:
+            exp = datetime.fromisoformat(expires_at)
+        except ValueError:
+            exp = None
+
+    db.add(DocFolderDelegate(
+        folder_id=folder_id, member_id=member_id,
+        granted_by_id=member.id, expires_at=exp,
+    ))
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
+
+
+@router.post("/folder/{folder_id}/delegate/{delegate_id}/revoke")
+async def documents_delegate_revoke(
+    folder_id: int,
+    delegate_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    delegate = await db.get(DocFolderDelegate, delegate_id)
+    if delegate and delegate.folder_id == folder_id:
+        await db.delete(delegate)
+        await db.commit()
     return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
 
 

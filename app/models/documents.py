@@ -105,9 +105,34 @@ class DocFolder(Base):
     space: Mapped["DocSpace"]           = relationship(back_populates="folders")
     children: Mapped[list["DocFolder"]] = relationship()
     documents: Mapped[list["Document"]] = relationship(back_populates="folder")
+    delegates: Mapped[list["DocFolderDelegate"]] = relationship(
+        back_populates="folder", cascade="all, delete-orphan"
+    )
 
     def __repr__(self) -> str:
         return f"<DocFolder {self.name}>"
+
+
+class DocFolderDelegate(Base):
+    """Délégation de droits d'écriture sur un dossier (et ses sous-dossiers) à
+    un membre précis, temporaire ou permanente — p.ex. donner au 2nd
+    Surveillant la main sur « Chantiers d'apprentis » sans créer un groupe
+    dédié pour une seule personne. S'ajoute aux règles habituelles
+    (write_group_id/write_min_grade), ne les remplace pas."""
+    __tablename__ = "doc_folder_delegates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    folder_id: Mapped[int] = mapped_column(ForeignKey("doc_folders.id", ondelete="CASCADE"))
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    granted_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
+    granted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # None = permanent
+
+    folder: Mapped["DocFolder"] = relationship(back_populates="delegates")
+    member: Mapped["Member"] = relationship(foreign_keys=[member_id])
+
+    def __repr__(self) -> str:
+        return f"<DocFolderDelegate folder={self.folder_id} member={self.member_id}>"
 
 
 class Document(Base):
