@@ -275,27 +275,32 @@
         </label>
 
         <!-- FUNCTION -->
-        <label class="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors"
-               :class="targetType === 'FUNCTION' ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-200'">
-          <input type="radio" value="FUNCTION" x-model="targetType" class="sr-only">
-          <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
-               :class="targetType === 'FUNCTION' ? 'border-orange-500 bg-orange-500' : 'border-gray-300'">
-            <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'FUNCTION'"></div>
-          </div>
-          <div class="flex-1">
-            <div class="text-sm font-medium text-gray-900">Par fonction</div>
-            <div class="text-xs text-gray-500 mb-2">Officiers d'un ou plusieurs offices</div>
-            <div x-show="targetType === 'FUNCTION'" x-cloak class="grid grid-cols-2 gap-1.5 mt-1">
-              {% for fn_value, fn_label in function_labels.items() %}
-              <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-orange-50 px-1.5 py-1 rounded">
-                <input type="checkbox" name="target_functions" value="{{ fn_value }}"
-                       class="rounded border-gray-300 text-orange-500">
-                <span class="text-gray-700">{{ fn_label }}</span>
-              </label>
-              {% endfor %}
+        <div class="rounded-lg border-2 transition-colors"
+             :class="targetType === 'FUNCTION' ? 'border-orange-400 bg-orange-50' : 'border-gray-100 hover:border-gray-200'">
+          <label class="flex items-start gap-3 p-3 cursor-pointer">
+            <input type="radio" value="FUNCTION" x-model="targetType" class="sr-only">
+            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
+                 :class="targetType === 'FUNCTION' ? 'border-orange-500 bg-orange-500' : 'border-gray-300'">
+              <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'FUNCTION'"></div>
             </div>
+            <div class="flex-1">
+              <div class="text-sm font-medium text-gray-900">Par fonction</div>
+              <div class="text-xs text-gray-500" :class="targetType === 'FUNCTION' ? 'mb-2' : ''">Officiers d'un ou plusieurs offices</div>
+            </div>
+          </label>
+          <!-- Cases hors du <label> ci-dessus : un <label> ne doit envelopper
+               qu'un seul contrôle (ici le radio "FUNCTION"), sinon certains
+               navigateurs empêchent de cocher plusieurs cases imbriquées. -->
+          <div x-show="targetType === 'FUNCTION'" x-cloak class="grid grid-cols-2 gap-1.5 px-3 pb-3 pl-10">
+            {% for fn_value, fn_label in function_labels.items() %}
+            <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-orange-50 px-1.5 py-1 rounded">
+              <input type="checkbox" name="target_functions" value="{{ fn_value }}"
+                     class="rounded border-gray-300 text-orange-500">
+              <span class="text-gray-700">{{ fn_label }}</span>
+            </label>
+            {% endfor %}
           </div>
-        </label>
+        </div>
 
         <!-- GROUP -->
         {% if all_groups %}
@@ -322,39 +327,44 @@
         {% endif %}
 
         <!-- MANUAL -->
-        <label class="flex items-start gap-3 p-3 rounded-lg border-2 cursor-pointer transition-colors"
-               :class="targetType === 'MANUAL' ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-gray-200'">
-          <input type="radio" value="MANUAL" x-model="targetType" class="sr-only">
-          <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
-               :class="targetType === 'MANUAL' ? 'border-purple-500 bg-purple-500' : 'border-gray-300'">
-            <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'MANUAL'"></div>
-          </div>
-          <div class="flex-1">
-            <div class="text-sm font-medium text-gray-900">Sélection manuelle</div>
-            <div class="text-xs text-gray-500 mb-2">Choisir des membres spécifiques</div>
-            <div x-show="targetType === 'MANUAL'" x-cloak
-                 x-data="{
-                   updateIds() {
-                     const ids = [...document.querySelectorAll('.manual-cb:checked')].map(c=>c.value).join(',');
-                     document.getElementById('manual_ids').value = ids;
-                   }
-                 }"
-                 x-init="updateIds()">
-              <div class="space-y-0.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
-                {% for m in all_members %}
-                <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-purple-50 px-1.5 py-1 rounded">
-                  <input type="checkbox" class="manual-cb rounded border-gray-300 text-purple-500"
-                         value="{{ m.id }}" @change="updateIds()"
-                         {% if preselect_member_id and m.id == preselect_member_id %}checked{% endif %}>
-                  <span class="font-medium text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
-                  <span class="text-gray-400 ml-auto">{{ m.masonic_grade.value }}</span>
-                </label>
-                {% endfor %}
-              </div>
-              <input type="hidden" name="target_member_ids" id="manual_ids">
+        <div class="rounded-lg border-2 transition-colors"
+             :class="targetType === 'MANUAL' ? 'border-purple-400 bg-purple-50' : 'border-gray-100 hover:border-gray-200'">
+          <label class="flex items-start gap-3 p-3 cursor-pointer">
+            <input type="radio" value="MANUAL" x-model="targetType" class="sr-only">
+            <div class="w-4 h-4 rounded-full border-2 flex items-center justify-center flex-shrink-0 mt-0.5"
+                 :class="targetType === 'MANUAL' ? 'border-purple-500 bg-purple-500' : 'border-gray-300'">
+              <div class="w-1.5 h-1.5 rounded-full bg-white" x-show="targetType === 'MANUAL'"></div>
             </div>
+            <div class="flex-1">
+              <div class="text-sm font-medium text-gray-900">Sélection manuelle</div>
+              <div class="text-xs text-gray-500" :class="targetType === 'MANUAL' ? 'mb-2' : ''">Choisir des membres spécifiques</div>
+            </div>
+          </label>
+          <!-- Cases hors du <label> ci-dessus : un <label> ne doit envelopper
+               qu'un seul contrôle (ici le radio "MANUAL"), sinon certains
+               navigateurs empêchent de cocher plusieurs cases imbriquées. -->
+          <div x-show="targetType === 'MANUAL'" x-cloak class="px-3 pb-3 pl-10"
+               x-data="{
+                 updateIds() {
+                   const ids = [...document.querySelectorAll('.manual-cb:checked')].map(c=>c.value).join(',');
+                   document.getElementById('manual_ids').value = ids;
+                 }
+               }"
+               x-init="updateIds()">
+            <div class="space-y-0.5 max-h-48 overflow-y-auto border border-gray-200 rounded-lg p-2">
+              {% for m in all_members %}
+              <label class="flex items-center gap-2 text-xs cursor-pointer hover:bg-purple-50 px-1.5 py-1 rounded">
+                <input type="checkbox" class="manual-cb rounded border-gray-300 text-purple-500"
+                       value="{{ m.id }}" @change="updateIds()"
+                       {% if preselect_member_id and m.id == preselect_member_id %}checked{% endif %}>
+                <span class="font-medium text-gray-800">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
+                <span class="text-gray-400 ml-auto">{{ m.masonic_grade.value }}</span>
+              </label>
+              {% endfor %}
+            </div>
+            <input type="hidden" name="target_member_ids" id="manual_ids">
           </div>
-        </label>
+        </div>
 
       </div>
     </div>
