@@ -488,7 +488,7 @@ async def send_message(
     body: Annotated[str, Form()],
     target_type: Annotated[str, Form()],
     target_grade: Annotated[Optional[str], Form()] = None,
-    target_functions: Annotated[Optional[List[str]], Form()] = None,
+    target_functions: Annotated[Optional[Union[List[str], str]], Form()] = None,
     target_group_id: Annotated[Optional[int], Form()] = None,
     target_member_ids: Annotated[Optional[str], Form()] = None,
     parent_id: Annotated[Optional[int], Form()] = None,
@@ -509,12 +509,21 @@ async def send_message(
     else:
         attachment_list = [attachments]
 
+    # Même remarque pour les cases à cocher "target_functions" : un seul
+    # champ coché envoie une valeur scalaire au lieu d'une liste à un élément.
+    if target_functions is None:
+        target_functions_list: List[str] = []
+    elif isinstance(target_functions, list):
+        target_functions_list = target_functions
+    else:
+        target_functions_list = [target_functions]
+
     # Construire le filtre JSON
     tf: dict = {}
     if target_type == MessageTargetType.GRADE:
         tf = {"grade": target_grade or "APPRENTI"}
     elif target_type == MessageTargetType.FUNCTION:
-        tf = {"functions": target_functions or []}
+        tf = {"functions": target_functions_list}
     elif target_type == MessageTargetType.GROUP:
         tf = {"group_id": target_group_id}
     elif target_type == MessageTargetType.MANUAL:
