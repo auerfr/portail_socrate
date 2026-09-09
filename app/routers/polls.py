@@ -141,6 +141,21 @@ def _can_manage(member: Member, is_admin: bool) -> bool:
     return True  # Tous les membres actifs peuvent créer un sondage
 
 
+async def _eligible_members(poll: Poll, db: AsyncSession) -> list[Member]:
+    """Membres actifs concernés par ce sondage (même ciblage que _can_access,
+    sans le contournement admin) — sert à savoir qui relancer."""
+    r = await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE)
+        .order_by(Member.last_name, Member.first_name)
+    )
+    members = r.scalars().all()
+    eligible = []
+    for m in members:
+        if await _can_access(poll, m, False, db):
+            eligible.append(m)
+    return eligible
+
+
 def _is_open(poll: Poll) -> bool:
     if poll.ends_at and poll.ends_at < datetime.now():
         return False
@@ -335,6 +350,12 @@ async def polls_create(
 async def _compute_results(poll: Poll, my_option_ids: set, db: AsyncSession) -> tuple[list, int]:
     """Calcule les résultats d'un sondage (CHOICE ou RANKING), factorisé pour
     être partagé entre l'affichage web et l'export PDF."""
+    # Nombre de VOTANTS (member_id distincts), pas de lignes PollVote — un
+    # même votant peut créer plusieurs lignes (choix multiples, classement :
+    # une ligne par option classée). member_id est toujours renseigné, même
+    # pour un sondage anonyme (cf. poll_vote) — seul l'affichage par option
+    # respecte l'anonymat (voir plus bas).
+    total_votes = len({v.member_id for v in poll.votes if v.member_id is not None})
     if poll.vote_type == "RANKING":
         n_options = len(poll.options)
         results = []
@@ -362,17 +383,7 @@ async def _compute_results(poll: Poll, my_option_ids: set, db: AsyncSession) -> 
         for i, r in enumerate(results):
             r["is_winner"] = i < n_winners and r["avg"] is not None
             r["rank"] = i + 1
-        total_votes = max((r["count"] for r in results), default=0)
     else:
-        # Pour un choix multiple (SCHEDULE ou CHOICE "choix multiples"), un
-        # même votant peut créer plusieurs lignes PollVote — le nombre de
-        # votants est donc le nombre de member_id DISTINCTS, pas le nombre
-        # brut de sélections (sinon "3 votes" peut en réalité être 2
-        # personnes ayant chacune coché plusieurs créneaux).
-        if poll.is_multiple and not poll.is_anonymous:
-            total_votes = len({v.member_id for v in poll.votes if v.member_id is not None})
-        else:
-            total_votes = len(poll.votes)
         results = []
         if poll.vote_type == "SCHEDULE":
             opts_sorted = sorted(poll.options, key=lambda o: o.slot_start or datetime.max)
@@ -436,6 +447,13 @@ async def poll_detail(
     else:
         vote_options = sorted(poll.options, key=lambda o: o.order_position)
 
+    # Pour un sondage RANKING : le propre classement du votant, dans SON
+    # ordre (1 = préférée en tête) — la vue résultats n'affiche que le rang
+    # moyen du groupe, pas le classement personnel de chacun.
+    my_ranking = []
+    if poll.vote_type == "RANKING" and my_ranks:
+        my_ranking = sorted(poll.options, key=lambda o: my_ranks.get(o.id, 999))
+
     schedule_conflicts = {}
     if poll.vote_type == "SCHEDULE":
         schedule_conflicts = await _check_schedule_conflicts(poll.options, db)
@@ -443,6 +461,20 @@ async def poll_detail(
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 
     is_creator = bool(member and poll.created_by_id == member.id)
+    can_manage_poll = _can_manage(member, user.is_admin)
+
+    # Qui a voté / qui relancer — indépendant de is_anonymous (qui ne protège
+    # que le CONTENU du vote, pas le fait d'avoir participé). Réservé au
+    # créateur du sondage et aux admins : can_manage est délibérément large
+    # (tout membre actif peut modifier/clôturer un sondage), mais exposer
+    # à tous "qui n'a pas encore voté" serait trop intrusif pour un simple
+    # outil de relance destiné à l'organisateur.
+    voted_members, not_voted_members = [], []
+    if is_creator or user.is_admin:
+        voter_ids = {v.member_id for v in poll.votes if v.member_id is not None}
+        eligible = await _eligible_members(poll, db)
+        voted_members = [m for m in eligible if m.id in voter_ids]
+        not_voted_members = [m for m in eligible if m.id not in voter_ids]
 
     return templates.TemplateResponse(request, "pages/polls/detail.html", {
         "current_member": member,
@@ -454,10 +486,13 @@ async def poll_detail(
         "has_voted": has_voted,
         "my_option_ids": my_option_ids,
         "my_ranks": my_ranks,
+        "my_ranking": my_ranking,
         "edit_mode": edit_mode,
         "schedule_conflicts": schedule_conflicts,
+        "voted_members": voted_members,
+        "not_voted_members": not_voted_members,
         "is_open": _is_open(poll),
-        "can_manage": _can_manage(member, user.is_admin),
+        "can_manage": can_manage_poll,
         "author": author,
         "is_creator": is_creator,
         "vote_error": request.query_params.get("error"),
@@ -589,7 +624,7 @@ async def poll_export_pdf(
     story = [Paragraph(poll.title, H1)]
     if poll.description:
         story.append(Paragraph(poll.description, META))
-    meta_bits = [f"{total_votes} vote(s)"]
+    meta_bits = [f"{total_votes} votant(s)"]
     if author:
         meta_bits.append(f"créé par {author.last_name or ''} {author.first_name or ''}".strip())
     meta_bits.append("clôturé" if not _is_open(poll) else "en cours")
