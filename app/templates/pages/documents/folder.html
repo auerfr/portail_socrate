@@ -583,7 +583,7 @@
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"/>
               </svg>
-              <span x-text="isEmbedOpen({{ doc.id }}) ? 'Fermer' : 'Écouter'"></span>
+              <span x-text="isEmbedOpen({{ doc.id }}) ? 'Fermer' : '{{ 'Regarder' if platform.kind == 'video' else 'Écouter' }}'"></span>
             </button>
             {% endif %}
 
@@ -690,11 +690,13 @@
         <div x-show="isEmbedOpen({{ doc.id }})" x-cloak class="px-5 pb-4 bg-gray-50">
           <iframe src="{{ platform.embed_url }}"
                   width="100%"
-                  {% if platform.name in ('SoundCloud', 'YouTube Music') %}height="200"
+                  {% if platform.kind == 'video' %}style="aspect-ratio:16/9;" height="315"
+                  {% elif platform.name in ('SoundCloud', 'YouTube Music') %}height="200"
                   {% elif platform.name == 'Apple Music' %}height="175"
                   {% else %}height="152"{% endif %}
                   frameborder="0"
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  allowfullscreen
                   allowtransparency="true"
                   loading="lazy"
                   class="rounded-xl w-full">
@@ -731,7 +733,7 @@
 
         <!-- Miniature / aperçu haut de carte -->
         {% if is_link and platform %}
-        <!-- Carte plateforme musicale -->
+        <!-- Carte plateforme (audio/vidéo) -->
         <div class="h-28 flex flex-col items-center justify-center gap-2 flex-shrink-0"
              style="background:{{ platform.bg }};">
           <svg class="w-10 h-10" fill="currentColor" viewBox="0 0 24 24"
@@ -807,7 +809,7 @@
             <button @click="toggleEmbed({{ doc.id }})"
                     class="w-full text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
                     style="color:{{ platform.color }};background:{{ platform.bg }};">
-              <span x-text="isEmbedOpen({{ doc.id }}) ? '▾ Fermer le lecteur' : '♫ Écouter'"></span>
+              <span x-text="isEmbedOpen({{ doc.id }}) ? '▾ Fermer le lecteur' : '{{ '▸ Regarder' if platform.kind == 'video' else '♫ Écouter' }}'"></span>
             </button>
             {% endif %}
             {% if ext == 'pdf' or is_image %}
@@ -858,11 +860,13 @@
         <div x-show="isEmbedOpen({{ doc.id }})" x-cloak class="px-2 pb-2">
           <iframe src="{{ platform.embed_url }}"
                   width="100%"
-                  {% if platform.name in ('SoundCloud', 'YouTube Music') %}height="200"
+                  {% if platform.kind == 'video' %}style="aspect-ratio:16/9;" height="215"
+                  {% elif platform.name in ('SoundCloud', 'YouTube Music') %}height="200"
                   {% elif platform.name == 'Apple Music' %}height="175"
                   {% else %}height="152"{% endif %}
                   frameborder="0"
                   allow="autoplay; clipboard-write; encrypted-media; fullscreen; picture-in-picture"
+                  allowfullscreen
                   allowtransparency="true"
                   loading="lazy"
                   class="rounded-lg w-full">
@@ -903,7 +907,7 @@
           <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>
           </svg>
-          Lien musical
+          Ajouter un lien
         </button>
       </div>
 
@@ -973,22 +977,22 @@
         </form>
       </div>
 
-      <!-- Panneau : Ajouter un lien musical -->
+      <!-- Panneau : Ajouter un lien -->
       <div x-show="tab==='link'" x-cloak>
         <form method="post" action="/documents/folder/{{ folder.id }}/add-link" class="space-y-2.5">
 
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">Nom du lien *</label>
-            <input name="name" required placeholder="ex : Playlist Ouverture des travaux"
+            <input name="name" required placeholder="ex : Playlist Ouverture des travaux, vidéo de la tenue…"
                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent">
           </div>
 
           <div>
             <label class="block text-xs font-medium text-gray-600 mb-1">URL *</label>
             <input name="url" type="url" required
-                   placeholder="https://open.spotify.com/… ou https://music.apple.com/…"
+                   placeholder="https://youtube.com/… , https://open.spotify.com/… ou tout autre lien"
                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-xs focus:ring-2 focus:ring-loge-500 focus:border-transparent">
-            <p class="mt-0.5 text-xs text-gray-400">Compatible Spotify, Apple Music, Deezer, YouTube Music, SoundCloud, Tidal…</p>
+            <p class="mt-0.5 text-xs text-gray-400">Aperçu automatique pour YouTube, Vimeo, Dailymotion, Spotify, Apple Music, Deezer, SoundCloud, Tidal — tout autre lien est accepté aussi.</p>
           </div>
 
           <div>

@@ -657,16 +657,21 @@ def _detect_platform(url: str) -> dict:
     url_lower = url.lower()
     parsed   = urlparse(url)
 
+    # Icône générique "lecture" (Heroicons play-circle) — utilisée pour les
+    # plateformes vidéo dont on ne trace pas de logo de marque dédié.
+    _play_icon = ('<path fill-rule="evenodd" clip-rule="evenodd" d="M12 21a9 9 0 100-18 9 9 0 000 18zm-1.72-13.28a.75.75 0 '
+                  '00-1.28.53v7.5a.75.75 0 001.28.53l3.75-3.75a.75.75 0 000-1.06l-3.75-3.75z"/>')
+
     if "spotify.com" in url_lower:
         embed_url = f"https://open.spotify.com/embed{parsed.path}"
-        return {"name": "Spotify", "color": "#1db954", "bg": "#f0fdf4",
+        return {"name": "Spotify", "color": "#1db954", "bg": "#f0fdf4", "kind": "audio",
                 "embed_url": embed_url,
                 "icon": '<path d="M12 2C6.477 2 2 6.477 2 12s4.477 10 10 10 10-4.477 10-10S17.523 2 12 2zm4.586 14.424a.622.622 0 01-.857.207c-2.348-1.435-5.304-1.76-8.785-.964a.622.622 0 01-.277-1.215c3.809-.87 7.076-.496 9.712 1.115a.622.622 0 01.207.857zm1.223-2.722a.779.779 0 01-1.072.257c-2.687-1.652-6.786-2.131-9.965-1.166a.779.779 0 01-.457-1.489c3.633-1.118 8.147-.576 11.238 1.327a.779.779 0 01.256 1.071zm.105-2.835C14.692 8.95 9.375 8.775 6.297 9.71a.935.935 0 11-.543-1.79c3.532-1.072 9.404-.865 13.115 1.338a.935.935 0 01-.954 1.609z"/>'}
 
     if "music.apple.com" in url_lower or "itunes.apple.com" in url_lower:
         embed_url = url.replace("music.apple.com", "embed.music.apple.com") \
                        .replace("itunes.apple.com", "embed.music.apple.com")
-        return {"name": "Apple Music", "color": "#fc3c44", "bg": "#fff1f2",
+        return {"name": "Apple Music", "color": "#fc3c44", "bg": "#fff1f2", "kind": "audio",
                 "embed_url": embed_url,
                 "icon": '<path d="M23 7.286V16.5c0 2.485-2.015 4.5-4.5 4.5S14 18.985 14 16.5s2.015-4.5 4.5-4.5c.537 0 1.053.094 1.5.267V9.686l-9 2.25V19.5c0 2.485-2.015 4.5-4.5 4.5S2 21.985 2 19.5 4.015 15 6.5 15c.537 0 1.053.094 1.5.267V7.5L23 4.286v3z"/>'}
 
@@ -677,20 +682,69 @@ def _detect_platform(url: str) -> dict:
             if p in ("playlist", "album", "track", "artist") and i + 1 < len(parts):
                 embed_url = f"https://widget.deezer.com/widget/dark/{p}/{parts[i + 1]}"
                 break
-        return {"name": "Deezer", "color": "#a238ff", "bg": "#faf5ff",
+        return {"name": "Deezer", "color": "#a238ff", "bg": "#faf5ff", "kind": "audio",
                 "embed_url": embed_url,
                 "icon": '<path d="M18.944 20.79v1.29H24v-1.29h-5.056zM12.012 20.79v1.29h5.057v-1.29h-5.057zM5.057 20.79v1.29h5.055v-1.29H5.057zM0 20.79v1.29h4.334v-1.29H0zm18.944-2.79v1.29H24V18h-5.056zm-6.932 0v1.29h5.057V18h-5.057zm-6.955 0v1.29h5.055V18H5.057zm13.887-2.79v1.29H24v-1.29h-5.056zm-6.932 0v1.29h5.057v-1.29h-5.057zM18.944 12.42v1.29H24v-1.29h-5.056zm-6.932 0v1.29h5.057v-1.29h-5.057zM18.944 9.63V10.92H24V9.63h-5.056zm-6.932 0V10.92h5.057V9.63h-5.057zM18.944 6.84V8.13H24V6.84h-5.056zM18.944 4.05V5.34H24V4.05h-5.056zM18.944 1.26V2.55H24V1.26h-5.056z"/>'}
 
-    if "music.youtube.com" in url_lower or ("youtube.com" in url_lower and ("watch" in url_lower or "playlist" in url_lower)):
+    # YouTube Music (music.youtube.com) — distinct du YouTube "vidéo" ci-dessous,
+    # doit être vérifié en premier car music.youtube.com contient "youtube.com".
+    if "music.youtube.com" in url_lower:
         qs = parse_qs(parsed.query)
         embed_url = None
         if "v" in qs:
             embed_url = f"https://www.youtube.com/embed/{qs['v'][0]}"
         elif "list" in qs:
             embed_url = f"https://www.youtube.com/embed/videoseries?list={qs['list'][0]}"
-        return {"name": "YouTube Music", "color": "#ff0000", "bg": "#fff1f2",
+        return {"name": "YouTube Music", "color": "#ff0000", "bg": "#fff1f2", "kind": "audio",
                 "embed_url": embed_url,
                 "icon": '<path d="M21.582 6.186a2.506 2.506 0 00-1.768-1.768C18.254 4 12 4 12 4s-6.254 0-7.814.418c-.86.23-1.538.908-1.768 1.768C2 7.746 2 12 2 12s0 4.254.418 5.814c.23.86.908 1.538 1.768 1.768C5.746 20 12 20 12 20s6.254 0 7.814-.418a2.506 2.506 0 001.768-1.768C22 16.254 22 12 22 12s0-4.254-.418-5.814zM10 15.464V8.536L15.818 12 10 15.464z"/>'}
+
+    # YouTube (vidéo) — youtube.com/watch, /shorts/, /playlist, ou lien court youtu.be
+    if "youtube.com" in url_lower or "youtu.be" in url_lower:
+        video_id = None
+        if "youtu.be" in url_lower:
+            video_id = (parsed.path.strip("/").split("/") or [None])[0] or None
+        elif "/shorts/" in parsed.path:
+            parts = [p for p in parsed.path.split("/") if p]
+            if "shorts" in parts:
+                idx = parts.index("shorts")
+                if idx + 1 < len(parts):
+                    video_id = parts[idx + 1]
+        else:
+            qs = parse_qs(parsed.query)
+            if "v" in qs:
+                video_id = qs["v"][0]
+        embed_url = None
+        if video_id:
+            embed_url = f"https://www.youtube.com/embed/{video_id}"
+        else:
+            qs = parse_qs(parsed.query)
+            if "list" in qs:
+                embed_url = f"https://www.youtube.com/embed/videoseries?list={qs['list'][0]}"
+        return {"name": "YouTube", "color": "#ff0000", "bg": "#fff1f2", "kind": "video",
+                "embed_url": embed_url,
+                "icon": '<path d="M21.582 6.186a2.506 2.506 0 00-1.768-1.768C18.254 4 12 4 12 4s-6.254 0-7.814.418c-.86.23-1.538.908-1.768 1.768C2 7.746 2 12 2 12s0 4.254.418 5.814c.23.86.908 1.538 1.768 1.768C5.746 20 12 20 12 20s6.254 0 7.814-.418a2.506 2.506 0 001.768-1.768C22 16.254 22 12 22 12s0-4.254-.418-5.814zM10 15.464V8.536L15.818 12 10 15.464z"/>'}
+
+    if "vimeo.com" in url_lower:
+        parts = [p for p in parsed.path.split("/") if p]
+        video_id = next((p for p in parts if p.isdigit()), None)
+        embed_url = f"https://player.vimeo.com/video/{video_id}" if video_id else None
+        return {"name": "Vimeo", "color": "#1ab7ea", "bg": "#eff9ff", "kind": "video",
+                "embed_url": embed_url, "icon": _play_icon}
+
+    if "dailymotion.com" in url_lower or "dai.ly" in url_lower:
+        video_id = None
+        if "dai.ly" in url_lower:
+            video_id = (parsed.path.strip("/").split("/") or [None])[0] or None
+        else:
+            parts = [p for p in parsed.path.split("/") if p]
+            if "video" in parts:
+                idx = parts.index("video")
+                if idx + 1 < len(parts):
+                    video_id = parts[idx + 1].split("_")[0]
+        embed_url = f"https://www.dailymotion.com/embed/video/{video_id}" if video_id else None
+        return {"name": "Dailymotion", "color": "#0d0d0d", "bg": "#f4f4f5", "kind": "video",
+                "embed_url": embed_url, "icon": _play_icon}
 
     if "soundcloud.com" in url_lower:
         encoded   = urlquote(url, safe="")
@@ -699,17 +753,17 @@ def _detect_platform(url: str) -> dict:
             "&color=%23ff5500&auto_play=false&hide_related=false"
             "&show_comments=false&show_user=true&show_reposts=false&visual=true"
         )
-        return {"name": "SoundCloud", "color": "#ff5500", "bg": "#fff7ed",
+        return {"name": "SoundCloud", "color": "#ff5500", "bg": "#fff7ed", "kind": "audio",
                 "embed_url": embed_url,
                 "icon": '<path d="M1.175 12.225c-.066 0-.12.044-.13.11l-.245 2.154.245 2.105c.01.067.064.11.13.11.065 0 .12-.043.13-.11l.278-2.105-.278-2.154c-.01-.066-.065-.11-.13-.11zm.97-.403c-.08 0-.145.056-.155.132l-.215 2.557.215 2.476c.01.076.075.132.155.132.08 0 .146-.056.157-.132l.24-2.476-.24-2.557c-.011-.076-.076-.132-.157-.132zm.99-.243c-.095 0-.172.067-.182.16l-.185 2.8.185 2.685c.01.093.087.16.182.16.094 0 .172-.067.183-.16l.21-2.685-.21-2.8c-.011-.093-.089-.16-.183-.16zm1-.105c-.11 0-.2.08-.21.185l-.157 2.905.157 2.81c.01.105.1.186.21.186.11 0 .2-.08.21-.185l.18-2.81-.18-2.905c-.01-.105-.1-.186-.21-.186zm.99.04c-.12 0-.22.09-.23.208l-.13 2.865.13 2.77c.01.118.11.21.23.21.12 0 .22-.092.23-.21l.145-2.77-.145-2.865c-.01-.118-.11-.21-.23-.21zm1.01-.19c-.136 0-.247.102-.258.234l-.103 2.824.103 2.726c.011.133.122.234.258.234.136 0 .246-.1.258-.234l.117-2.726-.117-2.824c-.012-.132-.122-.234-.258-.234zm1.01-.07c-.15 0-.272.113-.28.26l-.078 2.762.078 2.64c.008.147.13.26.28.26.15 0 .27-.113.28-.26l.088-2.64-.088-2.762c-.01-.147-.13-.26-.28-.26zm1.01.04c-.164 0-.297.124-.308.285l-.05 2.682.05 2.55c.01.16.144.285.308.285.163 0 .296-.124.308-.285l.056-2.55-.056-2.682c-.012-.16-.145-.285-.308-.285zm3.96-2.22c-.08-.027-.163-.04-.247-.04-.415 0-.777.234-.964.578C11.67 9.28 11.58 9.7 11.58 10.14v5.77c0 .177.146.32.324.322h3.674c.476 0 .862-.386.862-.862V11.94c0-.476-.386-.862-.862-.862-.144 0-.28.036-.4.1-.093-.67-.668-1.186-1.36-1.186-.232 0-.45.062-.64.17z"/>'}
 
     if "tidal.com" in url_lower:
-        return {"name": "Tidal", "color": "#000000", "bg": "#f9fafb",
+        return {"name": "Tidal", "color": "#000000", "bg": "#f9fafb", "kind": "audio",
                 "embed_url": None,
                 "icon": '<path d="M12.012 3.992L8.008 7.996 4.004 3.992 0 7.996l4.004 4.004 4.004-4.004 4.004 4.004 4.004-4.004zM8.008 12l-4.004 4.004 4.004 4.004 4.004-4.004z"/>'}
 
     # Lien générique
-    return {"name": "Lien", "color": "#6366f1", "bg": "#f0f0ff",
+    return {"name": "Lien", "color": "#6366f1", "bg": "#f0f0ff", "kind": None,
             "embed_url": None,
             "icon": '<path stroke-linecap="round" stroke-linejoin="round" d="M13.19 8.688a4.5 4.5 0 011.242 7.244l-4.5 4.5a4.5 4.5 0 01-6.364-6.364l1.757-1.757m13.35-.622l1.757-1.757a4.5 4.5 0 00-6.364-6.364l-4.5 4.5a4.5 4.5 0 001.242 7.244"/>'}
 
