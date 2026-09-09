@@ -342,13 +342,23 @@ function copyPollLink(pollId, pollTitle) {
   }
 })();
 function _fallbackCopy(text) {
-  var ta = document.createElement('textarea');
-  ta.value = text;
-  ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
-  document.body.appendChild(ta);
-  ta.focus(); ta.select();
-  try { document.execCommand('copy'); showPollToast(); } catch(e) {}
-  document.body.removeChild(ta);
+  var ok = false;
+  try {
+    var ta = document.createElement('textarea');
+    ta.value = text;
+    ta.style.cssText = 'position:fixed;opacity:0;top:0;left:0';
+    document.body.appendChild(ta);
+    ta.focus(); ta.select();
+    ok = document.execCommand('copy');
+    document.body.removeChild(ta);
+  } catch (e) { ok = false; }
+  if (ok) {
+    showPollToast();
+  } else {
+    // Dernier recours — fonctionne toujours, même sans permission presse-papiers
+    // (fréquent sur PWA installée / navigateur mobile) : l'utilisateur copie à la main.
+    window.prompt('Copiez ce lien (Ctrl+C / Cmd+C) :', text);
+  }
 }
 function showPollToast() {
   var t = document.getElementById('poll-toast');
