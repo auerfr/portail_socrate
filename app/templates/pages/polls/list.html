@@ -126,6 +126,25 @@
   Lien copié — colle-le dans le chat ou un message
 </div>
 
+<!-- Fenêtre de partage manuel — dernier recours quand la copie automatique
+     échoue (fréquent en PWA installée sur iOS, où alert/confirm/prompt sont
+     aussi silencieusement ignorées). Contrairement à ces API natives, une
+     fenêtre dans la page fonctionne toujours. -->
+<div id="poll-share-modal" class="hidden fixed inset-0 z-50 flex items-center justify-center p-4" style="background:rgba(17,24,39,0.5);">
+  <div class="bg-white rounded-2xl shadow-xl max-w-sm w-full p-5">
+    <p class="text-sm font-semibold text-gray-800 mb-1">Partager ce sondage</p>
+    <p class="text-xs text-gray-400 mb-3">Copie automatique indisponible — sélectionnez le texte ci-dessous et copiez-le (appui long → Copier).</p>
+    <textarea id="poll-share-text" readonly rows="3" onclick="this.focus();this.select();"
+              class="w-full text-sm border border-gray-200 rounded-xl px-3 py-2 mb-3 resize-none focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+    <div class="flex gap-2">
+      <button type="button" onclick="document.getElementById('poll-share-modal').classList.add('hidden')"
+              class="flex-1 border border-gray-200 text-gray-600 text-sm font-medium py-2 rounded-xl">Fermer</button>
+      <button type="button" id="poll-share-copy-btn"
+              class="flex-1 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium py-2 rounded-xl">Copier</button>
+    </div>
+  </div>
+</div>
+
 <script>
 function copyPollLink(pollId, pollTitle) {
   var url = window.location.origin + '/polls/' + pollId;
@@ -136,6 +155,21 @@ function copyPollLink(pollId, pollTitle) {
     _fallbackCopy(text);
   }
 }
+(function () {
+  var copyBtn = document.getElementById('poll-share-copy-btn');
+  if (copyBtn) {
+    copyBtn.addEventListener('click', function () {
+      var ta = document.getElementById('poll-share-text');
+      ta.focus(); ta.select();
+      var ok = false;
+      try { ok = document.execCommand('copy'); } catch (e) { ok = false; }
+      if (ok) {
+        document.getElementById('poll-share-modal').classList.add('hidden');
+        showPollToast();
+      }
+    });
+  }
+})();
 function _fallbackCopy(text) {
   var ok = false;
   try {
@@ -150,9 +184,13 @@ function _fallbackCopy(text) {
   if (ok) {
     showPollToast();
   } else {
-    // Dernier recours — fonctionne toujours, même sans permission presse-papiers
-    // (fréquent sur PWA installée / navigateur mobile) : l'utilisateur copie à la main.
-    window.prompt('Copiez ce lien (Ctrl+C / Cmd+C) :', text);
+    var modal = document.getElementById('poll-share-modal');
+    var ta2 = document.getElementById('poll-share-text');
+    if (modal && ta2) {
+      ta2.value = text;
+      modal.classList.remove('hidden');
+      setTimeout(function () { ta2.focus(); ta2.select(); }, 50);
+    }
   }
 }
 function showPollToast() {
