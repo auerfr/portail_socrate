@@ -259,6 +259,7 @@ async def _unread_count(db: AsyncSession, member_id: int) -> int:
         .where(
             MessageRecipient.member_id == member_id,
             MessageRecipient.read_at.is_(None),
+            MessageRecipient.deleted_at.is_(None),
             Message.sent_at.isnot(None),
         )
     )
