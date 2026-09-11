@@ -467,6 +467,17 @@ async def documents_folder(
     # Infos plateforme pour les liens externes
     platforms = {doc.id: _detect_platform(doc.link_url) for doc in documents if doc.link_url}
 
+    # Date de purge automatique prévue par fichier (si le dossier a une
+    # politique de rétention active) — affichée en clair sur chaque fichier
+    # pour que ce soit visible de tous, pas seulement lu dans le réglage.
+    purge_dates: dict[int, datetime] = {}
+    if folder.auto_delete_after_days:
+        from datetime import timedelta
+        delta = timedelta(days=folder.auto_delete_after_days)
+        for d in documents:
+            if d.created_at:
+                purge_dates[d.id] = d.created_at + delta
+
     # Arbre complet des dossiers pour la modale "Déplacer"
     all_spaces_r = await db.execute(select(DocSpace).order_by(DocSpace.order_position, DocSpace.name))
     all_folders_r = await db.execute(select(DocFolder).order_by(DocFolder.space_id, DocFolder.order_position, DocFolder.name))
@@ -533,6 +544,7 @@ async def documents_folder(
         "planche_entries_summary": planche_entries_summary,
         "delegates": delegates,
         "active_members_for_delegate": active_members_for_delegate,
+        "purge_dates": purge_dates,
     })
 
 

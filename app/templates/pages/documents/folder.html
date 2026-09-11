@@ -580,6 +580,12 @@
               {% if doc.download_count %}
               <span>·</span><span>{{ doc.download_count }}×</span>
               {% endif %}
+              {% if doc.id in purge_dates %}
+              <span>·</span>
+              <span class="text-orange-500" title="Passera automatiquement à la Corbeille à cette date (suppression définitive quelques jours après, sauf restauration)">
+                <i class="ti ti-clock-x"></i> supprimé le {{ purge_dates[doc.id].strftime('%d/%m/%Y') }}
+              </span>
+              {% endif %}
             </div>
           </div><!-- fin info -->
           </div><!-- fin row1 icon+info -->
@@ -835,6 +841,12 @@
               {% if doc.file_size > 1048576 %}{{ "%.1f"|format(doc.file_size / 1048576) }} Mo
               {% elif doc.file_size > 1024 %}{{ (doc.file_size // 1024) }} Ko
               {% else %}{{ doc.file_size }} o{% endif %}
+            </div>
+            {% endif %}
+            {% if doc.id in purge_dates %}
+            <div class="text-xs text-orange-500 mt-0.5"
+                 title="Passera automatiquement à la Corbeille à cette date (suppression définitive quelques jours après, sauf restauration)">
+              <i class="ti ti-clock-x"></i> supprimé le {{ purge_dates[doc.id].strftime('%d/%m/%Y') }}
             </div>
             {% endif %}
           </div>
