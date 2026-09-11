@@ -148,6 +148,10 @@ async def lifespan(app: FastAPI):
     from app.services.projects_reminders import daily_task_reminder_loop
     _task_reminder_task = asyncio.ensure_future(daily_task_reminder_loop())
 
+    # ── Bibliothèque : suppression automatique des fichiers par dossier ──────
+    from app.services.doc_retention import daily_retention_loop
+    _doc_retention_task = asyncio.ensure_future(daily_retention_loop())
+
     # ── Rappels J-3 avant clôture de l'appel à tranche ───────────────────────
     from app.services.contribution_reminders import daily_contribution_reminder_loop
     _contrib_reminder_task = asyncio.ensure_future(daily_contribution_reminder_loop())

@@ -98,6 +98,12 @@ class DocFolder(Base):
         Enum(MinGrade), default=MinGrade.ALL
     )
 
+    # Suppression automatique (ex : dossier "Harmonie" où les MP3 déposés
+    # n'ont pas vocation à rester indéfiniment). None = désactivée. Les
+    # fichiers passent d'abord à la Corbeille, purge définitive après un
+    # délai de grâce fixe (RETENTION_GRACE_DAYS, cf. services/doc_retention.py).
+    auto_delete_after_days: Mapped[Optional[int]] = mapped_column(Integer, nullable=True)
+
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -163,6 +169,11 @@ class Document(Base):
         DateTime, server_default=func.now(), onupdate=func.now()
     )
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Mis à True quand la Corbeille a été déclenchée par la politique de
+    # suppression automatique du dossier (DocFolder.auto_delete_after_days),
+    # jamais par un clic manuel — sert à distinguer ce qui peut être purgé
+    # définitivement tout seul de ce qu'un admin a mis en Corbeille lui-même.
+    auto_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
     folder: Mapped["DocFolder"]                 = relationship(back_populates="documents")
     versions: Mapped[list["DocumentVersion"]]   = relationship(back_populates="document")

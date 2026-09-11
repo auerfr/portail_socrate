@@ -1,4 +1,5 @@
 """Router — Bibliothèque documentaire (GED)"""
+import re
 import uuid
 from datetime import datetime
 from pathlib import Path
@@ -37,7 +38,9 @@ ALLOWED_EXTENSIONS = {
     ".jpg", ".jpeg", ".png", ".gif", ".webp",
     ".txt", ".csv", ".rtf",
     ".zip", ".7z",
+    ".mp3", ".wav", ".m4a", ".ogg",
 }
+AUDIO_EXTENSIONS = {".mp3", ".wav", ".m4a", ".ogg"}
 
 _GRADE_ORDER = {
     MasonicGrade.APPRENTI:  1,
@@ -948,15 +951,34 @@ async def documents_download(
     )
 
 
-# ── Aperçu inline (Content-Disposition: inline — pour PDF et images) ─────────
+# ── Aperçu inline (Content-Disposition: inline — pour PDF, images, audio) ────
+# Gère les requêtes HTTP Range : indispensable pour qu'un lecteur <audio>
+# puisse démarrer instantanément et permettre de se déplacer dans le morceau
+# sans devoir re-télécharger le fichier depuis le début (Starlette's
+# FileResponse ne le fait pas nativement — implémentation manuelle ci-dessous).
+
+_PREVIEW_MIME_MAP = {
+    ".pdf": "application/pdf",
+    ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
+    ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
+    ".doc": "application/msword",
+    ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+    ".odt": "application/vnd.oasis.opendocument.text",
+    ".mp3": "audio/mpeg", ".wav": "audio/wav",
+    ".m4a": "audio/mp4", ".ogg": "audio/ogg",
+}
+_PREVIEW_CHUNK_SIZE = 256 * 1024  # 256 Ko
+
 
 @router.get("/file/{doc_id}/preview")
 async def documents_preview(
     doc_id: int,
+    request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    from fastapi.responses import Response as _Response
+    from fastapi.responses import StreamingResponse
+
     user, member = ctx
     doc = await _get_authorized_doc(doc_id, user, member, db)
 
@@ -967,18 +989,9 @@ async def documents_preview(
     if not path.exists():
         raise HTTPException(status_code=404, detail="Fichier introuvable sur le serveur")
 
-    # Auto-détecter le MIME type depuis l'extension si non défini
-    _MIME_MAP = {
-        ".pdf": "application/pdf",
-        ".jpg": "image/jpeg", ".jpeg": "image/jpeg",
-        ".png": "image/png", ".gif": "image/gif", ".webp": "image/webp",
-        ".doc": "application/msword",
-        ".docx": "application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        ".odt": "application/vnd.oasis.opendocument.text",
-    }
     ext = path.suffix.lower()
-    mime = doc.mime_type or _MIME_MAP.get(ext, "application/octet-stream")
-    content = path.read_bytes()
+    mime = doc.mime_type or _PREVIEW_MIME_MAP.get(ext, "application/octet-stream")
+    file_size = path.stat().st_size
 
     fname = doc.original_filename or "fichier"
     quoted = quote(fname)
@@ -990,11 +1003,45 @@ async def documents_preview(
     else:
         content_disposition = f'inline; filename="{fname}"'
 
-    return _Response(
-        content=content,
+    def _iter_range(start: int, end: int):
+        with open(path, "rb") as f:
+            f.seek(start)
+            remaining = end - start + 1
+            while remaining > 0:
+                data = f.read(min(_PREVIEW_CHUNK_SIZE, remaining))
+                if not data:
+                    break
+                remaining -= len(data)
+                yield data
+
+    range_header = request.headers.get("range")
+    if range_header:
+        range_match = re.match(r"bytes=(\d+)-(\d*)", range_header)
+        if range_match:
+            start = int(range_match.group(1))
+            end = int(range_match.group(2)) if range_match.group(2) else file_size - 1
+            end = min(end, file_size - 1)
+            if start <= end < file_size:
+                return StreamingResponse(
+                    _iter_range(start, end),
+                    status_code=206,
+                    media_type=mime,
+                    headers={
+                        "Content-Disposition": content_disposition,
+                        "Content-Range": f"bytes {start}-{end}/{file_size}",
+                        "Accept-Ranges": "bytes",
+                        "Content-Length": str(end - start + 1),
+                        "Cache-Control": "private, max-age=3600",
+                    },
+                )
+
+    return StreamingResponse(
+        _iter_range(0, file_size - 1),
         media_type=mime,
         headers={
             "Content-Disposition": content_disposition,
+            "Accept-Ranges": "bytes",
+            "Content-Length": str(file_size),
             "Cache-Control": "private, max-age=3600",
         },
     )
@@ -1258,6 +1305,7 @@ async def folder_edit_form(
         {"id": f.id, "name": f.name, "parent_id": f.parent_id, "space_id": f.space_id}
         for f in all_folders_r.scalars().all()
     ]
+    from app.services.doc_retention import RETENTION_GRACE_DAYS
     return templates.TemplateResponse(request, "pages/documents/folder_edit.html", {
         "current_member": member,
         "folder": folder,
@@ -1266,6 +1314,7 @@ async def folder_edit_form(
         "saved": request.query_params.get("saved"),
         "all_spaces": all_spaces_r.scalars().all(),
         "all_folders_flat": all_folders_flat,
+        "retention_grace_days": RETENTION_GRACE_DAYS,
     })
 
 
@@ -1286,6 +1335,8 @@ async def folder_edit_save(
     # Permissions écriture
     write_group_id: str = Form(""),
     write_min_grade: str = Form("ALL"),
+    # Suppression automatique
+    auto_delete_after_days: str = Form(""),
 ):
     folder = await db.get(DocFolder, folder_id)
     if not folder:
@@ -1300,6 +1351,9 @@ async def folder_edit_save(
     folder.download_group_id = int(download_group_id) if download_group_id.strip().isdigit() else None
     folder.write_group_id   = int(write_group_id) if write_group_id.strip().isdigit() else None
     folder.write_min_grade  = MinGrade(write_min_grade) if write_min_grade in MinGrade.__members__ else MinGrade.ALL
+    folder.auto_delete_after_days = (
+        int(auto_delete_after_days) if auto_delete_after_days.strip().isdigit() and int(auto_delete_after_days) > 0 else None
+    )
     # Déplacement optionnel via le sélecteur "move_to" (format "folder:42" ou "space:3")
     if move_to and ":" in move_to:
         target_type, target_id_str = move_to.split(":", 1)
@@ -1403,6 +1457,7 @@ async def document_restore(
     if not doc:
         raise HTTPException(status_code=404)
     doc.deleted_at = None
+    doc.auto_deleted = False
     await db.commit()
     return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
 
@@ -1748,6 +1803,7 @@ async def documents_bulk(
     elif action == "restore":
         for doc in docs:
             doc.deleted_at = None
+            doc.auto_deleted = False
         await db.commit()
         return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
 

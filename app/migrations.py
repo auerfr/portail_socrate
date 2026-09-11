@@ -1173,3 +1173,18 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE neighboring_lodges ADD COLUMN active BOOLEAN DEFAULT 1"
             )
 
+    # ── Bibliothèque : suppression automatique des fichiers par dossier ───────
+    async with engine.begin() as conn:
+        r_df2 = await conn.exec_driver_sql("PRAGMA table_info(doc_folders)")
+        cols_df2 = [row[1] for row in r_df2.fetchall()]
+        if cols_df2 and "auto_delete_after_days" not in cols_df2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN auto_delete_after_days INTEGER"
+            )
+        r_doc2 = await conn.exec_driver_sql("PRAGMA table_info(documents)")
+        cols_doc2 = [row[1] for row in r_doc2.fetchall()]
+        if cols_doc2 and "auto_deleted" not in cols_doc2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE documents ADD COLUMN auto_deleted BOOLEAN NOT NULL DEFAULT 0"
+            )
+

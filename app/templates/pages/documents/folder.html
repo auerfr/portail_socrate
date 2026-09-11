@@ -69,6 +69,12 @@
           <i class="ti ti-download"></i> Téléchargement restreint
         </span>
         {% endif %}
+        {% if folder.auto_delete_after_days %}
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-orange-50 text-orange-700 border border-orange-200"
+              title="Les fichiers déposés ici sont supprimés automatiquement après ce délai.">
+          <i class="ti ti-clock-x"></i> Suppression auto après {{ folder.auto_delete_after_days }} j
+        </span>
+        {% endif %}
       </h1>
       {% if folder.description %}
       <p class="text-sm text-gray-500 mt-0.5">{{ folder.description }}</p>
@@ -490,6 +496,7 @@
       {% set has_embed = platform and platform.embed_url %}
       {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if doc.original_filename and '.' in doc.original_filename else '' %}
       {% set is_image = ext in ['jpg','jpeg','png','gif','webp'] %}
+      {% set is_audio = (not is_link) and ext in ['mp3','wav','m4a','ogg'] %}
 
       <li class="group" :class="sel.has({{ doc.id }}) ? 'bg-loge-50' : ''">
 
@@ -520,6 +527,7 @@
             {% elif ext in ['doc','docx','odt'] %}bg-blue-100
             {% elif ext in ['xls','xlsx','ods'] %}bg-green-100
             {% elif ext in ['jpg','jpeg','png','gif','webp'] %}bg-purple-100
+            {% elif is_audio %}bg-pink-100
             {% else %}bg-gray-100{% endif %}">
             {% if ext == 'pdf' %}
             <svg class="w-4 h-4 text-red-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -528,6 +536,10 @@
             {% elif ext in ['jpg','jpeg','png','gif','webp'] %}
             <svg class="w-4 h-4 text-purple-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
               <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909m-18 3.75h16.5a1.5 1.5 0 001.5-1.5V6a1.5 1.5 0 00-1.5-1.5H3.75A1.5 1.5 0 002.25 6v12a1.5 1.5 0 001.5 1.5zm10.5-11.25h.008v.008h-.008V8.25zm.375 0a.375.375 0 11-.75 0 .375.375 0 01.75 0z"/>
+            </svg>
+            {% elif is_audio %}
+            <svg class="w-4 h-4 text-pink-600" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"/>
             </svg>
             {% else %}
             <svg class="w-4 h-4 text-gray-500" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -584,6 +596,15 @@
                 <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"/>
               </svg>
               <span x-text="isEmbedOpen({{ doc.id }}) ? 'Fermer' : '{{ 'Regarder' if platform.kind == 'video' else 'Écouter' }}'"></span>
+            </button>
+            {% elif is_audio %}
+            <!-- Bouton lecteur audio natif (fichier mp3/wav/m4a/ogg déposé) -->
+            <button @click="toggleEmbed({{ doc.id }})"
+                    class="flex items-center gap-1 text-xs font-medium px-2.5 py-1.5 rounded-lg text-pink-700 bg-pink-50 transition-colors">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"/>
+              </svg>
+              <span x-text="isEmbedOpen({{ doc.id }}) ? 'Fermer' : 'Écouter'"></span>
             </button>
             {% endif %}
 
@@ -702,6 +723,12 @@
                   class="rounded-xl w-full">
           </iframe>
         </div>
+        {% elif is_audio %}
+        <div x-show="isEmbedOpen({{ doc.id }})" x-cloak class="px-5 pb-4 bg-gray-50">
+          <audio controls preload="none" class="w-full" style="height:40px;">
+            <source src="/documents/file/{{ doc.id }}/preview" type="{{ 'audio/mpeg' if ext == 'mp3' else 'audio/' + ext }}">
+          </audio>
+        </div>
         {% endif %}
 
       </li>
@@ -717,6 +744,7 @@
       {% set has_embed = platform and platform.embed_url %}
       {% set ext = doc.original_filename.rsplit('.', 1)[-1].lower() if doc.original_filename and '.' in doc.original_filename else '' %}
       {% set is_image = ext in ['jpg','jpeg','png','gif','webp'] %}
+      {% set is_audio = (not is_link) and ext in ['mp3','wav','m4a','ogg'] %}
 
       <div class="group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-loge-300 hover:shadow-sm transition-all flex flex-col"
            :class="sel.has({{ doc.id }}) ? 'ring-2 ring-loge-500 border-loge-400' : ''">
@@ -777,6 +805,14 @@
           <span class="text-xs font-bold text-green-400 tracking-widest">{{ ext.upper() }}</span>
         </div>
 
+        {% elif is_audio %}
+        <div class="h-28 bg-pink-50 flex flex-col items-center justify-center gap-1 flex-shrink-0">
+          <svg class="w-9 h-9 text-pink-400" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M9 9l10.5-3m0 6.553v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 11-.99-3.467l2.31-.66a2.25 2.25 0 001.632-2.163zm0 0V2.25L9 5.25v10.303m0 0v3.75a2.25 2.25 0 01-1.632 2.163l-1.32.377a1.803 1.803 0 01-.99-3.467l2.31-.66A2.25 2.25 0 009 15.553z"/>
+          </svg>
+          <span class="text-xs font-bold text-pink-400 tracking-widest">{{ ext.upper() }}</span>
+        </div>
+
         {% else %}
         <!-- Fichier générique -->
         <div class="h-28 bg-gray-50 flex flex-col items-center justify-center gap-1 flex-shrink-0">
@@ -810,6 +846,11 @@
                     class="w-full text-center text-xs font-medium py-1.5 rounded-lg transition-colors"
                     style="color:{{ platform.color }};background:{{ platform.bg }};">
               <span x-text="isEmbedOpen({{ doc.id }}) ? '▾ Fermer le lecteur' : '{{ '▸ Regarder' if platform.kind == 'video' else '♫ Écouter' }}'"></span>
+            </button>
+            {% elif is_audio %}
+            <button @click="toggleEmbed({{ doc.id }})"
+                    class="w-full text-center text-xs font-medium py-1.5 rounded-lg text-pink-700 bg-pink-50 transition-colors">
+              <span x-text="isEmbedOpen({{ doc.id }}) ? '▾ Fermer le lecteur' : '♫ Écouter'"></span>
             </button>
             {% endif %}
             {% if ext == 'pdf' or is_image %}
@@ -871,6 +912,12 @@
                   loading="lazy"
                   class="rounded-lg w-full">
           </iframe>
+        </div>
+        {% elif is_audio %}
+        <div x-show="isEmbedOpen({{ doc.id }})" x-cloak class="px-2 pb-2">
+          <audio controls preload="none" class="w-full" style="height:36px;">
+            <source src="/documents/file/{{ doc.id }}/preview" type="{{ 'audio/mpeg' if ext == 'mp3' else 'audio/' + ext }}">
+          </audio>
         </div>
         {% endif %}
 
