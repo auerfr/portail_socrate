@@ -1188,3 +1188,59 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE documents ADD COLUMN auto_deleted BOOLEAN NOT NULL DEFAULT 0"
             )
 
+    # ── documents.created_at / updated_at : DEFAULT perdu lors d'une ancienne
+    # migration ────────────────────────────────────────────────────────────
+    # La migration qui a rendu original_filename nullable (plus haut dans ce
+    # fichier) a recréé la table "documents" sans reporter le
+    # DEFAULT (CURRENT_TIMESTAMP) de created_at/updated_at. Conséquence
+    # invisible pendant des mois : tout document créé depuis avait ces deux
+    # colonnes à NULL (server_default=func.now() côté SQLAlchemy ne fait
+    # qu'omettre la colonne de l'INSERT — encore faut-il que la colonne ait
+    # réellement un DEFAULT en base pour que SQLite la remplisse). On
+    # rebackfille d'abord les lignes déjà NULL, puis on recrée la table avec
+    # le schéma complet et les DEFAULT corrects (même schéma qu'aujourd'hui,
+    # id et toutes les valeurs existantes préservés).
+    async with engine.begin() as conn:
+        r_doc3 = await conn.exec_driver_sql("PRAGMA table_info(documents)")
+        doc_cols_info = r_doc3.fetchall()
+        created_col = next((row for row in doc_cols_info if row[1] == "created_at"), None)
+        if created_col and created_col[4] is None:  # dflt_value IS NULL → DEFAULT manquant
+            await conn.exec_driver_sql(
+                "UPDATE documents SET created_at = datetime('now') WHERE created_at IS NULL"
+            )
+            await conn.exec_driver_sql(
+                "UPDATE documents SET updated_at = datetime('now') WHERE updated_at IS NULL"
+            )
+            await conn.exec_driver_sql("""
+                CREATE TABLE documents_new3 (
+                    id INTEGER PRIMARY KEY,
+                    folder_id INTEGER NOT NULL REFERENCES doc_folders(id) ON DELETE CASCADE,
+                    name VARCHAR(300) NOT NULL,
+                    description TEXT,
+                    original_filename VARCHAR(300),
+                    mime_type VARCHAR(100),
+                    file_size INTEGER,
+                    storage_path VARCHAR(500),
+                    link_url VARCHAR(2000),
+                    download_count INTEGER NOT NULL DEFAULT 0,
+                    status VARCHAR(20) NOT NULL,
+                    author_id INTEGER REFERENCES members(id),
+                    validated_by_id INTEGER REFERENCES members(id),
+                    validated_at DATETIME,
+                    created_at DATETIME DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+                    updated_at DATETIME DEFAULT (CURRENT_TIMESTAMP) NOT NULL,
+                    deleted_at DATETIME,
+                    auto_deleted BOOLEAN NOT NULL DEFAULT 0
+                )
+            """)
+            await conn.exec_driver_sql(
+                "INSERT INTO documents_new3 (id, folder_id, name, description, original_filename, "
+                "mime_type, file_size, storage_path, link_url, download_count, status, author_id, "
+                "validated_by_id, validated_at, created_at, updated_at, deleted_at, auto_deleted) "
+                "SELECT id, folder_id, name, description, original_filename, mime_type, file_size, "
+                "storage_path, link_url, download_count, status, author_id, validated_by_id, "
+                "validated_at, created_at, updated_at, deleted_at, auto_deleted FROM documents"
+            )
+            await conn.exec_driver_sql("DROP TABLE documents")
+            await conn.exec_driver_sql("ALTER TABLE documents_new3 RENAME TO documents")
+
