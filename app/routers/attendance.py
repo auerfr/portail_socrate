@@ -59,14 +59,24 @@ async def attendance_dashboard(
 
     year_filter = (Meeting.masonic_year_id == selected_year.id) if selected_year else True
 
-    # ── Tenues passées (pour grille assiduité) ──────────────────────────────
-    past_r = await db.execute(
-        select(Meeting)
-        .where(year_filter, Meeting.meeting_date <= date.today())
-        .order_by(Meeting.meeting_date)
+    # ── Assiduité de la loge (tenues passées) — calcul partagé avec le widget
+    # "Loge cette année" du tableau de bord, pour qu'ils affichent toujours
+    # le même chiffre (grade de chaque tenue + fenêtre d'appartenance par
+    # membre + exclusion des comptes techniques admin).
+    from app.services.attendance_stats import compute_lodge_attendance
+    lodge_stats = await compute_lodge_attendance(db, selected_year)
+    past_meetings = lodge_stats.past_meetings
+    past_ids = lodge_stats.past_ids
+    active_members = lodge_stats.active_members
+    stats = lodge_stats.stats
+    grid = lodge_stats.grid
+    member_applicable = lodge_stats.member_applicable
+    g_expected, g_present, g_excused, g_absent = (
+        lodge_stats.expected, lodge_stats.present, lodge_stats.excused, lodge_stats.absent
     )
-    past_meetings = past_r.scalars().all()
-    past_ids = [m.id for m in past_meetings]
+    g_pct_present = lodge_stats.pct_present
+    g_pct_excused = round(g_excused * 100 / g_expected) if g_expected else 0
+    g_pct_absent  = round(g_absent  * 100 / g_expected) if g_expected else 0
 
     # ── Tenues à venir ──────────────────────────────────────────────────────
     upcoming_r = await db.execute(
@@ -100,76 +110,6 @@ async def attendance_dashboard(
             .group_by(MeetingVisitor.meeting_id)
         )
         upcoming_visitors_count = {row.meeting_id: row.n for row in uv_r}
-
-    # ── Membres actifs (hors comptes admin techniques) ──────────────────────
-    from app.models.identity import User as _User
-    admin_member_ids_r = await db.execute(
-        select(_User.member_id).where(_User.is_admin == True, _User.member_id.isnot(None))
-    )
-    _admin_ids = {row[0] for row in admin_member_ids_r}
-
-    # Un membre parti en cours d'année maçonnique reste rattaché aux tenues
-    # de cette année (comme pour la trésorerie), mais les tenues APRÈS sa
-    # date de départ sont exclues de ses tenues "applicables" ci-dessous —
-    # sinon son départ pénaliserait à tort le taux d'assiduité global de la
-    # loge (tenues comptées "attendues" mais jamais émargées).
-    liable_condition = (
-        member_liable_for_year_condition(selected_year.start_date)
-        if selected_year else Member.status == MemberStatus.ACTIVE
-    )
-    members_r = await db.execute(
-        select(Member)
-        .where(liable_condition, Member.id.notin_(_admin_ids))
-        .order_by(Member.last_name, Member.first_name)
-    )
-    active_members = members_r.scalars().all()
-
-    # ── Présences membres (tenues passées) ──────────────────────────────────
-    stats = {}   # member_id → {PRESENT: n, EXCUSED: n, ABSENT: n}
-    grid  = {}   # member_id → {meeting_id → status_value}
-    if past_ids:
-        att_r = await db.execute(
-            select(Attendance).where(Attendance.meeting_id.in_(past_ids))
-        )
-        for att in att_r.scalars().all():
-            s = stats.setdefault(att.member_id, {"PRESENT": 0, "EXCUSED": 0, "ABSENT": 0})
-            s[att.status.value] = s.get(att.status.value, 0) + 1
-            grid.setdefault(att.member_id, {})[att.meeting_id] = att.status.value
-
-    # ── Tenues applicables par membre (grade + date d'arrivée + date de départ) ──
-    _grade_order = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
-    member_applicable: dict[int, set[int]] = {}
-    for mbr in active_members:
-        grade_val = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
-        start = mbr.membership_start_date
-        left  = mbr.status_date if mbr.status != MemberStatus.ACTIVE else None
-        applicable: set[int] = set()
-        for mtg in past_meetings:
-            if start and mtg.meeting_date < start:
-                continue
-            if left and mtg.meeting_date > left:
-                continue
-            mtg_grade = mtg.grade.value if hasattr(mtg.grade, "value") else str(mtg.grade)
-            if mtg_grade == "ALL" or _grade_order.get(grade_val, 0) >= _grade_order.get(mtg_grade, 0):
-                applicable.add(mtg.id)
-        member_applicable[mbr.id] = applicable
-
-    # ── KPIs globaux cumulés ────────────────────────────────────────────────
-    g_expected = g_present = g_excused = g_absent = 0
-    for mbr in active_members:
-        applic = member_applicable[mbr.id]
-        s = stats.get(mbr.id, {})
-        g_expected += len(applic)
-        # compter seulement les statuts pour des tenues applicables
-        m_grid = grid.get(mbr.id, {})
-        for mid in applic:
-            v = m_grid.get(mid, "")
-            if v == "PRESENT":  g_present += 1
-            elif v == "EXCUSED": g_excused += 1
-            elif v == "ABSENT":  g_absent  += 1
-    g_pct_present = round(g_present * 100 / g_expected) if g_expected else 0
-    g_pct_excused = round(g_excused * 100 / g_expected) if g_expected else 0
-    g_pct_absent  = round(g_absent  * 100 / g_expected) if g_expected else 0
 
     # ── Maçons passants confirmés par tenue passée ──────────────────────────
     visitors_per_meeting = {}   # meeting_id → count

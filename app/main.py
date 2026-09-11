@@ -657,69 +657,42 @@ async def home(
     current_year = year_r.scalar_one_or_none()
 
     # ── Stats assiduité de l'année (pour managers) ──────────────────────────
-    year_present = year_total = 0
+    # Calcul partagé avec la page Présences & Assiduité (grade de chaque
+    # tenue + fenêtre d'appartenance par membre + exclusion des comptes
+    # techniques admin) — pour que ce widget et cette page affichent
+    # toujours exactement le même pourcentage.
+    from app.services.attendance_stats import compute_lodge_attendance
+    lodge_stats = await compute_lodge_attendance(db, current_year)
+    year_present, year_total, year_pct = lodge_stats.present, lodge_stats.expected, lodge_stats.pct_present
+    past_ids = lodge_stats.past_ids
     alert_members = []   # membres avec >= 3 absences
 
-    if current_year:
-        past_ids_r = await db.execute(
-            select(Meeting.id).where(
-                Meeting.masonic_year_id == current_year.id,
-                Meeting.meeting_date < today,
-            )
-        )
-        past_ids = [r[0] for r in past_ids_r.all()]
-
-        if past_ids:
-            yr_r = await db.execute(
-                select(
-                    Attendance.status,
-                    sql_func.count().label("n"),
-                ).where(Attendance.meeting_id.in_(past_ids))
-                .group_by(Attendance.status)
-            )
-            for row in yr_r.all():
-                if row.status == AttendanceStatus.PRESENT:
-                    year_present += row.n
-                year_total += row.n
-
-            # Membres avec >= 3 absences
-            if can_manage_attendance(member) or user.is_admin:
-                abs_r = await db.execute(
-                    select(Attendance.member_id, sql_func.count().label("n"))
-                    .where(
-                        Attendance.meeting_id.in_(past_ids),
-                        Attendance.status == AttendanceStatus.ABSENT,
-                    )
-                    .group_by(Attendance.member_id)
-                    .having(sql_func.count() >= 3)
-                    .order_by(sql_func.count().desc())
+    if current_year and past_ids:
+        # Membres avec >= 3 absences
+        if can_manage_attendance(member) or user.is_admin:
+            abs_r = await db.execute(
+                select(Attendance.member_id, sql_func.count().label("n"))
+                .where(
+                    Attendance.meeting_id.in_(past_ids),
+                    Attendance.status == AttendanceStatus.ABSENT,
                 )
-                alert_ids = {row.member_id: row.n for row in abs_r.all()}
-                if alert_ids:
-                    am_r = await db.execute(
-                        select(Member).where(Member.id.in_(alert_ids.keys()))
-                    )
-                    alert_members = [
-                        {"member": m, "absences": alert_ids[m.id]}
-                        for m in am_r.scalars().all()
-                    ]
-                    alert_members.sort(key=lambda x: -x["absences"])
-
-    year_pct = round(year_present * 100 / year_total) if year_total else 0
+                .group_by(Attendance.member_id)
+                .having(sql_func.count() >= 3)
+                .order_by(sql_func.count().desc())
+            )
+            alert_ids = {row.member_id: row.n for row in abs_r.all()}
+            if alert_ids:
+                am_r = await db.execute(
+                    select(Member).where(Member.id.in_(alert_ids.keys()))
+                )
+                alert_members = [
+                    {"member": m, "absences": alert_ids[m.id]}
+                    for m in am_r.scalars().all()
+                ]
+                alert_members.sort(key=lambda x: -x["absences"])
 
     # ── Mon assiduité personnelle (année en cours) ───────────────────────────
-    my_present = my_total = 0
-    if current_year and past_ids:
-        my_r = await db.execute(
-            select(Attendance).where(
-                Attendance.member_id == member.id,
-                Attendance.meeting_id.in_(past_ids),
-            )
-        )
-        my_atts = my_r.scalars().all()
-        my_total = len(my_atts)
-        my_present = sum(1 for a in my_atts if a.status == AttendanceStatus.PRESENT)
-
+    my_present, my_total = lodge_stats.member_present_total(member.id)
     my_pct = round(my_present * 100 / my_total) if my_total else None
 
     # ── Annonces non lues ────────────────────────────────────────────────────
