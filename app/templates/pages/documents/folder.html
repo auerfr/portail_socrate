@@ -972,13 +972,13 @@
             <input x-ref="fileInput" type="file" name="files" multiple
                    @change="files = Array.from($event.target.files)"
                    class="hidden"
-                   accept=".pdf,.doc,.docx,.odt,.xls,.xlsx,.ods,.ppt,.pptx,.odp,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.rtf,.zip,.7z">
+                   accept=".pdf,.doc,.docx,.odt,.xls,.xlsx,.ods,.ppt,.pptx,.odp,.jpg,.jpeg,.png,.gif,.webp,.txt,.csv,.rtf,.zip,.7z,.mp3,.wav,.m4a,.ogg">
             <div x-show="files.length === 0">
               <svg class="w-6 h-6 mx-auto mb-1.5 text-gray-300" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M3 16.5v2.25A2.25 2.25 0 005.25 21h13.5A2.25 2.25 0 0021 18.75V16.5m-13.5-9L12 3m0 0l4.5 4.5M12 3v13.5"/>
               </svg>
               <p class="text-xs text-gray-400">Glissez-déposez ou <span class="text-loge-700 font-medium">choisissez des fichiers</span></p>
-              <p class="text-xs text-gray-300 mt-0.5">PDF, Word, Excel, images… max 50 Mo</p>
+              <p class="text-xs text-gray-300 mt-0.5">PDF, Word, Excel, images, audio… max 50 Mo</p>
             </div>
             <div x-show="files.length > 0" class="text-xs text-gray-700">
               <span x-text="files.length + ' fichier' + (files.length > 1 ? 's' : '') + ' sélectionné' + (files.length > 1 ? 's' : '')"></span>
