@@ -18,6 +18,8 @@
     th { background: #e6f4f1; text-align: left; padding: .3rem .5rem; font-size: 9pt; text-transform: uppercase; letter-spacing: .03em; color: #2c7a7b; border-bottom: 1px solid #b3d4cf; }
     td { padding: .55rem .5rem; border-bottom: 1px solid #e5e7eb; font-size: 10.5pt; vertical-align: middle; }
     .num { color: #9ca3af; width: 1.6em; }
+    /* Nom sur 2 lignes fixes (nom puis prénom) pour un espacement régulier entre chaque ligne */
+    .member-name { line-height: 1.3; font-size: 10pt; }
     /* Assez de hauteur pour une signature manuscrite, pas juste un filet */
     .sig { border-bottom: 1px solid #9ca3af; height: 1.4rem; }
     .section-title { font-size: 11pt; font-weight: bold; color: #2c7a7b; margin: 1.5rem 0 .5rem; }
@@ -75,10 +77,10 @@
     <table>
       <thead>
         <tr>
-          <th style="width:10%;">N°</th>
+          <th style="width:7%;">N°</th>
           <th>Nom Prénom</th>
           <th style="width:8%;" title="Présent / Excusé inscrit avant la tenue">P/E</th>
-          <th style="width:30%;">Émargement</th>
+          <th style="width:24%;">Émargement</th>
         </tr>
       </thead>
       <tbody>
@@ -86,7 +88,7 @@
         {% set att = att_by_member.get(m.id) %}
         <tr>
           <td class="num">{{ loop.index }}</td>
-          <td>{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | upper }} {{ m.first_name | title }}</td>
+          <td class="member-name">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | upper }}<br>{{ m.first_name | title }}</td>
           <td>
             {% if att and att.status.value == 'PRESENT' %}<span class="status-p">P</span>
             {% elif att and att.status.value == 'EXCUSED' %}<span class="status-e">E</span>
@@ -100,10 +102,10 @@
     <table>
       <thead>
         <tr>
-          <th style="width:10%;">N°</th>
+          <th style="width:7%;">N°</th>
           <th>Nom Prénom</th>
           <th style="width:8%;" title="Présent / Excusé inscrit avant la tenue">P/E</th>
-          <th style="width:30%;">Émargement</th>
+          <th style="width:24%;">Émargement</th>
         </tr>
       </thead>
       <tbody>
@@ -111,7 +113,7 @@
         {% set att = att_by_member.get(m.id) %}
         <tr>
           <td class="num">{{ half + loop.index }}</td>
-          <td>{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | upper }} {{ m.first_name | title }}</td>
+          <td class="member-name">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | upper }}<br>{{ m.first_name | title }}</td>
           <td>
             {% if att and att.status.value == 'PRESENT' %}<span class="status-p">P</span>
             {% elif att and att.status.value == 'EXCUSED' %}<span class="status-e">E</span>
