@@ -126,6 +126,11 @@
        asymétrique. On la retire explicitement à l'impression. */
     @media print {
       main { margin-left: 0 !important; }
+      /* Chrome UI mobile (barre du haut, nav du bas, tiroir) : cachée par
+         lg:hidden, un media query de largeur d'écran qui n'est pas toujours
+         réévalué par rapport au papier à l'impression — donc invisible à
+         l'écran large mais pas forcément à l'impression sans ce filet. */
+      nav, aside, .lg\:hidden { display: none !important; }
     }
   </style>
 
