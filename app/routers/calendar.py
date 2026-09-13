@@ -78,6 +78,143 @@ async def _event_visible_to(event: LodgeEvent, member: Member, db: AsyncSession,
     return False
 
 
+async def _event_concerned_member_ids(event: LodgeEvent, db: AsyncSession) -> set[int]:
+    """Résout en une fois l'ensemble des membres qui peuvent voir cet
+    événement — mêmes règles que _event_visible_to, mais depuis
+    l'événement plutôt que membre par membre (pour la notification à la
+    création). Les événements personnels ne sont jamais notifiés en masse."""
+    if event.is_personal:
+        return set()
+
+    v = event.visibility
+
+    if v == EventVisibility.ALL:
+        r = await db.execute(select(Member.id).where(Member.status == MemberStatus.ACTIVE))
+        return {row[0] for row in r.all()}
+
+    if v == EventVisibility.OFFICERS:
+        r = await db.execute(
+            select(Member.id).where(Member.status == MemberStatus.ACTIVE,
+                                     Member.lodge_function.in_(OFFICER_FUNCTIONS))
+        )
+        return {row[0] for row in r.all()}
+
+    if v == EventVisibility.MAITRES:
+        r = await db.execute(
+            select(Member.id).where(Member.status == MemberStatus.ACTIVE,
+                                     Member.masonic_grade == MasonicGrade.MAITRE)
+        )
+        return {row[0] for row in r.all()}
+
+    if v == EventVisibility.COMPAGNONS_ET_MAITRES:
+        r = await db.execute(
+            select(Member.id).where(Member.status == MemberStatus.ACTIVE,
+                                     Member.masonic_grade.in_((MasonicGrade.COMPAGNON, MasonicGrade.MAITRE)))
+        )
+        return {row[0] for row in r.all()}
+
+    if v == EventVisibility.APPRENTIS:
+        r = await db.execute(
+            select(Member.id).where(Member.status == MemberStatus.ACTIVE,
+                                     Member.masonic_grade == MasonicGrade.APPRENTI)
+        )
+        return {row[0] for row in r.all()}
+
+    if v == EventVisibility.GROUP:
+        if not event.visibility_group_id:
+            return set()
+        group = await db.get(LodgeGroup, event.visibility_group_id)
+        if not group:
+            return set()
+        return set(await resolve_group_member_ids(db, group))
+
+    if v == EventVisibility.MEMBERS:
+        ids: set[int] = set()
+        if event.visibility_member_ids:
+            ids = {int(x) for x in event.visibility_member_ids.split(",") if x.strip().isdigit()}
+        return ids
+
+    if v == EventVisibility.ADMIN:
+        from app.models.identity import User
+        r = await db.execute(select(User.member_id).where(User.is_admin == True, User.member_id.isnot(None)))
+        return {row[0] for row in r.all()}
+
+    return set()
+
+
+def _format_event_when(event: LodgeEvent) -> str:
+    d = event.start_datetime
+    when = d.strftime("%d/%m/%Y")
+    if not event.all_day:
+        when += f" à {d.strftime('%H:%M')}"
+    return when
+
+
+# Délai entre deux envois — mêmes conventions que app/routers/messages.py::
+# NOTIFY_EMAIL_DELAY_MS (évite de saturer le relais SMTP).
+_NOTIFY_EVENT_EMAIL_DELAY_MS = 300
+
+
+async def _notify_event_paced(
+    recipient_emails: list[str], creator_name: str, event_title: str, event_when: str,
+    location: str, description: str, event_id: int, portal_base_url: str,
+) -> None:
+    import asyncio
+    from app.services.email import notify_new_calendar_event
+    for email in recipient_emails:
+        try:
+            await notify_new_calendar_event(
+                recipient_email=email, creator_name=creator_name, event_title=event_title,
+                event_when=event_when, location=location, description=description,
+                event_id=event_id, portal_base_url=portal_base_url,
+            )
+        except Exception:
+            pass
+        await asyncio.sleep(_NOTIFY_EVENT_EMAIL_DELAY_MS / 1000.0)
+
+
+async def _notify_new_event(event: LodgeEvent, creator: Member, db: AsyncSession) -> None:
+    """Notifie (push + email) les membres concernés par ce nouvel événement
+    d'agenda — jamais pour un événement personnel. Pour une série récurrente,
+    à appeler une seule fois avec la première occurrence (pas par occurrence)."""
+    ids = await _event_concerned_member_ids(event, db)
+    ids.discard(creator.id)
+    if not ids:
+        return
+
+    event_when = _format_event_when(event)
+
+    try:
+        from app.services.push import send_push_broadcast
+        push_body = event_when + (f" · {event.location}" if event.location else "")
+        await send_push_broadcast(
+            db, list(ids), f"📅 {event.title}", push_body[:160], f"/calendar/events/{event.id}",
+        )
+    except Exception:
+        pass
+
+    rm = await db.execute(select(Member).where(Member.id.in_(ids)))
+    dest_members = rm.scalars().all()
+    dest_emails = [
+        m.email for m in dest_members
+        if m.email and getattr(m, "email_notifications", True)
+    ]
+    if not dest_emails:
+        return
+
+    from app.config import get_settings
+    import asyncio
+    settings = get_settings()
+    portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
+    creator_name = f"{'S∴' if creator.civility == 'S' else 'F∴'} {creator.last_name} {creator.first_name}"
+
+    asyncio.create_task(_notify_event_paced(  # noqa — fire & forget
+        recipient_emails=dest_emails, creator_name=creator_name, event_title=event.title,
+        event_when=event_when, location=event.location or "", description=event.description or "",
+        event_id=event.id, portal_base_url=portal_url,
+    ))
+
+
 def _meeting_to_event(m: Meeting) -> dict:
     """Convertit une tenue en dict pseudo-event pour le calendrier."""
     return {
@@ -582,6 +719,7 @@ async def calendar_create_event(
         )
         db.add(event)
         await db.flush()
+        await _notify_new_event(event, member, db)
         return RedirectResponse(url="/calendar/", status_code=302)
 
     # ── Série récurrente ─────────────────────────────────────────────────
@@ -604,6 +742,7 @@ async def calendar_create_event(
     group_id = uuid.uuid4().hex
     label = _recurrence_label(recurrence_freq, recurrence_interval or 1, weekday, recurrence_position)
 
+    first_occurrence: Optional[LodgeEvent] = None
     for occ_date in occurrence_dates:
         occ_start = datetime.combine(occ_date, start_dt.time())
         occ_end = None
@@ -611,7 +750,7 @@ async def calendar_create_event(
             occ_end_date = occ_date + timedelta(days=end_offset_days)
             occ_end = datetime.combine(occ_end_date, end_dt.time())
 
-        db.add(LodgeEvent(
+        occ_event = LodgeEvent(
             title=title,
             description=description or None,
             location=location or None,
@@ -627,8 +766,15 @@ async def calendar_create_event(
             created_by_id=member.id,
             recurrence_group_id=group_id,
             recurrence_label=label,
-        ))
+        )
+        db.add(occ_event)
+        if first_occurrence is None:
+            first_occurrence = occ_event
     await db.flush()
+
+    # Une seule notification pour toute la série (pas une par occurrence)
+    if first_occurrence is not None:
+        await _notify_new_event(first_occurrence, member, db)
 
     return RedirectResponse(url="/calendar/", status_code=302)
 

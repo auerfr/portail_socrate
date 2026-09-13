@@ -428,6 +428,128 @@ async def notify_new_chat_channel(
     return ok
 
 
+def _new_calendar_event_html(creator_name: str, event_title: str, event_when: str, location: str,
+                              description: str, portal_url: str, event_url: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#2340b0,#3b5bdb);padding:28px 32px;">
+            <p style="margin:0;color:rgba(255,255,255,.7);font-size:12px;letter-spacing:.05em;text-transform:uppercase;">
+              {portal_url}
+            </p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">
+              Nouvel événement à l'agenda
+            </h1>
+          </td>
+        </tr>
+
+        <!-- Corps -->
+        <tr>
+          <td style="padding:28px 32px;">
+            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Ajouté par</p>
+            <p style="margin:0 0 20px;font-size:18px;font-weight:600;color:#111827;">{creator_name}</p>
+
+            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Événement</p>
+            <p style="margin:0 0 4px;font-size:16px;font-weight:600;color:#1e3a8a;">{event_title}</p>
+            <p style="margin:0 0 20px;font-size:14px;color:#374151;">{event_when}{f' · {location}' if location else ''}</p>
+
+            {f'<div style="background:#f8faff;border-left:4px solid #3b5bdb;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:28px;"><p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">{description}</p></div>' if description else ''}
+
+            <!-- CTA -->
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:#2340b0;border-radius:8px;">
+                  <a href="{event_url}"
+                     style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
+                    Voir sur l'agenda →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">
+              Vous recevez cet email car cet événement vous concerne.<br>
+              Ne répondez pas à cet email — utilisez le portail.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;">
+              Portail interne — Loge Socrate Raison et Progrès &nbsp;·&nbsp;
+              <a href="{portal_url}/settings/notifications" style="color:#6b7280;text-decoration:none;">Gérer mes notifications</a>
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _new_calendar_event_text(creator_name: str, event_title: str, event_when: str, location: str,
+                              description: str, event_url: str) -> str:
+    loc_part = f" · {location}" if location else ""
+    desc_block = f"\n{description}\n" if description else ""
+    return f"""Nouvel événement à l'agenda du portail de la loge
+====================================================
+
+Ajouté par : {creator_name}
+Événement : {event_title}
+Quand : {event_when}{loc_part}
+{desc_block}
+Voir sur le portail :
+{event_url}
+
+---
+Ne répondez pas à cet email — utilisez le portail.
+"""
+
+
+async def notify_new_calendar_event(
+    recipient_email: str,
+    creator_name: str,
+    event_title: str,
+    event_when: str,
+    location: str,
+    description: str,
+    event_id: int,
+    portal_base_url: str = "https://portail.amisdesocrate.fr",
+) -> bool:
+    """Envoie une notification email à la création d'un événement d'agenda
+    concernant le destinataire (visibilité de l'événement)."""
+    event_url = f"{portal_base_url}/calendar/events/{event_id}"
+
+    html = _new_calendar_event_html(
+        creator_name=creator_name, event_title=event_title, event_when=event_when,
+        location=location or "", description=description or "",
+        portal_url=portal_base_url, event_url=event_url,
+    )
+    text = _new_calendar_event_text(
+        creator_name=creator_name, event_title=event_title, event_when=event_when,
+        location=location or "", description=description or "", event_url=event_url,
+    )
+
+    ok, _ = await _send_raw(
+        to=recipient_email,
+        subject=f"[Portail Loge] Nouvel événement : {event_title}",
+        html=html,
+        text=text,
+    )
+    return ok
+
+
 # ── Fonctions publiques ────────────────────────────────────────────────────
 
 async def notify_new_message(
