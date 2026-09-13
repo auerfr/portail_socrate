@@ -24,6 +24,11 @@
     ↩ Tracé renvoyé en brouillon pour correction.
   </div>
   {% endif %}
+  {% if request.query_params.get('relaunched') %}
+  <div class="print:hidden mb-4 bg-amber-50 border border-amber-200 text-amber-700 text-sm rounded-xl px-4 py-3">
+    🔔 Relance envoyée au V∴M∴ (push + email).
+  </div>
+  {% endif %}
 
   {% if uses_previous_college %}
   <div class="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
@@ -72,6 +77,13 @@
         <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-gray-100 text-gray-600">✎ Brouillon</span>
       {% elif report.status.value == 'SOUMIS' %}
         <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-amber-100 text-amber-700">⏳ En attente d'approbation V∴M∴</span>
+        {% if report.viewed_by_vm_at %}
+        <span class="text-xs text-green-600">
+          ✓ Consulté{% if report.viewed_by_vm %} par {{ report.viewed_by_vm.last_name }} {{ report.viewed_by_vm.first_name }}{% endif %} le {{ report.viewed_by_vm_at.strftime('%d/%m/%Y à %H:%M') }}
+        </span>
+        {% else %}
+        <span class="text-xs text-gray-400">Pas encore consulté par le V∴M∴</span>
+        {% endif %}
       {% else %}
         <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-green-100 text-green-700">✓ Approuvé — {{ report.approved_at.strftime('%d/%m/%Y') if report.approved_at }}</span>
         {% if report.archived_doc_id %}
@@ -87,6 +99,14 @@
             onsubmit="return confirm('Soumettre ce tracé au V∴M∴ pour approbation ?')">
         <button type="submit" class="bg-loge-700 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-loge-800 transition-colors">
           Soumettre pour approbation
+        </button>
+      </form>
+      {% endif %}
+      {% if can_edit and report and report.status.value == 'SOUMIS' and not report.viewed_by_vm_at %}
+      <form method="post" action="/meetings/{{ meeting.id }}/trace/relaunch-vm"
+            onsubmit="return confirm('Envoyer une relance (push + email) au V∴M∴ pour ce tracé en attente ?')">
+        <button type="submit" class="bg-white border border-amber-300 text-amber-700 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-amber-50 transition-colors">
+          🔔 Relancer le V∴M∴
         </button>
       </form>
       {% endif %}

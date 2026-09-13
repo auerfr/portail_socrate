@@ -670,6 +670,15 @@ async def meeting_trace(
     can_approve = _can_approve_trace(user, member)
     is_approved = bool(report and report.status == ReportStatus.APPROUVE)
 
+    # Marque la consultation par le V∴M∴ (ou un admin) pendant que le tracé
+    # est en attente — permet à la Secrétaire de savoir si elle doit relancer.
+    # Exclut l'auteur de la soumission : un admin qui est aussi la Secrétaire
+    # ne doit pas se compter lui-même comme "V∴M∴ ayant consulté".
+    if report and report.status == ReportStatus.SOUMIS and can_approve and member.id != report.author_id:
+        report.viewed_by_vm_at = datetime.now()
+        report.viewed_by_vm_id = member.id
+        await db.commit()
+
     can_edit = (can_manage_meeting(member) or user.is_admin) and not is_approved
 
     # Bandeau d'information si cette tenue utilise le Collège précédent
@@ -743,6 +752,14 @@ async def trace_save(
         raise HTTPException(status_code=400, detail="Ce tracé est approuvé et archivé, il ne peut plus être modifié")
 
     meeting.compte_rendu_html = compte_rendu_html or None
+
+    # Le contenu change après soumission au V∴M∴ : la lecture précédente ne
+    # porte plus sur la version actuelle, on l'efface pour ne pas induire en
+    # erreur la Secrétaire sur ce qui a réellement été vu.
+    if report and report.status == ReportStatus.SOUMIS:
+        report.viewed_by_vm_at = None
+        report.viewed_by_vm_id = None
+
     await db.commit()
     return JSONResponse({"ok": True})
 
@@ -785,6 +802,69 @@ async def trace_submit(
     await db.commit()
 
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?submitted=1", status_code=303)
+
+
+# ── Relance manuelle du V∴M∴ (tracé soumis, pas encore consulté) ────────────
+
+@router.post("/{meeting_id}/trace/relaunch-vm")
+async def trace_relaunch_vm(
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    meeting_r = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
+    meeting = meeting_r.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if not report or report.status != ReportStatus.SOUMIS:
+        raise HTTPException(status_code=400, detail="Ce tracé n'est pas en attente d'approbation")
+
+    vm_r = await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE, Member.lodge_function == LodgeFunction.VM)
+    )
+    vm_members = [m for m in vm_r.scalars().all() if m.id != member.id]
+
+    meeting_title = meeting.title or f"Tenue du {meeting.meeting_date.strftime('%d/%m/%Y')}"
+    secretary_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.last_name} {member.first_name}"
+    submitted_when = report.submitted_at.strftime("%d/%m/%Y à %H:%M") if report.submitted_at else "—"
+
+    if vm_members:
+        try:
+            from app.services.push import send_push_broadcast
+            await send_push_broadcast(
+                db, [m.id for m in vm_members], "⏳ Tracé en attente de validation",
+                f"{meeting_title} — soumis par {secretary_name}"[:160],
+                f"/meetings/{meeting_id}/trace",
+            )
+        except Exception:
+            pass
+
+        from app.config import get_settings
+        from app.services.email import notify_trace_pending_vm
+        settings = get_settings()
+        portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
+        for vm in vm_members:
+            if not vm.email or not getattr(vm, "email_notifications", True):
+                continue
+            try:
+                await notify_trace_pending_vm(
+                    recipient_email=vm.email, secretary_name=secretary_name,
+                    meeting_title=meeting_title, submitted_when=submitted_when,
+                    meeting_id=meeting_id, portal_base_url=portal_url,
+                )
+            except Exception:
+                pass
+
+    return RedirectResponse(url=f"/meetings/{meeting_id}/trace?relaunched=1", status_code=303)
 
 
 @router.post("/{meeting_id}/trace/approve")

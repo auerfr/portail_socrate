@@ -559,6 +559,115 @@ async def notify_new_calendar_event(
     return ok
 
 
+def _trace_pending_html(secretary_name: str, meeting_title: str, submitted_when: str,
+                         portal_url: str, trace_url: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+
+        <tr>
+          <td style="background:linear-gradient(135deg,#b45309,#d97706);padding:28px 32px;">
+            <p style="margin:0;color:rgba(255,255,255,.7);font-size:12px;letter-spacing:.05em;text-transform:uppercase;">
+              {portal_url}
+            </p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">
+              ⏳ Tracé en attente de votre validation
+            </h1>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="padding:28px 32px;">
+            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Soumis par</p>
+            <p style="margin:0 0 20px;font-size:18px;font-weight:600;color:#111827;">{secretary_name}</p>
+
+            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Tenue</p>
+            <p style="margin:0 0 20px;font-size:16px;font-weight:600;color:#1e3a8a;">{meeting_title}</p>
+
+            <p style="margin:0 0 20px;font-size:14px;color:#374151;">Soumis le {submitted_when}, toujours en attente de votre relecture et approbation.</p>
+
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:#b45309;border-radius:8px;">
+                  <a href="{trace_url}"
+                     style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
+                    Relire et approuver →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">
+              Ne répondez pas à cet email — utilisez le portail.
+            </p>
+          </td>
+        </tr>
+
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;">
+              Portail interne — Loge Socrate Raison et Progrès
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _trace_pending_text(secretary_name: str, meeting_title: str, submitted_when: str, trace_url: str) -> str:
+    return f"""Tracé en attente de votre validation
+=====================================
+
+Soumis par : {secretary_name}
+Tenue : {meeting_title}
+Soumis le {submitted_when}, toujours en attente de votre relecture et approbation.
+
+Relire et approuver :
+{trace_url}
+
+---
+Ne répondez pas à cet email — utilisez le portail.
+"""
+
+
+async def notify_trace_pending_vm(
+    recipient_email: str,
+    secretary_name: str,
+    meeting_title: str,
+    submitted_when: str,
+    meeting_id: int,
+    portal_base_url: str = "https://portail.amisdesocrate.fr",
+) -> bool:
+    """Relance manuelle envoyée par la Secrétaire au V∴M∴ quand le tracé
+    soumis n'a pas encore été consulté."""
+    trace_url = f"{portal_base_url}/meetings/{meeting_id}/trace"
+
+    html = _trace_pending_html(
+        secretary_name=secretary_name, meeting_title=meeting_title,
+        submitted_when=submitted_when, portal_url=portal_base_url, trace_url=trace_url,
+    )
+    text = _trace_pending_text(
+        secretary_name=secretary_name, meeting_title=meeting_title,
+        submitted_when=submitted_when, trace_url=trace_url,
+    )
+
+    ok, _ = await _send_raw(
+        to=recipient_email,
+        subject=f"[Portail Loge] Tracé en attente : {meeting_title}",
+        html=html,
+        text=text,
+    )
+    return ok
+
+
 # ── Fonctions publiques ────────────────────────────────────────────────────
 
 async def notify_new_message(

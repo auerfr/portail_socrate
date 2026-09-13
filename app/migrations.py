@@ -1203,6 +1203,17 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE lodge_settings ADD COLUMN former_members_folder_id INTEGER REFERENCES doc_folders(id)"
             )
 
+        r_mr = await conn.exec_driver_sql("PRAGMA table_info(meeting_reports)")
+        cols_mr = [row[1] for row in r_mr.fetchall()]
+        if cols_mr and "viewed_by_vm_at" not in cols_mr:
+            await conn.exec_driver_sql(
+                "ALTER TABLE meeting_reports ADD COLUMN viewed_by_vm_at DATETIME"
+            )
+        if cols_mr and "viewed_by_vm_id" not in cols_mr:
+            await conn.exec_driver_sql(
+                "ALTER TABLE meeting_reports ADD COLUMN viewed_by_vm_id INTEGER REFERENCES members(id)"
+            )
+
     # ── documents.created_at / updated_at : DEFAULT perdu lors d'une ancienne
     # migration ────────────────────────────────────────────────────────────
     # La migration qui a rendu original_filename nullable (plus haut dans ce

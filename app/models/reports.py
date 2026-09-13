@@ -35,6 +35,13 @@ class MeetingReport(Base):
     approved_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     approved_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
+    # Dernière consultation par le V∴M∴ (ou un admin) pendant que le tracé est
+    # SOUMIS — permet à la Secrétaire de savoir si elle doit relancer. Remis à
+    # None dès que le corps du tracé est modifié après soumission (la lecture
+    # précédente ne porte plus sur la version actuelle).
+    viewed_by_vm_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    viewed_by_vm_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"), nullable=True)
+
     # Lien vers le document GED archivé
     archived_doc_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
@@ -48,4 +55,7 @@ class MeetingReport(Base):
     )
     approved_by: Mapped[Optional[object]] = relationship(
         "Member", foreign_keys=[approved_by_id], lazy="selectin"
+    )
+    viewed_by_vm: Mapped[Optional[object]] = relationship(
+        "Member", foreign_keys=[viewed_by_vm_id], lazy="selectin"
     )
