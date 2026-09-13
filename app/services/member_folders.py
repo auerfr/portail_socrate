@@ -12,7 +12,7 @@ qu'ils ne le sont pas, ces fonctions sont des no-op silencieux.
 """
 from typing import Optional
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.documents import DocFolder
@@ -43,6 +43,22 @@ async def create_member_folder(db: AsyncSession, member) -> Optional[DocFolder]:
     )
     if existing_r.scalar_one_or_none():
         return None
+
+    # Un dossier du même nom existe peut-être déjà directement sous la racine
+    # (créé manuellement avant l'activation de cette fonctionnalité) — on le
+    # rattache au membre plutôt que d'en créer un doublon vide à côté.
+    name = member_folder_name(member)
+    same_name_r = await db.execute(
+        select(DocFolder).where(
+            DocFolder.parent_id == parent.id,
+            DocFolder.subject_member_id.is_(None),
+            func.lower(DocFolder.name) == name.lower(),
+        ).limit(1)
+    )
+    same_name_folder = same_name_r.scalar_one_or_none()
+    if same_name_folder:
+        same_name_folder.subject_member_id = member.id
+        return same_name_folder
 
     folder = DocFolder(
         space_id=parent.space_id,
