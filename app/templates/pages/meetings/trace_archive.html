@@ -69,7 +69,7 @@
   {% if officer_rows %}
   <p class="body-text">
     {% for r in officer_rows %}
-      {% if r.substitute %}Le F∴ {{ r.substitute.last_name | upper }} {{ r.substitute.first_name }} supplée à l'office de {{ r.office.label }}{% if r.holder %} en l'absence du F∴ {{ r.holder.last_name | upper }} {{ r.holder.first_name }}{% endif %}.
+      {% if r.substitute %}Le {% if r.substitute.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ r.substitute.last_name | upper }} {{ r.substitute.first_name }} supplée à l'office de {{ r.office.label }}{% if r.holder %} en l'absence {% if r.holder.civility == 'S' %}de la S∴{% else %}du F∴{% endif %} {{ r.holder.last_name | upper }} {{ r.holder.first_name }}{% endif %}.
       {% else %}L'office de {{ r.office.label }} est resté vacant lors de cette tenue.
       {% endif %}
     {% endfor %}
