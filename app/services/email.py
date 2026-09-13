@@ -314,6 +314,120 @@ Ne répondez pas à cet email — utilisez le portail pour répondre.
 """
 
 
+def _new_chat_channel_html(creator_name: str, channel_name: str, description: str, portal_url: str, channel_url: str) -> str:
+    return f"""<!DOCTYPE html>
+<html lang="fr">
+<head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
+<body style="margin:0;padding:0;background:#f3f4f6;font-family:-apple-system,BlinkMacSystemFont,'Segoe UI',Arial,sans-serif;">
+  <table width="100%" cellpadding="0" cellspacing="0" style="background:#f3f4f6;padding:32px 16px;">
+    <tr><td align="center">
+      <table width="560" cellpadding="0" cellspacing="0" style="background:#ffffff;border-radius:12px;overflow:hidden;box-shadow:0 1px 3px rgba(0,0,0,.08);">
+
+        <!-- Header -->
+        <tr>
+          <td style="background:linear-gradient(135deg,#2340b0,#3b5bdb);padding:28px 32px;">
+            <p style="margin:0;color:rgba(255,255,255,.7);font-size:12px;letter-spacing:.05em;text-transform:uppercase;">
+              {portal_url}
+            </p>
+            <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">
+              Nouveau canal de discussion
+            </h1>
+          </td>
+        </tr>
+
+        <!-- Corps -->
+        <tr>
+          <td style="padding:28px 32px;">
+            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Ouvert par</p>
+            <p style="margin:0 0 20px;font-size:18px;font-weight:600;color:#111827;">{creator_name}</p>
+
+            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Sujet</p>
+            <p style="margin:0 0 20px;font-size:16px;font-weight:600;color:#1e3a8a;">{channel_name}</p>
+
+            {f'<div style="background:#f8faff;border-left:4px solid #3b5bdb;border-radius:0 8px 8px 0;padding:16px 20px;margin-bottom:28px;"><p style="margin:0;font-size:14px;color:#374151;line-height:1.6;">{description}</p></div>' if description else ''}
+
+            <!-- CTA -->
+            <table cellpadding="0" cellspacing="0">
+              <tr>
+                <td style="background:#2340b0;border-radius:8px;">
+                  <a href="{channel_url}"
+                     style="display:inline-block;padding:14px 28px;color:#ffffff;font-size:15px;font-weight:600;text-decoration:none;">
+                    Rejoindre la discussion →
+                  </a>
+                </td>
+              </tr>
+            </table>
+
+            <p style="margin:20px 0 0;font-size:12px;color:#9ca3af;">
+              Vous recevez cet email car ce canal vous concerne (grade, fonction ou groupe).<br>
+              Répondez directement sur le portail — ne répondez pas à cet email.
+            </p>
+          </td>
+        </tr>
+
+        <!-- Footer -->
+        <tr>
+          <td style="background:#f9fafb;border-top:1px solid #f3f4f6;padding:16px 32px;text-align:center;">
+            <p style="margin:0;font-size:11px;color:#9ca3af;">
+              Portail interne — Loge Socrate Raison et Progrès &nbsp;·&nbsp;
+              <a href="{portal_url}/settings/notifications" style="color:#6b7280;text-decoration:none;">Gérer mes notifications</a>
+            </p>
+          </td>
+        </tr>
+
+      </table>
+    </td></tr>
+  </table>
+</body>
+</html>"""
+
+
+def _new_chat_channel_text(creator_name: str, channel_name: str, description: str, channel_url: str) -> str:
+    desc_block = f"\n{description}\n" if description else ""
+    return f"""Nouveau canal de discussion sur le portail de la loge
+=======================================================
+
+Ouvert par : {creator_name}
+Sujet : {channel_name}
+{desc_block}
+Rejoignez la discussion sur le portail :
+{channel_url}
+
+---
+Ne répondez pas à cet email — utilisez le portail pour répondre.
+"""
+
+
+async def notify_new_chat_channel(
+    recipient_email: str,
+    creator_name: str,
+    channel_name: str,
+    description: str,
+    channel_id: int,
+    portal_base_url: str = "https://portail.amisdesocrate.fr",
+) -> bool:
+    """Envoie une notification email à l'ouverture d'un nouveau canal de
+    discussion concernant le destinataire (grade, fonction ou groupe)."""
+    channel_url = f"{portal_base_url}/chat/{channel_id}"
+
+    html = _new_chat_channel_html(
+        creator_name=creator_name, channel_name=channel_name, description=description or "",
+        portal_url=portal_base_url, channel_url=channel_url,
+    )
+    text = _new_chat_channel_text(
+        creator_name=creator_name, channel_name=channel_name, description=description or "",
+        channel_url=channel_url,
+    )
+
+    ok, _ = await _send_raw(
+        to=recipient_email,
+        subject=f"[Portail Loge] Nouveau canal de discussion : {channel_name}",
+        html=html,
+        text=text,
+    )
+    return ok
+
+
 # ── Fonctions publiques ────────────────────────────────────────────────────
 
 async def notify_new_message(

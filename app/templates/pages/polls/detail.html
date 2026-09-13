@@ -196,8 +196,16 @@
         {% endif %}
       </form>
 
-      {% else %}
+      {% endif %}
+
+      {% if has_voted or not is_open or is_creator or current_user.is_admin or not poll.is_anonymous %}
       <!-- Résultats -->
+      {% if not poll.is_anonymous and not has_voted and is_open %}
+      <div class="flex items-center gap-2 text-xs text-loge-700 bg-loge-50 rounded-xl px-4 py-2.5 mb-4">
+        <span>👁</span>
+        <span>Sondage non anonyme — vous voyez déjà qui a voté quoi avant de voter vous-même.</span>
+      </div>
+      {% endif %}
       {% if has_voted and is_open %}
       <div class="flex items-center justify-between gap-3 flex-wrap text-sm text-green-700 bg-green-50 rounded-xl px-4 py-2.5 mb-4">
         <span class="flex items-center gap-2"><span>✅</span><span class="font-medium">Votre vote a été enregistré</span></span>

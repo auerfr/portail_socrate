@@ -111,6 +111,113 @@ async def _accessible_channels(member: Member, db: AsyncSession) -> list[ChatCha
     return accessible
 
 
+async def _channel_concerned_member_ids(channel: ChatChannel, db: AsyncSession) -> set[int]:
+    """Retourne les membres concernés par un nouveau canal — mêmes règles
+    que _accessible_channels, mais parcourues depuis le canal plutôt que
+    depuis un membre (pour la notification email à la création)."""
+    if channel.type == ChannelType.DIRECT:
+        return set()
+
+    members_r = await db.execute(select(Member).where(Member.status == MemberStatus.ACTIVE))
+    members = members_r.scalars().all()
+
+    if channel.type == ChannelType.GENERAL:
+        return {m.id for m in members}
+
+    if channel.type == ChannelType.GRADE:
+        required_order = GRADE_ORDER.get(MasonicGrade(channel.grade_filter), 0) if channel.grade_filter else 0
+        return {m.id for m in members if GRADE_ORDER.get(m.masonic_grade, 0) >= required_order}
+
+    if channel.type == ChannelType.FUNCTION:
+        ids = set()
+        for m in members:
+            if m.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE):
+                ids.add(m.id)
+            elif channel.function_filter:
+                if m.lodge_function.value == channel.function_filter:
+                    ids.add(m.id)
+            else:
+                if m.lodge_function != LodgeFunction.FRERE:
+                    ids.add(m.id)
+        return ids
+
+    if channel.type == ChannelType.COMMISSION:
+        ids: set[int] = set()
+        mem_r = await db.execute(
+            select(ChatChannelMember.member_id).where(ChatChannelMember.channel_id == channel.id)
+        )
+        ids |= {row[0] for row in mem_r.all()}
+        if channel.lodge_group_id:
+            from app.routers.groups import resolve_group_member_ids
+            grp = await db.get(LodgeGroup, channel.lodge_group_id)
+            if grp:
+                ids |= await resolve_group_member_ids(db, grp)
+        return ids
+
+    return set()
+
+
+# Délai entre deux envois — mêmes conventions que app/routers/messages.py::
+# NOTIFY_EMAIL_DELAY_MS (évite de saturer le relais SMTP sur un canal ouvert
+# à beaucoup de monde, ex: un canal GÉNÉRAL ou par grade).
+_NOTIFY_CHANNEL_EMAIL_DELAY_MS = 300
+
+
+async def _notify_new_channel_paced(
+    recipient_emails: list[str], creator_name: str, channel_name: str,
+    description: str, channel_id: int, portal_base_url: str,
+) -> None:
+    import asyncio
+    from app.services.email import notify_new_chat_channel
+    for email in recipient_emails:
+        try:
+            await notify_new_chat_channel(
+                recipient_email=email,
+                creator_name=creator_name,
+                channel_name=channel_name,
+                description=description,
+                channel_id=channel_id,
+                portal_base_url=portal_base_url,
+            )
+        except Exception:
+            pass
+        await asyncio.sleep(_NOTIFY_CHANNEL_EMAIL_DELAY_MS / 1000.0)
+
+
+async def _notify_new_channel(channel: ChatChannel, creator: Member, db: AsyncSession) -> None:
+    """Notifie par email les membres concernés par l'ouverture d'un nouveau
+    canal (hors messages directs) — une seule fois, à la création, pas à
+    chaque message (cf. décision du 13/09 : éviter le spam d'un canal actif)."""
+    ids = await _channel_concerned_member_ids(channel, db)
+    ids.discard(creator.id)  # le créateur sait déjà qu'il vient d'ouvrir ce canal
+    if not ids:
+        return
+
+    rm = await db.execute(select(Member).where(Member.id.in_(ids)))
+    dest_members = rm.scalars().all()
+    dest_emails = [
+        m.email for m in dest_members
+        if m.email and getattr(m, "email_notifications", True)
+    ]
+    if not dest_emails:
+        return
+
+    from app.config import get_settings
+    import asyncio
+    settings = get_settings()
+    portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
+    creator_name = f"{'S∴' if creator.civility == 'S' else 'F∴'} {creator.last_name} {creator.first_name}"
+
+    asyncio.create_task(_notify_new_channel_paced(  # noqa — fire & forget
+        recipient_emails=dest_emails,
+        creator_name=creator_name,
+        channel_name=channel.name,
+        description=channel.description or "",
+        channel_id=channel.id,
+        portal_base_url=portal_url,
+    ))
+
+
 async def _unread_count_per_channel(member_id: int, channel_ids: list[int],
                                      db: AsyncSession) -> dict[int, int]:
     """Nombre de messages non lus par canal."""
@@ -636,6 +743,7 @@ async def create_channel(
         db.add(ChatChannelMember(channel_id=channel.id, member_id=member.id))
 
     await db.commit()
+    await _notify_new_channel(channel, member, db)
     return RedirectResponse(url=f"/chat/{channel.id}", status_code=303)
 
 
@@ -677,6 +785,7 @@ async def create_group(
                 db.add(ChatChannelMember(channel_id=channel.id, member_id=mid))
 
     await db.commit()
+    await _notify_new_channel(channel, member, db)
     return RedirectResponse(url=f"/chat/{channel.id}", status_code=303)
 
 
