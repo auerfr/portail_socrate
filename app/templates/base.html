@@ -117,6 +117,16 @@
     pre, code { white-space: pre-wrap; word-break: break-word; }
     /* Long mots / URLs : couper plutôt que déborder */
     .break-anywhere { overflow-wrap: anywhere; word-break: break-word; }
+
+    /* ── Impression ────────────────────────────────────────────
+       Le media query "lg:" (largeur d'écran) reste actif à l'impression
+       sous Chrome (pas de réévaluation à la largeur du papier), ce qui
+       laisse la marge gauche réservée à la barre latérale (lg:ml-52)
+       décaler tout le contenu imprimé vers la droite, de façon
+       asymétrique. On la retire explicitement à l'impression. */
+    @media print {
+      main { margin-left: 0 !important; }
+    }
   </style>
 
   <script defer src="/static/js/alpine.min.js"></script>
