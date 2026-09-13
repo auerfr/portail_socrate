@@ -31,6 +31,21 @@
     🔔 Relance envoyée au V∴M∴ (push + email).
   </div>
   {% endif %}
+  {% if request.query_params.get('adopted') %}
+  <div class="print:hidden mb-4 bg-blue-50 border border-blue-200 text-blue-700 text-sm rounded-xl px-4 py-3">
+    📜 Tracé marqué comme lu et adopté en tenue.
+  </div>
+  {% endif %}
+  {% if request.query_params.get('delegate_set') %}
+  <div class="print:hidden mb-4 bg-loge-50 border border-loge-200 text-loge-700 text-sm rounded-xl px-4 py-3">
+    ✓ Délégué import PDF signé mis à jour.
+  </div>
+  {% endif %}
+  {% if request.query_params.get('signed_uploaded') %}
+  <div class="print:hidden mb-4 bg-emerald-50 border border-emerald-200 text-emerald-700 text-sm rounded-xl px-4 py-3">
+    🗄 PDF signé importé et archivé.
+  </div>
+  {% endif %}
 
   {% if uses_previous_college %}
   <div class="print:hidden mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
@@ -66,8 +81,15 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M6.72 13.829c-.24.03-.48.062-.72.096m.72-.096a42.415 42.415 0 0110.56 0m-10.56 0L6.34 18m10.94-4.171c.24.03.48.062.72.096m-.72-.096L17.66 18m0 0l.229 2.523a1.125 1.125 0 01-1.12 1.227H7.231c-.662 0-1.18-.568-1.12-1.227L6.34 18m11.318 0h1.091A2.25 2.25 0 0021 15.75V9.456c0-1.081-.768-2.015-1.837-2.175a48.055 48.055 0 00-1.913-.247M6.34 18H5.25A2.25 2.25 0 013 15.75V9.456c0-1.081.768-2.015 1.837-2.175a48.056 48.056 0 011.913-.247m10.5 0a48.536 48.536 0 00-10.5 0m10.5 0V3.375c0-.621-.504-1.125-1.125-1.125h-8.25c-.621 0-1.125.504-1.125 1.125v3.659M18 10.5h.008v.008H18V10.5zm-3 0h.008v.008H15V10.5z"/>
         </svg>
-        Imprimer / PDF
+        {% if report and report.signed_pdf_doc_id %}PDF de travail{% else %}Imprimer / PDF{% endif %}
       </button>
+      {% if report and report.signed_pdf_doc_id %}
+      <a href="/documents/file/{{ report.signed_pdf_doc_id }}/view" target="_blank"
+         class="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors">
+        <i class="ti ti-file-type-pdf"></i>
+        PDF signé archivé
+      </a>
+      {% endif %}
     </div>
   </div>
 
@@ -91,12 +113,23 @@
         {% else %}
         <span class="text-xs text-gray-400">Pas encore consulté par le V∴M∴</span>
         {% endif %}
-      {% else %}
-        <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-green-100 text-green-700">✓ Approuvé — {{ report.approved_at.strftime('%d/%m/%Y') if report.approved_at }}</span>
+      {% elif report.status.value == 'APPROUVE' %}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-green-100 text-green-700">✓ Approuvé par le V∴M∴ — {{ report.approved_at.strftime('%d/%m/%Y') if report.approved_at }}</span>
+        <span class="text-xs text-gray-400">En attente de lecture/adoption en tenue</span>
         {% if report.archived_doc_id %}
         <a href="/documents/file/{{ report.archived_doc_id }}/view" class="text-loge-600 hover:text-loge-800 text-xs flex items-center gap-1">
-          <i class="ti ti-books"></i> Voir l'archive
+          <i class="ti ti-books"></i> Voir le document de travail
         </a>
+        {% endif %}
+      {% elif report.status.value == 'ADOPTE' %}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-blue-100 text-blue-700">📜 Lu et adopté en tenue — {{ report.adopted_at.strftime('%d/%m/%Y') if report.adopted_at }}</span>
+        <span class="text-xs text-gray-400">En attente du PDF signé</span>
+      {% elif report.status.value == 'ARCHIVE' %}
+        <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-emerald-100 text-emerald-700">🗄 Archivé — PDF signé importé</span>
+        {% if report.signed_pdf_uploaded_at %}
+        <span class="text-xs text-gray-400">
+          le {{ report.signed_pdf_uploaded_at.strftime('%d/%m/%Y') }}{% if report.signed_pdf_uploaded_by %} par {{ report.signed_pdf_uploaded_by.last_name }} {{ report.signed_pdf_uploaded_by.first_name }}{% endif %}
+        </span>
         {% endif %}
       {% endif %}
     </div>
@@ -143,8 +176,93 @@
         </form>
       </div>
       {% endif %}
+      {% if can_adopt %}
+      <form method="post" action="/meetings/{{ meeting.id }}/trace/adopt"
+            onsubmit="return confirm('Confirmer que ce tracé a été lu et adopté en tenue ?')">
+        <button type="submit" class="bg-blue-600 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-blue-700 transition-colors">
+          📜 Marquer comme adopté en tenue
+        </button>
+      </form>
+      {% endif %}
     </div>
   </div>
+
+  <!-- ── Délégué d'import du PDF signé (visible dès Approuvé) ── -->
+  {% if can_set_delegate and report and report.status.value in ('APPROUVE', 'ADOPTE', 'ARCHIVE') %}
+  <div class="print:hidden mb-6 bg-white border border-gray-100 rounded-xl px-4 py-3" x-data="{ editingDelegate: false }">
+    <div class="flex items-center justify-between gap-3 flex-wrap">
+      <div class="text-sm text-gray-600">
+        <span class="text-gray-400">Délégué import PDF signé (ce tracé uniquement) :</span>
+        {% if report.upload_delegate %}
+        <span class="font-medium text-gray-800">{{ report.upload_delegate.last_name }} {{ report.upload_delegate.first_name }}</span>
+        {% else %}
+        <span class="text-gray-300 italic">aucun</span>
+        {% endif %}
+      </div>
+      <button type="button" @click="editingDelegate = !editingDelegate" class="text-xs text-loge-600 hover:text-loge-800 font-medium">
+        ✎ Modifier
+      </button>
+    </div>
+    <form x-show="editingDelegate" x-cloak method="post" action="/meetings/{{ meeting.id }}/trace/set-delegate"
+          class="flex items-center gap-2 mt-2">
+      <select name="delegate_member_id" class="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">
+        <option value="">— Aucun délégué —</option>
+        {% for m in active_members_for_delegate %}
+        <option value="{{ m.id }}" {% if report.upload_delegate_id == m.id %}selected{% endif %}>{{ m.last_name }} {{ m.first_name }}</option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="bg-loge-700 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-loge-800 transition-colors">
+        Enregistrer
+      </button>
+    </form>
+  </div>
+  {% endif %}
+
+  <!-- ── Version signée (PDF scanné) ── -->
+  {% if report and report.status.value in ('ADOPTE', 'ARCHIVE') %}
+  <div class="print:hidden mb-6 bg-white border border-gray-100 rounded-xl px-4 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wide font-semibold mb-3">Version signée — pièce officielle</div>
+
+    {% if report.signed_pdf_doc_id %}
+    <div class="flex items-center gap-3 flex-wrap">
+      <a href="/documents/file/{{ report.signed_pdf_doc_id }}/view" target="_blank"
+         class="flex items-center gap-2 bg-emerald-50 border border-emerald-200 rounded-lg px-3 py-2 text-sm text-emerald-800 hover:bg-emerald-100 transition-colors">
+        <i class="ti ti-file-type-pdf text-lg"></i>
+        <span>Voir le PDF signé archivé</span>
+      </a>
+      <span class="text-xs text-gray-400">
+        Importé le {{ report.signed_pdf_uploaded_at.strftime('%d/%m/%Y à %H:%M') if report.signed_pdf_uploaded_at }}{% if report.signed_pdf_uploaded_by %} par {{ report.signed_pdf_uploaded_by.last_name }} {{ report.signed_pdf_uploaded_by.first_name }}{% endif %}
+      </span>
+    </div>
+    {% endif %}
+
+    {% if can_upload_signed %}
+    <div class="mt-3" x-data="{ dragging: false }">
+      <form x-ref="signedPdfForm" method="post" action="/meetings/{{ meeting.id }}/trace/upload-signed" enctype="multipart/form-data"
+            @submit="document.getElementById('signed-pdf-submitting').classList.remove('hidden')">
+        <label
+          @dragover.prevent="dragging = true" @dragleave.prevent="dragging = false"
+          @drop.prevent="dragging = false; $refs.signedPdfInput.files = $event.dataTransfer.files; $refs.signedPdfForm.requestSubmit();"
+          :class="dragging ? 'border-loge-500 bg-loge-50' : 'border-gray-200'"
+          class="flex flex-col items-center justify-center gap-1 border-2 border-dashed rounded-xl px-4 py-6 cursor-pointer transition-colors hover:border-loge-400">
+          <i class="ti ti-upload text-xl text-gray-400"></i>
+          <span class="text-sm text-gray-600">
+            {% if report.signed_pdf_doc_id %}Glisser-déposer pour remplacer le PDF signé{% else %}Glisser-déposer le PDF signé (scan){% endif %}
+          </span>
+          <span class="text-xs text-gray-400">ou cliquer pour choisir un fichier — 20 Mo max</span>
+          <input x-ref="signedPdfInput" type="file" name="file" accept="application/pdf" required class="hidden"
+                 @change="$refs.signedPdfForm.requestSubmit()">
+        </label>
+      </form>
+      <div id="signed-pdf-submitting" class="hidden text-xs text-gray-400 mt-1">Import en cours…</div>
+    </div>
+    {% elif not report.signed_pdf_doc_id %}
+    <p class="text-xs text-gray-400 italic mt-2">
+      Vous n'êtes pas autorisé à importer le PDF signé de ce tracé (Secrétaire titulaire, V∴M∴, admin, ou délégué désigné ci-dessus).
+    </p>
+    {% endif %}
+  </div>
+  {% endif %}
 
   <!-- ═══════════════════════════════════════════════════════
        DOCUMENT TRACÉ — Format officiel

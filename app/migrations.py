@@ -1222,6 +1222,21 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE meeting_reports ADD COLUMN rejected_at DATETIME"
             )
 
+        r_mr2 = await conn.exec_driver_sql("PRAGMA table_info(meeting_reports)")
+        cols_mr2 = [row[1] for row in r_mr2.fetchall()]
+        if cols_mr2 and "adopted_at" not in cols_mr2:
+            await conn.exec_driver_sql("ALTER TABLE meeting_reports ADD COLUMN adopted_at DATETIME")
+        if cols_mr2 and "adopted_by_id" not in cols_mr2:
+            await conn.exec_driver_sql("ALTER TABLE meeting_reports ADD COLUMN adopted_by_id INTEGER REFERENCES members(id)")
+        if cols_mr2 and "upload_delegate_id" not in cols_mr2:
+            await conn.exec_driver_sql("ALTER TABLE meeting_reports ADD COLUMN upload_delegate_id INTEGER REFERENCES members(id)")
+        if cols_mr2 and "signed_pdf_doc_id" not in cols_mr2:
+            await conn.exec_driver_sql("ALTER TABLE meeting_reports ADD COLUMN signed_pdf_doc_id INTEGER REFERENCES documents(id)")
+        if cols_mr2 and "signed_pdf_uploaded_at" not in cols_mr2:
+            await conn.exec_driver_sql("ALTER TABLE meeting_reports ADD COLUMN signed_pdf_uploaded_at DATETIME")
+        if cols_mr2 and "signed_pdf_uploaded_by_id" not in cols_mr2:
+            await conn.exec_driver_sql("ALTER TABLE meeting_reports ADD COLUMN signed_pdf_uploaded_by_id INTEGER REFERENCES members(id)")
+
         r_my = await conn.exec_driver_sql("PRAGMA table_info(masonic_years)")
         cols_my = [row[1] for row in r_my.fetchall()]
         if cols_my and "activity_report_note" not in cols_my:

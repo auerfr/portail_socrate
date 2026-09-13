@@ -9,7 +9,7 @@ import os
 import uuid
 import logging
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select, func as sql_func
 from sqlalchemy.orm import selectinload
@@ -29,7 +29,7 @@ from app.models.meetings import (
 from app.models.identity import Member, LodgeFunction, MemberStatus
 from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
 from app.models.associative import OfficerAssignment
-from app.models.documents import DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
+from app.models.documents import DocSpace, DocFolder, Document, DocumentVersion, DocStatus, MinGrade, DocAccessMode
 
 logger = logging.getLogger(__name__)
 TRACE_ARCHIVE_UPLOAD_DIR = "uploads/documents"
@@ -118,6 +118,18 @@ def _archive_doc_name(meeting: "Meeting") -> str:
 def _can_approve_trace(user, member: Member) -> bool:
     """V∴M∴ ou admin — seuls habilités à approuver et archiver un tracé."""
     return user.is_admin or member.lodge_function == LodgeFunction.VM
+
+
+def _can_upload_signed_pdf(user, member: Member, report: "MeetingReport") -> bool:
+    """Secrétaire titulaire du tracé, V∴M∴, admin, ou délégué ponctuel désigné
+    pour ce tracé précis (report.upload_delegate_id) — cette délégation ne
+    vaut que pour cette action, sur ce tracé, et n'accorde rien d'autre."""
+    return (
+        user.is_admin
+        or member.lodge_function == LodgeFunction.VM
+        or member.id == report.author_id
+        or (report.upload_delegate_id is not None and member.id == report.upload_delegate_id)
+    )
 
 
 def _find_vm_office(offices):
@@ -756,6 +768,14 @@ async def meeting_trace(
         "uses_previous_college": uses_previous_college,
         "previous_college_label": previous_college_label,
         "harmoniste_name": harmoniste_name,
+        "can_adopt": (can_manage_meeting(member) or user.is_admin) and report and report.status == ReportStatus.APPROUVE,
+        "can_set_delegate": can_manage_meeting(member) or user.is_admin or member.lodge_function == LodgeFunction.VM,
+        "can_upload_signed": bool(report) and _can_upload_signed_pdf(user, member, report),
+        "active_members_for_delegate": (
+            await db.execute(
+                select(Member).where(Member.status == MemberStatus.ACTIVE).order_by(Member.last_name, Member.first_name)
+            )
+        ).scalars().all(),
     })
 
 
@@ -1033,6 +1053,170 @@ async def trace_approve(
 
     await db.commit()
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?approved=1", status_code=303)
+
+
+# ── Adoption en tenue + import du PDF signé (étape en aval de l'approbation) ─
+
+@router.post("/{meeting_id}/trace/adopt")
+async def trace_adopt(
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Déclaration de la Secrétaire : le tracé a été lu et adopté en tenue
+    (pas de workflow de vote — simple constat)."""
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if not report or report.status != ReportStatus.APPROUVE:
+        raise HTTPException(status_code=400, detail="Ce tracé n'est pas au statut Approuvé")
+
+    report.status = ReportStatus.ADOPTE
+    report.adopted_at = datetime.now()
+    report.adopted_by_id = member.id
+    await db.commit()
+
+    return RedirectResponse(url=f"/meetings/{meeting_id}/trace?adopted=1", status_code=303)
+
+
+@router.post("/{meeting_id}/trace/set-delegate")
+async def trace_set_delegate(
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    delegate_member_id: str = Form(""),
+):
+    """Désigne (ou retire) un membre ponctuellement autorisé à importer le
+    PDF signé de CE tracé uniquement — n'accorde aucun autre droit."""
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin or member.lodge_function == LodgeFunction.VM):
+        raise HTTPException(status_code=403)
+
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if not report:
+        raise HTTPException(status_code=404)
+
+    delegate_member_id = delegate_member_id.strip()
+    if delegate_member_id:
+        if not delegate_member_id.isdigit():
+            raise HTTPException(status_code=400)
+        delegate = await db.get(Member, int(delegate_member_id))
+        if not delegate:
+            raise HTTPException(status_code=404, detail="Membre introuvable")
+        report.upload_delegate_id = delegate.id
+    else:
+        report.upload_delegate_id = None
+
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/trace?delegate_set=1", status_code=303)
+
+
+SIGNED_PDF_MAX_SIZE = 20 * 1024 * 1024  # 20 Mo — scan papier
+
+
+@router.post("/{meeting_id}/trace/upload-signed")
+async def trace_upload_signed(
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    file: UploadFile = File(...),
+):
+    """Importe (ou remplace) le PDF scanné signé — Secrétaire titulaire,
+    V∴M∴, admin, ou délégué ponctuel. Autorisé même une fois "Archivé" (la
+    Secrétaire titulaire doit pouvoir corriger un scan illisible sans
+    validation supplémentaire) ; l'ancien fichier est conservé en historique
+    de versions (DocumentVersion), pas exposé dans l'UI courante."""
+    user, member = ctx
+
+    meeting_r = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
+    meeting = meeting_r.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    report_r = await db.execute(
+        select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
+    )
+    report = report_r.scalar_one_or_none()
+    if not report or report.status not in (ReportStatus.ADOPTE, ReportStatus.ARCHIVE):
+        raise HTTPException(status_code=400, detail="Le tracé doit d'abord être marqué comme adopté en tenue")
+
+    if not _can_upload_signed_pdf(user, member, report):
+        raise HTTPException(status_code=403)
+
+    if (file.content_type or "") != "application/pdf" and not (file.filename or "").lower().endswith(".pdf"):
+        raise HTTPException(status_code=400, detail="Le fichier doit être un PDF")
+
+    content = await file.read()
+    if len(content) > SIGNED_PDF_MAX_SIZE:
+        raise HTTPException(status_code=400, detail="Fichier trop volumineux (20 Mo max)")
+    if not content:
+        raise HTTPException(status_code=400, detail="Fichier vide")
+
+    os.makedirs(TRACE_ARCHIVE_UPLOAD_DIR, exist_ok=True)
+    stored_name = f"{uuid.uuid4().hex}.pdf"
+    storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, stored_name)
+    with open(storage_path, "wb") as f:
+        f.write(content)
+
+    year_label = str(meeting.meeting_date.year)
+    folder = await _get_or_create_pv_folder(db, year_label)
+    doc_name = _archive_doc_name(meeting) + " (signé)"
+
+    if report.signed_pdf_doc_id:
+        # Réimport : archive l'ancien fichier en DocumentVersion, remplace en place.
+        existing = await db.get(Document, report.signed_pdf_doc_id)
+        if existing:
+            version_count_r = await db.execute(
+                select(DocumentVersion).where(DocumentVersion.document_id == existing.id)
+            )
+            version_number = len(version_count_r.scalars().all()) + 1
+            db.add(DocumentVersion(
+                document_id=existing.id,
+                version_number=version_number,
+                storage_path=existing.storage_path,
+                file_size=existing.file_size,
+                change_notes="Remplacé lors d'un nouvel import du PDF signé",
+                created_by_id=member.id,
+            ))
+            existing.storage_path = storage_path
+            existing.original_filename = file.filename
+            existing.mime_type = "application/pdf"
+            existing.file_size = len(content)
+            existing.name = doc_name
+        else:
+            # Le document lié a été supprimé entre-temps — on en recrée un.
+            existing = Document(
+                folder_id=folder.id, name=doc_name, original_filename=file.filename,
+                mime_type="application/pdf", file_size=len(content), storage_path=storage_path,
+                status=DocStatus.PUBLISHED, author_id=member.id,
+            )
+            db.add(existing)
+            await db.flush()
+            report.signed_pdf_doc_id = existing.id
+    else:
+        doc = Document(
+            folder_id=folder.id, name=doc_name, original_filename=file.filename,
+            mime_type="application/pdf", file_size=len(content), storage_path=storage_path,
+            status=DocStatus.PUBLISHED, author_id=member.id,
+        )
+        db.add(doc)
+        await db.flush()
+        report.signed_pdf_doc_id = doc.id
+
+    report.signed_pdf_uploaded_at = datetime.now()
+    report.signed_pdf_uploaded_by_id = member.id
+    report.status = ReportStatus.ARCHIVE
+
+    await db.commit()
+    return RedirectResponse(url=f"/meetings/{meeting_id}/trace?signed_uploaded=1", status_code=303)
 
 
 @router.post("/{meeting_id}/trace/reject")
