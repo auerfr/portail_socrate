@@ -129,6 +129,10 @@ class MasonicYear(Base):
     is_current: Mapped[bool] = mapped_column(Boolean, default=False)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    # Rédaction personnelle de la Secrétaire pour le Bilan d'activité de
+    # cette année (texte libre — ne remplace pas les statistiques calculées).
+    activity_report_note: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+
     def __repr__(self) -> str:
         return f"<MasonicYear {self.label}>"
 

@@ -109,6 +109,28 @@
       </div>
     </div>
     {% endif %}
+
+    <!-- Répartition par grade -->
+    {% set shown_grades = [] %}
+    {% for grade_key, label in grade_labels.items() %}
+    {% if grade_counter.get(grade_key, 0) > 0 %}{% set _ = shown_grades.append(grade_key) %}{% endif %}
+    {% endfor %}
+    {% if shown_grades %}
+    <div class="mt-4 bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-3 font-semibold">Répartition par grade</div>
+      <div class="flex flex-wrap gap-3">
+        {% for grade_key, label in grade_labels.items() %}
+        {% set n = grade_counter.get(grade_key, 0) %}
+        {% if n > 0 %}
+        <div class="flex items-center gap-2 bg-gray-50 rounded-lg px-3 py-2">
+          <span class="text-lg font-bold text-loge-700">{{ n }}</span>
+          <span class="text-sm text-gray-600">{{ label }}</span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
   </section>
 
   <!-- ══ 2. CALENDRIER DES TENUES ═════════════════════════════════════════════ -->
@@ -192,59 +214,42 @@
     </div>
   </section>
 
-  <!-- ══ 3. TRAVAUX DE L'ANNÉE ════════════════════════════════════════════════ -->
-  {% if mtg_travaux %}
-  <section>
+  <!-- ══ 3. RÉDACTION PERSONNELLE DE LA SECRÉTAIRE ═══════════════════════════ -->
+  {% if selected_year %}
+  {% if request.query_params.get('saved') %}
+  <div class="print:hidden bg-green-50 border border-green-200 text-green-700 text-sm rounded-xl px-4 py-3">
+    ✓ Note enregistrée.
+  </div>
+  {% endif %}
+  <section x-data="{ editingNote: false }">
     <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider mb-3">
-      Ordres du jour &amp; travaux de l'année
-      <span class="ml-2 text-xs font-normal normal-case text-gray-400">(planches, conférences, rituels, ordre du jour)</span>
+      Rédaction personnelle de la Secrétaire
     </h2>
-    <div class="space-y-4" id="travaux-section-wrapper">
-      {% for m in past_meetings %}
-      {% if m.id in mtg_travaux %}
-      <div class="bg-white rounded-xl border border-purple-100 shadow-sm overflow-hidden" id="travaux-{{ m.id }}">
-        <!-- En-tête tenue -->
-        <div class="flex items-center justify-between px-5 py-3 bg-purple-50/60 border-b border-purple-100">
-          <div class="flex items-center gap-3">
-            <span class="text-xs font-bold text-purple-700 bg-purple-100 rounded-full px-2.5 py-1">
-              {{ m.meeting_date.strftime('%d/%m/%Y') }}
-            </span>
-            <span class="text-xs text-gray-500 bg-loge-50 text-loge-700 rounded-full px-2 py-0.5">
-              {{ m.type | label(default=type_labels.get(m.type.value, m.type.value)) }}
-            </span>
-            {% if m.theme %}
-            <span class="text-sm font-semibold text-gray-800">{{ m.theme }}</span>
-            {% elif m.title %}
-            <span class="text-sm font-semibold text-gray-800">{{ m.title }}</span>
-            {% endif %}
-            {% set src = mtg_travaux_source.get(m.id) %}
-            {% if src == 'agenda' %}
-            <span class="text-[10px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 print:hidden" title="Issu de l'ordre du jour de la tenue (programme)">📋 ODJ</span>
-            {% elif src == 'cr' %}
-            <span class="text-[10px] text-gray-400 bg-gray-100 rounded-full px-2 py-0.5 print:hidden" title="Issu du compte-rendu de la tenue">📝 CR</span>
-            {% endif %}
-          </div>
-          <a href="/attendance/meeting/{{ m.id }}/summary" class="text-xs text-gray-400 hover:text-loge-600 print:hidden">
-            Synthèse →
-          </a>
-        </div>
-        <!-- Contenu travaux -->
-        <div class="px-5 py-4 prose prose-sm max-w-none text-gray-700 travaux-content">
-          {{ mtg_travaux[m.id] | safe }}
-        </div>
-        {% if m.id in mtg_odj %}
-        <details class="border-t border-gray-100">
-          <summary class="px-5 py-2.5 text-xs text-gray-400 cursor-pointer hover:text-gray-600 print:hidden">
-            Voir l'ordre du jour
-          </summary>
-          <div class="px-5 py-3 prose prose-sm max-w-none text-gray-600 bg-gray-50/50">
-            {{ mtg_odj[m.id] | safe }}
-          </div>
-        </details>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div x-show="!editingNote">
+        {% if selected_year.activity_report_note %}
+        <p class="text-sm text-gray-700 whitespace-pre-line leading-relaxed">{{ selected_year.activity_report_note }}</p>
+        {% else %}
+        <p class="text-sm text-gray-300 italic print:hidden">Aucune note rédigée pour cette année.</p>
         {% endif %}
+        <button type="button" @click="editingNote = true"
+                class="mt-3 text-xs text-loge-600 hover:text-loge-800 font-medium print:hidden">
+          ✎ {{ 'Modifier' if selected_year.activity_report_note else 'Rédiger une note' }}
+        </button>
       </div>
-      {% endif %}
-      {% endfor %}
+      <form x-show="editingNote" x-cloak method="post" action="/attendance/bilan/note" class="print:hidden">
+        <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+        <textarea name="note" rows="6" placeholder="Votre synthèse personnelle de l'année écoulée…"
+                  class="w-full text-sm border border-gray-200 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-loge-500">{{ selected_year.activity_report_note or '' }}</textarea>
+        <div class="flex items-center gap-2 mt-2">
+          <button type="submit" class="bg-loge-700 text-white text-xs font-semibold px-4 py-2 rounded-lg hover:bg-loge-800">
+            Enregistrer
+          </button>
+          <button type="button" @click="editingNote = false" class="text-xs text-gray-500 hover:text-gray-700">
+            Annuler
+          </button>
+        </div>
+      </form>
     </div>
   </section>
   {% endif %}

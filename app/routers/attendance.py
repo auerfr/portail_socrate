@@ -1317,6 +1317,7 @@ async def bilan_annuel(
 
     from collections import Counter
     type_counter = Counter(m.type.value for m in past_meetings)
+    grade_counter = Counter(m.grade.value for m in past_meetings)
 
     mv_r = await db.execute(
         select(MeetingVisitor)
@@ -1442,6 +1443,8 @@ async def bilan_annuel(
         "g_pct_abs":  round(g_abs  * 100 / g_exp) if g_exp else 0,
         "type_counter": dict(type_counter),
         "type_labels": type_labels_b,
+        "grade_counter": dict(grade_counter),
+        "grade_labels": {"APPRENTI": "Apprenti", "COMPAGNON": "Compagnon", "MAITRE": "Maître", "ALL": "Tous grades"},
         "visitor_total": visitor_total,
         "visitor_unique": visitor_unique,
         "top_lodges_bilan": top_lodges_bilan,
@@ -1457,3 +1460,26 @@ async def bilan_annuel(
         "total_agape_covers": total_agape_covers,
         "mtg_with_agape": mtg_with_agape,
     })
+
+
+@router.post("/bilan/note")
+async def bilan_save_note(
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: int = Form(...),
+    note: str = Form(""),
+):
+    """Enregistre la rédaction personnelle de la Secrétaire pour le Bilan
+    d'activité d'une année maçonnique donnée — texte libre, distinct des
+    statistiques calculées automatiquement."""
+    user, member = ctx
+    _require_attendance_mgr(user, member)
+
+    year = await db.get(MasonicYear, year_id)
+    if not year:
+        raise HTTPException(status_code=404)
+
+    year.activity_report_note = note.strip() or None
+    await db.commit()
+
+    return RedirectResponse(url=f"/attendance/bilan?year_id={year_id}&saved=1", status_code=303)

@@ -1222,6 +1222,13 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE meeting_reports ADD COLUMN rejected_at DATETIME"
             )
 
+        r_my = await conn.exec_driver_sql("PRAGMA table_info(masonic_years)")
+        cols_my = [row[1] for row in r_my.fetchall()]
+        if cols_my and "activity_report_note" not in cols_my:
+            await conn.exec_driver_sql(
+                "ALTER TABLE masonic_years ADD COLUMN activity_report_note TEXT"
+            )
+
     # ── documents.created_at / updated_at : DEFAULT perdu lors d'une ancienne
     # migration ────────────────────────────────────────────────────────────
     # La migration qui a rendu original_filename nullable (plus haut dans ce
