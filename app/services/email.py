@@ -429,7 +429,10 @@ async def notify_new_chat_channel(
 
 
 def _new_calendar_event_html(creator_name: str, event_title: str, event_when: str, location: str,
-                              description: str, portal_url: str, event_url: str) -> str:
+                              description: str, portal_url: str, event_url: str,
+                              is_reminder: bool = False) -> str:
+    heading = "🔔 Rappel — événement à l'agenda" if is_reminder else "Nouvel événement à l'agenda"
+    added_by_label = "Organisé par" if is_reminder else "Ajouté par"
     return f"""<!DOCTYPE html>
 <html lang="fr">
 <head><meta charset="UTF-8"><meta name="viewport" content="width=device-width,initial-scale=1"></head>
@@ -445,7 +448,7 @@ def _new_calendar_event_html(creator_name: str, event_title: str, event_when: st
               {portal_url}
             </p>
             <h1 style="margin:8px 0 0;color:#ffffff;font-size:22px;font-weight:700;">
-              Nouvel événement à l'agenda
+              {heading}
             </h1>
           </td>
         </tr>
@@ -453,7 +456,7 @@ def _new_calendar_event_html(creator_name: str, event_title: str, event_when: st
         <!-- Corps -->
         <tr>
           <td style="padding:28px 32px;">
-            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Ajouté par</p>
+            <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">{added_by_label}</p>
             <p style="margin:0 0 20px;font-size:18px;font-weight:600;color:#111827;">{creator_name}</p>
 
             <p style="margin:0 0 8px;font-size:14px;color:#6b7280;">Événement</p>
@@ -499,13 +502,15 @@ def _new_calendar_event_html(creator_name: str, event_title: str, event_when: st
 
 
 def _new_calendar_event_text(creator_name: str, event_title: str, event_when: str, location: str,
-                              description: str, event_url: str) -> str:
+                              description: str, event_url: str, is_reminder: bool = False) -> str:
     loc_part = f" · {location}" if location else ""
     desc_block = f"\n{description}\n" if description else ""
-    return f"""Nouvel événement à l'agenda du portail de la loge
+    heading = "Rappel — événement à l'agenda du portail de la loge" if is_reminder else "Nouvel événement à l'agenda du portail de la loge"
+    added_by_label = "Organisé par" if is_reminder else "Ajouté par"
+    return f"""{heading}
 ====================================================
 
-Ajouté par : {creator_name}
+{added_by_label} : {creator_name}
 Événement : {event_title}
 Quand : {event_when}{loc_part}
 {desc_block}
@@ -526,24 +531,28 @@ async def notify_new_calendar_event(
     description: str,
     event_id: int,
     portal_base_url: str = "https://portail.amisdesocrate.fr",
+    is_reminder: bool = False,
 ) -> bool:
-    """Envoie une notification email à la création d'un événement d'agenda
-    concernant le destinataire (visibilité de l'événement)."""
+    """Envoie une notification email concernant un événement d'agenda au
+    destinataire (visibilité de l'événement) — à la création, ou en rappel
+    manuel a posteriori (is_reminder=True)."""
     event_url = f"{portal_base_url}/calendar/events/{event_id}"
 
     html = _new_calendar_event_html(
         creator_name=creator_name, event_title=event_title, event_when=event_when,
         location=location or "", description=description or "",
-        portal_url=portal_base_url, event_url=event_url,
+        portal_url=portal_base_url, event_url=event_url, is_reminder=is_reminder,
     )
     text = _new_calendar_event_text(
         creator_name=creator_name, event_title=event_title, event_when=event_when,
         location=location or "", description=description or "", event_url=event_url,
+        is_reminder=is_reminder,
     )
 
+    subject = f"[Portail Loge] Rappel : {event_title}" if is_reminder else f"[Portail Loge] Nouvel événement : {event_title}"
     ok, _ = await _send_raw(
         to=recipient_email,
-        subject=f"[Portail Loge] Nouvel événement : {event_title}",
+        subject=subject,
         html=html,
         text=text,
     )

@@ -158,6 +158,7 @@ _NOTIFY_EVENT_EMAIL_DELAY_MS = 300
 async def _notify_event_paced(
     recipient_emails: list[str], creator_name: str, event_title: str, event_when: str,
     location: str, description: str, event_id: int, portal_base_url: str,
+    is_reminder: bool = False,
 ) -> None:
     import asyncio
     from app.services.email import notify_new_calendar_event
@@ -166,29 +167,35 @@ async def _notify_event_paced(
             await notify_new_calendar_event(
                 recipient_email=email, creator_name=creator_name, event_title=event_title,
                 event_when=event_when, location=location, description=description,
-                event_id=event_id, portal_base_url=portal_base_url,
+                event_id=event_id, portal_base_url=portal_base_url, is_reminder=is_reminder,
             )
         except Exception:
             pass
         await asyncio.sleep(_NOTIFY_EVENT_EMAIL_DELAY_MS / 1000.0)
 
 
-async def _notify_new_event(event: LodgeEvent, creator: Member, db: AsyncSession) -> None:
-    """Notifie (push + email) les membres concernés par ce nouvel événement
-    d'agenda — jamais pour un événement personnel. Pour une série récurrente,
-    à appeler une seule fois avec la première occurrence (pas par occurrence)."""
+async def _notify_new_event(
+    event: LodgeEvent, creator: Member, db: AsyncSession, is_reminder: bool = False,
+) -> int:
+    """Notifie (push + email) les membres concernés par cet événement d'agenda
+    — jamais pour un événement personnel. Pour une série récurrente, à
+    appeler une seule fois avec la première occurrence (pas par occurrence).
+    is_reminder=True adapte le texte ("rappel" plutôt que "nouvel événement")
+    pour un envoi déclenché manuellement a posteriori. Renvoie le nombre de
+    membres notifiés (push)."""
     ids = await _event_concerned_member_ids(event, db)
     ids.discard(creator.id)
     if not ids:
-        return
+        return 0
 
     event_when = _format_event_when(event)
 
     try:
         from app.services.push import send_push_broadcast
+        push_prefix = "🔔 Rappel · " if is_reminder else ""
         push_body = event_when + (f" · {event.location}" if event.location else "")
         await send_push_broadcast(
-            db, list(ids), f"📅 {event.title}", push_body[:160], f"/calendar/events/{event.id}",
+            db, list(ids), f"{push_prefix}📅 {event.title}", push_body[:160], f"/calendar/events/{event.id}",
         )
     except Exception:
         pass
@@ -200,7 +207,7 @@ async def _notify_new_event(event: LodgeEvent, creator: Member, db: AsyncSession
         if m.email and getattr(m, "email_notifications", True)
     ]
     if not dest_emails:
-        return
+        return len(ids)
 
     from app.config import get_settings
     import asyncio
@@ -211,8 +218,9 @@ async def _notify_new_event(event: LodgeEvent, creator: Member, db: AsyncSession
     asyncio.create_task(_notify_event_paced(  # noqa — fire & forget
         recipient_emails=dest_emails, creator_name=creator_name, event_title=event.title,
         event_when=event_when, location=event.location or "", description=event.description or "",
-        event_id=event.id, portal_base_url=portal_url,
+        event_id=event.id, portal_base_url=portal_url, is_reminder=is_reminder,
     ))
+    return len(ids)
 
 
 def _meeting_to_event(m: Meeting) -> dict:
@@ -932,6 +940,34 @@ async def calendar_event_edit(
 
     await db.commit()
     return RedirectResponse(url=f"/calendar/events/{event_id}", status_code=303)
+
+
+# ── Rappel manuel a posteriori ──────────────────────────────────────────────
+
+@router.post("/events/{event_id}/notify")
+async def calendar_notify_event(
+    event_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Renvoie manuellement la notification (push + email) aux membres
+    concernés — utile pour un événement créé avant l'activation de la
+    notification automatique, ou pour relancer un rappel avant la date."""
+    user, member = ctx
+
+    result = await db.execute(select(LodgeEvent).where(LodgeEvent.id == event_id))
+    event = result.scalar_one_or_none()
+    if not event:
+        raise HTTPException(status_code=404, detail="Événement introuvable")
+
+    if not (user.is_admin or event.created_by_id == member.id or _can_create_event(user, member)):
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    if event.is_personal:
+        raise HTTPException(status_code=400, detail="Un événement personnel ne peut pas être notifié")
+
+    notified = await _notify_new_event(event, member, db, is_reminder=True)
+    return RedirectResponse(url=f"/calendar/events/{event_id}?notified={notified}", status_code=303)
 
 
 # ── Suppression d'un événement ─────────────────────────────────────────────
