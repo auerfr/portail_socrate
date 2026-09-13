@@ -43,6 +43,14 @@
     </div>
   </div>
 
+  {% if uses_previous_college %}
+  <div class="bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
+    🎩 Première tenue de l'année maçonnique — les offices ci-dessous sont ceux du
+    Collège {{ ('de ' ~ previous_college_label) if previous_college_label else 'précédent' }},
+    qui officie encore lors de cette tenue.
+  </div>
+  {% endif %}
+
   {% if request.query_params.get('_saved') %}
   <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-2 text-sm">
     <i class="ti ti-check"></i> Remplaçants enregistrés.

@@ -28,6 +28,7 @@ from app.models.meetings import (
 )
 from app.models.identity import Member, LodgeFunction, MemberStatus
 from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
+from app.models.associative import OfficerAssignment
 from app.models.documents import DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
 
 logger = logging.getLogger(__name__)
@@ -590,12 +591,12 @@ async def meeting_trace(
 
     # Offices pour afficher les fonctions des membres — un même membre peut
     # cumuler plusieurs offices (ex: Hospitalier + Maître des Banquets) : il
-    # ne faut pas les écraser, mais les cumuler pour l'affichage.
-    offices_r = await db.execute(
-        select(LodgeOffice).where(LodgeOffice.member_id.isnot(None))
-        .order_by(LodgeOffice.sort_order, LodgeOffice.label)
-    )
-    offices = offices_r.scalars().all()
+    # ne faut pas les écraser, mais les cumuler pour l'affichage. Pour la
+    # toute première tenue de l'année, référence = Collège précédent (cf.
+    # _officer_baseline_for_meeting) plutôt que le Collège actuellement en
+    # poste, qui n'officiait pas encore à cette tenue-là.
+    all_offices, uses_previous_college = await _officer_baseline_for_meeting(db, meeting)
+    offices = [o for o in all_offices if o.member_id]
     member_office_lists: dict[int, list[str]] = {}
     for o in offices:
         member_office_lists.setdefault(o.member_id, []).append(o.label)
@@ -657,6 +658,10 @@ async def meeting_trace(
 
     can_edit = (can_manage_meeting(member) or user.is_admin) and not is_approved
 
+    # Bandeau d'information si cette tenue utilise le Collège précédent
+    # (première tenue de l'année maçonnique — cf. _officer_baseline_for_meeting).
+    uses_previous_college, previous_college_label = await _previous_college_context(db, meeting)
+
     # Audit consultation (si activé via /admin/confidentiality)
     try:
         from app.services.confidentiality import maybe_audit_view
@@ -690,6 +695,8 @@ async def meeting_trace(
         "can_edit": can_edit,
         "report": report,
         "can_approve": can_approve,
+        "uses_previous_college": uses_previous_college,
+        "previous_college_label": previous_college_label,
     })
 
 
@@ -804,11 +811,8 @@ async def trace_approve(
         lodge_r = await db.execute(select(LodgeSettings).limit(1))
         lodge = lodge_r.scalar_one_or_none()
 
-        offices_r = await db.execute(
-            select(LodgeOffice).where(LodgeOffice.member_id.isnot(None))
-            .order_by(LodgeOffice.sort_order, LodgeOffice.label)
-        )
-        offices = offices_r.scalars().all()
+        all_offices, _uses_previous_college = await _officer_baseline_for_meeting(db, meeting)
+        offices = [o for o in all_offices if o.member_id]
         member_office_lists: dict[int, list[str]] = {}
         for o in offices:
             member_office_lists.setdefault(o.member_id, []).append(o.label)
@@ -1265,13 +1269,97 @@ async def my_officiers(
     return RedirectResponse(url=f"/meetings/{m.id}/officiers", status_code=303)
 
 
+async def _is_first_meeting_of_year(db: AsyncSession, meeting: "Meeting") -> bool:
+    """La toute première tenue (par date) de l'année maçonnique de cette
+    réunion — c'est encore l'ancien Collège d'Officiers qui y officie,
+    l'installation du nouveau Collège n'ayant lieu qu'à une tenue ultérieure."""
+    if not meeting.masonic_year_id:
+        return False
+    r = await db.execute(
+        select(Meeting.id)
+        .where(Meeting.masonic_year_id == meeting.masonic_year_id)
+        .order_by(Meeting.meeting_date.asc(), Meeting.id.asc())
+        .limit(1)
+    )
+    first_id = r.scalar_one_or_none()
+    return first_id == meeting.id
+
+
+async def _officer_baseline_for_meeting(db: AsyncSession, meeting: "Meeting") -> tuple[list, bool]:
+    """Retourne (offices, utilise_college_precedent) : la liste d'offices
+    (objets exposant .label et .member_id, comme LodgeOffice) à utiliser comme
+    référence pour cette tenue.
+
+    Pour la toute première tenue d'une année maçonnique — qui se tient
+    encore sous l'ancien Collège avant son installation officielle — la
+    référence est le Collège archivé (OfficerAssignment) de l'année
+    maçonnique précédente plutôt que le Collège actuellement en poste
+    (LodgeOffice, déjà celui de la nouvelle année). Le secrétaire garde la
+    main pour corriger directement dans le tracé via les suppléances
+    habituelles (MeetingOffice) si l'ordre réel des tenues diffère.
+    """
+    if await _is_first_meeting_of_year(db, meeting) and meeting.masonic_year_id:
+        year = await db.get(MasonicYear, meeting.masonic_year_id)
+        if year:
+            prev_r = await db.execute(
+                select(MasonicYear)
+                .where(MasonicYear.start_date < year.start_date)
+                .order_by(MasonicYear.start_date.desc())
+                .limit(1)
+            )
+            prev_year = prev_r.scalar_one_or_none()
+            if prev_year:
+                assign_r = await db.execute(
+                    select(OfficerAssignment)
+                    .where(OfficerAssignment.masonic_year_id == prev_year.id)
+                    .order_by(OfficerAssignment.id)
+                )
+                assignments = assign_r.scalars().all()
+                if assignments:
+                    from types import SimpleNamespace
+                    offices = [
+                        SimpleNamespace(label=a.function, member_id=a.member_id, sort_order=i)
+                        for i, a in enumerate(assignments)
+                    ]
+                    return offices, True
+
+    offices = (await db.execute(
+        select(LodgeOffice).order_by(LodgeOffice.sort_order, LodgeOffice.label)
+    )).scalars().all()
+    return offices, False
+
+
+async def _previous_college_context(db: AsyncSession, meeting: "Meeting") -> tuple[bool, "str | None"]:
+    """(utilise_college_precedent, libellé_année_précédente) — pour le bandeau
+    d'information affiché sur le tracé et la page Officiers quand cette tenue
+    utilise le Collège précédent (cf. _officer_baseline_for_meeting)."""
+    if not await _is_first_meeting_of_year(db, meeting) or not meeting.masonic_year_id:
+        return False, None
+    cur_year = await db.get(MasonicYear, meeting.masonic_year_id)
+    if not cur_year:
+        return False, None
+    prev_year_r = await db.execute(
+        select(MasonicYear)
+        .where(MasonicYear.start_date < cur_year.start_date)
+        .order_by(MasonicYear.start_date.desc())
+        .limit(1)
+    )
+    prev_year_row = prev_year_r.scalar_one_or_none()
+    if not prev_year_row:
+        return False, None
+    has_assignments_r = await db.execute(
+        select(OfficerAssignment.id).where(OfficerAssignment.masonic_year_id == prev_year_row.id).limit(1)
+    )
+    if not has_assignments_r.scalar_one_or_none():
+        return False, None
+    return True, prev_year_row.label
+
+
 async def _build_officer_rows(db: AsyncSession, meeting: "Meeting") -> list[dict]:
     """Construit, pour une tenue donnée, l'état de chaque office (titulaire,
     statut de présence, remplaçant éventuel). Partagé entre la vue de gestion
     des officiers et le tracé/PV (qui affiche qui occupe chaque office vacant)."""
-    offices = (await db.execute(
-        select(LodgeOffice).order_by(LodgeOffice.sort_order, LodgeOffice.label)
-    )).scalars().all()
+    offices, _uses_previous_college = await _officer_baseline_for_meeting(db, meeting)
 
     # Cache titulaires
     holder_ids = {o.member_id for o in offices if o.member_id}
@@ -1359,6 +1447,8 @@ async def meeting_officiers(
         .order_by(Member.last_name, Member.first_name)
     )).scalars().all()
 
+    uses_previous_college, previous_college_label = await _previous_college_context(db, meeting)
+
     return templates.TemplateResponse(request, "pages/meetings/officiers.html", {
         "current_user": user,
         "current_member": member,
@@ -1367,6 +1457,8 @@ async def meeting_officiers(
         "present_members": present_members,
         "all_active": all_active,
         "AttendanceStatus": AttendanceStatus,
+        "uses_previous_college": uses_previous_college,
+        "previous_college_label": previous_college_label,
     })
 
 

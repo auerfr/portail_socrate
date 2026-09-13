@@ -25,6 +25,16 @@
   </div>
   {% endif %}
 
+  {% if uses_previous_college %}
+  <div class="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
+    🎩 Première tenue de l'année maçonnique — les offices affichés ci-dessous sont ceux du
+    Collège {{ ('de ' ~ previous_college_label) if previous_college_label else 'précédent' }},
+    qui officie encore lors de cette tenue.
+    <span class="print:hidden">Si un officier sortant était absent, indiquez son remplaçant comme
+    d'habitude depuis <a href="/meetings/{{ meeting.id }}/officiers" class="underline font-medium">la page Officiers</a>.</span>
+  </div>
+  {% endif %}
+
   <!-- Barre d'actions (cachée à l'impression) -->
   <div class="flex items-center justify-between mb-3 print:hidden flex-wrap gap-3">
     <nav class="text-sm text-gray-500">
