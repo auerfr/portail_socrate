@@ -73,6 +73,20 @@
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
 
+        <div>
+          <label class="block text-sm font-medium text-gray-700 mb-1">Régime alimentaire</label>
+          {% set current_diet = (form_data.dietary_restrictions if form_data else '') or (target.dietary_restrictions.value if target and target.dietary_restrictions else 'NONE') %}
+          <select name="dietary_restrictions" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="NONE" {% if current_diet == 'NONE' %}selected{% endif %}>Aucun régime particulier</option>
+            <option value="VEGETARIAN" {% if current_diet == 'VEGETARIAN' %}selected{% endif %}>🥦 Végétarien</option>
+            <option value="VEGAN" {% if current_diet == 'VEGAN' %}selected{% endif %}>🌱 Vegan</option>
+            <option value="NO_PORK" {% if current_diet == 'NO_PORK' %}selected{% endif %}>🚫 Sans porc</option>
+            <option value="NO_ALCOHOL" {% if current_diet == 'NO_ALCOHOL' %}selected{% endif %}>🚱 Sans alcool</option>
+            <option value="OTHER" {% if current_diet == 'OTHER' %}selected{% endif %}>⚠ Autre (allergie, intolérance…)</option>
+          </select>
+          <p class="text-xs text-gray-400 mt-1">Pré-rempli automatiquement lors de vos inscriptions aux agapes — modifiable à chaque tenue si besoin.</p>
+        </div>
+
       </div>
     </div>
 

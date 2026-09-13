@@ -18,6 +18,7 @@ from app.models.identity import (
     Group, GroupType, member_active_now_condition,
 )
 from app.models.lodge import MasonicYear, LodgeOffice
+from app.models.meetings import DietaryRestriction
 from app.models.finance import MemberContribution, ContributionTier, ContributionStatus, FiscalYear
 
 router = APIRouter(prefix="/members", tags=["members"])
@@ -598,6 +599,7 @@ async def member_update(
     pin_code:              str = Form(""),
     login:                 str = Form(""),
     is_admin:              str = Form(""),
+    dietary_restrictions:  str = Form("NONE"),
 ):
     user, current_member = ctx
     if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
@@ -653,6 +655,10 @@ async def member_update(
     target.civility      = civility or None
     target.phone         = phone or None
     target.program_optin = bool(program_optin)
+    try:
+        target.dietary_restrictions = DietaryRestriction(dietary_restrictions)
+    except ValueError:
+        target.dietary_restrictions = DietaryRestriction.NONE
 
     is_own_profile = (current_member.id == member_id)
 

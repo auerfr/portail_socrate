@@ -36,6 +36,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE members ADD COLUMN membership_type VARCHAR(20) NOT NULL DEFAULT 'APPARTENANCE'"
             )
+        if "dietary_restrictions" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN dietary_restrictions VARCHAR(20) NOT NULL DEFAULT 'NONE'"
+            )
         if "membership_start_date" not in cols_mem:
             await conn.exec_driver_sql(
                 "ALTER TABLE members ADD COLUMN membership_start_date DATE"
@@ -1242,6 +1246,13 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if cols_my and "activity_report_note" not in cols_my:
             await conn.exec_driver_sql(
                 "ALTER TABLE masonic_years ADD COLUMN activity_report_note TEXT"
+            )
+
+        r_att = await conn.exec_driver_sql("PRAGMA table_info(attendances)")
+        cols_att = [row[1] for row in r_att.fetchall()]
+        if cols_att and "dietary_restrictions" not in cols_att:
+            await conn.exec_driver_sql(
+                "ALTER TABLE attendances ADD COLUMN dietary_restrictions VARCHAR(20) NOT NULL DEFAULT 'NONE'"
             )
 
     # ── documents.created_at / updated_at : DEFAULT perdu lors d'une ancienne

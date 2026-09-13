@@ -41,6 +41,7 @@ class DietaryRestriction(str, enum.Enum):
     NONE       = "NONE"
     VEGETARIAN = "VEGETARIAN"
     NO_PORK    = "NO_PORK"
+    NO_ALCOHOL = "NO_ALCOHOL"
     VEGAN      = "VEGAN"
     OTHER      = "OTHER"
 
@@ -169,6 +170,9 @@ class Attendance(Base):
     # Agapes
     agape: Mapped[bool] = mapped_column(Boolean, default=False)
     agape_guests: Mapped[int] = mapped_column(Integer, default=0)
+    dietary_restrictions: Mapped[DietaryRestriction] = mapped_column(
+        Enum(DietaryRestriction), default=DietaryRestriction.NONE
+    )
 
     # Pour les tenues multi-degrés : jusqu'à quel degré le frère a-t-il participé ?
     degree_attended: Mapped[Optional[DegreeAttended]] = mapped_column(

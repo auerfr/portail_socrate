@@ -172,6 +172,19 @@
 
       <details class="group border-b border-gray-100 py-2">
         <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment indiquer mon régime alimentaire pour les agapes ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2 text-sm">
+          Sur votre fiche membre (<strong>« Modifier »</strong>), un champ <strong>« Régime alimentaire »</strong>
+          vous permet d'indiquer un régime par défaut (végétarien, vegan, sans porc, sans alcool, ou autre).
+          Il pré-remplit automatiquement votre inscription aux agapes à chaque tenue ; vous pouvez toujours
+          le changer au cas par cas depuis la page de la tenue.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
           Forum, planches, annuaire… à quoi ça sert ?
           <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
         </summary>
@@ -225,6 +238,19 @@
         </summary>
         <p class="text-gray-600 mt-2 text-sm">
           Lors de la création ou de l'édition d'un événement dans le <strong>Calendrier</strong>, choisissez la visibilité <strong>« 👤 Membres spécifiques… »</strong> puis cochez les membres concernés. Seuls eux (et vous) verront l'événement.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment renvoyer un rappel pour un événement du calendrier ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2 text-sm">
+          Sur la fiche de l'événement, le créateur (ou un administrateur) dispose d'un bouton
+          <strong>« Relancer »</strong> qui renvoie manuellement la notification (push + email) aux
+          membres concernés — utile pour un événement créé avant l'activation de la notification
+          automatique, ou pour rappeler l'échéance avant la date.
         </p>
       </details>
 
@@ -392,7 +418,35 @@
         <p class="text-gray-600 mt-2">
           « Présences » permet de marquer chaque membre présent/excusé/absent (avec motif), de gérer
           les passants (recherche, ajout, confirmation), de suivre l'assiduité par rapport aux seuils
-          configurés, et d'exporter en CSV.
+          configurés, et d'exporter en CSV. Un bouton « Imprimer » génère une feuille papier « Livre
+          des Chantiers » (membres, passants avec grade et orient, motifs d'excuse) pour la signature
+          en tenue.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment fonctionne le circuit du tracé/PV, de la rédaction à l'archivage signé ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          Brouillon → Soumis (le VM est notifié automatiquement, un bouton « Relancer » permet de
+          renvoyer la notification s'il tarde) → Approuvé par le VM (archivé en GED, motif obligatoire
+          en cas de rejet) → Adopté par la Loge → une version PDF signée à la main peut alors être
+          déposée (l'auteur, le VM, l'administrateur, ou un délégué ponctuel désigné par le VM) pour
+          être archivée aux côtés du texte.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Où trouver le bilan d'activité annuel ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          « Présences » → « Bilan » calcule automatiquement, pour l'année maçonnique sélectionnée, le
+          nombre de tenues par grade, de passages de grade, de réceptions/initiations et d'événements
+          particuliers. Un champ de rédaction libre permet d'y ajouter un texte personnel.
         </p>
       </details>
 

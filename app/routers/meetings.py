@@ -333,6 +333,7 @@ async def meeting_detail(
         "type_label": _type_label,
         "grade_label": _grade_label,
         "AttendanceStatus": AttendanceStatus,
+        "DietaryRestriction": DietaryRestriction,
         "can_manage": can_manage_meeting(member) or user.is_admin,
         "can_lock": can_lock_meeting(member),
         "registration_url": f"{request.base_url}inscription/{meeting.token}",
@@ -379,6 +380,7 @@ async def agapes_export_excel(
         "VEGETARIAN": "Végétarien 🥦",
         "VEGAN": "Vegan 🌱",
         "NO_PORK": "Sans porc 🚫",
+        "NO_ALCOHOL": "Sans alcool 🚱",
         "OTHER": "Régime spécial ⚠",
     }
 
@@ -456,14 +458,17 @@ async def agapes_export_excel(
         row = _section_row(ws, f"  Membres de la loge ({len(agape_members)})", "DBEAFE", row)
         for att in agape_members:
             civ = "S∴" if att.member.civility == "S" else "F∴"
+            diet_val = att.dietary_restrictions.value if att.dietary_restrictions else "NONE"
+            diet_str = diet_labels.get(diet_val, "—")
+            fill = C_DIET if diet_val != "NONE" else C_FRERE
             row = _data_row(ws, [
                 att.member.last_name,
                 f"{civ} {att.member.first_name}",
                 "Frère / Sœur",
                 "Loge Socrate",
                 att.agape_guests if att.agape_guests else "—",
-                "—",
-            ], C_FRERE, row)
+                diet_str,
+            ], fill, row)
 
     # Visiteurs
     agape_visitors = sorted([mv for mv in meeting.meeting_visitors
@@ -570,6 +575,10 @@ async def agapes_export_excel(
 
     # Régimes
     diet_counts: dict[str, int] = {}
+    for a in agape_members:
+        v = a.dietary_restrictions.value if a.dietary_restrictions else "NONE"
+        if v != "NONE":
+            diet_counts[v] = diet_counts.get(v, 0) + 1
     for g in agape_guests:
         v = g.dietary_restrictions.value if g.dietary_restrictions else "NONE"
         if v != "NONE":
@@ -1375,8 +1384,13 @@ async def meeting_banquet(
         for m in sm.scalars().all():
             sub_members_cache[m.id] = m
 
-    # Résumé régimes
+    # Résumé régimes (déclarés par les membres eux-mêmes à l'inscription,
+    # plus les invités profanes le cas échéant)
     diet_counts: dict[str, int] = {}
+    for a in agape_members:
+        v = a.dietary_restrictions.value if a.dietary_restrictions else "NONE"
+        if v != "NONE":
+            diet_counts[v] = diet_counts.get(v, 0) + 1
     for g in agape_guests:
         v = g.dietary_restrictions.value if g.dietary_restrictions else "NONE"
         if v != "NONE":
@@ -1386,6 +1400,7 @@ async def meeting_banquet(
         "VEGETARIAN": "Végétarien",
         "VEGAN": "Vegan",
         "NO_PORK": "Sans porc",
+        "NO_ALCOHOL": "Sans alcool",
         "OTHER": "Régime spécial",
     }
 
@@ -2414,6 +2429,7 @@ async def meeting_register(
     agape:             str = Form(""),
     agape_guests:      str = Form("0"),
     excuse_reason:     str = Form(""),
+    dietary_restrictions: str = Form("NONE"),
 ):
     user, member = ctx
 
@@ -2421,6 +2437,11 @@ async def meeting_register(
     meeting = result.scalar_one_or_none()
     if not meeting:
         raise HTTPException(status_code=404)
+
+    try:
+        diet = DietaryRestriction(dietary_restrictions)
+    except ValueError:
+        diet = DietaryRestriction.NONE
 
     # Vérifier si déjà inscrit
     existing = await db.execute(
@@ -2436,6 +2457,7 @@ async def meeting_register(
         att.agape = bool(agape)
         att.agape_guests = int(agape_guests) if agape_guests else 0
         att.excuse_reason = excuse_reason or None
+        att.dietary_restrictions = diet
     else:
         att = Attendance(
             meeting_id=meeting_id,
@@ -2444,6 +2466,7 @@ async def meeting_register(
             agape=bool(agape),
             agape_guests=int(agape_guests) if agape_guests else 0,
             excuse_reason=excuse_reason or None,
+            dietary_restrictions=diet,
         )
         db.add(att)
 

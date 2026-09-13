@@ -303,6 +303,19 @@
               <span class="text-sm text-gray-700">Je participe aux agapes</span>
             </label>
             <input type="hidden" name="agape_guests" value="0">
+            <div class="mt-2">
+              <label class="block text-xs text-gray-500 mb-1">Régime alimentaire (optionnel)</label>
+              <select name="dietary_restrictions"
+                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+                {% set current_diet = my_attendance.dietary_restrictions.value if my_attendance and my_attendance.dietary_restrictions else (current_member.dietary_restrictions.value if current_member.dietary_restrictions else 'NONE') %}
+                <option value="NONE" {% if current_diet == 'NONE' %}selected{% endif %}>Aucun régime particulier</option>
+                <option value="VEGETARIAN" {% if current_diet == 'VEGETARIAN' %}selected{% endif %}>🥦 Végétarien</option>
+                <option value="VEGAN" {% if current_diet == 'VEGAN' %}selected{% endif %}>🌱 Vegan</option>
+                <option value="NO_PORK" {% if current_diet == 'NO_PORK' %}selected{% endif %}>🚫 Sans porc</option>
+                <option value="NO_ALCOHOL" {% if current_diet == 'NO_ALCOHOL' %}selected{% endif %}>🚱 Sans alcool</option>
+                <option value="OTHER" {% if current_diet == 'OTHER' %}selected{% endif %}>⚠ Autre (allergie, intolérance…)</option>
+              </select>
+            </div>
           </div>
           {% endif %}
 
@@ -369,6 +382,14 @@
         <div class="divide-y divide-gray-50">
 
           <!-- Membres de la loge -->
+          {% set diet_labels = {
+            'VEGETARIAN': '🥦 Végétarien',
+            'VEGAN': '🌱 Vegan',
+            'NO_PORK': '🚫 Sans porc',
+            'NO_ALCOHOL': '🚱 Sans alcool',
+            'OTHER': '⚠ Spécial',
+            'NONE': ''
+          } %}
           {% for att in agape_members | sort(attribute='member.last_name') %}
           <div class="flex items-center gap-2 text-sm py-2">
             <div class="w-7 h-7 rounded-full bg-loge-100 text-loge-700 flex items-center justify-center text-xs font-bold shrink-0">
@@ -381,6 +402,9 @@
               </span>
               {% if att.agape_guests %}
               <span class="text-xs text-gray-400 ml-1">+{{ att.agape_guests }} invité{{ 's' if att.agape_guests > 1 else '' }}</span>
+              {% endif %}
+              {% if att.dietary_restrictions and att.dietary_restrictions.value != 'NONE' %}
+              <span class="text-xs text-amber-600 ml-1">{{ diet_labels[att.dietary_restrictions.value] }}</span>
               {% endif %}
             </div>
             <span class="text-xs text-loge-400 shrink-0">Membre</span>
@@ -412,6 +436,7 @@
             'VEGETARIAN': '🥦 Végétarien',
             'VEGAN': '🌱 Vegan',
             'NO_PORK': '🚫 Sans porc',
+            'NO_ALCOHOL': '🚱 Sans alcool',
             'OTHER': '⚠ Spécial',
             'NONE': ''
           } %}
