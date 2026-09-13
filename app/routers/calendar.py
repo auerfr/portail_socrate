@@ -36,9 +36,17 @@ OFFICER_FUNCTIONS = {
 
 
 async def _event_visible_to(event: LodgeEvent, member: Member, db: AsyncSession, user) -> bool:
-    """Renvoie True si l'événement est visible pour ce membre."""
+    """Renvoie True si l'événement est visible pour ce membre.
+
+    Un admin voit tout, y compris les événements réservés à un grade, une
+    fonction ou un groupe dont son propre profil ne fait pas partie (ex:
+    compte super-admin technique, sans grade/fonction réels) — pour
+    pouvoir aider/dépanner sur n'importe quel événement."""
+    if user.is_admin:
+        return True
+
     if event.is_personal:
-        return user.is_admin or event.created_by_id == member.id
+        return event.created_by_id == member.id
 
     v = event.visibility
 
