@@ -260,12 +260,27 @@ async def emargement_print(
         .options(
             selectinload(Meeting.attendances).selectinload(Attendance.member),
             selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+            selectinload(Meeting.degrees),
         )
         .where(Meeting.id == meeting_id)
     )
     meeting = result.scalar_one_or_none()
     if not meeting:
         raise HTTPException(status_code=404)
+
+    # Grade(s) de la tenue — plusieurs si tenue multi-degrés (ex: Apprentis
+    # puis Compagnons dans la même séance), sinon le grade unique de la tenue.
+    _grade_labels_p = {"APPRENTI": "Apprentis", "COMPAGNON": "Compagnons", "MAITRE": "Maîtres", "ALL": "Toutes loges réunies"}
+    if meeting.degrees:
+        seen_grades = []
+        for d in sorted(meeting.degrees, key=lambda d: d.order_position):
+            gv = d.grade.value if hasattr(d.grade, "value") else str(d.grade)
+            if gv not in seen_grades:
+                seen_grades.append(gv)
+        meeting_grade_label = " + ".join(_grade_labels_p.get(g, g) for g in seen_grades)
+    else:
+        gv = meeting.grade.value if hasattr(meeting.grade, "value") else str(meeting.grade)
+        meeting_grade_label = _grade_labels_p.get(gv, gv)
 
     from app.models.identity import User as _User3
     _admin_ids3_r = await db.execute(
@@ -298,6 +313,16 @@ async def emargement_print(
         key=lambda mv: mv.visitor.last_name,
     )
 
+    # Motifs d'excuse — page supplémentaire, uniquement les membres excusés
+    # dont un motif a été renseigné (pas la liste complète des excusés).
+    excused_with_reason = [
+        (m, att_by_member[m.id].excuse_reason)
+        for m in active_members
+        if m.id in att_by_member
+        and att_by_member[m.id].status.value == "EXCUSED"
+        and att_by_member[m.id].excuse_reason
+    ]
+
     ls_r = await db.execute(select(LodgeSettings).limit(1))
     lodge = ls_r.scalar_one_or_none()
 
@@ -310,6 +335,8 @@ async def emargement_print(
         "visitors": visitors,
         "generated_on": date.today().strftime("%d/%m/%Y"),
         "nb_lignes_vierges_passants": NB_LIGNES_VIERGES_PASSANTS,
+        "excused_with_reason": excused_with_reason,
+        "meeting_grade_label": meeting_grade_label,
     })
 
 

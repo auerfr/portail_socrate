@@ -12,20 +12,26 @@
     .header img { display: block; margin: 0 auto; width: 100%; height: auto; }
     .header h1 { margin: 0 0 .15rem; font-size: 16pt; color: #2c7a7b; text-transform: uppercase; }
     .header p { margin: 0; font-size: 9.5pt; color: #555; }
+    .livre-title { margin-top: .35rem !important; font-size: 10pt; font-weight: 700; text-transform: uppercase; letter-spacing: .08em; color: #2c7a7b !important; }
     .tenue-line { text-align: center; font-size: 12pt; font-weight: bold; color: #111; margin: .5rem 0 1.25rem; }
     table { width: 100%; border-collapse: collapse; }
     th { background: #e6f4f1; text-align: left; padding: .3rem .5rem; font-size: 9pt; text-transform: uppercase; letter-spacing: .03em; color: #2c7a7b; border-bottom: 1px solid #b3d4cf; }
-    td { padding: .3rem .5rem; border-bottom: 1px solid #e5e7eb; font-size: 10.5pt; vertical-align: middle; }
+    td { padding: .55rem .5rem; border-bottom: 1px solid #e5e7eb; font-size: 10.5pt; vertical-align: middle; }
     .num { color: #9ca3af; width: 1.6em; }
-    .sig { border-bottom: 1px solid #9ca3af; }
+    /* Assez de hauteur pour une signature manuscrite, pas juste un filet */
+    .sig { border-bottom: 1px solid #9ca3af; height: 1.4rem; }
     .section-title { font-size: 11pt; font-weight: bold; color: #2c7a7b; margin: 1.5rem 0 .5rem; }
     .footer { margin-top: 1.5rem; font-size: 9pt; color: #6b7280; text-align: center; }
     /* R∴L∴ — noms de loge parfois longs : retour à la ligne plutôt que troncature */
     .col-rl { word-wrap: break-word; overflow-wrap: break-word; }
-    .blank-row td { height: 1.5rem; }
+    .blank-row td { height: 1.9rem; }
     /* Table des membres — deux colonnes côte à côte (alphabet coupé en deux), comme la trame papier */
     .members-cols { display: flex; gap: 1rem; margin-bottom: 1.5rem; }
     .members-cols table { width: 50%; }
+    .status-p { color: #047857; font-weight: 700; text-align: center; }
+    .status-e { color: #b45309; font-weight: 700; text-align: center; }
+    .status-none { color: #d1d5db; text-align: center; }
+    .page-break { page-break-before: always; }
     @media print {
       .no-print { display: none !important; }
       tr { break-inside: avoid; }
@@ -48,12 +54,14 @@
       <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
       <p>Au nom et sous les auspices du Grand Orient de France</p>
       <p>{% if lodge %}À l'Or∴ de {{ lodge.orient_city }}{% if lodge.rl_number %} - R∴L∴ {{ lodge.rl_number }}{% endif %}{% endif %}</p>
+      <p class="livre-title">Livre des Chantiers</p>
     </div>
     <img src="/static/img/rosace-godf.jpg" alt="Rosace">
   </div>
 
   <div class="tenue-line">
     Tenue du {{ meeting.meeting_date | datefr('%d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}
+    — Loge {% if meeting_grade_label == 'Toutes loges réunies' %}{{ meeting_grade_label }}{% else %}de {{ meeting_grade_label }}{% endif %}
   </div>
 
   {% set half = (active_members | length + 1) // 2 %}
@@ -63,16 +71,23 @@
     <table>
       <thead>
         <tr>
-          <th style="width:12%;">N°</th>
+          <th style="width:10%;">N°</th>
           <th>Nom Prénom</th>
-          <th style="width:34%;">Émargement</th>
+          <th style="width:8%;" title="Présent / Excusé inscrit avant la tenue">P/E</th>
+          <th style="width:30%;">Émargement</th>
         </tr>
       </thead>
       <tbody>
         {% for m in left_members %}
+        {% set att = att_by_member.get(m.id) %}
         <tr>
           <td class="num">{{ loop.index }}</td>
           <td>{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | upper }} {{ m.first_name | title }}</td>
+          <td>
+            {% if att and att.status.value == 'PRESENT' %}<span class="status-p">P</span>
+            {% elif att and att.status.value == 'EXCUSED' %}<span class="status-e">E</span>
+            {% else %}<span class="status-none">—</span>{% endif %}
+          </td>
           <td class="sig">&nbsp;</td>
         </tr>
         {% endfor %}
@@ -81,16 +96,23 @@
     <table>
       <thead>
         <tr>
-          <th style="width:12%;">N°</th>
+          <th style="width:10%;">N°</th>
           <th>Nom Prénom</th>
-          <th style="width:34%;">Émargement</th>
+          <th style="width:8%;" title="Présent / Excusé inscrit avant la tenue">P/E</th>
+          <th style="width:30%;">Émargement</th>
         </tr>
       </thead>
       <tbody>
         {% for m in right_members %}
+        {% set att = att_by_member.get(m.id) %}
         <tr>
           <td class="num">{{ half + loop.index }}</td>
           <td>{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | upper }} {{ m.first_name | title }}</td>
+          <td>
+            {% if att and att.status.value == 'PRESENT' %}<span class="status-p">P</span>
+            {% elif att and att.status.value == 'EXCUSED' %}<span class="status-e">E</span>
+            {% else %}<span class="status-none">—</span>{% endif %}
+          </td>
           <td class="sig">&nbsp;</td>
         </tr>
         {% endfor %}
@@ -98,14 +120,17 @@
     </table>
   </div>
 
+  <div class="page-break"></div>
   <div class="section-title">Maçons passants</div>
   <table>
     <thead>
       <tr>
-        <th style="width:8%;">N°</th>
-        <th style="width:28%;">Nom Prénom</th>
-        <th style="width:12%;">Ob.</th>
-        <th style="width:27%;" class="col-rl">R∴L∴</th>
+        <th style="width:6%;">N°</th>
+        <th style="width:20%;">Nom Prénom</th>
+        <th style="width:9%;" title="Maître, Compagnon, Apprenti, ou VM si le visiteur est le Vénérable Maître de sa Loge">Grade</th>
+        <th style="width:9%;">Ob.</th>
+        <th style="width:20%;" class="col-rl">R∴L∴</th>
+        <th style="width:14%;">Orient</th>
         <th>Émargement</th>
       </tr>
     </thead>
@@ -114,8 +139,10 @@
       <tr>
         <td class="num">{{ loop.index }}</td>
         <td>{% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ mv.visitor.last_name | upper }} {{ mv.visitor.first_name | title }}</td>
+        <td>{% if mv.visitor.is_vm %}VM{% else %}{{ mv.visitor.masonic_grade or '' }}{% endif %}</td>
         <td>{{ mv.visitor.obedience or '' }}</td>
         <td class="col-rl">{{ mv.visitor.lodge_name or '' }}</td>
+        <td>{{ mv.visitor.orient_city or '' }}</td>
         <td class="sig">&nbsp;</td>
       </tr>
       {% endfor %}
@@ -124,12 +151,37 @@
         <td class="num">{{ visitors | length + i + 1 }}</td>
         <td>&nbsp;</td>
         <td>&nbsp;</td>
+        <td>&nbsp;</td>
         <td class="col-rl">&nbsp;</td>
+        <td>&nbsp;</td>
         <td class="sig">&nbsp;</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
+
+  {% if excused_with_reason %}
+  <div class="page-break"></div>
+  <div class="section-title">Motifs d'excuse</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:6%;">N°</th>
+        <th style="width:40%;">Nom Prénom</th>
+        <th>Motif</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for m, reason in excused_with_reason %}
+      <tr>
+        <td class="num">{{ loop.index }}</td>
+        <td>{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | upper }} {{ m.first_name | title }}</td>
+        <td>{{ reason }}</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
+  {% endif %}
 
   <div class="footer">
     Document généré le {{ generated_on }} — Portail Socrate.
