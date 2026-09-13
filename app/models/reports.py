@@ -42,6 +42,11 @@ class MeetingReport(Base):
     viewed_by_vm_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     viewed_by_vm_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"), nullable=True)
 
+    # Motif indiqué par le V∴M∴ en renvoyant le tracé en brouillon — remis à
+    # None dès la nouvelle soumission (la Secrétaire l'a déjà vu et traité).
+    reject_reason: Mapped[Optional[str]] = mapped_column(Text, nullable=True)
+    rejected_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
     # Lien vers le document GED archivé
     archived_doc_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("documents.id", ondelete="SET NULL"), nullable=True

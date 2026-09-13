@@ -1213,6 +1213,14 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE meeting_reports ADD COLUMN viewed_by_vm_id INTEGER REFERENCES members(id)"
             )
+        if cols_mr and "reject_reason" not in cols_mr:
+            await conn.exec_driver_sql(
+                "ALTER TABLE meeting_reports ADD COLUMN reject_reason TEXT"
+            )
+        if cols_mr and "rejected_at" not in cols_mr:
+            await conn.exec_driver_sql(
+                "ALTER TABLE meeting_reports ADD COLUMN rejected_at DATETIME"
+            )
 
     # ── documents.created_at / updated_at : DEFAULT perdu lors d'une ancienne
     # migration ────────────────────────────────────────────────────────────

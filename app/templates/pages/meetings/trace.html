@@ -31,7 +31,7 @@
   {% endif %}
 
   {% if uses_previous_college %}
-  <div class="mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
+  <div class="print:hidden mb-4 bg-amber-50 border border-amber-200 text-amber-800 text-sm rounded-xl px-4 py-3">
     🎩 Première tenue de l'année maçonnique — les offices affichés ci-dessous sont ceux du
     Collège {{ ('de ' ~ previous_college_label) if previous_college_label else 'précédent' }},
     qui officie encore lors de cette tenue.
@@ -75,6 +75,11 @@
       <span class="text-gray-500">Statut :</span>
       {% if not report or report.status.value == 'BROUILLON' %}
         <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-gray-100 text-gray-600">✎ Brouillon</span>
+        {% if report and report.reject_reason %}
+        <span class="text-xs text-red-600">
+          ↩ Renvoyé par le V∴M∴{{ ' le ' ~ report.rejected_at.strftime('%d/%m/%Y') if report.rejected_at }} — {{ report.reject_reason }}
+        </span>
+        {% endif %}
       {% elif report.status.value == 'SOUMIS' %}
         <span class="inline-flex items-center gap-1 text-xs font-semibold rounded-full px-3 py-1 bg-amber-100 text-amber-700">⏳ En attente d'approbation V∴M∴</span>
         {% if report.viewed_by_vm_at %}
@@ -117,12 +122,24 @@
           ✓ Approuver
         </button>
       </form>
-      <form method="post" action="/meetings/{{ meeting.id }}/trace/reject"
-            onsubmit="return confirm('Renvoyer ce tracé en brouillon pour correction ?')">
-        <button type="submit" class="bg-white border border-red-300 text-red-600 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors">
+      <div x-data="{ showRejectForm: false }">
+        <button type="button" @click="showRejectForm = true" x-show="!showRejectForm"
+                class="bg-white border border-red-300 text-red-600 text-xs font-semibold px-4 py-2 rounded-lg hover:bg-red-50 transition-colors">
           ↩ Renvoyer
         </button>
-      </form>
+        <form method="post" action="/meetings/{{ meeting.id }}/trace/reject" x-show="showRejectForm" x-cloak
+              class="flex items-center gap-2"
+              onsubmit="return confirm('Renvoyer ce tracé en brouillon pour correction ?')">
+          <input type="text" name="motif" placeholder="Motif du renvoi (obligatoire)" required
+                 class="text-xs border border-red-200 rounded-lg px-2 py-2 w-56">
+          <button type="submit" class="bg-red-600 text-white text-xs font-semibold px-3 py-2 rounded-lg hover:bg-red-700 transition-colors">
+            Confirmer
+          </button>
+          <button type="button" @click="showRejectForm = false" class="text-xs text-gray-500 hover:text-gray-700">
+            Annuler
+          </button>
+        </form>
+      </div>
       {% endif %}
     </div>
   </div>
@@ -151,7 +168,7 @@
           {{ lodge.name if lodge else 'Socrate Raison et Progrès' }}
         </h1>
         <p class="mt-3 text-base font-semibold text-gray-700">
-          {% if meeting.meeting_number %}{{ meeting.meeting_number }}ème {% endif %}Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
+          {% if meeting.meeting_number %}{{ meeting.meeting_number }}ème {% endif %}Tenue du {{ meeting.meeting_date.day }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
           en Loge d'{{ grade_label(meeting.grade) }}
         </p>
       </div>
@@ -663,8 +680,10 @@ async function saveTrace() {
     box-shadow: none !important;
     border: none !important;
     border-radius: 0 !important;
+    overflow: visible !important;
     font-size: 11pt;
   }
+  html, body { overflow: visible !important; height: auto !important; }
   table { border-collapse: collapse; }
   td { padding: 3px 8px; }
   p { text-align: justify; margin-bottom: 8pt; }

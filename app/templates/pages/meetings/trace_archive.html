@@ -28,7 +28,7 @@
     <div>
       <h1>{{ lodge.name if lodge else 'Socrate Raison et Progrès' }}</h1>
       <p>
-        {% if meeting.meeting_number %}{{ meeting.meeting_number }}ème {% endif %}Tenue du {{ meeting.meeting_date.day }}{{ day_suffix }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
+        {% if meeting.meeting_number %}{{ meeting.meeting_number }}ème {% endif %}Tenue du {{ meeting.meeting_date.day }} {{ meeting.meeting_date | datefr('%B %Y') | capitalize }}
         en Loge d'{{ grade_label(meeting.grade) }}
       </p>
     </div>

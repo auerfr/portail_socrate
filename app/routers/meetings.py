@@ -99,6 +99,20 @@ def _can_approve_trace(user, member: Member) -> bool:
     return user.is_admin or member.lodge_function == LodgeFunction.VM
 
 
+def _find_vm_office(offices):
+    """Trouve l'office du V∴M∴ dans une liste d'offices (LodgeOffice, ou
+    SimpleNamespace du Collège précédent — cf. _officer_baseline_for_meeting).
+    Le libellé varie selon la source : texte libre configurable côté
+    LodgeOffice (ex: "V∴M∴", "Vénérable Maître") ou code court "VM" côté
+    OfficerAssignment — d'où le double test plutôt qu'une égalité stricte."""
+    from app.routers.settings import _detect_function
+    return next(
+        (o for o in offices
+         if _detect_function(o.label) == LodgeFunction.VM or o.label.strip().upper() == "VM"),
+        None,
+    )
+
+
 async def _get_or_create_pv_folder(db: AsyncSession, year_label: str) -> DocFolder:
     """Trouve ou crée DocSpace 'Secrétariat' > DocFolder 'PV {année}' pour l'archivage des tracés approuvés."""
     space_r = await db.execute(select(DocSpace).where(DocSpace.name == "Secrétariat").limit(1))
@@ -653,8 +667,8 @@ async def meeting_trace(
     day_suffix    = "er" if d.day == 1 else "ème"
     month_suffix  = "er" if masonic_month == 1 else "ème"
 
-    # VM de la loge (office label = VM)
-    vm_office = next((o for o in offices if o.label == "VM"), None)
+    # VM de la loge
+    vm_office = _find_vm_office(offices)
     vm_name = ""
     if vm_office and vm_office.member_id:
         for att in present:
@@ -766,6 +780,54 @@ async def trace_save(
 
 # ── Workflow d'approbation du tracé (Secrétaire → V∴M∴ → archivage) ─────────
 
+async def _notify_vm_trace(
+    meeting: Meeting, report: MeetingReport, secretary: Member, db: AsyncSession,
+    is_reminder: bool = False,
+) -> int:
+    """Notifie (push + email) le(s) titulaire(s) de la fonction V∴M∴ qu'un
+    tracé est en attente de leur validation — à la soumission initiale ou en
+    relance manuelle. Renvoie le nombre de V∴M∴ notifiés."""
+    vm_r = await db.execute(
+        select(Member).where(Member.status == MemberStatus.ACTIVE, Member.lodge_function == LodgeFunction.VM)
+    )
+    vm_members = [m for m in vm_r.scalars().all() if m.id != secretary.id]
+    if not vm_members:
+        return 0
+
+    meeting_title = meeting.title or f"Tenue du {meeting.meeting_date.strftime('%d/%m/%Y')}"
+    secretary_name = f"{'S∴' if secretary.civility == 'S' else 'F∴'} {secretary.last_name} {secretary.first_name}"
+    submitted_when = report.submitted_at.strftime("%d/%m/%Y à %H:%M") if report.submitted_at else "—"
+
+    try:
+        from app.services.push import send_push_broadcast
+        title = "🔔 Rappel — tracé en attente" if is_reminder else "⏳ Tracé à valider"
+        await send_push_broadcast(
+            db, [m.id for m in vm_members], title,
+            f"{meeting_title} — soumis par {secretary_name}"[:160],
+            f"/meetings/{meeting.id}/trace",
+        )
+    except Exception:
+        pass
+
+    from app.config import get_settings
+    from app.services.email import notify_trace_pending_vm
+    settings = get_settings()
+    portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
+    for vm in vm_members:
+        if not vm.email or not getattr(vm, "email_notifications", True):
+            continue
+        try:
+            await notify_trace_pending_vm(
+                recipient_email=vm.email, secretary_name=secretary_name,
+                meeting_title=meeting_title, submitted_when=submitted_when,
+                meeting_id=meeting.id, portal_base_url=portal_url, is_reminder=is_reminder,
+            )
+        except Exception:
+            pass
+
+    return len(vm_members)
+
+
 @router.post("/{meeting_id}/trace/submit")
 async def trace_submit(
     request: Request,
@@ -797,9 +859,13 @@ async def trace_submit(
 
     report.status = ReportStatus.SOUMIS
     report.submitted_at = datetime.now()
+    report.reject_reason = None
+    report.rejected_at = None
     if not report.author_id:
         report.author_id = member.id
     await db.commit()
+
+    await _notify_vm_trace(meeting, report, member, db, is_reminder=False)
 
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?submitted=1", status_code=303)
 
@@ -828,41 +894,7 @@ async def trace_relaunch_vm(
     if not report or report.status != ReportStatus.SOUMIS:
         raise HTTPException(status_code=400, detail="Ce tracé n'est pas en attente d'approbation")
 
-    vm_r = await db.execute(
-        select(Member).where(Member.status == MemberStatus.ACTIVE, Member.lodge_function == LodgeFunction.VM)
-    )
-    vm_members = [m for m in vm_r.scalars().all() if m.id != member.id]
-
-    meeting_title = meeting.title or f"Tenue du {meeting.meeting_date.strftime('%d/%m/%Y')}"
-    secretary_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.last_name} {member.first_name}"
-    submitted_when = report.submitted_at.strftime("%d/%m/%Y à %H:%M") if report.submitted_at else "—"
-
-    if vm_members:
-        try:
-            from app.services.push import send_push_broadcast
-            await send_push_broadcast(
-                db, [m.id for m in vm_members], "⏳ Tracé en attente de validation",
-                f"{meeting_title} — soumis par {secretary_name}"[:160],
-                f"/meetings/{meeting_id}/trace",
-            )
-        except Exception:
-            pass
-
-        from app.config import get_settings
-        from app.services.email import notify_trace_pending_vm
-        settings = get_settings()
-        portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
-        for vm in vm_members:
-            if not vm.email or not getattr(vm, "email_notifications", True):
-                continue
-            try:
-                await notify_trace_pending_vm(
-                    recipient_email=vm.email, secretary_name=secretary_name,
-                    meeting_title=meeting_title, submitted_when=submitted_when,
-                    meeting_id=meeting_id, portal_base_url=portal_url,
-                )
-            except Exception:
-                pass
+    await _notify_vm_trace(meeting, report, member, db, is_reminder=True)
 
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?relaunched=1", status_code=303)
 
@@ -932,7 +964,7 @@ async def trace_approve(
         masonic_month = d.month - 2 if d.month >= 3 else d.month + 10
         day_suffix    = "er" if d.day == 1 else "ème"
         month_suffix  = "er" if masonic_month == 1 else "ème"
-        vm_office = next((o for o in offices if o.label == "VM"), None)
+        vm_office = _find_vm_office(offices)
         vm_name = ""
         if vm_office and vm_office.member_id:
             for att in present:
@@ -989,10 +1021,16 @@ async def trace_reject(
     meeting_id: int,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    motif: str = Form(...),
 ):
     user, member = ctx
     if not _can_approve_trace(user, member):
         raise HTTPException(status_code=403)
+
+    meeting_r = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
+    meeting = meeting_r.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
 
     report_r = await db.execute(
         select(MeetingReport).where(MeetingReport.meeting_id == meeting_id)
@@ -1001,9 +1039,46 @@ async def trace_reject(
     if not report or report.status != ReportStatus.SOUMIS:
         raise HTTPException(status_code=400)
 
+    motif = motif.strip()
+    if not motif:
+        raise HTTPException(status_code=400, detail="Le motif du renvoi est obligatoire")
+
     report.status = ReportStatus.BROUILLON
     report.submitted_at = None
+    report.reject_reason = motif
+    report.rejected_at = datetime.now()
+    report.viewed_by_vm_at = None
+    report.viewed_by_vm_id = None
     await db.commit()
+
+    if report.author_id:
+        secretary = await db.get(Member, report.author_id)
+        if secretary and secretary.email and getattr(secretary, "email_notifications", True):
+            try:
+                from app.config import get_settings
+                from app.services.email import notify_trace_rejected
+                settings = get_settings()
+                portal_url = settings.portal_url.rstrip("/") or f"https://{settings.lodge_domain}"
+                meeting_title = meeting.title or f"Tenue du {meeting.meeting_date.strftime('%d/%m/%Y')}"
+                vm_name = f"{'S∴' if member.civility == 'S' else 'F∴'} {member.last_name} {member.first_name}"
+                await notify_trace_rejected(
+                    recipient_email=secretary.email, vm_name=vm_name,
+                    meeting_title=meeting_title, reason=motif,
+                    meeting_id=meeting_id, portal_base_url=portal_url,
+                )
+            except Exception:
+                pass
+        if secretary:
+            try:
+                from app.services.push import send_push_broadcast
+                meeting_title = meeting.title or f"Tenue du {meeting.meeting_date.strftime('%d/%m/%Y')}"
+                await send_push_broadcast(
+                    db, [secretary.id], "↩ Tracé renvoyé pour correction",
+                    f"{meeting_title} — {motif}"[:160],
+                    f"/meetings/{meeting_id}/trace",
+                )
+            except Exception:
+                pass
 
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?rejected=1", status_code=303)
 
