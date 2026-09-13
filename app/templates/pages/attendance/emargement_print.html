@@ -48,6 +48,7 @@
     <button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
   </div>
 
+  {% macro page_header() %}
   <div class="header">
     <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau">
     <div>
@@ -63,6 +64,9 @@
     Tenue du {{ meeting.meeting_date | datefr('%d %B %Y') }}{% if meeting.meeting_time %} · {{ meeting.meeting_time }}{% endif %}
     — Loge {% if meeting_grade_label == 'Toutes loges réunies' %}{{ meeting_grade_label }}{% else %}de {{ meeting_grade_label }}{% endif %}
   </div>
+  {% endmacro %}
+
+  {{ page_header() }}
 
   {% set half = (active_members | length + 1) // 2 %}
   {% set left_members = active_members[:half] %}
@@ -121,6 +125,7 @@
   </div>
 
   <div class="page-break"></div>
+  {{ page_header() }}
   <div class="section-title">Maçons passants</div>
   <table>
     <thead>
@@ -162,6 +167,7 @@
 
   {% if excused_with_reason %}
   <div class="page-break"></div>
+  {{ page_header() }}
   <div class="section-title">Motifs d'excuse</div>
   <table>
     <thead>
