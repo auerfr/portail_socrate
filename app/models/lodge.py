@@ -66,6 +66,11 @@ class LodgeSettings(Base):
     # Sauvegarde
     admin_email: Mapped[Optional[str]] = mapped_column(String(200))  # destinataire des backups
 
+    # Bibliothèque — dossiers membres (un sous-dossier par membre, auto-créé
+    # à l'arrivée, déplacé automatiquement vers l'autre à leur départ)
+    member_folders_parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("doc_folders.id"), nullable=True)
+    former_members_folder_id: Mapped[Optional[int]] = mapped_column(ForeignKey("doc_folders.id"), nullable=True)
+
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()
     )

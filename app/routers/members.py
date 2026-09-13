@@ -512,6 +512,9 @@ async def member_create(
     await db.flush()  # pour obtenir l'ID
     await _assign_office(db, new_member.id, int(office_id) if office_id.isdigit() else None)
 
+    from app.services.member_folders import create_member_folder
+    await create_member_folder(db, new_member)
+
     # Créer un compte utilisateur si login fourni
     if login.strip():
         new_user = User(
@@ -680,6 +683,8 @@ async def member_update(
         if target.status in leaving and prev_status not in leaving:
             if not target.status_date:
                 target.status_date = date.today()
+            from app.services.member_folders import move_member_folder_to_former
+            await move_member_folder_to_former(db, target)
 
     target.birth_date = parse_date(birth_date)
 

@@ -230,6 +230,55 @@
   </div>
   {% endif %}
 
+  <!-- ── Rôle "dossiers membres" de ce dossier ─────────────────────────────── -->
+  {% if is_admin %}
+  <div x-data="{ openMemberFolders: {{ 'true' if (is_member_folders_root or is_former_members_folder) else 'false' }} }"
+       class="bg-white border border-gray-200 rounded-xl overflow-hidden">
+    <button type="button" @click="openMemberFolders = !openMemberFolders"
+            class="w-full flex items-center justify-between px-5 py-3 text-sm font-semibold text-gray-700 hover:bg-gray-50 transition-colors">
+      <span class="flex items-center gap-2">
+        <i class="ti ti-users text-gray-400"></i>
+        Dossiers membres
+        {% if is_member_folders_root %}
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-green-50 text-green-700 border border-green-200">Dossier racine des membres</span>
+        {% endif %}
+        {% if is_former_members_folder %}
+        <span class="text-xs font-semibold px-2 py-0.5 rounded-full bg-gray-100 text-gray-600 border border-gray-200">Dossier « Anciens membres »</span>
+        {% endif %}
+      </span>
+      <svg class="w-4 h-4 text-gray-400 transition-transform" :class="openMemberFolders ? 'rotate-180' : ''" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M19.5 8.25l-7.5 7.5-7.5-7.5"/>
+      </svg>
+    </button>
+    <div x-show="openMemberFolders" x-cloak x-transition class="border-t border-gray-100 px-5 py-4 space-y-3">
+      <p class="text-xs text-gray-400">
+        Désignez un dossier racine des membres : un sous-dossier vide est alors créé et maintenu
+        automatiquement pour chaque membre (nom en majuscules, prénom) — puis un dossier « Anciens
+        membres » : dès qu'un membre passe en démission, radiation ou décès, son dossier y est
+        déplacé automatiquement.
+      </p>
+      <div class="flex flex-wrap gap-2">
+        {% if not is_member_folders_root %}
+        <form method="post" action="/documents/folder/{{ folder.id }}/set-member-folders-root">
+          <button type="submit"
+                  class="border border-gray-300 text-gray-700 text-xs font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+            Utiliser comme dossier racine des membres
+          </button>
+        </form>
+        {% endif %}
+        {% if not is_former_members_folder %}
+        <form method="post" action="/documents/folder/{{ folder.id }}/set-former-members-folder">
+          <button type="submit"
+                  class="border border-gray-300 text-gray-700 text-xs font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+            Utiliser comme dossier « Anciens membres »
+          </button>
+        </form>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ── Tableau récapitulatif des tenues annoncées (planches reçues) ────── -->
   {% if is_planches_space and planche_entries_summary %}
   <div class="bg-white border border-gray-200 rounded-xl overflow-hidden">

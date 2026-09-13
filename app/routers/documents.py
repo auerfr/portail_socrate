@@ -516,6 +516,17 @@ async def documents_folder(
         )
         active_members_for_delegate = am_r.scalars().all()
 
+    # Rôle "dossiers membres" éventuel de ce dossier (admin uniquement)
+    is_member_folders_root = False
+    is_former_members_folder = False
+    if user.is_admin:
+        from app.models.lodge import LodgeSettings
+        ls_r = await db.execute(select(LodgeSettings).limit(1))
+        lodge_settings = ls_r.scalar_one_or_none()
+        if lodge_settings:
+            is_member_folders_root = lodge_settings.member_folders_parent_id == folder_id
+            is_former_members_folder = lodge_settings.former_members_folder_id == folder_id
+
     return templates.TemplateResponse(request, "pages/documents/folder.html", {
         "current_member": member,
         "current_user": user,
@@ -545,6 +556,8 @@ async def documents_folder(
         "delegates": delegates,
         "active_members_for_delegate": active_members_for_delegate,
         "purge_dates": purge_dates,
+        "is_member_folders_root": is_member_folders_root,
+        "is_former_members_folder": is_former_members_folder,
     })
 
 
@@ -901,6 +914,49 @@ async def documents_delegate_revoke(
     delegate = await db.get(DocFolderDelegate, delegate_id)
     if delegate and delegate.folder_id == folder_id:
         await db.delete(delegate)
+        await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
+
+
+# ── Dossiers membres (un sous-dossier par membre, auto-créé/déplacé) ─────────
+
+@router.post("/folder/{folder_id}/set-member-folders-root")
+async def documents_set_member_folders_root(
+    folder_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Désigne ce dossier comme racine des dossiers individuels des membres
+    (un sous-dossier par membre y est ensuite créé/maintenu automatiquement)."""
+    from app.models.lodge import LodgeSettings
+    folder = await db.get(DocFolder, folder_id)
+    if not folder:
+        raise HTTPException(status_code=404)
+    ls_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = ls_r.scalar_one_or_none()
+    if lodge:
+        lodge.member_folders_parent_id = folder_id
+        await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
+
+
+@router.post("/folder/{folder_id}/set-former-members-folder")
+async def documents_set_former_members_folder(
+    folder_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Désigne ce dossier comme destination des membres partis (démission,
+    radiation, décès) — leur dossier individuel y est déplacé automatiquement
+    dès que leur statut change."""
+    from app.models.lodge import LodgeSettings
+    folder = await db.get(DocFolder, folder_id)
+    if not folder:
+        raise HTTPException(status_code=404)
+    ls_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = ls_r.scalar_one_or_none()
+    if lodge:
+        lodge.former_members_folder_id = folder_id
         await db.commit()
     return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
 

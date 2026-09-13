@@ -76,6 +76,12 @@ class DocFolder(Base):
     personal_owner_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("members.id", ondelete="CASCADE"), nullable=True
     )
+    # Dossier administratif "à propos de" ce membre (ex: son dossier dans
+    # "Dossiers membres") — distinct de personal_owner_id qui désigne un
+    # espace PRIVÉ appartenant au membre lui-même.
+    subject_member_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("members.id", ondelete="SET NULL"), nullable=True
+    )
 
     # ── Permissions granulaires (ajout Mai 2026) ──────────────────────────────
     # TÉLÉCHARGEMENT

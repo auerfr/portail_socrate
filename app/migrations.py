@@ -1187,6 +1187,21 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE documents ADD COLUMN auto_deleted BOOLEAN NOT NULL DEFAULT 0"
             )
+        if cols_df2 and "subject_member_id" not in cols_df2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN subject_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL"
+            )
+
+        r_ls2 = await conn.exec_driver_sql("PRAGMA table_info(lodge_settings)")
+        cols_ls2 = [row[1] for row in r_ls2.fetchall()]
+        if cols_ls2 and "member_folders_parent_id" not in cols_ls2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN member_folders_parent_id INTEGER REFERENCES doc_folders(id)"
+            )
+        if cols_ls2 and "former_members_folder_id" not in cols_ls2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN former_members_folder_id INTEGER REFERENCES doc_folders(id)"
+            )
 
     # ── documents.created_at / updated_at : DEFAULT perdu lors d'une ancienne
     # migration ────────────────────────────────────────────────────────────
