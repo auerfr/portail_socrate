@@ -94,6 +94,27 @@ def _grade_label(g: MeetingGrade) -> str:
     }.get(g, g)
 
 
+_ARCHIVE_MONTH_ABBREV = {
+    1: "janv", 2: "févr", 3: "mars", 4: "avr", 5: "mai", 6: "juin",
+    7: "juil", 8: "août", 9: "sep", 10: "oct", 11: "nov", 12: "déc",
+}
+_ARCHIVE_GRADE_ABBREV = {
+    "APPRENTI": "App", "COMPAGNON": "Comp", "MAITRE": "Mait", "ALL": "Tous",
+}
+
+
+def _archive_doc_name(meeting: "Meeting") -> str:
+    """Nom du document archivé — même nomenclature que les tracés déjà
+    archivés manuellement par la Secrétaire (ex: "SRP tracé tenue 052 -
+    21 juin 2025 Comp")."""
+    d = meeting.meeting_date
+    num = f"{meeting.meeting_number:03d}" if meeting.meeting_number else "???"
+    month = _ARCHIVE_MONTH_ABBREV.get(d.month, d.strftime("%b"))
+    grade_key = meeting.grade.value if hasattr(meeting.grade, "value") else str(meeting.grade)
+    grade = _ARCHIVE_GRADE_ABBREV.get(grade_key, grade_key)
+    return f"SRP tracé tenue {num} - {d.day:02d} {month} {d.year} {grade}"
+
+
 def _can_approve_trace(user, member: Member) -> bool:
     """V∴M∴ ou admin — seuls habilités à approuver et archiver un tracé."""
     return user.is_admin or member.lodge_function == LodgeFunction.VM
@@ -983,8 +1004,7 @@ async def trace_approve(
 
         year_label = str(meeting.meeting_date.year)
         folder = await _get_or_create_pv_folder(db, year_label)
-        type_label = _type_label(meeting.type.value if hasattr(meeting.type, "value") else meeting.type)
-        doc_name = f"PV — {type_label} — {meeting.meeting_date.strftime('%d/%m/%Y')}"
+        doc_name = _archive_doc_name(meeting)
 
         os.makedirs(TRACE_ARCHIVE_UPLOAD_DIR, exist_ok=True)
         filename = f"pv_{uuid.uuid4().hex}.html"
