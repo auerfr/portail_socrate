@@ -21,7 +21,15 @@
     .sig  { border-bottom: 1px solid #9ca3af; }
     .section-title { font-size: 11pt; font-weight: bold; color: #2c7a7b; margin: 1.5rem 0 .5rem; }
     .footer { margin-top: 1.5rem; font-size: 9pt; color: #6b7280; text-align: center; }
-    @media print { .no-print { display: none !important; } tr { break-inside: avoid; } }
+    /* R∴L∴ — noms de loge parfois longs : retour à la ligne plutôt que troncature */
+    .col-rl { word-wrap: break-word; overflow-wrap: break-word; }
+    .blank-row td { height: 1.6rem; }
+    @media print {
+      .no-print { display: none !important; }
+      tr { break-inside: avoid; }
+      /* Lignes d'en-tête répétées en haut de chaque page si la liste déborde */
+      thead { display: table-header-group; }
+    }
     .no-print { text-align: center; margin: 1rem 0; }
     .no-print button { background: #2c7a7b; color: white; border: none; padding: .5rem 1rem; border-radius: .5rem; cursor: pointer; font-size: 11pt; }
   </style>
@@ -75,28 +83,60 @@
   </table>
 
   {% if visitors %}
-  <div class="section-title">Maçons passants confirmés</div>
+  <div class="section-title">Maçons passants annoncés</div>
   <table>
     <thead>
       <tr>
-        <th style="width:30%;">Visiteur</th>
-        <th style="width:30%;">Loge / Orient</th>
+        <th style="width:10%;">Grade</th>
+        <th style="width:18%;">Nom</th>
+        <th style="width:15%;">Prénom</th>
+        <th style="width:22%;" class="col-rl">R∴L∴</th>
         <th style="width:15%;">Obédience</th>
+        <th style="width:15%;">Orient</th>
         <th>Signature</th>
       </tr>
     </thead>
     <tbody>
       {% for mv in visitors %}
       <tr>
-        <td>{% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ mv.visitor.last_name }} {{ mv.visitor.first_name }}</td>
-        <td class="grade">{{ mv.visitor.lodge_name or '' }}{% if mv.visitor.orient_city %} — {{ mv.visitor.orient_city }}{% endif %}</td>
-        <td class="grade">{{ mv.visitor.obedience or '—' }}</td>
+        <td class="grade">{{ mv.visitor.masonic_grade or '—' }}</td>
+        <td>{% if mv.visitor.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ mv.visitor.last_name }}</td>
+        <td>{{ mv.visitor.first_name }}</td>
+        <td class="col-rl">{{ mv.visitor.lodge_name or '—' }}</td>
+        <td>{{ mv.visitor.obedience or '—' }}</td>
+        <td>{{ mv.visitor.orient_city or '—' }}</td>
         <td class="sig">&nbsp;</td>
       </tr>
       {% endfor %}
     </tbody>
   </table>
   {% endif %}
+
+  <div class="section-title">Maçons passants non annoncés</div>
+  <table>
+    <thead>
+      <tr>
+        <th style="width:18%;">Nom</th>
+        <th style="width:18%;">Prénom</th>
+        <th style="width:24%;" class="col-rl">R∴L∴</th>
+        <th style="width:17%;">Obédience</th>
+        <th style="width:17%;">Orient</th>
+        <th>Signature</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% for _ in range(nb_lignes_vierges_passants) %}
+      <tr class="blank-row">
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td class="col-rl">&nbsp;</td>
+        <td>&nbsp;</td>
+        <td>&nbsp;</td>
+        <td class="sig">&nbsp;</td>
+      </tr>
+      {% endfor %}
+    </tbody>
+  </table>
 
   <div class="footer">
     Document généré le {{ generated_on }} — Portail Socrate.

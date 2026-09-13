@@ -25,6 +25,10 @@ from app.models.system import TracingSection, TracingSectionType
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 from app.template_engine import templates
 
+# Nombre de lignes vierges laissées en bas de la feuille d'émargement papier
+# pour les maçons passants non annoncés — à ajuster d'une tenue à l'autre.
+NB_LIGNES_VIERGES_PASSANTS = 18
+
 
 def _require_attendance_mgr(user, member):
     if not (can_manage_attendance(member) or user.is_admin):
@@ -305,6 +309,7 @@ async def emargement_print(
         "AttendanceStatus": AttendanceStatus,
         "visitors": visitors,
         "generated_on": date.today().strftime("%d/%m/%Y"),
+        "nb_lignes_vierges_passants": NB_LIGNES_VIERGES_PASSANTS,
     })
 
 
