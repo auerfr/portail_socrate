@@ -632,6 +632,20 @@ async def meeting_trace(
                        if mv.status.value == "CONFIRMED"],
                       key=lambda mv: mv.visitor.last_name)
 
+    # Pré-remplissage du nom de l'Harmoniste pour l'assistant de rédaction du
+    # tracé (bloc chaîne d'union / tracé musical) — reste modifiable à la main.
+    harmoniste_name = ""
+    harmoniste_id = next(
+        (mid for mid, labels in member_office_lists.items()
+         if any("armoniste" in lbl.lower() for lbl in labels)),
+        None,
+    )
+    if harmoniste_id is not None:
+        for att in present:
+            if att.member_id == harmoniste_id:
+                harmoniste_name = f"{att.member.last_name} {att.member.first_name}"
+                break
+
     # ── Date maçonnique ────────────────────────────────────────────────────
     d = meeting.meeting_date
     masonic_year  = d.year + 4000
@@ -697,6 +711,7 @@ async def meeting_trace(
         "can_approve": can_approve,
         "uses_previous_college": uses_previous_college,
         "previous_college_label": previous_college_label,
+        "harmoniste_name": harmoniste_name,
     })
 
 

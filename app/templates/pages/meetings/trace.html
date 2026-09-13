@@ -266,6 +266,103 @@
       {% if can_edit %}
       <!-- Mode édition (Quill) -->
       <div id="corps-edit" class="hidden print:hidden space-y-3">
+
+        <!-- ── Assistant de rédaction — phrases-types à compléter ── -->
+        <div class="border border-loge-100 bg-loge-50/40 rounded-xl p-4 mb-4 space-y-4">
+          <div class="flex items-center justify-between">
+            <div class="text-sm font-semibold text-loge-800">📝 Assistant de rédaction — phrases-types</div>
+            <button type="button" onclick="document.getElementById('assistant-body').classList.toggle('hidden')"
+                    class="text-xs text-loge-600 hover:text-loge-800">Afficher / masquer</button>
+          </div>
+          <div id="assistant-body" class="space-y-4">
+            <p class="text-xs text-gray-500">Complétez les champs puis cliquez sur « Insérer » — la phrase générée s'ajoute à la fin du tracé ci-dessous, où vous pouvez encore la modifier.</p>
+
+            {% if meeting.agenda_html %}
+            <div class="bg-white border border-gray-200 rounded-lg p-3 text-xs text-gray-600">
+              <div class="font-medium text-gray-500 mb-1">Rappel — Ordre du jour prévu (Plan Parfait) :</div>
+              <div class="prose prose-xs max-w-none [&_p]:mb-1 [&_ul]:list-disc [&_ul]:pl-4">{{ meeting.agenda_html | safe }}</div>
+            </div>
+            {% endif %}
+
+            <!-- Adoption du tracé précédent -->
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-700">Adoption du tracé précédent</div>
+              <div class="grid grid-cols-2 gap-2">
+                <input id="af-prev-num" type="text" placeholder="N° de tenue (ex: 53)" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5">
+                <input id="af-prev-date" type="text" placeholder="Date (ex: 12 juin 2026)" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5">
+              </div>
+              <label class="flex items-center gap-1.5 text-xs text-gray-600">
+                <input type="checkbox" id="af-prev-modif-toggle" onchange="document.getElementById('af-prev-modif-text').classList.toggle('hidden', !this.checked)">
+                Une modification a été demandée
+              </label>
+              <textarea id="af-prev-modif-text" placeholder="Texte de la modification demandée" rows="2"
+                        class="hidden w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5"></textarea>
+              <button type="button" onclick="insertPrevTraceAdoption()"
+                      class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg hover:bg-loge-800">+ Insérer</button>
+            </div>
+
+            <!-- Correspondance -->
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-700">Correspondance</div>
+              <textarea id="af-correspondance" placeholder="Contenu de la correspondance (laisser vide si aucune)" rows="2"
+                        class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5"></textarea>
+              <button type="button" onclick="insertCorrespondance()"
+                      class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg hover:bg-loge-800">+ Insérer</button>
+            </div>
+
+            <!-- Corps variable de l'ordre du jour (répétable) -->
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-700">Point de l'ordre du jour</div>
+              <select id="af-point-type" onchange="updatePointFields()"
+                      class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full">
+                <option value="planche">Présentation d'une planche</option>
+                <option value="dialogue">Dialogue rituel</option>
+                <option value="modif">Modification du plan parfait en séance</option>
+                <option value="libre">Point libre</option>
+              </select>
+              <div id="af-point-fields" class="space-y-2"></div>
+              <button type="button" onclick="insertPoint()"
+                      class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg hover:bg-loge-800">+ Insérer ce point</button>
+            </div>
+
+            <!-- Chaîne d'union / tracé musical / conclusions -->
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-700">Chaîne d'union, tracé musical, conclusions de l'Orateur</div>
+              <input id="af-harmoniste" type="text" value="{{ harmoniste_name }}" placeholder="Nom du F∴ Maître Harmoniste"
+                     class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full">
+              <button type="button" onclick="insertClosingBlock()"
+                      class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg hover:bg-loge-800">+ Insérer</button>
+            </div>
+
+            <!-- Parole dans l'intérêt de l'ordre -->
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-700">Parole dans l'intérêt de l'Ordre / annonces</div>
+              <textarea id="af-annonces" placeholder="Annonces diverses, salutations des passants… (laisser vide si rien à signaler)" rows="2"
+                        class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5"></textarea>
+              <button type="button" onclick="insertAnnonces()"
+                      class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg hover:bg-loge-800">+ Insérer</button>
+            </div>
+
+            <!-- Tronc de la solidarité & Sac aux Propositions -->
+            <div class="bg-white border border-gray-200 rounded-lg p-3 space-y-2">
+              <div class="text-xs font-semibold text-gray-700">Tronc de la solidarité & Sac aux Propositions</div>
+              <div class="grid grid-cols-2 gap-2">
+                <input id="af-pierres" type="number" min="0" placeholder="Pierres plates" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5">
+                <input id="af-eclats" type="number" min="0" placeholder="Éclats" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5">
+              </div>
+              <label class="flex items-center gap-1.5 text-xs text-gray-600">
+                <input type="checkbox" id="af-sac-toggle" onchange="document.getElementById('af-sac-text').classList.toggle('hidden', !this.checked)">
+                Le sac contient une attache
+              </label>
+              <textarea id="af-sac-text" placeholder="Contenu de l'attache" rows="2"
+                        class="hidden w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5"></textarea>
+              <button type="button" onclick="insertTroncSac()"
+                      class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg hover:bg-loge-800">+ Insérer</button>
+            </div>
+
+          </div>
+        </div>
+
         <div class="text-xs text-loge-600 font-medium uppercase tracking-wide mb-1">
           Corps narratif du tracé
         </div>
@@ -389,6 +486,122 @@ function insertMasonicTrace(token) {
   const range = quill.getSelection(true);
   quill.insertText(range.index, token, 'user');
   quill.setSelection(range.index + token.length);
+}
+
+// ── Assistant de rédaction — phrases-types ──────────────────────────────
+function escapeAssistantHtml(s) {
+  return (s || '').replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+}
+
+function appendGeneratedParagraph(text) {
+  if (!quill || !text) return;
+  const idx = quill.getLength();
+  quill.clipboard.dangerouslyPasteHTML(idx, '<p>' + text + '</p>');
+  quill.setSelection(quill.getLength());
+  quill.root.scrollTop = quill.root.scrollHeight;
+}
+
+function insertPrevTraceAdoption() {
+  const num = document.getElementById('af-prev-num').value.trim();
+  const date = document.getElementById('af-prev-date').value.trim();
+  if (!num || !date) { alert("Indiquez le n° et la date du tracé précédent."); return; }
+  const hasModif = document.getElementById('af-prev-modif-toggle').checked;
+  const modifText = document.getElementById('af-prev-modif-text').value.trim();
+  let s = `Le F∴ Secr∴ donne lecture du tracé de la ${escapeAssistantHtml(num)}ème tenue de notre Loge en date du ${escapeAssistantHtml(date)}, ère vulgaire. `;
+  if (hasModif && modifText) {
+    s += `Une demande de modification est exprimée, en l'occurrence ${escapeAssistantHtml(modifText)}. Le F∴ Orateur émet un avis favorable à son adoption après rectification.`;
+  } else {
+    s += `Aucune demande de modification n'ayant été exprimée, le F∴ Orateur émet un avis favorable à son adoption. Le tracé est mis aux voix et approuvé à l'unanimité des SS∴ et des FF∴ de l'At∴ présents.`;
+  }
+  appendGeneratedParagraph(s);
+}
+
+function insertCorrespondance() {
+  const txt = document.getElementById('af-correspondance').value.trim();
+  let s = `Le Plan Parfait appelle la lecture de la correspondance. `;
+  s += txt ? escapeAssistantHtml(txt) : `Le F∴ Orateur n'a pas de correspondance particulière à communiquer.`;
+  appendGeneratedParagraph(s);
+  document.getElementById('af-correspondance').value = '';
+}
+
+function updatePointFields() {
+  const type = document.getElementById('af-point-type').value;
+  const c = document.getElementById('af-point-fields');
+  if (type === 'planche') {
+    c.innerHTML = `
+      <input id="af-p-titre" type="text" placeholder="Titre de la planche" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full">
+      <div class="grid grid-cols-2 gap-2">
+        <select id="af-p-civ" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5">
+          <option value="F∴">F∴</option><option value="S∴">S∴</option>
+          <option value="T∴C∴F∴">T∴C∴F∴ (App∴)</option><option value="T∴C∴S∴">T∴C∴S∴ (App∴)</option>
+        </select>
+        <input id="af-p-nom" type="text" placeholder="Prénom NOM" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5">
+      </div>`;
+  } else if (type === 'dialogue') {
+    c.innerHTML = `
+      <input id="af-d-intitule" type="text" placeholder="Intitulé du dialogue rituel" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full">
+      <input id="af-d-participants" type="text" placeholder="Participants (prénoms, séparés par des virgules)" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full">`;
+  } else if (type === 'modif') {
+    c.innerHTML = `<input id="af-m-motif" type="text" placeholder="Motif de la modification" class="text-xs border border-gray-200 rounded-lg px-2 py-1.5 w-full">`;
+  } else {
+    c.innerHTML = `<textarea id="af-l-texte" placeholder="Texte libre à insérer tel quel" rows="2" class="w-full text-xs border border-gray-200 rounded-lg px-2 py-1.5"></textarea>`;
+  }
+}
+updatePointFields();
+
+function insertPoint() {
+  const type = document.getElementById('af-point-type').value;
+  let s = '';
+  if (type === 'planche') {
+    const titre = document.getElementById('af-p-titre').value.trim();
+    const civ = document.getElementById('af-p-civ').value;
+    const nom = document.getElementById('af-p-nom').value.trim();
+    if (!titre || !nom) { alert("Indiquez le titre et l'auteur de la planche."); return; }
+    s = `Le Plan Parfait appelle la présentation d'un morceau d'architecture intitulé « ${escapeAssistantHtml(titre)} » par notre ${civ} ${escapeAssistantHtml(nom)}. De nombreux FF∴ et SS∴ apportent leurs pierres à l'édifice. Le F∴ Orateur nous livre ses conclusions.`;
+  } else if (type === 'dialogue') {
+    const intitule = document.getElementById('af-d-intitule').value.trim();
+    const participants = document.getElementById('af-d-participants').value.trim();
+    if (!intitule) { alert("Indiquez l'intitulé du dialogue rituel."); return; }
+    s = `Le Plan Parfait appelle le dialogue rituel : « ${escapeAssistantHtml(intitule)}. » Il y est procédé selon l'usage`
+      + (participants ? ` avec la contribution des FF∴ et SS∴ ${escapeAssistantHtml(participants)}.` : `.`);
+  } else if (type === 'modif') {
+    const motif = document.getElementById('af-m-motif').value.trim();
+    if (!motif) { alert("Indiquez le motif de la modification."); return; }
+    s = `Le V∴M∴ demande une modification du plan parfait ${escapeAssistantHtml(motif)}. Le F∴ Orateur émet un avis favorable et la Loge vote majoritairement dans son sens.`;
+  } else {
+    const texte = document.getElementById('af-l-texte').value.trim();
+    if (!texte) return;
+    s = escapeAssistantHtml(texte);
+  }
+  appendGeneratedParagraph(s);
+}
+
+function insertClosingBlock() {
+  const harmoniste = document.getElementById('af-harmoniste').value.trim();
+  let s = `Puis, la chaîne d'union rassemble tous les FF∴ et SS∴. `;
+  s += `Le F∴ Maître Harmoniste${harmoniste ? ' ' + escapeAssistantHtml(harmoniste) : ''} présente son tracé musical de la présente tenue. `;
+  s += `Le F∴ Orateur communique ses conclusions sur les travaux écoulés.`;
+  appendGeneratedParagraph(s);
+}
+
+function insertAnnonces() {
+  const txt = document.getElementById('af-annonces').value.trim();
+  let s = `Le V∴M∴ donne la parole dans l'intérêt de l'Ordre et de notre Loge en particulier. Les SS∴ et FF∴ passants communiquent les fraternelles salutations de leurs R∴L∴ respectives.`;
+  if (txt) s += ` ${escapeAssistantHtml(txt)}`;
+  appendGeneratedParagraph(s);
+  document.getElementById('af-annonces').value = '';
+}
+
+function insertTroncSac() {
+  const pierres = document.getElementById('af-pierres').value.trim() || '0';
+  const eclats = document.getElementById('af-eclats').value.trim() || '0';
+  const hasSac = document.getElementById('af-sac-toggle').checked;
+  const sacTxt = document.getElementById('af-sac-text').value.trim();
+  let s = `Le « Tronc de la solidarité » et le « Sac aux Propositions » circulent parmi les FF∴ et les SS∴. Le premier revient chargé de ${escapeAssistantHtml(pierres)} pierres plates et ${escapeAssistantHtml(eclats)} éclats pris en charge par le F∴ Hosp∴. `;
+  s += (hasSac && sacTxt)
+    ? `Le F∴ Orateur constate que le « Sac aux Propositions » contient une attache signée, en donne lecture : ${escapeAssistantHtml(sacTxt)}.`
+    : `Le F∴ Orateur constate que le « Sac aux Propositions » est revenu vide.`;
+  appendGeneratedParagraph(s);
 }
 
 async function saveTrace() {
