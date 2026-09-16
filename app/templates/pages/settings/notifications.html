@@ -45,6 +45,29 @@
       </div>
     </template>
 
+    <template x-if="supported && configured && permissionDenied">
+      <div class="text-sm text-red-800 bg-red-50 border border-red-200 rounded-lg p-4 space-y-2">
+        <p class="font-semibold flex items-center gap-1.5">🚫 Notifications bloquées sur cet appareil</p>
+        <p>
+          La permission a été refusée — le bouton "Activer" ne peut pas la redemander automatiquement,
+          c'est une règle de sécurité du navigateur. Il faut la réactiver manuellement :
+        </p>
+        <ul class="list-disc list-inside space-y-1 text-red-700">
+          <li>
+            <strong>Si l'app est installée sur l'écran d'accueil</strong> (Android) :
+            Paramètres du téléphone → Applications → <em>Socrate</em> (ou <em>Portail Socrate</em>) →
+            Notifications → Autoriser.
+          </li>
+          <li>
+            <strong>Sinon, dans le navigateur</strong> : appuyez sur le cadenas ou le ⓘ à côté de
+            l'adresse du site (ou ⋮ → Paramètres du site) → Notifications → Autoriser.
+          </li>
+          <li>Vérifiez aussi que le mode "Ne pas déranger" n'est pas activé.</li>
+        </ul>
+        <p class="text-xs text-red-600">Une fois réactivée, rechargez cette page et réessayez.</p>
+      </div>
+    </template>
+
     <template x-if="supported && configured">
       <div class="space-y-3">
         <div class="flex items-center justify-between gap-4 p-3 rounded-lg border border-gray-200">
@@ -56,7 +79,7 @@
             </div>
           </div>
           <button type="button" @click="toggle()"
-                  :disabled="busy"
+                  :disabled="busy || permissionDenied"
                   :class="enabled ? 'bg-red-600 hover:bg-red-700' : 'bg-loge-700 hover:bg-loge-800'"
                   class="px-4 py-2 rounded-lg text-white text-sm font-semibold disabled:opacity-50">
             <span x-text="enabled ? 'Désactiver' : 'Activer'"></span>
@@ -83,6 +106,7 @@
     function pushPrefs() {
       return {
         supported: false, configured: false, enabled: false, busy: false,
+        permissionDenied: false,
         message: '', messageType: 'info',
         async init() {
           this.supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
@@ -94,6 +118,10 @@
               this.configured = data.configured;
             }
           } catch(e) {}
+          // Permission refusée = ni le bouton ni requestPermission() ne peuvent la
+          // redemander (restriction du navigateur) — on le signale tout de suite
+          // au lieu d'attendre un clic infructueux sur "Activer".
+          this.permissionDenied = Notification.permission === 'denied';
           // État local
           if ('serviceWorker' in navigator) {
             const reg = await navigator.serviceWorker.ready;
@@ -115,9 +143,11 @@
         },
         async enable() {
           if (Notification.permission === 'denied') {
-            throw new Error('Permission refusée. Réactivez-la dans les paramètres du navigateur.');
+            this.permissionDenied = true;
+            throw new Error('Permission refusée — voir les instructions ci-dessus pour la réactiver.');
           }
           const perm = await Notification.requestPermission();
+          if (perm === 'denied') this.permissionDenied = true;
           if (perm !== 'granted') throw new Error('Permission non accordée.');
           const keyResp = await fetch('/push/vapid-key');
           if (!keyResp.ok) throw new Error('Clé VAPID indisponible.');
