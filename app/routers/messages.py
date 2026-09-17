@@ -934,17 +934,20 @@ async def message_detail(
     # Expéditeur
     sender = await db.get(Member, msg.sender_id)
 
-    # Destinataires avec membres (si expéditeur ou admin)
+    # Liste des destinataires — visible par tous (émetteur, admin, et chaque
+    # destinataire) : on doit pouvoir savoir à qui un message a été envoyé.
+    # Le statut de lecture (lu/non lu par les autres) reste réservé à
+    # l'émetteur et à l'admin (can_see_read_status ci-dessous).
     recipients_detail = []
-    if msg.sender_id == member.id or user.is_admin:
-        recipient_ids = [rec.member_id for rec in msg.recipients]
-        if recipient_ids:
-            rm = await db.execute(select(Member).where(Member.id.in_(recipient_ids)))
-            members_map = {m.id: m for m in rm.scalars().all()}
-            recipients_detail = [
-                {"member": members_map.get(rec.member_id), "rec": rec}
-                for rec in msg.recipients
-            ]
+    recipient_ids = [rec.member_id for rec in msg.recipients]
+    if recipient_ids:
+        rm = await db.execute(select(Member).where(Member.id.in_(recipient_ids)))
+        members_map = {m.id: m for m in rm.scalars().all()}
+        recipients_detail = [
+            {"member": members_map.get(rec.member_id), "rec": rec}
+            for rec in msg.recipients
+        ]
+    can_see_read_status = msg.sender_id == member.id or user.is_admin
 
     unread = await _unread_count(db, member.id)
 
@@ -963,8 +966,9 @@ async def message_detail(
         "body_html_display": _normalize_message_links(msg.body_html),
         "sender": sender,
         "recipients_detail": recipients_detail,
+        "can_see_read_status": can_see_read_status,
         "is_sender": msg.sender_id == member.id,
-        "target_description": _target_description(msg.target_type, msg.target_filter),
+        "target_description": await _target_description_async(db, msg.target_type, msg.target_filter),
         "unread_count": unread,
         "can_send": _can_send(user, member),
         "attachments": msg.attachments,

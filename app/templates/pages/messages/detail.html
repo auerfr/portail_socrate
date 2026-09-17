@@ -222,15 +222,19 @@
     </div>
   </div>
 
-  <!-- Destinataires (visible expéditeur + admin) -->
+  <!-- Destinataires (visible par tous ; statut de lecture réservé à l'expéditeur/admin) -->
   {% if recipients_detail %}
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-hidden">
     <div class="px-5 py-3 border-b border-gray-100 bg-gray-50 flex items-center justify-between">
       <h2 class="text-sm font-semibold text-gray-700">Destinataires</h2>
+      {% if can_see_read_status %}
       {% set read_count = recipients_detail | selectattr('rec.read_at') | list | length %}
       <span class="text-xs text-gray-500">
         {{ read_count }}/{{ recipients_detail | length }} lu{{ 's' if read_count > 1 }}
       </span>
+      {% else %}
+      <span class="text-xs text-gray-500">{{ recipients_detail | length }} personne{{ 's' if recipients_detail | length > 1 }}</span>
+      {% endif %}
     </div>
     <div class="divide-y divide-gray-50 max-h-64 overflow-y-auto">
       {% for item in recipients_detail %}
@@ -245,6 +249,7 @@
           </div>
           <span class="text-sm text-gray-800">{{ ((m.last_name | anon_nom) ~ ' ' ~ m.first_name) if m else 'Membre #' ~ rec.member_id }}</span>
         </div>
+        {% if can_see_read_status %}
         <div class="flex items-center gap-2">
           {% if rec.read_at %}
           <span class="text-xs text-green-600 flex items-center gap-1">
@@ -257,6 +262,7 @@
           <span class="text-xs text-gray-400">Non lu</span>
           {% endif %}
         </div>
+        {% endif %}
       </div>
       {% endfor %}
     </div>
