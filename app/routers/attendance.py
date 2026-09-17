@@ -561,11 +561,21 @@ async def edit_visitor_on_meeting(
     db: Annotated[AsyncSession, Depends(get_db)],
     agape: bool = Form(False),
     agape_guests: int = Form(0),
+    civility: str = Form(""),
+    last_name: str = Form(""),
+    first_name: str = Form(""),
+    lodge_name: str = Form(""),
+    orient_city: str = Form(""),
+    obedience: str = Form(""),
+    masonic_grade: str = Form(""),
+    is_vm: bool = Form(False),
 ):
     user, member = ctx
     _require_attendance_mgr(user, member)
     mv_r = await db.execute(
-        select(MeetingVisitor).where(
+        select(MeetingVisitor)
+        .options(selectinload(MeetingVisitor.visitor))
+        .where(
             MeetingVisitor.id == mv_id,
             MeetingVisitor.meeting_id == meeting_id,
         )
@@ -574,6 +584,18 @@ async def edit_visitor_on_meeting(
     if mv:
         mv.agape = agape
         mv.agape_guests = max(0, agape_guests)
+        # Corriger les informations d'identité de ce passant (fiche partagée
+        # entre toutes ses tenues — utile quand il s'est trompé à l'inscription,
+        # par ex. ville de domicile saisie à la place de l'orient de sa loge).
+        if last_name.strip():
+            mv.visitor.civility = civility if civility in ("F", "S") else "F"
+            mv.visitor.last_name = last_name.strip().upper()
+            mv.visitor.first_name = first_name.strip().title()
+            mv.visitor.lodge_name = lodge_name.strip() or None
+            mv.visitor.orient_city = orient_city.strip() or None
+            mv.visitor.obedience = obedience.strip() or None
+            mv.visitor.masonic_grade = masonic_grade.strip() or None
+            mv.visitor.is_vm = bool(is_vm)
         await db.commit()
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
 
