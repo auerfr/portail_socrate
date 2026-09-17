@@ -834,9 +834,23 @@
 
   <script>
     // ── Service Worker ──
+    // Servi à la racine (/sw.js, et non /static/sw.js) pour que sa portée par
+    // défaut couvre tout le site — sinon navigator.serviceWorker.ready ne se
+    // résout jamais sur les pages de l'appli (elles sont toutes hors de
+    // /static/), ce qui bloquait silencieusement l'activation des
+    // notifications push pour tout le monde.
     if ('serviceWorker' in navigator) {
       window.addEventListener('load', () => {
-        navigator.serviceWorker.register('/static/sw.js').then((reg) => {
+        // Nettoyage : les navigateurs déjà passés par l'ancienne inscription
+        // à portée /static/ gardent un enregistrement mort — il ne gêne pas
+        // le nouveau (portées différentes) mais autant le retirer.
+        navigator.serviceWorker.getRegistrations().then((regs) => {
+          for (const reg of regs) {
+            if (reg.scope.endsWith('/static/')) reg.unregister().catch(() => {});
+          }
+        }).catch(() => {});
+
+        navigator.serviceWorker.register('/sw.js').then((reg) => {
           // Vérifier les mises à jour toutes les heures
           setInterval(() => reg.update().catch(()=>{}), 3600000);
         }).catch(()=>{});

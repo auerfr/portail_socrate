@@ -9,7 +9,7 @@ from app.config import get_settings as _get_settings_early
 _configure_logging(_get_settings_early().environment)
 
 from fastapi import Depends, FastAPI, Request
-from fastapi.responses import HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 
@@ -536,6 +536,16 @@ templates.env.filters["linkify"] = _linkify
 
 # ── Static files ───────────────────────────────────────────────────────────
 app.mount("/static", StaticFiles(directory="app/static"), name="static")
+
+# Le fichier réel vit dans /static, mais un service worker enregistré depuis
+# /static/sw.js a par défaut une portée limitée à /static/ — il ne peut alors
+# contrôler AUCUNE page de l'appli (tout est hors de /static/), ce qui fait
+# que navigator.serviceWorker.ready ne se résout jamais sur ces pages (attente
+# indéfinie, sans erreur). Servir le même fichier à la racine lui donne une
+# portée par défaut sur tout le site, sans en-tête Service-Worker-Allowed.
+@app.get("/sw.js", include_in_schema=False)
+async def service_worker():
+    return FileResponse("app/static/sw.js", media_type="application/javascript")
 
 # ── Routers ────────────────────────────────────────────────────────────────
 app.include_router(auth.router)

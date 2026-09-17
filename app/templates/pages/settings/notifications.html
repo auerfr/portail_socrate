@@ -95,9 +95,12 @@
           </button>
         </div>
 
-        <div x-show="message" x-text="message"
-             :class="messageType === 'error' ? 'text-red-700 bg-red-50 border-red-200' : 'text-green-700 bg-green-50 border-green-200'"
-             class="text-sm border rounded-lg p-3"></div>
+        <div x-show="message"
+             :class="messageType === 'error' ? 'text-red-800 bg-red-50 border-red-300' : 'text-green-700 bg-green-50 border-green-200'"
+             class="text-sm font-medium border-2 rounded-lg p-3 flex items-start gap-2">
+          <span x-show="messageType === 'error'">⚠</span>
+          <span x-text="message"></span>
+        </div>
       </div>
     </template>
   </div>
@@ -124,9 +127,13 @@
           this.permissionDenied = Notification.permission === 'denied';
           // État local
           if ('serviceWorker' in navigator) {
-            const reg = await navigator.serviceWorker.ready;
-            const sub = await reg.pushManager.getSubscription();
-            this.enabled = !!sub && Notification.permission === 'granted';
+            try {
+              const reg = await this.withTimeout(navigator.serviceWorker.ready, 8000, 'Service worker');
+              const sub = await reg.pushManager.getSubscription();
+              this.enabled = !!sub && Notification.permission === 'granted';
+            } catch (e) {
+              console.warn('[push] service worker pas prêt au chargement :', e);
+            }
           }
         },
         async toggle() {
@@ -135,11 +142,26 @@
             if (this.enabled) await this.disable();
             else await this.enable();
           } catch(e) {
+            console.error('[push] échec activation/désactivation :', e);
             this.message = 'Erreur : ' + e.message;
             this.messageType = 'error';
           } finally {
             this.busy = false;
           }
+        },
+        // pushManager.subscribe() peut rester bloqué indéfiniment (ni résolu ni
+        // rejeté) si le service de notification (Google FCM…) est injoignable —
+        // réseau restrictif, pare-feu, Wi-Fi qui bloque ces domaines. Sans cette
+        // limite, le bouton reste juste "grisé" sans jamais montrer d'erreur, ce
+        // qui donne l'impression que rien ne se passe.
+        withTimeout(promise, ms, label) {
+          return Promise.race([
+            promise,
+            new Promise((_, reject) => setTimeout(
+              () => reject(new Error(`${label} : pas de réponse après ${ms / 1000}s — réseau bloqué ou service de notification injoignable depuis ce réseau (essayez une autre connexion Wi-Fi/4G).`)),
+              ms
+            )),
+          ]);
         },
         async enable() {
           if (Notification.permission === 'denied') {
@@ -149,20 +171,46 @@
           const perm = await Notification.requestPermission();
           if (perm === 'denied') this.permissionDenied = true;
           if (perm !== 'granted') throw new Error('Permission non accordée.');
-          const keyResp = await fetch('/push/vapid-key');
-          if (!keyResp.ok) throw new Error('Clé VAPID indisponible.');
+
+          const keyResp = await this.withTimeout(fetch('/push/vapid-key'), 10000, 'Récupération de la clé du serveur');
+          if (!keyResp.ok) throw new Error(`Clé VAPID indisponible (HTTP ${keyResp.status}).`);
           const { public_key } = await keyResp.json();
-          const reg = await navigator.serviceWorker.ready;
-          const sub = await reg.pushManager.subscribe({
-            userVisibleOnly: true,
-            applicationServerKey: this.urlB64ToUint8Array(public_key),
-          });
-          const r = await fetch('/push/subscribe', {
+          const reg = await this.withTimeout(navigator.serviceWorker.ready, 8000, 'Service worker');
+
+          // Sur certains navigateurs Android (dont Samsung Internet), l'appel à
+          // pushManager.subscribe() peut échouer juste après l'octroi de la
+          // permission — le temps que le navigateur synchronise l'état en
+          // interne. On retente une fois après une courte pause avant
+          // d'abandonner, plutôt que de faire échouer l'activation d'entrée.
+          let sub;
+          try {
+            sub = await this.withTimeout(reg.pushManager.subscribe({
+              userVisibleOnly: true,
+              applicationServerKey: this.urlB64ToUint8Array(public_key),
+            }), 15000, 'Abonnement au service de notification');
+          } catch (firstErr) {
+            console.warn('[push] premier essai subscribe() échoué, nouvelle tentative :', firstErr);
+            await new Promise((r) => setTimeout(r, 600));
+            try {
+              sub = await this.withTimeout(reg.pushManager.subscribe({
+                userVisibleOnly: true,
+                applicationServerKey: this.urlB64ToUint8Array(public_key),
+              }), 15000, 'Abonnement au service de notification (2e essai)');
+            } catch (secondErr) {
+              console.error('[push] subscribe() échoué après nouvelle tentative :', secondErr);
+              throw secondErr;
+            }
+          }
+
+          const r = await this.withTimeout(fetch('/push/subscribe', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify(sub.toJSON()),
-          });
-          if (!r.ok) throw new Error('Échec de l\'enregistrement.');
+          }), 10000, 'Enregistrement sur le serveur');
+          if (!r.ok) {
+            const detail = await r.text().catch(() => '');
+            throw new Error(`Échec de l'enregistrement côté serveur (HTTP ${r.status}). ${detail}`.trim());
+          }
           this.enabled = true;
           this.message = '✓ Notifications activées sur cet appareil.';
           this.messageType = 'info';
