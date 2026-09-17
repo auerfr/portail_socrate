@@ -92,3 +92,9 @@ def _anon_nom(ctx, name: str) -> str:
 
 
 templates.env.filters["anon_nom"] = _anon_nom
+
+
+# ── Filtre écriture maçonnique (tracés) ────────────────────────────────────
+from app.utils.text import masonic_write as _masonic_write
+
+templates.env.filters["masonic_write"] = _masonic_write

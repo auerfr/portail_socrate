@@ -52,10 +52,10 @@
     <tbody>
       {% for i in range(0, present|length, 2) %}
       <tr>
-        <td style="width:33%;">{{ present[i].member.first_name }} {{ present[i].member.last_name | upper }}&nbsp;</td>
+        <td style="width:33%;">{{ present[i].member.first_name }} {{ present[i].member.last_name | masonic_write }}&nbsp;</td>
         <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i].member_id, '') }}&nbsp;</td>
         {% if i + 1 < present|length %}
-        <td style="width:33%;">{{ present[i+1].member.first_name }} {{ present[i+1].member.last_name | upper }}&nbsp;</td>
+        <td style="width:33%;">{{ present[i+1].member.first_name }} {{ present[i+1].member.last_name | masonic_write }}&nbsp;</td>
         <td style="width:17%; color:#666; font-style:italic; font-size:9.5pt;">{{ member_office.get(present[i+1].member_id, '') }}&nbsp;</td>
         {% else %}
         <td></td><td></td>
@@ -69,7 +69,7 @@
   {% if officer_rows %}
   <p class="body-text">
     {% for r in officer_rows %}
-      {% if r.substitute %}Le {% if r.substitute.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ r.substitute.first_name }} {{ r.substitute.last_name | upper }} supplée à l'office de {{ r.office.label }}{% if r.holder %} en l'absence {% if r.holder.civility == 'S' %}de la S∴{% else %}du F∴{% endif %} {{ r.holder.first_name }} {{ r.holder.last_name | upper }}{% endif %}.
+      {% if r.substitute %}Le {% if r.substitute.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ r.substitute.first_name }} {{ r.substitute.last_name | masonic_write }} supplée à l'office de {{ r.office.label }}{% if r.holder %} en l'absence {% if r.holder.civility == 'S' %}de la S∴{% else %}du F∴{% endif %} {{ r.holder.first_name }} {{ r.holder.last_name | masonic_write }}{% endif %}.
       {% else %}L'office de {{ r.office.label }} est resté vacant lors de cette tenue.
       {% endif %}
     {% endfor %}
@@ -79,15 +79,15 @@
   {% if excused %}
   <p class="body-text">
     Étaient excusés, les FF∴ et les SS∴ :
-    {% for att in excused %}{{ att.member.first_name }} {{ att.member.last_name | upper }}{% if not loop.last %}, {% endif %}{% endfor %}.
+    {% for att in excused %}{{ att.member.first_name }} {{ att.member.last_name | masonic_write }}{% if not loop.last %}, {% endif %}{% endfor %}.
   </p>
   {% endif %}
 
   {% if absent %}
   <p class="body-text">
-    {% if absent|length == 1 %}Était absent le {% if absent[0].member.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ absent[0].member.first_name }} {{ absent[0].member.last_name | upper }}.
+    {% if absent|length == 1 %}Était absent le {% if absent[0].member.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ absent[0].member.first_name }} {{ absent[0].member.last_name | masonic_write }}.
     {% else %}Étaient absent(e)s les FF∴ et les SS∴ :
-    {% for att in absent %}{{ att.member.first_name }} {{ att.member.last_name | upper }}{% if not loop.last %}, {% endif %}{% endfor %}.
+    {% for att in absent %}{{ att.member.first_name }} {{ att.member.last_name | masonic_write }}{% if not loop.last %}, {% endif %}{% endfor %}.
     {% endif %}
   </p>
   {% endif %}
@@ -98,7 +98,7 @@
     <tbody>
       {% for mv in visitors %}
       <tr>
-        <td style="width:25%;">{{ mv.visitor.first_name }} {{ mv.visitor.last_name | upper }}&nbsp;</td>
+        <td style="width:25%;">{{ mv.visitor.first_name }} {{ mv.visitor.last_name | masonic_write }}&nbsp;</td>
         <td style="width:40%; color:#555;">R∴L∴ {{ mv.visitor.lodge_name or '—' }}&nbsp;</td>
         <td style="width:15%; color:#666; font-size:9.5pt;">{{ mv.visitor.obedience or '' }}&nbsp;</td>
         <td style="color:#666; font-size:9.5pt;">{% if mv.visitor.orient_city %}Or∴ de {{ mv.visitor.orient_city }}{% endif %}</td>

@@ -16,6 +16,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
+from app.utils.text import masonic_write
 from app.dependencies import (
     require_auth, can_manage_meeting, can_lock_meeting,
 )
@@ -715,7 +716,7 @@ async def meeting_trace(
     if vm_office and vm_office.member_id:
         for att in present:
             if att.member_id == vm_office.member_id:
-                vm_name = f"{att.member.first_name} {att.member.last_name}"
+                vm_name = f"{att.member.first_name} {masonic_write(att.member.last_name)}"
                 break
 
     # Statut du tracé (workflow d'approbation V∴M∴ + archivage)
@@ -1019,7 +1020,7 @@ async def trace_approve(
         if vm_office and vm_office.member_id:
             for att in present:
                 if att.member_id == vm_office.member_id:
-                    vm_name = f"{att.member.first_name} {att.member.last_name}"
+                    vm_name = f"{att.member.first_name} {masonic_write(att.member.last_name)}"
                     break
 
         archive_html = templates.get_template("pages/meetings/trace_archive.html").render({
