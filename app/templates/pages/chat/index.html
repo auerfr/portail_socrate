@@ -188,17 +188,34 @@
           {% endif %}
           {% if msg.reply_to %}
           <div class="text-xs bg-gray-100 border-l-2 border-loge-400 rounded px-2 py-1 mb-1 text-gray-500 truncate">
-            ↩ {{ msg.reply_to.sender.first_name }} : {{ (msg.reply_to.content or '')[:60] }}
+            ↩ {{ msg.reply_to.sender.first_name }} : {{ (msg.reply_to.content[:60] if msg.reply_to.content else ('📎 ' ~ msg.reply_to.attachment_filename if msg.reply_to.attachment_filename else '')) }}
           </div>
           {% endif %}
           <div class="relative group/msg">
             <div class="px-3 py-2 rounded-2xl text-sm leading-relaxed break-words
                         {% if is_mine %}bg-loge-700 text-white rounded-br-sm{% else %}bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm{% endif %}">
-              {{ msg.content | render_chat }}
+              {% if msg.attachment_url %}
+              <div class="{% if msg.content %}mb-2{% endif %}">
+                {% if msg.content_type.value == 'IMAGE' %}
+                <a href="{{ msg.attachment_url }}" target="_blank">
+                  <img src="{{ msg.attachment_url }}" alt="{{ msg.attachment_filename }}"
+                       class="max-w-full rounded-lg max-h-64 object-cover">
+                </a>
+                {% else %}
+                <a href="{{ msg.attachment_url }}" target="_blank"
+                   class="flex items-center gap-2 rounded-lg px-2 py-1.5 {% if is_mine %}bg-loge-800/40 hover:bg-loge-800/60{% else %}bg-gray-50 hover:bg-gray-100{% endif %} transition-colors">
+                  <i class="ti ti-file-download text-base"></i>
+                  <span class="text-xs truncate underline">{{ msg.attachment_filename }}</span>
+                </a>
+                {% endif %}
+              </div>
+              {% endif %}
+              {% if msg.content %}{{ msg.content | render_chat }}{% endif %}
             </div>
             <div class="absolute -top-2 {% if is_mine %}left-0{% else %}right-0{% endif %}
                         transition-opacity flex gap-1">
-              <button @click='replyTo = {id: {{ msg.id }}, sender: {{ msg.sender.first_name | tojson }}, preview: {{ msg.content[:60] | tojson }}}'
+              {% set _preview = msg.content if msg.content else (("📎 " ~ msg.attachment_filename) if msg.attachment_filename else "") %}
+              <button @click='replyTo = {id: {{ msg.id }}, sender: {{ msg.sender.first_name | tojson }}, preview: {{ _preview[:60] | tojson }}}'
                       class="w-6 h-6 rounded-full bg-white border border-gray-200 shadow-sm
                              flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
                       title="Répondre">↩</button>
@@ -250,8 +267,27 @@
               </div>
             </template>
             <div class="px-3 py-2 rounded-2xl text-sm leading-relaxed break-words"
-                 :class="msg.is_mine ? 'bg-loge-700 text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm'"
-                 x-html="renderMsg(msg.content)"></div>
+                 :class="msg.is_mine ? 'bg-loge-700 text-white rounded-br-sm' : 'bg-white text-gray-800 shadow-sm border border-gray-100 rounded-bl-sm'">
+              <template x-if="msg.attachment_url">
+                <div :class="msg.content ? 'mb-2' : ''">
+                  <template x-if="msg.content_type === 'IMAGE'">
+                    <a :href="msg.attachment_url" target="_blank">
+                      <img :src="msg.attachment_url" :alt="msg.attachment_filename"
+                           class="max-w-full rounded-lg max-h-64 object-cover">
+                    </a>
+                  </template>
+                  <template x-if="msg.content_type !== 'IMAGE'">
+                    <a :href="msg.attachment_url" target="_blank"
+                       class="flex items-center gap-2 rounded-lg px-2 py-1.5 transition-colors"
+                       :class="msg.is_mine ? 'bg-loge-800/40 hover:bg-loge-800/60' : 'bg-gray-50 hover:bg-gray-100'">
+                      <i class="ti ti-file-download text-base"></i>
+                      <span class="text-xs truncate underline" x-text="msg.attachment_filename"></span>
+                    </a>
+                  </template>
+                </div>
+              </template>
+              <div x-show="msg.content" x-html="renderMsg(msg.content)"></div>
+            </div>
             <div class="text-xs text-gray-400 mt-0.5"
                  :class="msg.is_mine ? 'flex items-center justify-end gap-0.5 pr-1' : 'pl-1'">
               <span x-text="msg.created_at"></span>
@@ -280,7 +316,9 @@
         <button @click="replyTo = null" class="text-gray-400 hover:text-gray-600 shrink-0">✕</button>
       </div>
       <form method="post" action="/chat/{{ active_channel.id }}/send"
+            enctype="multipart/form-data"
             class="flex gap-2 items-end"
+            x-data="{ fileName: null }"
             @submit="scrollToBottom()">
         <input type="hidden" name="reply_to_id" :value="replyTo?.id || 0">
         <button type="button" onclick="openDocPicker('chat')"
@@ -289,6 +327,16 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
             <path stroke-linecap="round" stroke-linejoin="round" d="M18.375 12.739l-7.693 7.693a4.5 4.5 0 01-6.364-6.364l10.94-10.94A3 3 0 1119.5 7.372L8.552 18.32m.009-.01l-.01.01m5.699-9.941l-7.81 7.81a1.5 1.5 0 002.112 2.13"/>
           </svg>
+        </button>
+        <input type="file" name="attachment" id="chat-file-input-{{ active_channel.id }}" class="hidden"
+               @change="fileName = $el.files[0]?.name || null">
+        <button type="button" @click="document.getElementById('chat-file-input-{{ active_channel.id }}').click()"
+                title="Envoyer une photo ou un fichier depuis cet appareil"
+                class="w-10 h-10 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-gray-400 hover:text-gray-600 flex items-center justify-center shrink-0 transition-colors relative">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M2.25 15.75l5.159-5.159a2.25 2.25 0 013.182 0l5.159 5.159m-1.5-1.5l1.409-1.409a2.25 2.25 0 013.182 0l2.909 2.909M3 6.75v10.5a2.25 2.25 0 002.25 2.25h13.5A2.25 2.25 0 0021 17.25V6.75A2.25 2.25 0 0018.75 4.5H5.25A2.25 2.25 0 003 6.75zM6.75 8.25h.008v.008H6.75V8.25z"/>
+          </svg>
+          <span x-show="fileName" class="absolute -top-1 -right-1 w-2.5 h-2.5 rounded-full bg-loge-600"></span>
         </button>
         <div class="relative shrink-0" x-data="{ emojiOpen: false }">
           <button type="button" @click="emojiOpen = !emojiOpen" @click.outside="emojiOpen = false"
@@ -308,13 +356,23 @@
                 class="w-10 h-10 rounded-xl border border-gray-200 bg-gray-50 hover:bg-gray-100 text-sm font-medium flex items-center justify-center transition-colors shrink-0">
           ∴
         </button>
-        <textarea id="chat-textarea-{{ active_channel.id }}" name="content" rows="1" placeholder="Écrire un message…"
-                  class="flex-1 border border-gray-200 rounded-xl px-4 py-2.5 text-sm
-                         focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none
-                         max-h-32 overflow-y-auto bg-gray-50"
-                  @keydown.enter.exact.prevent="$el.closest('form').submit()"
-                  @keydown.enter.shift.exact="$el.rows = Math.min($el.rows + 1, 6)"
-                  @input="$el.style.height='auto'; $el.style.height=$el.scrollHeight+'px'"></textarea>
+        <div class="flex-1 flex flex-col gap-1">
+          <div x-show="fileName" x-cloak
+               class="flex items-center gap-2 bg-loge-50 border border-loge-200 rounded-lg px-3 py-1.5 text-xs text-loge-700">
+            <i class="ti ti-paperclip"></i>
+            <span class="truncate flex-1" x-text="fileName"></span>
+            <button type="button"
+                    @click="fileName = null; document.getElementById('chat-file-input-{{ active_channel.id }}').value = ''"
+                    class="text-loge-400 hover:text-loge-700 shrink-0">✕</button>
+          </div>
+          <textarea id="chat-textarea-{{ active_channel.id }}" name="content" rows="1" placeholder="Écrire un message…"
+                    class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm
+                           focus:outline-none focus:ring-2 focus:ring-loge-500 resize-none
+                           max-h-32 overflow-y-auto bg-gray-50"
+                    @keydown.enter.exact.prevent="$el.closest('form').submit()"
+                    @keydown.enter.shift.exact="$el.rows = Math.min($el.rows + 1, 6)"
+                    @input="$el.style.height='auto'; $el.style.height=$el.scrollHeight+'px'"></textarea>
+        </div>
         <button type="submit"
                 class="w-10 h-10 rounded-xl bg-loge-700 hover:bg-loge-800 text-white flex items-center justify-center shrink-0 transition-colors">
           <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">

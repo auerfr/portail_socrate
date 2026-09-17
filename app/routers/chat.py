@@ -1,10 +1,12 @@
 """Router Chat — Messagerie instantanée (remplace Telegram)"""
 import re
+import uuid
 from datetime import datetime
-from typing import Annotated, Optional
+from pathlib import Path
+from typing import Annotated, Optional, Union, List
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
-from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse
+from fastapi import APIRouter, Depends, Form, File, HTTPException, Request, UploadFile
+from fastapi.responses import FileResponse, HTMLResponse, JSONResponse, RedirectResponse, Response
 from markupsafe import Markup, escape as _escape
 from sqlalchemy import select, delete, func as sql_func, or_, and_
 from sqlalchemy.dialects.sqlite import insert as sqlite_insert
@@ -19,10 +21,61 @@ from app.models.chat import (
     ChannelType, MessageContentType,
 )
 from app.models.groups import LodgeGroup
+from app.models.documents import DocSpace, DocFolder, Document, DocAccessMode, DocStatus, MinGrade
 from app.utils.tz import to_paris
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 from app.template_engine import templates
+
+# ── Pièces jointes ────────────────────────────────────────────────────────
+# Petits fichiers : stockés directement avec le message (rendu inline dans
+# la bulle). Au-delà, pour ne pas surcharger la messagerie : le fichier part
+# dans un dossier "temporaire" de la Bibliothèque et le message ne contient
+# qu'un lien de téléchargement vers ce document.
+CHAT_UPLOAD_DIR = Path("uploads/chat")
+CHAT_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+CHAT_INLINE_MAX_SIZE = 5 * 1024 * 1024   # 5 Mo — au-delà, direction Bibliothèque
+CHAT_ATTACHMENT_MAX_SIZE = 50 * 1024 * 1024  # 50 Mo — cap absolu, aligné sur la GED
+CHAT_ALLOWED_EXTENSIONS = {
+    ".pdf", ".doc", ".docx", ".odt",
+    ".xls", ".xlsx", ".ods",
+    ".ppt", ".pptx", ".odp",
+    ".jpg", ".jpeg", ".png", ".gif", ".webp",
+    ".txt", ".csv", ".rtf",
+    ".zip", ".7z",
+    ".mp3", ".wav", ".m4a", ".ogg",
+}
+CHAT_IMAGE_EXTENSIONS = {".jpg", ".jpeg", ".png", ".gif", ".webp"}
+CHAT_SHARE_FOLDER_NAME = "Partages tchat (temporaire)"
+
+
+async def _get_or_create_chat_share_folder(db: AsyncSession) -> DocFolder:
+    """Dossier de repli pour les pièces jointes de tchat trop lourdes pour
+    être stockées avec le message — accessible à tous, purge automatique
+    après 60 jours (cf. DocFolder.auto_delete_after_days)."""
+    r = await db.execute(select(DocFolder).where(DocFolder.name == CHAT_SHARE_FOLDER_NAME))
+    folder = r.scalar_one_or_none()
+    if folder:
+        return folder
+
+    sr = await db.execute(select(DocSpace).where(DocSpace.name == "Bibliothèque"))
+    space = sr.scalar_one_or_none()
+    if not space:
+        space = DocSpace(name="Bibliothèque", description="Travaux et planches de la loge",
+                          access_mode=DocAccessMode.OPEN, min_grade=MinGrade.ALL)
+        db.add(space)
+        await db.flush()
+
+    folder = DocFolder(
+        space_id=space.id,
+        name=CHAT_SHARE_FOLDER_NAME,
+        description="Fichiers partagés dans le tchat, trop volumineux pour y rester directement.",
+        min_grade=MinGrade.ALL,
+        auto_delete_after_days=60,
+    )
+    db.add(folder)
+    await db.flush()
+    return folder
 
 def _render_chat(text: str) -> Markup:
     if not text:
@@ -467,7 +520,7 @@ async def chat_messages_poll(
             reply = {
                 "id": m.reply_to.id,
                 "sender": f"{m.reply_to.sender.last_name} {m.reply_to.sender.first_name}",
-                "preview": (m.reply_to.content or "")[:80],
+                "preview": (m.reply_to.content or (f"📎 {m.reply_to.attachment_filename}" if m.reply_to.attachment_filename else ""))[:80],
             }
         from app.services.presence import presence_status
         return {
@@ -478,6 +531,8 @@ async def chat_messages_poll(
             "is_mine": m.sender_id == member.id,
             "content": m.content or "",
             "content_type": m.content_type.value,
+            "attachment_url": m.attachment_url,
+            "attachment_filename": m.attachment_filename,
             "created_at": to_paris(m.created_at).strftime("%H:%M"),
             "created_date": to_paris(m.created_at).strftime("%d/%m/%Y"),
             "reply": reply,
@@ -501,6 +556,7 @@ async def chat_send(
     db: Annotated[AsyncSession, Depends(get_db)],
     content: str = Form(""),
     reply_to_id: int = Form(0),
+    attachment: Optional[UploadFile] = File(None),
 ):
     user, member = ctx
     channels = await _accessible_channels(member, db)
@@ -508,7 +564,8 @@ async def chat_send(
         raise HTTPException(status_code=403)
 
     content = content.strip()
-    if not content:
+    has_attachment = attachment is not None and bool(attachment.filename)
+    if not content and not has_attachment:
         return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
     channel = next(c for c in channels if c.id == channel_id)
@@ -518,11 +575,62 @@ async def chat_send(
     msg = ChatMessage(
         channel_id=channel_id,
         sender_id=member.id,
-        content=content,
+        content=content or None,
         content_type=MessageContentType.TEXT,
         reply_to_id=reply_to_id if reply_to_id else None,
     )
-    db.add(msg)
+
+    if has_attachment:
+        ext = Path(attachment.filename).suffix.lower()
+        if ext not in CHAT_ALLOWED_EXTENSIONS:
+            return RedirectResponse(
+                url=f"/chat/{channel_id}?error=ext_non_autorisee", status_code=303
+            )
+        file_bytes = await attachment.read()
+        size = len(file_bytes)
+        if size > CHAT_ATTACHMENT_MAX_SIZE:
+            return RedirectResponse(
+                url=f"/chat/{channel_id}?error=fichier_trop_volumineux", status_code=303
+            )
+
+        is_image = ext in CHAT_IMAGE_EXTENSIONS
+        msg.content_type = MessageContentType.IMAGE if is_image else MessageContentType.FILE
+        msg.attachment_filename = attachment.filename
+        msg.attachment_mime = attachment.content_type or "application/octet-stream"
+        msg.attachment_size = size
+
+        if size <= CHAT_INLINE_MAX_SIZE:
+            # Petit fichier : stocké avec le message, rendu inline dans la bulle.
+            stored_name = f"{uuid.uuid4().hex}{ext}"
+            (CHAT_UPLOAD_DIR / stored_name).write_bytes(file_bytes)
+            msg.attachment_stored_name = stored_name
+            db.add(msg)
+            await db.flush()
+            msg.attachment_url = f"/chat/attachment/{msg.id}/view"
+        else:
+            # Trop lourd pour la messagerie : direction la Bibliothèque (dossier
+            # temporaire, purge auto après 60 jours), le message ne porte qu'un lien.
+            folder = await _get_or_create_chat_share_folder(db)
+            from app.routers.documents import UPLOAD_DIR as _DOC_UPLOAD_DIR
+            doc_stored_name = f"{uuid.uuid4().hex}{ext}"
+            (_DOC_UPLOAD_DIR / doc_stored_name).write_bytes(file_bytes)
+            doc = Document(
+                folder_id=folder.id,
+                name=attachment.filename,
+                original_filename=attachment.filename,
+                mime_type=msg.attachment_mime,
+                file_size=size,
+                storage_path=str(_DOC_UPLOAD_DIR / doc_stored_name),
+                status=DocStatus.PUBLISHED,
+                author_id=member.id,
+            )
+            db.add(doc)
+            await db.flush()
+            msg.attachment_url = f"/documents/file/{doc.id}/view"
+            db.add(msg)
+    else:
+        db.add(msg)
+
     await db.commit()
 
     # ── Push notifications aux membres du canal (sauf l'expéditeur) ──────
@@ -534,7 +642,8 @@ async def chat_send(
         member_ids = [row[0] for row in members_r.all() if row[0] != member.id]
         if member_ids:
             sender_name = f"{member.last_name} {member.first_name}"
-            push_body = " ".join(content.split())[:140]
+            push_text = content if content else f"📎 {msg.attachment_filename}"
+            push_body = " ".join(push_text.split())[:140]
             await send_push_broadcast(
                 db, member_ids,
                 f"💬 {channel.name} — {sender_name}",
@@ -545,6 +654,35 @@ async def chat_send(
         pass
 
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
+
+
+# ── Pièce jointe stockée avec le message (petits fichiers) ───────────────────
+
+@router.get("/attachment/{message_id}/view")
+async def chat_attachment_view(
+    message_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Affiche/télécharge une pièce jointe de tchat — réservé aux membres du canal."""
+    user, member = ctx
+    msg = await db.get(ChatMessage, message_id)
+    if not msg or not msg.attachment_stored_name:
+        raise HTTPException(status_code=404)
+
+    channels = await _accessible_channels(member, db)
+    if not any(c.id == msg.channel_id for c in channels):
+        raise HTTPException(status_code=403)
+
+    file_path = CHAT_UPLOAD_DIR / msg.attachment_stored_name
+    if not file_path.exists():
+        raise HTTPException(status_code=404, detail="Fichier introuvable sur le serveur")
+
+    return FileResponse(
+        path=str(file_path),
+        filename=msg.attachment_filename,
+        media_type=msg.attachment_mime or "application/octet-stream",
+    )
 
 
 # ── Supprimer un message ─────────────────────────────────────────────────────
@@ -563,6 +701,13 @@ async def delete_message(
         raise HTTPException(status_code=403)
     msg.is_deleted = True
     msg.content = ""
+    if msg.attachment_stored_name:
+        (CHAT_UPLOAD_DIR / msg.attachment_stored_name).unlink(missing_ok=True)
+    msg.attachment_url = None
+    msg.attachment_filename = None
+    msg.attachment_stored_name = None
+    msg.attachment_mime = None
+    msg.attachment_size = None
     await db.commit()
     return JSONResponse({"ok": True})
 

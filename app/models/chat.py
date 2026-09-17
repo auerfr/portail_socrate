@@ -2,7 +2,7 @@
 import enum
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Enum, Boolean, DateTime, ForeignKey, Text, func
+from sqlalchemy import String, Enum, Boolean, DateTime, ForeignKey, Text, Integer, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -82,6 +82,14 @@ class ChatMessage(Base):
         Enum(MessageContentType), default=MessageContentType.TEXT
     )
     attachment_url: Mapped[Optional[str]] = mapped_column(String(500))
+    # Nom original du fichier (affiché à l'utilisateur) et nom de stockage
+    # sur disque (uuid + ext) — même schéma que MessageAttachment (messagerie
+    # interne), pour joindre un fichier venu du téléphone/ordinateur (pas
+    # seulement un document déjà présent dans la GED).
+    attachment_filename: Mapped[Optional[str]] = mapped_column(String(300))
+    attachment_stored_name: Mapped[Optional[str]] = mapped_column(String(300))
+    attachment_mime: Mapped[Optional[str]] = mapped_column(String(100))
+    attachment_size: Mapped[Optional[int]] = mapped_column(Integer)
     reply_to_id: Mapped[Optional[int]]   = mapped_column(ForeignKey("chat_messages.id"))
 
     is_deleted: Mapped[bool]              = mapped_column(Boolean, default=False)

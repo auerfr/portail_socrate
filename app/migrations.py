@@ -1255,6 +1255,17 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE attendances ADD COLUMN dietary_restrictions VARCHAR(20) NOT NULL DEFAULT 'NONE'"
             )
 
+        r_cm = await conn.exec_driver_sql("PRAGMA table_info(chat_messages)")
+        cols_cm = [row[1] for row in r_cm.fetchall()]
+        if cols_cm and "attachment_filename" not in cols_cm:
+            await conn.exec_driver_sql("ALTER TABLE chat_messages ADD COLUMN attachment_filename VARCHAR(300)")
+        if cols_cm and "attachment_stored_name" not in cols_cm:
+            await conn.exec_driver_sql("ALTER TABLE chat_messages ADD COLUMN attachment_stored_name VARCHAR(300)")
+        if cols_cm and "attachment_mime" not in cols_cm:
+            await conn.exec_driver_sql("ALTER TABLE chat_messages ADD COLUMN attachment_mime VARCHAR(100)")
+        if cols_cm and "attachment_size" not in cols_cm:
+            await conn.exec_driver_sql("ALTER TABLE chat_messages ADD COLUMN attachment_size INTEGER")
+
     # ── documents.created_at / updated_at : DEFAULT perdu lors d'une ancienne
     # migration ────────────────────────────────────────────────────────────
     # La migration qui a rendu original_filename nullable (plus haut dans ce
