@@ -28,7 +28,7 @@
     </div>
 
     <form method="post" action="/mailing/lists/{{ mlist.id }}/compose" class="space-y-4"
-          x-data="{ atts: {{ (draft.attachments | tojson) if draft and draft.attachments else '[]' }} }">
+          x-data='{ atts: {{ (draft.attachments | tojson) if draft and draft.attachments else "[]" }} }'>
       {% if draft %}<input type="hidden" name="draft_id" value="{{ draft.id }}">{% endif %}
 
       <div>

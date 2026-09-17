@@ -140,7 +140,7 @@
             <div class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <button type="button"
-                    onclick="openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else '\"\"' }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else '\"\"' }})"
+                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }})'
                     class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
                   onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
