@@ -323,7 +323,7 @@ async def documents_space(
         await db.execute(select(LodgeGroup).where(LodgeGroup.id.in_(_folder_group_ids)))
     folders = []
     for f in _all_folders:
-        if await _can_access(member, user, f.min_grade, f.group_id, db):
+        if await _can_view_folder(member, user, f, db):
             folders.append(f)
 
     # Groupes pour badges et modal admin
@@ -386,10 +386,7 @@ async def documents_folder(
     )
     subfolders = []
     for f in sub_r.scalars().all():
-        if await _can_access(
-            member, user, f.min_grade, f.group_id, db,
-            personal_owner_id=f.personal_owner_id,
-        ):
+        if await _can_view_folder(member, user, f, db):
             subfolders.append(f)
 
     # Tri des documents
@@ -969,10 +966,7 @@ async def _get_authorized_doc(doc_id: int, user, member, db: AsyncSession):
     if not doc or doc.status != DocStatus.PUBLISHED:
         raise HTTPException(status_code=404)
     folder = doc.folder
-    if not await _can_access(
-        member, user, folder.min_grade, folder.group_id, db,
-        personal_owner_id=folder.personal_owner_id,
-    ):
+    if not await _can_view_folder(member, user, folder, db):
         raise HTTPException(status_code=403)
     if not folder.personal_owner_id:
         space = await db.get(DocSpace, folder.space_id)
@@ -1177,11 +1171,7 @@ async def documents_search(
                     continue
                 folder = doc.folder
                 # Vérif accès
-                if not await _can_access(
-                    member, user,
-                    folder.min_grade, folder.group_id, db,
-                    personal_owner_id=folder.personal_owner_id,
-                ):
+                if not await _can_view_folder(member, user, folder, db):
                     continue
                 results.append({
                     "doc": doc,
@@ -1684,7 +1674,7 @@ async def documents_tree(
         )
         space_data = {"id": space.id, "name": space.name, "folders": []}
         for folder in folders_r.scalars().all():
-            if not await _can_access(member, user, folder.min_grade, folder.group_id, db):
+            if not await _can_view_folder(member, user, folder, db):
                 continue
             sf_r = await db.execute(
                 select(DocFolder)
@@ -1693,7 +1683,7 @@ async def documents_tree(
             )
             subfolders = []
             for sf in sf_r.scalars().all():
-                if not await _can_access(member, user, sf.min_grade, sf.group_id, db):
+                if not await _can_view_folder(member, user, sf, db):
                     continue
                 subfolders.append({"id": sf.id, "name": sf.name})
             space_data["folders"].append({
@@ -1735,7 +1725,7 @@ async def documents_picker(
         space = await db.get(DocSpace, folder.space_id)
         if not space:
             continue
-        if (await _can_access(member, user, folder.min_grade, folder.group_id, db)
+        if (await _can_view_folder(member, user, folder, db)
                 and await _can_access(member, user, space.min_grade, space.group_id, db)):
             results.append({
                 "id": doc.id,
