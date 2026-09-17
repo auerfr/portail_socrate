@@ -41,7 +41,7 @@
                {% if upcoming_only == '1' %}checked{% endif %}
                onchange="this.form.submit()"
                class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
-        À venir seulement
+        Depuis le début du mois en cours
       </label>
 
       <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
@@ -50,7 +50,7 @@
 
       {% if upcoming_only == '1' and past_count > 0 %}
       <span class="text-xs text-gray-400 ml-1">
-        {{ past_count }} tenue{{ 's' if past_count > 1 }} passée{{ 's' if past_count > 1 }} masquée{{ 's' if past_count > 1 }}
+        {{ past_count }} tenue{{ 's' if past_count > 1 }} plus ancienne{{ 's' if past_count > 1 }} masquée{{ 's' if past_count > 1 }}
       </span>
       {% endif %}
     </div>

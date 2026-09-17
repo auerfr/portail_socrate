@@ -215,23 +215,27 @@ async def meetings_list(
     q = select(Meeting).order_by(Meeting.meeting_date.desc())
     if selected_year:
         q = q.where(Meeting.masonic_year_id == selected_year.id)
-    # Si le form n'a pas encore été soumis → comportement par défaut = à venir
+    # Si le form n'a pas encore été soumis → comportement par défaut = actif
     # Si soumis sans la checkbox → upcoming_only sera absent → "0"
     effective_upcoming = upcoming_only if submitted == "1" else "1"
+    # Coupure au 1er du mois en cours (et non "aujourd'hui") : une tenue qui
+    # vient d'avoir lieu ce mois-ci reste visible sans avoir à décocher le
+    # filtre — utile pour retrouver rapidement son tracé/PV juste après.
+    month_start = date.today().replace(day=1)
     if effective_upcoming == "1":
-        q = q.where(Meeting.meeting_date >= date.today())
+        q = q.where(Meeting.meeting_date >= month_start)
         q = q.order_by(Meeting.meeting_date.asc())
 
     result = await db.execute(q)
     meetings = result.scalars().all()
 
-    # Nombre de tenues passées (pour afficher le hint quand filtre "à venir" actif)
+    # Nombre de tenues passées (pour afficher le hint quand le filtre est actif)
     past_count = 0
     if effective_upcoming == "1" and selected_year:
         pc_r = await db.execute(
             select(sql_func.count()).where(
                 Meeting.masonic_year_id == selected_year.id,
-                Meeting.meeting_date < date.today(),
+                Meeting.meeting_date < month_start,
             )
         )
         past_count = pc_r.scalar() or 0
