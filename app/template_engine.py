@@ -53,10 +53,13 @@ templates.env.filters["localdt"] = _localdt
 
 
 # ── Filtre anonymisation noms de famille ──────────────────────────────────────
-# Règle : consonnes seulement (si < 2 consonnes → initiale + …)
+# Règle : consonnes seulement (si < 2 consonnes → initiale + …), via
+# masonic_write (app/utils/text.py) — la même "écriture maçonnique" que celle
+# utilisée dans les tracés.
 # Visible en clair uniquement pour : admin, VM, Secrétaire, Trésorier
 
-_VOYELLES = set("AEIOUÀÂÄÆÈÉÊËÎÏŒÔÖÙÛÜ")
+from app.utils.text import masonic_write as _masonic_write
+
 _ROLES_FULL = {"VM", "SECRETAIRE", "TRESORIER"}
 
 
@@ -64,11 +67,7 @@ def _anon_nom_fn(name: str, can_see: bool) -> str:
     """Retourne le nom complet ou sa version anonymisée (consonnes)."""
     if can_see or not name:
         return name
-    upper = name.upper()
-    consonnes = [c for c in upper if c.isalpha() and c not in _VOYELLES]
-    if len(consonnes) < 2:
-        return (upper[0] + "…") if upper else "…"
-    return "".join(consonnes)
+    return _masonic_write(name)
 
 
 import jinja2 as _jinja2
@@ -92,9 +91,4 @@ def _anon_nom(ctx, name: str) -> str:
 
 
 templates.env.filters["anon_nom"] = _anon_nom
-
-
-# ── Filtre écriture maçonnique (tracés) ────────────────────────────────────
-from app.utils.text import masonic_write as _masonic_write
-
 templates.env.filters["masonic_write"] = _masonic_write
