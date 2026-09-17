@@ -36,21 +36,26 @@
       </select>
       {% endif %}
 
-      <label class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer">
-        <input type="checkbox" name="upcoming_only" value="1"
-               {% if upcoming_only == '1' %}checked{% endif %}
-               onchange="this.form.submit()"
-               class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
-        Depuis le début du mois en cours
-      </label>
+      <div class="flex items-center rounded-lg border border-gray-200 overflow-hidden text-sm">
+        {% for mode, label in [('month', 'Depuis le mois en cours'), ('upcoming', 'À venir seulement'), ('all', 'Toutes')] %}
+        <label class="px-3 py-2 cursor-pointer transition-colors
+                       {% if filter_mode == mode %}bg-loge-700 text-white font-medium{% else %}bg-white text-gray-600 hover:bg-gray-50{% endif %}
+                       {% if not loop.first %}border-l border-gray-200{% endif %}">
+          <input type="radio" name="filter_mode" value="{{ mode }}"
+                 {% if filter_mode == mode %}checked{% endif %}
+                 onchange="this.form.submit()" class="sr-only">
+          {{ label }}
+        </label>
+        {% endfor %}
+      </div>
 
       <button type="submit" class="bg-loge-700 text-white px-4 py-2 rounded-lg text-sm font-medium hover:bg-loge-800">
         Filtrer
       </button>
 
-      {% if upcoming_only == '1' and past_count > 0 %}
+      {% if filter_mode in ('month', 'upcoming') and past_count > 0 %}
       <span class="text-xs text-gray-400 ml-1">
-        {{ past_count }} tenue{{ 's' if past_count > 1 }} plus ancienne{{ 's' if past_count > 1 }} masquée{{ 's' if past_count > 1 }}
+        {{ past_count }} tenue{{ 's' if past_count > 1 }} masquée{{ 's' if past_count > 1 }}
       </span>
       {% endif %}
     </div>

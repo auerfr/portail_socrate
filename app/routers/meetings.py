@@ -193,7 +193,7 @@ async def meetings_list(
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: int = 0,
-    upcoming_only: str = "0",   # "0" = absent du form (checkbox décochée)
+    filter_mode: str = "month",   # "all" | "month" | "upcoming"
     submitted: str = "0",
 ):
     user, member = ctx
@@ -215,27 +215,32 @@ async def meetings_list(
     q = select(Meeting).order_by(Meeting.meeting_date.desc())
     if selected_year:
         q = q.where(Meeting.masonic_year_id == selected_year.id)
-    # Si le form n'a pas encore été soumis → comportement par défaut = actif
-    # Si soumis sans la checkbox → upcoming_only sera absent → "0"
-    effective_upcoming = upcoming_only if submitted == "1" else "1"
-    # Coupure au 1er du mois en cours (et non "aujourd'hui") : une tenue qui
-    # vient d'avoir lieu ce mois-ci reste visible sans avoir à décocher le
-    # filtre — utile pour retrouver rapidement son tracé/PV juste après.
+    # Si le form n'a pas encore été soumis → comportement par défaut = "month"
+    # (un des trois boutons radio est toujours soumis une fois le form envoyé)
+    effective_filter = filter_mode if submitted == "1" else "month"
+    if effective_filter not in ("all", "month", "upcoming"):
+        effective_filter = "month"
+
+    # "month" : coupure au 1er du mois en cours (et non "aujourd'hui") — une
+    # tenue qui vient d'avoir lieu ce mois-ci reste visible, utile pour
+    # retrouver rapidement son tracé/PV juste après. "upcoming" : coupure
+    # stricte à aujourd'hui. "all" : aucune coupure de date.
     month_start = date.today().replace(day=1)
-    if effective_upcoming == "1":
-        q = q.where(Meeting.meeting_date >= month_start)
+    cutoff = month_start if effective_filter == "month" else date.today()
+    if effective_filter in ("month", "upcoming"):
+        q = q.where(Meeting.meeting_date >= cutoff)
         q = q.order_by(Meeting.meeting_date.asc())
 
     result = await db.execute(q)
     meetings = result.scalars().all()
 
-    # Nombre de tenues passées (pour afficher le hint quand le filtre est actif)
+    # Nombre de tenues masquées par la coupure de date (pour le hint)
     past_count = 0
-    if effective_upcoming == "1" and selected_year:
+    if effective_filter in ("month", "upcoming") and selected_year:
         pc_r = await db.execute(
             select(sql_func.count()).where(
                 Meeting.masonic_year_id == selected_year.id,
-                Meeting.meeting_date < month_start,
+                Meeting.meeting_date < cutoff,
             )
         )
         past_count = pc_r.scalar() or 0
@@ -271,7 +276,7 @@ async def meetings_list(
         "meetings": meetings,
         "years": years,
         "selected_year": selected_year,
-        "upcoming_only": effective_upcoming,
+        "filter_mode": effective_filter,
         "attendance_counts": attendance_counts,
         "member_attendances": member_attendances,
         "type_label": _type_label,
