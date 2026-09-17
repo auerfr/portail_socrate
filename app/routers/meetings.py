@@ -715,7 +715,7 @@ async def meeting_trace(
     if vm_office and vm_office.member_id:
         for att in present:
             if att.member_id == vm_office.member_id:
-                vm_name = f"{att.member.last_name} {att.member.first_name}"
+                vm_name = f"{att.member.first_name} {att.member.last_name}"
                 break
 
     # Statut du tracé (workflow d'approbation V∴M∴ + archivage)
@@ -1019,7 +1019,7 @@ async def trace_approve(
         if vm_office and vm_office.member_id:
             for att in present:
                 if att.member_id == vm_office.member_id:
-                    vm_name = f"{att.member.last_name} {att.member.first_name}"
+                    vm_name = f"{att.member.first_name} {att.member.last_name}"
                     break
 
         archive_html = templates.get_template("pages/meetings/trace_archive.html").render({
