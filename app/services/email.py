@@ -201,8 +201,8 @@ async def _send_raw(
                 # alors une erreur de connexion sans code numérique. Fréquent sur
                 # les relais mutualisés lors d'un envoi en masse ; à retenter
                 # comme une erreur transitoire plutôt qu'abandonner définitivement.
-                msg = str(exc).lower()
-                if any(s in msg for s in (
+                exc_text = str(exc).lower()
+                if any(s in exc_text for s in (
                     "unexpected eof", "connection reset", "disconnected",
                     "timed out", "timeout", "broken pipe", "connection closed",
                 )):

@@ -314,22 +314,21 @@
     </div>
     {% endif %}
 
-    {% if email_sent is not none and email_sent != '' %}
+    {% if email_queued is not none and email_queued != '' %}
       {% set n_already = (email_already | int) if email_already is not none and email_already != '' else 0 %}
-      {% set n_attempted = (email_attempted | int) if email_attempted is not none and email_attempted != '' else (email_sent | int) %}
-      {% if email_sent | int > 0 %}
+      {% if email_queued | int > 0 %}
       <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:8px 12px;font-size:12px;color:#065f46;margin-bottom:8px;">
-        ✉ Programme envoyé à {{ email_sent }} destinataire{{ 's' if email_sent | int > 1 }}.{% if n_already > 0 %} ({{ n_already }} destinataire{{ 's' if n_already > 1 }} déjà touché{{ 's' if n_already > 1 }} par un envoi précédent, ignoré{{ 's' if n_already > 1 }}.){% endif %}
+        ✉ Envoi en cours vers {{ email_queued }} destinataire{{ 's' if email_queued | int > 1 }} (traité en tâche de fond, quelques minutes pour une longue liste).{% if n_already > 0 %} ({{ n_already }} destinataire{{ 's' if n_already > 1 }} déjà touché{{ 's' if n_already > 1 }} par un envoi précédent, ignoré{{ 's' if n_already > 1 }}.){% endif %} Ne recliquez pas sur « Envoyer » entre-temps, au risque de dupliquer les envois.
       </div>
-      {% elif n_attempted == 0 and n_already > 0 %}
+      {% else %}
       <div style="background:#ecfdf5;border:1px solid #6ee7b7;border-radius:6px;padding:8px 12px;font-size:12px;color:#065f46;margin-bottom:8px;">
         ✓ Les {{ n_already }} destinataire{{ 's' if n_already > 1 }} sélectionné{{ 's' if n_already > 1 }} avai{{ 'en' if n_already > 1 }}t déjà reçu ce programme avec succès — aucun nouvel envoi nécessaire.
       </div>
-      {% else %}
-      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:8px;">
-        ⚠ Aucun email envoyé{% if n_already > 0 %} ({{ n_already }} destinataire{{ 's' if n_already > 1 }} déjà touché{{ 's' if n_already > 1 }}, ignoré{{ 's' if n_already > 1 }}){% endif %} — vérifiez la configuration SMTP ou les destinataires sélectionnés. Recliquez sur « Envoyer » une fois corrigé : les envois déjà réussis ne seront pas dupliqués.
-      </div>
       {% endif %}
+    {% elif email_sent is not none and email_sent != '' and email_sent | int == 0 and (email_already is none or email_already == '' or (email_already | int) == 0) %}
+      <div style="background:#fef2f2;border:1px solid #fca5a5;border-radius:6px;padding:8px 12px;font-size:12px;color:#dc2626;margin-bottom:8px;">
+        ⚠ Aucun destinataire sélectionné — vérifiez la configuration SMTP ou les destinataires sélectionnés.
+      </div>
     {% endif %}
 
     {% if can_manage_programs and external_contacts %}
@@ -345,6 +344,7 @@
       </summary>
       <form method="post" action="/programs/{{ program.id }}/send-external"
             enctype="multipart/form-data"
+            onsubmit="var b=this.querySelector('button[type=submit]'); if(b.disabled) return false; b.disabled=true; b.textContent='✉ Envoi lancé…';"
             style="border:1px solid #d1fae5;border-top:none;border-radius:0 0 6px 6px;padding:12px;background:#f0fdf4;">
 
         {% if mailing_lists_for_program %}

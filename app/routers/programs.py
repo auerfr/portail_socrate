@@ -646,6 +646,7 @@ async def program_detail(
         "email_sent": request.query_params.get("email_sent"),
         "email_already": request.query_params.get("email_already"),
         "email_attempted": request.query_params.get("email_attempted"),
+        "email_queued": request.query_params.get("email_queued"),
         "imap_inbox": __import__('app.config', fromlist=['get_settings']).get_settings().imap_user or None,
     })
 
@@ -896,6 +897,7 @@ async def program_transmit(
                 "email_sent": None,
                 "email_already": None,
                 "email_attempted": None,
+                "email_queued": None,
                 # Inject Tailwind CDN pour le fichier autonome
                 "_standalone": True,
             },
@@ -1087,6 +1089,75 @@ async def program_preview_email(
 # ENVOI EMAIL AUX CORRESPONDANTS EXTERNES
 # ══════════════════════════════════════════════════════════════════════════════
 
+async def _send_program_external_emails(
+    recipients: list,
+    program, pm_sorted: list, lodge,
+    subject: str, lodge_name: str,
+    attachments: list, inline_images: list,
+    base_url: str, imap_user: Optional[str],
+) -> None:
+    """Envoie le programme aux correspondants externes un par un, avec pause
+    entre chaque (cf. NOTIFY_EMAIL_DELAY_MS dans messages.py) — en tâche de
+    fond, fire & forget : une longue liste de destinataires dépassait le
+    délai de la requête HTTP (504 du load-balancer, puis "harakiri" uWSGI
+    qui tue le worker en plein envoi) si l'envoi restait dans la requête.
+    Les objets ORM passés ici ont déjà toutes leurs relations chargées
+    (selectinload en amont) et aucun commit n'a eu lieu depuis — ils restent
+    donc utilisables après la fermeture de la session de la requête."""
+    from app.config import get_settings as _get_settings_bg
+    portal = _get_settings_bg().portal_url.rstrip("/") or base_url
+
+    def _inscription_url_bg(token: str) -> str:
+        return f"{portal}/inscription/{token}"
+
+    from app.services.email import _send_raw
+    template = templates.env.get_template("emails/programme.html")
+
+    for name, email, remove_url in recipients:
+        greeting = f"Bonjour{' ' + name if name else ''},"
+        html_str = template.render({
+            "program": program,
+            "pm_sorted": pm_sorted,
+            "lodge": lodge,
+            "GRADE_LABELS": GRADE_LABELS,
+            "date_civil": _date_civil,
+            "inscription_url": _inscription_url_bg,
+            "qr_src": lambda meeting_id: f"cid:qr{meeting_id}",
+            "greeting": greeting,
+            "base_url": base_url,
+            "has_attachment": attachments is not None,
+            "attachment_name": attachments[0][0] if attachments else None,
+            "imap_inbox": imap_user,
+            "remove_url": remove_url,
+        })
+
+        text_lines = [greeting, "", program.title, ""]
+        for pm in pm_sorted:
+            m = pm.meeting
+            url = pm.registration_url or _inscription_url_bg(m.token)
+            text_lines.append(f"△ {_date_civil(m.meeting_date)}")
+            text_lines.append(f"   Inscription : {url}")
+            text_lines.append("")
+        if attachments:
+            text_lines.append(f"📎 Pièce jointe : {attachments[0][0]}")
+            text_lines.append("")
+        text_lines.append(f"— {lodge_name}")
+        text = "\n".join(text_lines)
+
+        try:
+            await _send_raw(
+                email, subject, html_str, text,
+                attachments=attachments or None,
+                inline_images=inline_images or None,
+            )
+        except Exception:
+            logger.exception("Échec envoi programme → %s", email)
+        # Pause entre chaque envoi — un relais mutualisé (LWS/cPanel) rejette
+        # en rafale les envois en masse ouverts trop vite (cf. NOTIFY_EMAIL_DELAY_MS
+        # dans app/routers/messages.py, même logique ici).
+        await asyncio.sleep(0.3)
+
+
 @router.post("/{program_id}/send-external")
 async def program_send_external(
     program_id: int,
@@ -1186,53 +1257,20 @@ async def program_send_external(
     from app.config import get_settings as _get_settings
     _imap_user = _get_settings().imap_user or None
 
-    sent = 0
-    for name, email, remove_url in recipients:
-        greeting = f"Bonjour{' ' + name if name else ''},"
-        html_content = templates.TemplateResponse(request, "emails/programme.html", {
-            "program": program,
-            "pm_sorted": pm_sorted,
-            "lodge": lodge,
-            "GRADE_LABELS": GRADE_LABELS,
-            "date_civil": _date_civil,
-            "inscription_url": lambda token: _inscription_url(request, token),
-            "qr_src": lambda meeting_id: f"cid:qr{meeting_id}",
-            "greeting": greeting,
-            "base_url": base_url,
-            "has_attachment": attachments is not None,
-            "attachment_name": attachments[0][0] if attachments else None,
-            "imap_inbox": _imap_user,
-            "remove_url": remove_url,
-        })
-        html_str = html_content.body.decode("utf-8")
-
-        # Texte alternatif plain-text
-        text_lines = [greeting, "", program.title, ""]
-        for pm in pm_sorted:
-            m = pm.meeting
-            url = pm.registration_url or _inscription_url(request, m.token)
-            text_lines.append(f"△ {_date_civil(m.meeting_date)}")
-            text_lines.append(f"   Inscription : {url}")
-            text_lines.append("")
-        if attachments:
-            text_lines.append(f"📎 Pièce jointe : {attachments[0][0]}")
-            text_lines.append("")
-        text_lines.append(f"— {lodge_name}")
-        text = "\n".join(text_lines)
-
-        ok, _ = await _send_raw(
-            email, subject, html_str, text,
-            attachments=attachments or None,
-            inline_images=inline_images or None,
-        )
-        if ok:
-            sent += 1
-        # Pause entre chaque envoi — un relais mutualisé (LWS/cPanel) rejette
-        # en rafale les envois en masse ouverts trop vite (cf. NOTIFY_EMAIL_DELAY_MS
-        # dans app/routers/messages.py, même logique ici).
-        await asyncio.sleep(0.3)
+    # Envoi en tâche de fond : une longue liste de destinataires dépassait le
+    # délai de la requête HTTP si l'envoi restait synchrone ici (504 du
+    # load-balancer, puis le worker uWSGI tué en plein envoi par harakiri) —
+    # ce qui provoquait aussi des doublons quand l'utilisateur recliquait sur
+    # "Envoyer" en pensant que la page avait planté.
+    asyncio.create_task(_send_program_external_emails(  # noqa — fire & forget
+        recipients=recipients,
+        program=program, pm_sorted=pm_sorted, lodge=lodge,
+        subject=subject, lodge_name=lodge_name,
+        attachments=attachments, inline_images=inline_images,
+        base_url=base_url, imap_user=_imap_user,
+    ))
 
     return RedirectResponse(
-        url=f"/programs/{program_id}?email_sent={sent}&email_already={len(skipped)}&email_attempted={len(recipients)}",
+        url=f"/programs/{program_id}?email_queued={len(recipients)}&email_already={len(skipped)}",
         status_code=303,
     )
