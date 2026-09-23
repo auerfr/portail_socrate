@@ -8,7 +8,7 @@ from typing import Annotated, Optional, List, Union
 
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -443,7 +443,7 @@ async def compose(
     forward_msg = None
     forward_sender = None
     if forward_from and not reply_msg:
-        forward_msg = await db.get(Message, forward_from)
+        forward_msg = await db.get(Message, forward_from, options=[selectinload(Message.attachments)])
         if forward_msg:
             forward_sender = await db.get(Member, forward_msg.sender_id)
 
@@ -518,6 +518,10 @@ async def send_message(
     # la dernière valeur quand plusieurs cases étaient cochées.
     form_data = await request.form()
     target_functions_list: List[str] = form_data.getlist("target_functions")
+    try:
+        forward_attachment_ids = [int(v) for v in form_data.getlist("forward_attachment_ids") if v.isdigit()]
+    except ValueError:
+        forward_attachment_ids = []
 
     # Construire le filtre JSON
     tf: dict = {}
@@ -615,6 +619,41 @@ async def send_message(
             mime_type=upload.content_type or "application/octet-stream",
             size_bytes=len(content),
         ))
+
+    # ── Pièces jointes reprises d'un message transféré ──────────────────────
+    # On copie le fichier physique (plutôt que de partager stored_name, qui
+    # est unique) pour que la suppression du message d'origine n'entraîne
+    # pas la perte du fichier du message transféré. On ne reprend que les
+    # pièces jointes d'un message auquel l'expéditeur avait accès (émetteur
+    # ou destinataire), pour éviter de transférer le fichier d'un message
+    # auquel il n'a jamais eu droit en devinant un identifiant.
+    if forward_attachment_ids:
+        r_fwd = await db.execute(
+            select(MessageAttachment)
+            .join(Message, Message.id == MessageAttachment.message_id)
+            .outerjoin(MessageRecipient, and_(
+                MessageRecipient.message_id == Message.id,
+                MessageRecipient.member_id == member.id,
+            ))
+            .where(
+                MessageAttachment.id.in_(forward_attachment_ids),
+                or_(Message.sender_id == member.id, MessageRecipient.id.isnot(None)),
+            )
+        )
+        for src_att in r_fwd.scalars().unique().all():
+            src_path = UPLOAD_DIR / src_att.stored_name
+            if not src_path.exists():
+                continue
+            ext = Path(src_att.filename).suffix.lower()
+            stored_name = f"{msg.id}_{uuid.uuid4().hex}{ext}"
+            (UPLOAD_DIR / stored_name).write_bytes(src_path.read_bytes())
+            db.add(MessageAttachment(
+                message_id=msg.id,
+                filename=src_att.filename,
+                stored_name=stored_name,
+                mime_type=src_att.mime_type,
+                size_bytes=src_att.size_bytes,
+            ))
 
     await db.commit()
 
