@@ -211,8 +211,13 @@ async def meetings_list(
         if found:
             selected_year = found
 
-    # Requête tenues
-    q = select(Meeting).order_by(Meeting.meeting_date.desc())
+    # Requête tenues — ordre chronologique croissant (les prochaines tenues
+    # en premier, sans avoir à dérouler) ; un seul appel à order_by() ici,
+    # car SQLAlchemy CUMULE les critères sur des appels successifs au lieu
+    # de les remplacer — un deuxième .order_by() plus bas n'aurait fait
+    # qu'ajouter un critère secondaire sans effet, laissant le tri
+    # anti-chronologique de fait.
+    q = select(Meeting).order_by(Meeting.meeting_date.asc())
     if selected_year:
         q = q.where(Meeting.masonic_year_id == selected_year.id)
     # Si le form n'a pas encore été soumis → comportement par défaut = "month"
@@ -229,7 +234,6 @@ async def meetings_list(
     cutoff = month_start if effective_filter == "month" else date.today()
     if effective_filter in ("month", "upcoming"):
         q = q.where(Meeting.meeting_date >= cutoff)
-        q = q.order_by(Meeting.meeting_date.asc())
 
     result = await db.execute(q)
     meetings = result.scalars().all()

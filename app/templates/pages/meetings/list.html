@@ -70,15 +70,15 @@
     {% set present_count = attendance_counts.get(m.id, 0) %}
     {% set is_past = m.meeting_date < today %}
 
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 hover:border-loge-300 transition-colors overflow-hidden">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 hover:border-loge-300 transition-colors overflow-hidden{% if is_past %} opacity-60{% endif %}">
       <div class="flex items-stretch">
 
         <!-- Bande de date (cliquable) -->
         <a href="/meetings/{{ m.id }}"
-           class="bg-loge-800 text-white flex flex-col items-center justify-center px-4 py-3 min-w-16 text-center hover:bg-loge-900 transition-colors">
+           class="{% if is_past %}bg-gray-400{% else %}bg-loge-800 hover:bg-loge-900{% endif %} text-white flex flex-col items-center justify-center px-4 py-3 min-w-16 text-center transition-colors">
           <div class="text-2xl font-bold leading-tight">{{ m.meeting_date.strftime('%d') }}</div>
-          <div class="text-xs uppercase tracking-wide text-loge-300">{{ m.meeting_date | datefr('%b') }}</div>
-          <div class="text-xs text-loge-400">{{ m.meeting_date.strftime('%Y') }}</div>
+          <div class="text-xs uppercase tracking-wide {% if is_past %}text-gray-200{% else %}text-loge-300{% endif %}">{{ m.meeting_date | datefr('%b') }}</div>
+          <div class="text-xs {% if is_past %}text-gray-300{% else %}text-loge-400{% endif %}">{{ m.meeting_date.strftime('%Y') }}</div>
         </a>
 
         <!-- Contenu (cliquable) -->
