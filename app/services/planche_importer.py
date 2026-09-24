@@ -343,7 +343,7 @@ async def _try_import_as_member_message(db, msg, msg_bytes: bytes) -> bool:
 
     r = await db.execute(
         select(Member).where(
-            Member.email_import_token == token,
+            func.lower(Member.email_import_token) == token.lower(),
             Member.email_import_enabled.is_(True),
         )
     )
@@ -412,7 +412,7 @@ async def _process_token_folders(db, conn) -> int:
 
         r = await db.execute(
             select(Member).where(
-                Member.email_import_token == candidate,
+                func.lower(Member.email_import_token) == candidate.lower(),
                 Member.email_import_enabled.is_(True),
             )
         )

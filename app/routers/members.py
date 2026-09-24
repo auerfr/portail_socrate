@@ -797,7 +797,13 @@ async def toggle_email_import(
     target.email_import_enabled = enable == "1"
     if target.email_import_enabled and not target.email_import_token:
         import secrets
-        target.email_import_token = secrets.token_urlsafe(12)
+        # Hexadécimal minuscule uniquement (pas token_urlsafe, qui mélange
+        # majuscules/minuscules) : certains clients mail ou étapes du
+        # routage normalisent l'adresse "+jeton" en minuscules, ce qui
+        # créait un second dossier IMAP orphelin pour un jeton à casse
+        # mixte. Un jeton déjà en minuscules élimine le problème à la
+        # source pour les nouvelles activations.
+        target.email_import_token = secrets.token_hex(8)
     await db.commit()
 
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
@@ -820,7 +826,7 @@ async def regenerate_email_import_token(
         raise HTTPException(status_code=404)
 
     import secrets
-    target.email_import_token = secrets.token_urlsafe(12)
+    target.email_import_token = secrets.token_hex(8)  # hex minuscule — cf. toggle_email_import
     await db.commit()
 
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
