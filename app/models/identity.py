@@ -163,6 +163,13 @@ class Member(Base):
     notif_polls: Mapped[bool]    = mapped_column(Boolean, default=True)
     notif_forum: Mapped[bool]    = mapped_column(Boolean, default=True)
 
+    # Import d'emails externes par transfert — chaque membre peut activer une
+    # adresse de transfert personnelle (jeton imprévisible) pour faire
+    # suivre un email reçu sur sa messagerie personnelle vers ses Messages
+    # du portail, pièce jointe comprise (cf. app/services/planche_importer.py).
+    email_import_token: Mapped[Optional[str]]   = mapped_column(String(64), unique=True, nullable=True)
+    email_import_enabled: Mapped[bool]          = mapped_column(Boolean, default=False)
+
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(
         DateTime, server_default=func.now(), onupdate=func.now()

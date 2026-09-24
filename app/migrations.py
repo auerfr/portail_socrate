@@ -44,6 +44,22 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE members ADD COLUMN membership_start_date DATE"
             )
+        if "email_import_token" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN email_import_token VARCHAR(64)"
+            )
+            # Unicité posée à part : ALTER TABLE ADD COLUMN ne permet pas
+            # d'ajouter une contrainte UNIQUE directement en SQLite (les NULL
+            # multiples restent autorisés par un index unique, comme pour
+            # tout autre moteur SQL standard).
+            await conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_members_email_import_token "
+                "ON members(email_import_token)"
+            )
+        if "email_import_enabled" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN email_import_enabled BOOLEAN NOT NULL DEFAULT 0"
+            )
 
         # budget_lines.category_label
         r = await conn.exec_driver_sql("PRAGMA table_info(budget_lines)")
@@ -103,6 +119,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if "body_html" not in cols_msg:
             await conn.exec_driver_sql(
                 "ALTER TABLE messages ADD COLUMN body_html TEXT"
+            )
+        if "imported_from_email" not in cols_msg:
+            await conn.exec_driver_sql(
+                "ALTER TABLE messages ADD COLUMN imported_from_email BOOLEAN NOT NULL DEFAULT 0"
             )
         # message_attachments : créée par Base.metadata.create_all (nouveau modèle)
 

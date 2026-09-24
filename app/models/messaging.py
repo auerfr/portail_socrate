@@ -41,6 +41,11 @@ class Message(Base):
     created_at: Mapped[datetime]         = mapped_column(DateTime, server_default=func.now())
     sender_deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # corbeille expéditeur
 
+    # True si créé automatiquement par transfert d'email externe (cf.
+    # planche_importer.py) plutôt que rédigé dans l'app — sert au badge
+    # d'origine et au calcul du quota anti-abus par membre.
+    imported_from_email: Mapped[bool] = mapped_column(Boolean, default=False)
+
     recipients: Mapped[list["MessageRecipient"]] = relationship(
         back_populates="message", cascade="all, delete-orphan"
     )

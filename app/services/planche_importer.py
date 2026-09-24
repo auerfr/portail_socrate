@@ -1,25 +1,45 @@
 """
 Service d'import automatique de planches par email (IMAP).
 
-Polling de la boîte IMAP configurée — chaque email avec pièce jointe
-est traité et les PJ sont classées dans la GED sous :
-  Espace "Planches reçues" → dossier "AAAA-MM" (créé si besoin)
+Polling de la boîte IMAP configurée — chaque email est examiné :
+  1. S'il porte le jeton de transfert personnel d'un membre (adresse en
+     copie +jeton, ou jeton [XXXX] en tête de l'objet), il est importé
+     comme un Message interne pour ce membre, pièce jointe comprise
+     (cf. _try_import_as_member_message).
+  2. Sinon, s'il a une pièce jointe, elle est classée dans la GED sous :
+       Espace "Planches reçues" → dossier "AAAA-MM" (créé si besoin)
 
-Les emails traités sont déplacés dans un dossier IMAP "Traité" ou marqués lus.
+Les emails traités sont marqués lus.
 """
 import asyncio
 import email
 import imaplib
 import logging
+import re
 import ssl
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
+from typing import Optional
+
+from sqlalchemy import func
 
 logger = logging.getLogger(__name__)
 
 EXTENSIONS_ACCEPTEES = {".pdf", ".doc", ".docx", ".odt", ".rtf", ".jpg", ".jpeg", ".png"}
 ESPACE_NOM = "Planches reçues"
+
+# ── Import comme message personnel (transfert par jeton) ───────────────────
+# Même politique de pièces jointes que le composeur de messages (cf.
+# app/routers/messages.py) — dupliquée ici plutôt qu'importée depuis un
+# router (un service ne doit pas dépendre d'un router).
+MSG_ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".txt"}
+MSG_MAX_FILE_SIZE = 10 * 1024 * 1024  # 10 Mo
+MSG_UPLOAD_DIR = Path("app/static/uploads/messages")
+# Garde-fou anti-abus : au-delà, un email reconnu (jeton valide) est ignoré
+# plutôt qu'importé — protège un jeton éventuellement compromis ou une
+# boucle de transfert automatique mal configurée côté membre.
+MEMBER_IMPORT_DAILY_QUOTA = 20
 
 
 async def _get_or_create_space(db, nom: str):
@@ -126,6 +146,168 @@ def _get_body_text(msg) -> str:
     return ""
 
 
+_TOKEN_RE = re.compile(r"^[a-zA-Z0-9_-]{8,64}$")
+
+
+def _extract_import_token(msg) -> Optional[str]:
+    """Cherche le jeton de transfert personnel d'un membre dans cet email.
+
+    Deux emplacements possibles, cherchés dans l'ordre :
+    1. Adressage "+jeton" (ex: boite+ab12cd34@domaine.fr) — présent dans
+       les en-têtes de destination habituels. Nécessite que le serveur mail
+       (LWS) livre bien ce type d'adresse dans la même boîte — à vérifier
+       en conditions réelles avant de s'y fier exclusivement.
+    2. Repli universel, indépendant du serveur mail : le membre ajoute
+       "[jeton]" en tête de l'objet de l'email transféré.
+    Retourne le jeton trouvé (sans le nettoyer/valider contre la base — ça,
+    c'est le rôle de l'appelant), ou None si rien de reconnaissable.
+    """
+    for header_name in ("To", "Delivered-To", "X-Original-To", "Envelope-To"):
+        for raw in msg.get_all(header_name, []):
+            m = re.search(r"\+([a-zA-Z0-9_-]{8,64})@", raw)
+            if m:
+                return m.group(1)
+
+    subject = _decode_header(msg.get("Subject", ""))
+    m = re.match(r"^\s*\[([a-zA-Z0-9_-]{8,64})\]", subject)
+    if m:
+        return m.group(1)
+
+    return None
+
+
+async def _try_import_as_member_message(db, msg, msg_bytes: bytes) -> bool:
+    """Si cet email porte le jeton de transfert d'un membre ayant activé la
+    fonction, l'importe comme Message interne (lui-même expéditeur ET
+    destinataire, comme un email personnel) avec ses pièces jointes.
+    Retourne True si l'email a été traité ici (qu'il ait abouti ou non —
+    un jeton reconnu mais invalide/désactivé/en quota dépassé ne doit pas
+    retomber sur l'import "planche", qui n'a rien à voir)."""
+    from sqlalchemy import select
+    from app.models.identity import Member
+    from app.models.messaging import Message, MessageAttachment, MessageRecipient, MessageTargetType
+
+    token = _extract_import_token(msg)
+    if not token or not _TOKEN_RE.match(token):
+        return False
+
+    r = await db.execute(
+        select(Member).where(
+            Member.email_import_token == token,
+            Member.email_import_enabled.is_(True),
+        )
+    )
+    member = r.scalar_one_or_none()
+    if not member:
+        logger.warning("Email avec jeton de transfert inconnu ou désactivé : %s", token)
+        return True  # reconnu comme tentative de transfert personnel — pas une planche
+
+    # Quota anti-abus (jeton compromis, transfert en boucle mal configuré…)
+    since = datetime.now() - timedelta(hours=24)
+    r_count = await db.execute(
+        select(func.count(Message.id)).where(
+            Message.sender_id == member.id,
+            Message.imported_from_email.is_(True),
+            Message.created_at >= since,
+        )
+    )
+    if (r_count.scalar() or 0) >= MEMBER_IMPORT_DAILY_QUOTA:
+        logger.warning("Quota de transfert email atteint pour le membre #%s — email ignoré", member.id)
+        return True
+
+    sender_raw = msg.get("From", "")
+    subject = _decode_header(msg.get("Subject", "Sans objet")).strip()
+    # Retirer le repli "[jeton]" du sujet s'il y était (adressage +jeton non
+    # affecté, il n'apparaît jamais dans le sujet).
+    subject = re.sub(r"^\s*\[" + re.escape(token) + r"\]\s*", "", subject).strip() or "Sans objet"
+
+    body_text = _get_body_text(msg).strip()
+    if not body_text:
+        body_text = "(email transféré sans contenu texte lisible — voir pièce(s) jointe(s))"
+    body_text = f"— Email transféré depuis {_decode_header(sender_raw) or 'expéditeur inconnu'} —\n\n{body_text}"
+
+    received_at = datetime.now()
+    date_header = msg.get("Date")
+    if date_header:
+        try:
+            import email.utils as _eu
+            parsed = _eu.parsedate_to_datetime(date_header)
+            if parsed:
+                received_at = parsed.replace(tzinfo=None)
+        except Exception:
+            pass
+
+    # Corps stocké en texte brut uniquement (body_html laissé vide) : le
+    # contenu vient d'un tiers externe non maîtrisé, le rendre en HTML "safe"
+    # comme un message composé dans l'app ouvrirait une brèche XSS.
+    new_msg = Message(
+        subject=subject[:300],
+        body=body_text,
+        body_html=None,
+        sender_id=member.id,
+        target_type=MessageTargetType.MANUAL,
+        target_filter=f'{{"member_ids": [{member.id}]}}',
+        sent_at=received_at,
+        imported_from_email=True,
+    )
+    db.add(new_msg)
+    await db.flush()
+    db.add(MessageRecipient(
+        message_id=new_msg.id,
+        member_id=member.id,
+        delivered_at=received_at,
+    ))
+
+    imported_files = 0
+    for part in msg.walk():
+        content_disp = part.get("Content-Disposition", "")
+        if "attachment" not in content_disp and "inline" not in content_disp:
+            continue
+        filename = part.get_filename()
+        if not filename:
+            continue
+        filename = _decode_header(filename)
+        ext = Path(filename).suffix.lower()
+        if ext not in MSG_ALLOWED_EXTENSIONS:
+            continue
+        content = part.get_payload(decode=True)
+        if not content or len(content) > MSG_MAX_FILE_SIZE:
+            continue
+
+        MSG_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+        stored_name = f"{new_msg.id}_{uuid.uuid4().hex}{ext}"
+        (MSG_UPLOAD_DIR / stored_name).write_bytes(content)
+        db.add(MessageAttachment(
+            message_id=new_msg.id,
+            filename=filename,
+            stored_name=stored_name,
+            mime_type=part.get_content_type() or "application/octet-stream",
+            size_bytes=len(content),
+        ))
+        imported_files += 1
+
+    await db.commit()
+    logger.info(
+        "Email importé comme message pour le membre #%s : « %s » (%d pièce(s) jointe(s))",
+        member.id, subject, imported_files,
+    )
+
+    try:
+        from app.models.system import Notification, NotificationType
+        db.add(Notification(
+            member_id=member.id,
+            type=NotificationType.INFO,
+            title="Email importé",
+            message=f"« {subject} » a été importé dans vos messages.",
+            link_url=f"/messages/{new_msg.id}",
+        ))
+        await db.commit()
+    except Exception as e:
+        logger.warning("Notification import email échouée : %s", e)
+
+    return True
+
+
 async def _import_one(db, msg_bytes: bytes, upload_dir: Path, skip_duplicates: bool = False) -> int:
     """Traite un email et importe ses PJ dans la GED. Retourne le nb de fichiers importés.
 
@@ -137,6 +319,13 @@ async def _import_one(db, msg_bytes: bytes, upload_dir: Path, skip_duplicates: b
     from app.models.documents import Document, DocStatus, DocFolder
 
     msg = email.message_from_bytes(msg_bytes)
+
+    # Transfert personnel par jeton : traité à part, jamais comme une
+    # planche (même sans pièce jointe reconnue — un jeton valide mais sans
+    # PJ exploitable ne doit pas non plus finir classé dans la GED).
+    if await _try_import_as_member_message(db, msg, msg_bytes):
+        return 0
+
     sender_raw = msg.get("From", "Inconnu")
     sender = _decode_header(sender_raw)
     subject = _decode_header(msg.get("Subject", "Sans objet"))
