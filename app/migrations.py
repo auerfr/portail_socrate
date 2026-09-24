@@ -44,6 +44,18 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE members ADD COLUMN membership_start_date DATE"
             )
+        if "email_import_token" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN email_import_token VARCHAR(64)"
+            )
+            # Unicité posée à part : ALTER TABLE ADD COLUMN ne permet pas
+            # d'ajouter une contrainte UNIQUE directement en SQLite (les NULL
+            # multiples restent autorisés par un index unique, comme pour
+            # tout autre moteur SQL standard).
+            await conn.exec_driver_sql(
+                "CREATE UNIQUE INDEX IF NOT EXISTS ix_members_email_import_token "
+                "ON members(email_import_token)"
+            )
         if "email_import_enabled" not in cols_mem:
             await conn.exec_driver_sql(
                 "ALTER TABLE members ADD COLUMN email_import_enabled BOOLEAN NOT NULL DEFAULT 0"

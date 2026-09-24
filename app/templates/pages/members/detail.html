@@ -187,7 +187,7 @@
     </div>
     {% endif %}
 
-    <!-- Transfert d'emails externes (reconnu par adresse de contact) -->
+    <!-- Transfert d'emails externes (jeton personnel) -->
     {% if target_user and (is_own_profile or can_manage) %}
     <div class="border-t border-gray-100 px-6 py-4" x-data="{ copied: false }">
       <h2 class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3">Transfert d'emails externes</h2>
@@ -198,12 +198,12 @@
 
         {% if target.email_import_enabled %}
         <p class="text-xs text-gray-500 mb-2">
-          Transférez un email reçu ailleurs (avec sa pièce jointe), <strong>depuis {{ target.email }}</strong>, vers l'adresse ci-dessous :
-          il apparaîtra automatiquement dans <a href="/messages/" class="text-loge-700 hover:underline">vos messages</a> du portail — et nulle part ailleurs.
+          Transférez un email reçu ailleurs (avec sa pièce jointe) vers cette adresse : il apparaîtra dans
+          <a href="/messages/" class="text-loge-700 hover:underline">vos messages</a> du portail.
         </p>
         <div class="flex items-center gap-2 flex-wrap">
           <code id="import-addr-{{ target.id }}" class="text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 font-mono text-gray-700 break-all">
-            {{ imap_user }}
+            {{ imap_user.split('@')[0] }}+{{ target.email_import_token }}@{{ imap_user.split('@')[1] }}
           </code>
           <button type="button"
                   @click="navigator.clipboard.writeText(document.getElementById('import-addr-{{ target.id }}').textContent.trim()); copied = true; setTimeout(() => copied = false, 2000)"
@@ -213,20 +213,25 @@
           </button>
         </div>
         <p class="text-xs text-gray-400 mt-2">
-          Reconnaissance automatique par l'adresse d'expéditeur — aucune adresse ni code particulier à retenir.
-          Un transfert envoyé depuis une autre adresse que {{ target.email }} ne sera pas importé.
+          Si votre messagerie refuse l'adresse avec « + », ajoutez <code class="bg-gray-50 px-1 rounded">[{{ target.email_import_token }}]</code>
+          au début de l'objet et transférez vers <code class="bg-gray-50 px-1 rounded">{{ imap_user }}</code> directement.
         </p>
-        <form method="post" action="/members/{{ target.id }}/email-import/toggle" class="mt-3">
-          <input type="hidden" name="enable" value="0">
-          <button type="submit" class="text-xs border border-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-50">
-            Désactiver
-          </button>
-        </form>
+        <div class="flex items-center gap-2 mt-3">
+          <form method="post" action="/members/{{ target.id }}/email-import/toggle">
+            <input type="hidden" name="enable" value="0">
+            <button type="submit" class="text-xs border border-gray-200 text-gray-600 px-3 py-1 rounded-lg hover:bg-gray-50">
+              Désactiver
+            </button>
+          </form>
+          <form method="post" action="/members/{{ target.id }}/email-import/regenerate"
+                onsubmit="return confirm('Régénérer l\'adresse ? L\'ancienne cessera de fonctionner immédiatement.')">
+            <button type="submit" class="text-xs border border-amber-200 text-amber-700 px-3 py-1 rounded-lg hover:bg-amber-50">
+              Régénérer l'adresse
+            </button>
+          </form>
+        </div>
         {% else %}
-        <p class="text-sm text-gray-500 mb-2">
-          Désactivé. Une fois activé, transférer un email reçu sur <strong>{{ target.email }}</strong> (votre adresse de contact enregistrée)
-          vers l'adresse de l'app l'importera automatiquement dans vos messages, pièce jointe comprise.
-        </p>
+        <p class="text-sm text-gray-500 mb-2">Désactivé. Une fois activé, une adresse personnelle vous permettra de faire suivre un email externe (pièce jointe comprise) directement dans vos messages.</p>
         <form method="post" action="/members/{{ target.id }}/email-import/toggle">
           <input type="hidden" name="enable" value="1">
           <button type="submit" class="text-xs bg-loge-700 text-white px-3 py-1.5 rounded-lg hover:bg-loge-800">
