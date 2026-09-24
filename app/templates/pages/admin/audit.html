@@ -31,7 +31,43 @@
   {% if q or action or actor_id %}
   <a href="/admin/audit?days={{ days }}" class="text-xs text-gray-500 hover:text-gray-800">Reset</a>
   {% endif %}
+  <a href="/admin/audit/export?q={{ q | urlencode }}&action={{ action | urlencode }}&actor_id={{ actor_id }}&days={{ days }}"
+     class="ml-auto inline-flex items-center gap-1.5 px-3 py-2 border border-gray-200 hover:bg-gray-50 text-gray-600 text-xs font-semibold rounded-xl">
+    <i class="ti ti-download"></i> Export CSV
+  </a>
 </form>
+
+{% if total > 0 %}
+<!-- ── Récapitulatif ─────────────────────────────────────────────────── -->
+<div class="grid lg:grid-cols-3 gap-4 mb-4">
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Entrées</div>
+    <div class="text-3xl font-bold text-gray-800">{{ total }}</div>
+    <div class="text-xs text-gray-400 mt-1">sur {{ days }} jour{{ 's' if days > 1 }}{% if q or action or actor_id %} · filtré{% endif %}</div>
+  </div>
+  <div class="bg-white rounded-2xl border border-loge-100 shadow-sm px-5 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Acteurs distincts</div>
+    <div class="text-3xl font-bold text-loge-700">{{ distinct_actors_count }}</div>
+    <div class="text-xs text-loge-600 mt-1">ont produit une entrée</div>
+  </div>
+  <div class="lg:col-span-1 bg-white rounded-2xl border border-gray-100 shadow-sm px-5 py-4">
+    <div class="text-xs text-gray-400 uppercase tracking-wider mb-2">Actions les plus fréquentes</div>
+    <div class="space-y-1.5">
+      {% for row in action_counts[:4] %}
+      <div>
+        <div class="flex items-center justify-between text-[11px] mb-0.5">
+          <span class="font-mono text-gray-600 truncate pr-2">{{ row.action }}</span>
+          <span class="text-gray-500 font-semibold flex-shrink-0">{{ row.count }}</span>
+        </div>
+        <div class="h-1 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-loge-500 rounded-full" style="width: {{ (row.count * 100 / max_action_count) | round | int }}%;"></div>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+</div>
+{% endif %}
 
 {# Tableau #}
 <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
@@ -47,10 +83,11 @@
           <th class="text-left font-semibold px-4 py-2.5">IP</th>
         </tr>
       </thead>
-      <tbody class="divide-y divide-gray-100">
         {% for e in entries %}
         {% set au = actors.get(e.actor_id) %}
-        <tr class="hover:bg-gray-50 align-top">
+        {% set pretty = details_pretty.get(e.id) %}
+        <tbody class="divide-y divide-gray-100 border-b border-gray-100" {% if pretty %}x-data="{ open: false }"{% endif %}>
+        <tr class="hover:bg-gray-50 align-top {% if pretty %}cursor-pointer{% endif %}" {% if pretty %}@click="open = !open"{% endif %}>
           <td class="px-4 py-2.5 text-xs text-gray-500 whitespace-nowrap">{{ e.created_at | localdt }}</td>
           <td class="px-4 py-2.5 text-sm">
             {% if au %}<span class="font-medium text-gray-900">{{ au.last_name }} {{ au.first_name }}</span>
@@ -64,14 +101,28 @@
             {% else %}—{% endif %}
           </td>
           <td class="px-4 py-2.5 text-xs text-gray-600 max-w-md truncate">
-            {% if e.details %}{% if e.details.text %}{{ e.details.text }}{% else %}{{ e.details }}{% endif %}{% endif %}
+            {% if pretty %}
+            <span class="inline-flex items-center gap-1 text-loge-700 hover:text-loge-800 font-medium">
+              <i class="ti ti-chevron-right transition-transform" :class="open ? 'rotate-90' : ''"></i>
+              {% if e.details.text %}{{ e.details.text | truncate(60) }}{% else %}voir le détail{% endif %}
+            </span>
+            {% endif %}
           </td>
           <td class="px-4 py-2.5 text-[11px] text-gray-400 font-mono">{{ e.ip_address or '' }}</td>
         </tr>
+        {% if pretty %}
+        <tr x-show="open" x-cloak @click.stop="">
+          <td colspan="6" class="px-4 pb-3 pt-0">
+            <pre class="bg-gray-900 text-gray-100 text-[11px] rounded-lg p-3 overflow-x-auto whitespace-pre-wrap break-all">{{ pretty }}</pre>
+          </td>
+        </tr>
+        {% endif %}
+        </tbody>
         {% else %}
+        <tbody>
         <tr><td colspan="6" class="px-4 py-8 text-center text-sm text-gray-500">Aucune entrée pour ces critères.</td></tr>
+        </tbody>
         {% endfor %}
-      </tbody>
     </table>
   </div>
 </div>

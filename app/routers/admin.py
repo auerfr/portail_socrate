@@ -338,6 +338,25 @@ async def admin_user_force_reset(
 #  Journal d'audit
 # ─────────────────────────────────────────────────────────────────────────────
 
+def _audit_filtered_stmt(q: str, action: str, actor_id: str, since: datetime):
+    """Construit la requête filtrée (sans tri ni pagination) — partagée entre
+    la liste, l'export CSV et le récapitulatif par type d'action, pour que
+    les trois s'accordent toujours sur les mêmes critères."""
+    stmt = select(AuditLog).where(AuditLog.created_at >= since)
+    if q:
+        like = f"%{q.strip()}%"
+        stmt = stmt.where(or_(
+            AuditLog.target_label.ilike(like),
+            AuditLog.details.ilike(like),
+            AuditLog.action.ilike(like),
+        ))
+    if action:
+        stmt = stmt.where(AuditLog.action == action)
+    if actor_id.isdigit():
+        stmt = stmt.where(AuditLog.actor_id == int(actor_id))
+    return stmt
+
+
 @router.get("/audit", response_class=HTMLResponse)
 async def admin_audit(
     request: Request,
@@ -353,25 +372,37 @@ async def admin_audit(
     page_size = 50
     since = datetime.utcnow() - timedelta(days=max(1, min(days, 365)))
 
-    stmt = select(AuditLog).where(AuditLog.created_at >= since)
-    if q:
-        like = f"%{q.strip()}%"
-        stmt = stmt.where(or_(
-            AuditLog.target_label.ilike(like),
-            AuditLog.details.ilike(like),
-            AuditLog.action.ilike(like),
-        ))
-    if action:
-        stmt = stmt.where(AuditLog.action == action)
-    if actor_id.isdigit():
-        stmt = stmt.where(AuditLog.actor_id == int(actor_id))
+    stmt = _audit_filtered_stmt(q, action, actor_id, since)
 
     # Total pour pagination
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total = (await db.execute(count_stmt)).scalar() or 0
 
+    # ── Récapitulatif sur l'ensemble filtré (pas seulement la page affichée) ──
+    action_counts_r = await db.execute(
+        select(AuditLog.action, func.count(AuditLog.id).label("n"))
+        .where(stmt.whereclause)
+        .group_by(AuditLog.action)
+        .order_by(desc("n"))
+        .limit(8)
+    )
+    action_counts = [{"action": a, "count": n} for a, n in action_counts_r.all()]
+    max_action_count = max((r["count"] for r in action_counts), default=1)
+
+    distinct_actors_count = (await db.execute(
+        select(func.count(func.distinct(AuditLog.actor_id))).where(stmt.whereclause, AuditLog.actor_id.isnot(None))
+    )).scalar() or 0
+
     stmt = stmt.order_by(desc(AuditLog.created_at)).offset((page - 1) * page_size).limit(page_size)
     entries = (await db.execute(stmt)).scalars().all()
+
+    # JSON mis en forme pour l'affichage dépliable des détails (page courante
+    # seulement — inutile de tout prégénérer pour des pages non affichées).
+    import json as _json
+    details_pretty: dict[int, str] = {}
+    for e in entries:
+        if e.details:
+            details_pretty[e.id] = _json.dumps(e.details, indent=2, ensure_ascii=False, default=str)
 
     # Cache acteurs
     actor_ids = {e.actor_id for e in entries if e.actor_id}
@@ -401,6 +432,7 @@ async def admin_audit(
         "current_member": member,
         "entries": entries,
         "actors": actors,
+        "details_pretty": details_pretty,
         "actions_avail": actions_avail,
         "actors_pick": actors_pick,
         "q": q,
@@ -410,8 +442,81 @@ async def admin_audit(
         "page": page,
         "total": total,
         "page_size": page_size,
+        "action_counts": action_counts,
+        "max_action_count": max_action_count,
+        "distinct_actors_count": distinct_actors_count,
         "active_tab": "audit",
     })
+
+
+@router.get("/audit/export")
+async def admin_audit_export(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    q: str = "",
+    action: str = "",
+    actor_id: str = "",
+    days: int = 30,
+):
+    """Export CSV du journal filtré (mêmes critères que la liste), pour
+    produire une trace hors de l'application (vérification externe, AG…).
+    Plafonné pour rester un outil interne léger, pas un export de masse."""
+    import csv
+    import io
+
+    user, member = ctx
+    since = datetime.utcnow() - timedelta(days=max(1, min(days, 365)))
+    export_limit = 10000
+
+    stmt = _audit_filtered_stmt(q, action, actor_id, since).order_by(desc(AuditLog.created_at)).limit(export_limit)
+    entries = (await db.execute(stmt)).scalars().all()
+
+    actor_ids = {e.actor_id for e in entries if e.actor_id}
+    actors: dict[int, Member] = {}
+    if actor_ids:
+        for m in (await db.execute(select(Member).where(Member.id.in_(actor_ids)))).scalars().all():
+            actors[m.id] = m
+
+    def _details_text(details) -> str:
+        if not details:
+            return ""
+        if "text" in details:
+            return details["text"]
+        import json as _json
+        return _json.dumps(details, ensure_ascii=False, default=str)
+
+    buf = io.StringIO()
+    writer = csv.writer(buf, delimiter=";")
+    writer.writerow(["Date/heure (Paris)", "Acteur", "Action", "Cible", "Détails", "Adresse IP"])
+    from app.utils.tz import to_paris as _to_paris_tz
+    for e in entries:
+        au = actors.get(e.actor_id)
+        writer.writerow([
+            _to_paris_tz(e.created_at).strftime("%d/%m/%Y %H:%M:%S"),
+            f"{au.last_name} {au.first_name}" if au else "système",
+            e.action,
+            e.target_label or "",
+            _details_text(e.details),
+            e.ip_address or "",
+        ])
+
+    await log_audit(
+        db, actor_id=member.id,
+        action="AUDIT_EXPORT",
+        target_label=f"{len(entries)} entrées",
+        details={"q": q, "action": action, "actor_id": actor_id, "days": days},
+        request=request,
+    )
+    await db.commit()
+
+    from fastapi.responses import Response as _Response
+    filename = f"audit_{datetime.utcnow().strftime('%Y%m%d_%H%M')}.csv"
+    return _Response(
+        content="﻿" + buf.getvalue(),  # BOM — Excel ouvre l'UTF-8 correctement
+        media_type="text/csv",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @router.get("/data", response_class=HTMLResponse)
