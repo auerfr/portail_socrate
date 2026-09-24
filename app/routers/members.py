@@ -771,11 +771,11 @@ async def toggle_user_account(
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
 
 
-# ── Import d'emails externes par transfert (jeton personnel) ──────────────────
+# ── Import d'emails externes par transfert (reconnu par adresse de contact) ───
 
 def _can_manage_email_import(user, current_member: Member, target_id: int) -> bool:
-    """Le membre lui-même, ou un manageur/admin, peut activer/régénérer son
-    adresse de transfert — jamais un tiers quelconque."""
+    """Le membre lui-même, ou un manageur/admin, peut activer/désactiver le
+    transfert — jamais un tiers quelconque."""
     return current_member.id == target_id or can_manage_members(current_member) or user.is_admin
 
 
@@ -795,32 +795,6 @@ async def toggle_email_import(
         raise HTTPException(status_code=404)
 
     target.email_import_enabled = enable == "1"
-    if target.email_import_enabled and not target.email_import_token:
-        import secrets
-        target.email_import_token = secrets.token_urlsafe(12)
-    await db.commit()
-
-    return RedirectResponse(url=f"/members/{member_id}", status_code=302)
-
-
-@router.post("/{member_id}/email-import/regenerate", response_class=HTMLResponse)
-async def regenerate_email_import_token(
-    member_id: int,
-    ctx: Annotated[tuple, Depends(require_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
-    """Invalide l'ancienne adresse de transfert et en génère une nouvelle —
-    à utiliser si le jeton a pu être divulgué."""
-    user, current_member = ctx
-    if not _can_manage_email_import(user, current_member, member_id):
-        raise HTTPException(status_code=403)
-
-    target = await db.get(Member, member_id)
-    if not target:
-        raise HTTPException(status_code=404)
-
-    import secrets
-    target.email_import_token = secrets.token_urlsafe(12)
     await db.commit()
 
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
