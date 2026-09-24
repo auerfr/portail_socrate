@@ -29,12 +29,26 @@
 <div class="grid grid-cols-2 lg:grid-cols-4 gap-4 mb-8">
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
     <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Pages vues</div>
-    <div class="text-3xl font-bold text-gray-800">{{ total_views }}</div>
-    <div class="text-xs text-gray-400 mt-1">sur {{ days }} jours</div>
+    <div class="flex items-baseline gap-2">
+      <div class="text-3xl font-bold text-gray-800">{{ total_views }}</div>
+      {% if views_delta_pct is not none %}
+      <span class="text-xs font-semibold {% if views_delta_pct > 0 %}text-emerald-600{% else %}text-gray-400{% endif %} flex items-center gap-0.5">
+        {% if views_delta_pct > 0 %}▲{% elif views_delta_pct < 0 %}▼{% else %}—{% endif %}{{ views_delta_pct | abs }}%
+      </span>
+      {% endif %}
+    </div>
+    <div class="text-xs text-gray-400 mt-1">sur {{ days }} jours{% if views_delta_pct is not none %} · vs période précédente{% endif %}</div>
   </div>
   <div class="bg-white rounded-xl border border-loge-100 shadow-sm px-5 py-4">
     <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Sessions</div>
-    <div class="text-3xl font-bold text-loge-700">{{ unique_sessions }}</div>
+    <div class="flex items-baseline gap-2">
+      <div class="text-3xl font-bold text-loge-700">{{ unique_sessions }}</div>
+      {% if sessions_delta_pct is not none %}
+      <span class="text-xs font-semibold {% if sessions_delta_pct > 0 %}text-emerald-600{% else %}text-gray-400{% endif %} flex items-center gap-0.5">
+        {% if sessions_delta_pct > 0 %}▲{% elif sessions_delta_pct < 0 %}▼{% else %}—{% endif %}{{ sessions_delta_pct | abs }}%
+      </span>
+      {% endif %}
+    </div>
     <div class="text-xs text-loge-600 mt-1">{{ single_page_sessions }} d'une seule page</div>
   </div>
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
@@ -53,21 +67,46 @@
 {% if daily|length > 1 %}
 <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-8">
   <h3 class="text-sm font-semibold text-gray-700 mb-4">Pages vues par jour</h3>
-  <div class="flex items-end gap-1 h-32">
-    {% for row in daily %}
-    <div class="flex-1 flex flex-col items-center justify-end h-full group relative">
-      <div class="w-full bg-loge-200 hover:bg-loge-400 rounded-t transition-colors"
-           style="height: {{ (row.count * 100 / max_daily) | round | int }}%; min-height: 2px;"
-           title="{{ row.day }} — {{ row.count }} vue(s)"></div>
-    </div>
-    {% endfor %}
-  </div>
-  <div class="flex justify-between text-[10px] text-gray-400 mt-1.5">
-    <span>{{ daily[0].day }}</span>
-    <span>{{ daily[-1].day }}</span>
+  <div class="relative h-56">
+    <canvas id="dailyChart"></canvas>
   </div>
 </div>
 {% endif %}
+
+<!-- ── Fréquentation par créneau ─────────────────────────────────────── -->
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-8">
+  <h3 class="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+    <i class="ti ti-clock"></i> Fréquentation par créneau
+  </h3>
+  <p class="text-xs text-gray-400 mb-4">Jour × heure (heure de Paris) — pour choisir les meilleurs moments d'envoi des communications.</p>
+  <div class="overflow-x-auto">
+    <div class="min-w-[640px]">
+      <div class="grid gap-[2px]" style="grid-template-columns: 34px repeat(24, minmax(0,1fr));">
+        <div></div>
+        {% for h in range(24) %}
+        <div class="text-[9px] text-gray-400 text-center">{{ h if h % 3 == 0 else '' }}</div>
+        {% endfor %}
+        {% for row in heatmap %}
+        <div class="text-[10px] text-gray-500 font-medium flex items-center">{{ row.label }}</div>
+        {% for cell in row.cells %}
+        <div class="aspect-square rounded-sm"
+             style="background-color: rgba(44,122,123,{{ cell.alpha }});"
+             title="{{ row.label }} {{ '%02d'|format(loop.index0) }}h — {{ cell.count }} vue{{ 's' if cell.count > 1 }}"></div>
+        {% endfor %}
+        {% endfor %}
+      </div>
+      <div class="flex items-center gap-2 mt-3 text-[10px] text-gray-400">
+        <span>Moins</span>
+        <div class="flex gap-[2px]">
+          {% for a in [0.06, 0.25, 0.45, 0.65, 0.85] %}
+          <div class="w-3 h-3 rounded-sm" style="background-color: rgba(44,122,123,{{ a }});"></div>
+          {% endfor %}
+        </div>
+        <span>Plus</span>
+      </div>
+    </div>
+  </div>
+</div>
 
 <div class="grid lg:grid-cols-2 gap-6 mb-8">
   <!-- ── Pages les plus vues ──────────────────────────────────────────── -->
@@ -111,7 +150,7 @@
   </div>
 </div>
 
-<div class="grid lg:grid-cols-2 gap-6">
+<div class="grid lg:grid-cols-2 gap-6 mb-8">
   <!-- ── Appareils ────────────────────────────────────────────────────── -->
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
     <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
@@ -157,11 +196,111 @@
   </div>
 </div>
 
+{% if top_members %}
+<!-- ── Membres les plus actifs ──────────────────────────────────────── -->
+<div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-8">
+  <h3 class="text-sm font-semibold text-gray-700 mb-4 flex items-center gap-1.5">
+    <i class="ti ti-users"></i> Membres les plus actifs
+  </h3>
+  <div class="space-y-2.5">
+    {% for row in top_members %}
+    {% set m = row.member %}
+    <div class="flex items-center gap-3">
+      <div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
+           style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
+        {{ m.first_name[0] if m.first_name else '?' }}{{ m.last_name[0] if m.last_name else '' }}
+      </div>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center justify-between text-xs mb-0.5">
+          <span class="text-gray-700 truncate pr-2">{{ m.first_name }} {{ m.last_name }}</span>
+          <span class="text-gray-500 font-semibold flex-shrink-0">{{ row.count }} vue{{ 's' if row.count > 1 }}</span>
+        </div>
+        <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full bg-loge-500 rounded-full" style="width: {{ (row.count * 100 / max_member_count) | round | int }}%;"></div>
+        </div>
+      </div>
+    </div>
+    {% endfor %}
+  </div>
+</div>
+{% endif %}
+
 <p class="text-xs text-gray-400 mt-6">
   Données collectées côté serveur uniquement (chemin, hôte de provenance, appareil déduit du user-agent, membre si connecté) —
   aucun script tiers, aucun cookie de suivi. La durée de session est estimée par l'écart entre la première et la dernière page
   vue d'une même session ; les sessions d'une seule page ne sont pas comptées dans la moyenne.
 </p>
+
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+(function() {
+  var canvas = document.getElementById('dailyChart');
+  if (!canvas || typeof Chart === 'undefined') return;
+
+  var labels = {{ daily | map(attribute='day') | list | tojson }};
+  var values = {{ daily | map(attribute='count') | list | tojson }};
+  // Étiquettes courtes JJ/MM plutôt que la date ISO complète, trop dense sur 90 jours.
+  var shortLabels = labels.map(function(d) {
+    var p = d.split('-');
+    return p[2] + '/' + p[1];
+  });
+
+  Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+  Chart.defaults.color = '#898781';
+
+  new Chart(canvas.getContext('2d'), {
+    type: 'line',
+    data: {
+      labels: shortLabels,
+      datasets: [{
+        data: values,
+        borderColor: '#2c7a7b',
+        borderWidth: 2,
+        pointRadius: 0,
+        pointHoverRadius: 4,
+        pointHoverBackgroundColor: '#2c7a7b',
+        pointHoverBorderColor: '#fff',
+        pointHoverBorderWidth: 2,
+        tension: 0.25,
+        fill: true,
+        backgroundColor: 'rgba(44,122,123,0.08)',
+      }]
+    },
+    options: {
+      responsive: true,
+      maintainAspectRatio: false,
+      animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { display: false },
+        tooltip: {
+          backgroundColor: '#1f2937',
+          padding: 10,
+          titleFont: { size: 12, weight: '600' },
+          bodyFont: { size: 12 },
+          displayColors: false,
+          callbacks: {
+            title: function(items) { return labels[items[0].dataIndex]; },
+            label: function(item) { return item.parsed.y + ' vue' + (item.parsed.y > 1 ? 's' : ''); },
+          },
+        },
+      },
+      scales: {
+        x: {
+          grid: { display: false },
+          ticks: { maxRotation: 0, autoSkip: true, maxTicksLimit: 10, font: { size: 10 } },
+        },
+        y: {
+          beginAtZero: true,
+          grid: { color: '#eef0ee', drawTicks: false },
+          border: { display: false },
+          ticks: { precision: 0, font: { size: 10 }, maxTicksLimit: 5 },
+        },
+      },
+    },
+  });
+})();
+</script>
 
 {% endif %}
 

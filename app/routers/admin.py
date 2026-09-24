@@ -1431,6 +1431,73 @@ async def admin_analytics(
     daily = [{"day": d, "count": n} for d, n in day_r.all()]
     max_daily = max((r["count"] for r in daily), default=1)
 
+    # ── Tendance vs période précédente (même durée, juste avant) ────────────
+    since_prev = since - timedelta(days=days)
+    prev_filter = (PageView.created_at >= since_prev) & (PageView.created_at < since)
+    if admin_member_ids:
+        prev_filter = prev_filter & PageView.member_id.not_in(admin_member_ids)
+
+    prev_views = (await db.execute(
+        select(func.count(PageView.id)).where(prev_filter)
+    )).scalar() or 0
+    prev_sessions = (await db.execute(
+        select(func.count(func.distinct(PageView.session_id))).where(prev_filter, PageView.session_id.isnot(None))
+    )).scalar() or 0
+
+    def _delta_pct(cur: int, prev: int) -> Optional[int]:
+        if prev == 0:
+            return None
+        return round((cur - prev) * 100 / prev)
+
+    views_delta_pct = _delta_pct(total_views, prev_views)
+    sessions_delta_pct = _delta_pct(unique_sessions, prev_sessions)
+
+    # ── Membres les plus actifs ──────────────────────────────────────────────
+    top_members_r = await db.execute(
+        select(PageView.member_id, func.count(PageView.id).label("n"))
+        .where(base_filter, PageView.member_id.isnot(None))
+        .group_by(PageView.member_id)
+        .order_by(desc("n"))
+        .limit(8)
+    )
+    top_members_rows = top_members_r.all()
+    top_members: list[dict] = []
+    if top_members_rows:
+        mm = await db.execute(select(Member).where(Member.id.in_([mid for mid, _ in top_members_rows])))
+        mmap = {m.id: m for m in mm.scalars().all()}
+        top_members = [
+            {"member": mmap[mid], "count": n}
+            for mid, n in top_members_rows if mid in mmap
+        ]
+    max_member_count = max((r["count"] for r in top_members), default=1)
+
+    # ── Fréquentation par jour de semaine × heure (heure de Paris) ──────────
+    # Sert à repérer les créneaux les plus actifs (utile pour programmer les
+    # communications) — calculé en Python plutôt qu'en SQL car created_at est
+    # stocké en UTC naïf et la conversion vers Europe/Paris (DST) n'est pas
+    # exprimable proprement dans une requête SQLite.
+    from app.utils.tz import to_paris as _to_paris_tz
+    ts_r = await db.execute(select(PageView.created_at).where(base_filter))
+    heat_matrix = [[0] * 24 for _ in range(7)]  # 0=lundi … 6=dimanche
+    for (ts,) in ts_r.all():
+        local = _to_paris_tz(ts)
+        heat_matrix[local.weekday()][local.hour] += 1
+    max_heat = max((c for row in heat_matrix for c in row), default=1) or 1
+    weekday_labels = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"]
+    # Opacité (0 → 1) proportionnelle à l'intensité — une seule teinte, du
+    # clair au foncé (dégradé séquentiel), calculée ici plutôt que devinée
+    # côté template.
+    heatmap = [
+        {
+            "label": weekday_labels[i],
+            "cells": [
+                {"count": c, "alpha": round(0.06 + 0.88 * (c / max_heat), 3) if c else 0.0}
+                for c in heat_matrix[i]
+            ],
+        }
+        for i in range(7)
+    ]
+
     return templates.TemplateResponse(request, "pages/admin/analytics.html", {
         "current_user": ctx[0],
         "current_member": ctx[1],
@@ -1450,4 +1517,10 @@ async def admin_analytics(
         "single_page_sessions": single_page_sessions,
         "daily": daily,
         "max_daily": max_daily,
+        "views_delta_pct": views_delta_pct,
+        "sessions_delta_pct": sessions_delta_pct,
+        "top_members": top_members,
+        "max_member_count": max_member_count,
+        "heatmap": heatmap,
+        "max_heat": max_heat,
     })
