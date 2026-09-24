@@ -176,6 +176,13 @@ def _extract_import_token(msg) -> Optional[str]:
     return None
 
 
+def _extract_sender_email(msg) -> Optional[str]:
+    """Extrait l'adresse email pure du "De :" (sans le nom affiché)."""
+    import email.utils as _eu
+    addr = _eu.parseaddr(msg.get("From", ""))[1]
+    return addr.strip().lower() or None
+
+
 async def _try_import_as_member_message(db, msg, msg_bytes: bytes) -> bool:
     """Si cet email porte le jeton de transfert d'un membre ayant activé la
     fonction, l'importe comme Message interne (lui-même expéditeur ET
@@ -189,6 +196,30 @@ async def _try_import_as_member_message(db, msg, msg_bytes: bytes) -> bool:
 
     token = _extract_import_token(msg)
     if not token or not _TOKEN_RE.match(token):
+        # Jeton absent ou mal recopié (oubli fréquent) — avant de laisser
+        # tomber sur l'import planche (qui publierait l'email dans la GED
+        # partagée), filet de sécurité : si l'expéditeur correspond à un
+        # membre ayant activé le transfert, c'est très probablement une
+        # tentative manquée de transfert personnel plutôt qu'une planche à
+        # publier — on l'ignore silencieusement au lieu de risquer d'exposer
+        # un contenu privé. Ne sert pas à authentifier (l'adresse "De :" est
+        # falsifiable) — seulement à éviter une fuite accidentelle.
+        sender_email = _extract_sender_email(msg)
+        if sender_email:
+            r0 = await db.execute(
+                select(Member).where(
+                    func.lower(Member.email) == sender_email,
+                    Member.email_import_enabled.is_(True),
+                )
+            )
+            safety_member = r0.scalar_one_or_none()
+            if safety_member:
+                logger.warning(
+                    "Email sans jeton valide depuis %s (transfert activé, membre #%s) — "
+                    "ignoré plutôt que classé en planche",
+                    sender_email, safety_member.id,
+                )
+                return True
         return False
 
     r = await db.execute(
