@@ -1048,8 +1048,25 @@ async def delete_message(
     # côté on se trouve, sinon un admin qui supprime un message reçu efface
     # à tort la copie de l'expéditeur au lieu de la sienne (le message reste
     # visible dans ses Reçus).
+    own_recipient_cleared = False
     if is_sender:
         msg.sender_deleted_at = now
+        # Cas des messages importés par transfert d'email personnel : le
+        # membre est à la fois expéditeur ET destinataire de son propre
+        # message (cf. planche_importer._create_member_message). Sans ce
+        # correctif, seule la copie "expéditeur" était effacée et le message
+        # restait visible indéfiniment dans les Reçus malgré le clic sur
+        # Supprimer.
+        r = await db.execute(
+            select(MessageRecipient).where(
+                MessageRecipient.message_id == message_id,
+                MessageRecipient.member_id == member.id,
+            )
+        )
+        rec = r.scalar_one_or_none()
+        if rec:
+            rec.deleted_at = now
+            own_recipient_cleared = True
     else:
         # Destinataire → soft delete sur son enregistrement recipient
         r = await db.execute(
@@ -1070,7 +1087,7 @@ async def delete_message(
 
     await db.commit()
 
-    if is_sender:
+    if is_sender and not own_recipient_cleared:
         return RedirectResponse(url="/messages/sent", status_code=303)
     return RedirectResponse(url="/messages/", status_code=303)
 
@@ -1126,10 +1143,21 @@ async def bulk_delete_messages(
         if not msg:
             continue
         # Supprime toujours SA PROPRE copie — cf. delete_message() pour le
-        # détail du bug que ça corrige (admin destinataire non pris en compte).
+        # détail du bug que ça corrige (admin destinataire non pris en compte,
+        # et messages importés par transfert d'email où le membre est à la
+        # fois expéditeur et destinataire de son propre message).
         is_sender = msg.sender_id == member.id
         if is_sender:
             msg.sender_deleted_at = now
+            r = await db.execute(
+                select(MessageRecipient).where(
+                    MessageRecipient.message_id == mid,
+                    MessageRecipient.member_id == member.id,
+                )
+            )
+            rec = r.scalar_one_or_none()
+            if rec:
+                rec.deleted_at = now
         else:
             r = await db.execute(
                 select(MessageRecipient).where(
@@ -1164,16 +1192,19 @@ async def restore_message(
 
     if msg.sender_id == member.id or user.is_admin:
         msg.sender_deleted_at = None
-    else:
-        r = await db.execute(
-            select(MessageRecipient).where(
-                MessageRecipient.message_id == message_id,
-                MessageRecipient.member_id == member.id,
-            )
+
+    # Restaure aussi sa propre ligne recipient si elle existe — symétrique du
+    # correctif de delete_message() pour les messages importés par transfert
+    # d'email (le membre est à la fois expéditeur et destinataire).
+    r = await db.execute(
+        select(MessageRecipient).where(
+            MessageRecipient.message_id == message_id,
+            MessageRecipient.member_id == member.id,
         )
-        rec = r.scalar_one_or_none()
-        if rec:
-            rec.deleted_at = None
+    )
+    rec = r.scalar_one_or_none()
+    if rec:
+        rec.deleted_at = None
 
     await db.commit()
     return RedirectResponse(url="/messages/trash", status_code=303)

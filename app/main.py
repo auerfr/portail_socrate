@@ -447,6 +447,25 @@ async def _record_pageview(request: Request) -> None:
 
 
 @app.middleware("http")
+async def no_store_html_middleware(request: Request, call_next):
+    """Empêche la mise en cache navigateur des pages HTML dynamiques (et leur
+    éligibilité au bfcache Safari/iOS) — sans ça, un membre qui revient sur
+    une page (ex : Messages) après l'avoir quittée peut voir un instantané
+    figé d'avant une action faite entretemps sur un autre appareil (message
+    supprimé côté ordinateur, toujours visible côté smartphone tant que la
+    page n'est pas rechargée manuellement). Le service worker (sw.js) garde
+    son propre cache "hors-ligne" via l'API Cache, non affecté par cet
+    en-tête HTTP standard."""
+    response = await call_next(request)
+    if (
+        request.method == "GET"
+        and response.headers.get("content-type", "").startswith("text/html")
+    ):
+        response.headers["Cache-Control"] = "no-store"
+    return response
+
+
+@app.middleware("http")
 async def analytics_middleware(request: Request, call_next):
     """Analytique interne légère, côté serveur uniquement (pas de JS, pas de
     cookie tiers) : chemin, provenance (hôte seulement), appareil déduit du
