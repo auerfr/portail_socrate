@@ -1075,6 +1075,37 @@ async def delete_message(
     return RedirectResponse(url="/messages/", status_code=303)
 
 
+@router.post("/bulk-mark-read")
+async def bulk_mark_read(
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    message_ids: Annotated[str, Form()] = "",
+    read: Annotated[str, Form()] = "1",
+):
+    """Marque plusieurs messages reçus comme lus ou non lus en une seule
+    action (sélection par cases) — ne s'applique qu'aux messages reçus par
+    le membre courant (le statut de lecture n'a pas de sens côté expéditeur)."""
+    user, member = ctx
+    try:
+        ids = {int(x) for x in message_ids.split(",") if x.strip()}
+    except ValueError:
+        ids = set()
+
+    if ids:
+        r = await db.execute(
+            select(MessageRecipient).where(
+                MessageRecipient.message_id.in_(ids),
+                MessageRecipient.member_id == member.id,
+            )
+        )
+        new_read_at = datetime.now() if read == "1" else None
+        for rec in r.scalars().all():
+            rec.read_at = new_read_at
+
+    await db.commit()
+    return RedirectResponse(url="/messages/", status_code=303)
+
+
 @router.post("/bulk-delete")
 async def bulk_delete_messages(
     ctx: Annotated[object, Depends(require_auth)],
