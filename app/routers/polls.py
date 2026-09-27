@@ -128,6 +128,12 @@ async def _check_group_access(member: Member, group_id: int, db: AsyncSession) -
 async def _can_access(poll: Poll, member: Member, is_admin: bool, db: AsyncSession) -> bool:
     if is_admin:
         return True
+    # Le créateur doit toujours pouvoir voir/répondre à son propre sondage —
+    # sans ça, un ciblage (membres, grade, groupe) qui l'exclut par oubli
+    # (il n'a pas pensé à s'auto-sélectionner) le bloque avec un 403 sur son
+    # propre sondage.
+    if member.id == poll.created_by_id:
+        return True
     if poll.target_member_ids:
         return member.id in poll.target_member_ids
     if poll.target_group_id:
