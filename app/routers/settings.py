@@ -24,6 +24,46 @@ ENV_FILE = Path(__file__).parent.parent.parent / ".env"
 
 router = APIRouter(prefix="/settings", tags=["settings"])
 
+
+import re as _re
+
+# Garde-fou pour le widget de dons (ex : compteur HelloAsso) : le champ n'est
+# accessible qu'aux admins/gestionnaires, mais on limite quand même ce qui
+# peut y être collé à un unique <iframe>...</iframe> — le tableau de bord
+# affiche ce contenu tel quel (| safe) à tous les membres, donc une erreur de
+# copier-coller (ou un compte admin compromis) ne doit pas pouvoir y injecter
+# du JS arbitraire.
+#
+# Le code officiel HelloAsso (et la plupart des widgets tiers du même genre)
+# a besoin d'un attribut onload="…window.addEventListener('message', …)"
+# pour ajuster dynamiquement la hauteur de l'iframe une fois chargée — c'est
+# le seul gestionnaire d'événement toléré ; tous les autres (onerror,
+# onclick…) restent bloqués, de même que <script> et les URLs javascript:.
+#
+# [^>"']|"[^"]*"|'[^']*' consomme aussi bien les caractères normaux que des
+# chaînes entre guillemets en entier (donc un ">" dans le JS d'un onload="…"
+# ne coupe pas le tag prématurément).
+_IFRAME_EMBED_RE = _re.compile(
+    r"^\s*<iframe\b(?:[^>\"']|\"[^\"]*\"|'[^']*')*>\s*</iframe>\s*$",
+    _re.IGNORECASE | _re.DOTALL,
+)
+_UNSAFE_EMBED_RE = _re.compile(r"<script\b|javascript:", _re.IGNORECASE)
+_DANGEROUS_HANDLER_RE = _re.compile(r"\bon(?!load\b)\w+\s*=", _re.IGNORECASE)
+
+
+def _sanitize_donation_embed(raw: str) -> Optional[str]:
+    """Retourne le code nettoyé s'il s'agit d'un unique <iframe> sûr, sinon None."""
+    raw = raw.strip()
+    if not raw:
+        return None
+    if (
+        not _IFRAME_EMBED_RE.match(raw)
+        or _UNSAFE_EMBED_RE.search(raw)
+        or _DANGEROUS_HANDLER_RE.search(raw)
+    ):
+        return None
+    return raw
+
 # Mapping label (sous-chaîne insensible à la casse) → LodgeFunction
 _LABEL_FUNCTION_MAP = [
     ("vénérable", LodgeFunction.VM),
@@ -237,6 +277,7 @@ async def settings_page(
         "external_mailing_lists": external_mailing_lists,
         "backups": backups,
         "saved": request.query_params.get("saved"),
+        "error": request.query_params.get("error"),
         "smtp_saved": request.query_params.get("smtp_saved"),
         "smtp_ok":    request.query_params.get("smtp_ok"),
         "smtp_fail":  request.query_params.get("smtp_fail"),
@@ -384,6 +425,18 @@ async def settings_save_lodge(
     lodge.visio_provider   = form.get("visio_provider", "").strip() or None
     lodge.visio_server_url = form.get("visio_server_url", "").strip() or None
     lodge.visio_room_prefix = form.get("visio_room_prefix", "").strip() or None
+
+    # Widget de dons (ex : compteur HelloAsso)
+    donation_embed_raw = form.get("donation_widget_embed", "").strip()
+    donation_embed_clean = _sanitize_donation_embed(donation_embed_raw) if donation_embed_raw else None
+    if donation_embed_raw and not donation_embed_clean:
+        # Code invalide/suspect : on ne l'enregistre pas et on prévient l'admin
+        # plutôt que de silencieusement tronquer ou stocker un widget cassé.
+        await db.rollback()
+        return RedirectResponse(url="/settings/?tab=loge&error=donation_widget", status_code=303)
+    lodge.donation_widget_embed = donation_embed_clean
+    lodge.donation_widget_title = form.get("donation_widget_title", "").strip() or None
+    lodge.donation_widget_enabled = bool(form.get("donation_widget_enabled")) and bool(lodge.donation_widget_embed)
 
     # Logo upload
     logo_file = form.get("logo_file")

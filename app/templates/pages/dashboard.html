@@ -1,7 +1,30 @@
 {% extends "base.html" %}
 {% block title %}Tableau de bord — Portail Socrate{% endblock %}
 
+{% macro donation_widget(lodge) %}
+{% if lodge and lodge.donation_widget_enabled and lodge.donation_widget_embed %}
+<div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 shrink-0">
+  <h3 class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider mb-3">
+    💝 {{ lodge.donation_widget_title or 'Faites un don' }}
+  </h3>
+  <div class="donation-widget-frame">
+    {{ lodge.donation_widget_embed | safe }}
+  </div>
+</div>
+{% endif %}
+{% endmacro %}
+
 {% block content %}
+{# Style en ligne plutôt qu'une classe Tailwind arbitraire ([&_iframe]:…) :
+   app/static/css/app.css est précompilé (cf. tailwind/README.md), une classe
+   absente du build au moment de la compilation ne fait rien tant qu'on n'a
+   pas relancé le CLI Tailwind — un <style> autonome ici force la largeur
+   même si le widget externe impose une largeur fixe en dur (cas HelloAsso :
+   style="width:350px"), et n'est émis qu'une fois même si le widget
+   apparaît deux fois sur la page (mobile + colonne droite desktop). #}
+{% if lodge and lodge.donation_widget_enabled and lodge.donation_widget_embed %}
+<style>.donation-widget-frame iframe { width: 100% !important; max-width: 100%; border: 0 !important; }</style>
+{% endif %}
 <div class="flex flex-col gap-3 p-4 lg:p-5 max-w-7xl mx-auto lg:h-[calc(100vh-2rem)] lg:overflow-hidden">
 
   <!-- ── En-tête ──────────────────────────────────────────────────────── -->
@@ -40,6 +63,7 @@
 
   <!-- ── MOBILE ONLY : Annonces + Actualités en tête ──────────────────── -->
   <div class="lg:hidden flex flex-col gap-3 shrink-0">
+    {{ donation_widget(lodge) }}
     {% for ann in unread_announcements[:2] %}
     <div class="rounded-xl border shadow-sm {% if ann.is_pinned %}border-loge-200 bg-loge-50{% else %}border-amber-200 bg-amber-50{% endif %}"
          x-data="{ open: true }" x-show="open" x-transition>
@@ -318,6 +342,8 @@
 
     <!-- ══ COLONNE DROITE : panneau notifications ══ -->
     <div class="hidden lg:flex flex-col gap-3 overflow-y-auto min-h-0">
+
+      {{ donation_widget(lodge) }}
 
       <!-- Mon assiduité -->
       <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 shrink-0">

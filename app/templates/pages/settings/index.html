@@ -86,6 +86,11 @@
        ONGLET LOGE
   ════════════════════════════════════ -->
   <div x-show="tab === 'loge'" x-cloak>
+    {% if error == 'donation_widget' %}
+    <div class="mb-4 p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">
+      ✗ Code du widget de dons invalide — il doit s'agir d'un seul bloc <code>&lt;iframe&gt;...&lt;/iframe&gt;</code> tel que fourni par HelloAsso (un attribut <code>onload</code> est toléré pour l'ajustement de hauteur, mais aucun autre script ni gestionnaire d'événement). Rien n'a été enregistré.
+    </div>
+    {% endif %}
     <form method="post" action="/settings/lodge" enctype="multipart/form-data" class="space-y-6">
 
       <!-- Identité -->
@@ -360,6 +365,43 @@
         <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700">
           ✅ Visio active — les nouvelles tenues recevront automatiquement un lien de salle.
           <br>Exemple : <code>{{ lodge.visio_server_url.rstrip('/') }}/{{ lodge.visio_room_prefix or 'loge' }}-20260101</code>
+        </div>
+        {% endif %}
+      </div>
+
+      <!-- Widget de dons -->
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+        <div class="flex items-center justify-between">
+          <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">💝 Widget de dons</h2>
+          <label class="inline-flex items-center gap-2 cursor-pointer">
+            <input type="checkbox" name="donation_widget_enabled" value="1"
+                   {% if lodge and lodge.donation_widget_enabled %}checked{% endif %}
+                   class="rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+            <span class="text-xs font-medium text-gray-600">Afficher sur le tableau de bord</span>
+          </label>
+        </div>
+        <p class="text-xs text-gray-400">
+          Collez le code d'intégration fourni par votre prestataire (ex : compteur de dons HelloAsso — onglet
+          « Widgets » de votre association sur HelloAsso). Le widget apparaît alors, une fois activé, sur le
+          tableau de bord de tous les membres.
+        </p>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Titre affiché</label>
+          <input type="text" name="donation_widget_title"
+                 value="{{ lodge.donation_widget_title if lodge and lodge.donation_widget_title else '' }}"
+                 placeholder="ex : Soutenez nos actions"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Code d'intégration (iframe)</label>
+          <textarea name="donation_widget_embed" rows="5" spellcheck="false"
+                    placeholder='<iframe id="haWidgetCounter" allowtransparency="true" src="https://…"></iframe>'
+                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-xs font-mono focus:outline-none focus:ring-2 focus:ring-loge-500">{{ lodge.donation_widget_embed if lodge and lodge.donation_widget_embed else '' }}</textarea>
+          <p class="text-xs text-gray-400 mt-1">Uniquement un bloc <code>&lt;iframe&gt;</code> — collé tel quel, sans le modifier. L'attribut <code>onload</code> d'ajustement de hauteur (présent dans le code HelloAsso) est autorisé.</p>
+        </div>
+        {% if lodge and lodge.donation_widget_enabled and lodge.donation_widget_embed %}
+        <div class="bg-green-50 border border-green-200 rounded-lg px-4 py-3 text-xs text-green-700">
+          ✅ Widget actif — visible par tous les membres sur le tableau de bord.
         </div>
         {% endif %}
       </div>

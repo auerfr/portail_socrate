@@ -1342,3 +1342,20 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql("DROP TABLE documents")
             await conn.exec_driver_sql("ALTER TABLE documents_new3 RENAME TO documents")
 
+    # ── Widget de dons (ex : compteur HelloAsso) sur le tableau de bord ────────
+    async with engine.begin() as conn:
+        r_ls3 = await conn.exec_driver_sql("PRAGMA table_info(lodge_settings)")
+        cols_ls3 = [row[1] for row in r_ls3.fetchall()]
+        if cols_ls3 and "donation_widget_enabled" not in cols_ls3:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN donation_widget_enabled BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if cols_ls3 and "donation_widget_title" not in cols_ls3:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN donation_widget_title VARCHAR(200)"
+            )
+        if cols_ls3 and "donation_widget_embed" not in cols_ls3:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_settings ADD COLUMN donation_widget_embed TEXT"
+            )
+

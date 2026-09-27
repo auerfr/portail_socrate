@@ -59,6 +59,14 @@ class LodgeSettings(Base):
     visio_server_url: Mapped[Optional[str]]  = mapped_column(String(500))
     visio_room_prefix: Mapped[Optional[str]] = mapped_column(String(100))
 
+    # Widget de dons (ex : compteur HelloAsso) — code d'intégration fourni
+    # par le prestataire, collé tel quel (un seul <iframe>, validé/nettoyé
+    # à l'enregistrement — cf. app/routers/settings.py), affichable ou non
+    # sur le tableau de bord.
+    donation_widget_enabled: Mapped[bool]        = mapped_column(Boolean, default=False)
+    donation_widget_title: Mapped[Optional[str]] = mapped_column(String(200))
+    donation_widget_embed: Mapped[Optional[str]] = mapped_column(Text)
+
     # Seuils assiduité (pourcentages)
     attendance_threshold_warn:   Mapped[int] = mapped_column(Integer, default=70)
     attendance_threshold_danger: Mapped[int] = mapped_column(Integer, default=50)

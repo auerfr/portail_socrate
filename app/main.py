@@ -69,7 +69,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.identity import Member, MemberStatus
-from app.models.lodge import MasonicYear
+from app.models.lodge import MasonicYear, LodgeSettings
 from app.models.meetings import (
     Meeting, Attendance, AttendanceStatus,
     MeetingVisitor, VisitorStatus, Visitor,
@@ -885,6 +885,10 @@ async def home(
     )
     upcoming_anniv = _upcoming_anniv(list(_all_active.scalars().all()), days=30, today=today)[:5]
 
+    # ── Widget de dons (ex : compteur HelloAsso), si activé en Réglages ──────
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+
     return templates.TemplateResponse(request, "pages/dashboard.html", {
         "current_member": member,
         "current_user": user,
@@ -926,6 +930,7 @@ async def home(
         "pending_polls": pending_polls,
         "voted_poll_ids": _voted_ids,
         "upcoming_anniv": upcoming_anniv,
+        "lodge": lodge,
     })
 
 
