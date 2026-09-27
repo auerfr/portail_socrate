@@ -309,7 +309,7 @@
             <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ entry.obedience or '—' }}</td>
             <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ entry.degre or '—' }}</td>
             <td class="px-4 py-2 text-gray-600 whitespace-nowrap">{{ entry.date_tenue.strftime('%d/%m/%Y') if entry.date_tenue else '—' }}</td>
-            <td class="px-4 py-2 text-gray-600 max-w-[220px] truncate" title="{{ entry.lieu or '' }}">{{ entry.lieu or '—' }}</td>
+            <td class="px-4 py-2 text-gray-600 max-w-xs truncate" title="{{ entry.lieu or '' }}">{{ entry.lieu or '—' }}</td>
             <td class="px-4 py-2 text-gray-500 max-w-xs truncate" title="{{ entry.synthese or '' }}">{{ entry.synthese or '—' }}</td>
             <td class="px-4 py-2 whitespace-nowrap">
               {% if d and (d_ext == 'pdf' or d_ext in ['jpg','jpeg','png','gif','webp']) %}
