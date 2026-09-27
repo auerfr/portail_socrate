@@ -101,6 +101,18 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.1); border-radius: 4px; }
 
+    /* ── Barre de défilement du menu latéral ──────────────────
+       Volontairement plus visible que la scrollbar fine générale
+       ci-dessus (thumb quasi invisible à 10% d'opacité) : certains
+       membres ne savent pas faire défiler à la molette/au trackpad et
+       ont besoin de voir/cliquer une vraie barre pour comprendre qu'il
+       y a plus d'éléments de menu en dessous. */
+    .sidebar-nav { scrollbar-width: thin; scrollbar-color: rgba(255,255,255,0.35) transparent; }
+    .sidebar-nav::-webkit-scrollbar { width: 8px; }
+    .sidebar-nav::-webkit-scrollbar-track { background: transparent; }
+    .sidebar-nav::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.35); border-radius: 4px; }
+    .sidebar-nav::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.55); }
+
     /* ── Safe area pour iOS ────────────────────────────────── */
     .safe-bottom { padding-bottom: env(safe-area-inset-bottom, 0px); }
     .safe-top    { padding-top:    env(safe-area-inset-top,    0px); }
@@ -182,7 +194,7 @@
     </div>
 
     <!-- Navigation -->
-    <nav class="flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
+    <nav class="sidebar-nav flex-1 overflow-y-auto px-3 py-3 space-y-0.5">
 
       <a href="/"
          class="nav-item {% if request.url.path == '/' %}active{% endif %}">
