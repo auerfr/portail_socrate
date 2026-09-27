@@ -116,6 +116,7 @@
           </span>
           {% if att.dietary_restrictions and att.dietary_restrictions.value != 'NONE' %}
           <span class="text-xs text-amber-600 ml-1">{{ diet_icons.get(att.dietary_restrictions.value, '') }} {{ diet_labels.get(att.dietary_restrictions.value, '') }}</span>
+          {% if att.dietary_notes %}<span class="text-xs text-amber-500 italic ml-1">« {{ att.dietary_notes }} »</span>{% endif %}
           {% endif %}
         </div>
         <span class="text-xs font-semibold text-loge-600 bg-loge-50 rounded-full px-2 py-0.5">1 couvert</span>

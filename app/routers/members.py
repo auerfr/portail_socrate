@@ -601,6 +601,7 @@ async def member_update(
     login:                 str = Form(""),
     is_admin:              str = Form(""),
     dietary_restrictions:  str = Form("NONE"),
+    dietary_notes:         str = Form(""),
 ):
     user, current_member = ctx
     if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
@@ -660,6 +661,7 @@ async def member_update(
         target.dietary_restrictions = DietaryRestriction(dietary_restrictions)
     except ValueError:
         target.dietary_restrictions = DietaryRestriction.NONE
+    target.dietary_notes = dietary_notes.strip()[:300] or None
 
     is_own_profile = (current_member.id == member_id)
 

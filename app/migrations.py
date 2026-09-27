@@ -1359,3 +1359,18 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE lodge_settings ADD COLUMN donation_widget_embed TEXT"
             )
 
+    # ── Précisions libres sur le régime alimentaire (membre + par tenue) ──────
+    async with engine.begin() as conn:
+        r_mem = await conn.exec_driver_sql("PRAGMA table_info(members)")
+        cols_mem = [row[1] for row in r_mem.fetchall()]
+        if cols_mem and "dietary_notes" not in cols_mem:
+            await conn.exec_driver_sql(
+                "ALTER TABLE members ADD COLUMN dietary_notes VARCHAR(300)"
+            )
+        r_att = await conn.exec_driver_sql("PRAGMA table_info(attendances)")
+        cols_att = [row[1] for row in r_att.fetchall()]
+        if cols_att and "dietary_notes" not in cols_att:
+            await conn.exec_driver_sql(
+                "ALTER TABLE attendances ADD COLUMN dietary_notes VARCHAR(300)"
+            )
+

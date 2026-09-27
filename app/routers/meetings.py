@@ -474,6 +474,8 @@ async def agapes_export_excel(
             civ = "S∴" if att.member.civility == "S" else "F∴"
             diet_val = att.dietary_restrictions.value if att.dietary_restrictions else "NONE"
             diet_str = diet_labels.get(diet_val, "—")
+            if att.dietary_notes:
+                diet_str += f" ({att.dietary_notes})"
             fill = C_DIET if diet_val != "NONE" else C_FRERE
             row = _data_row(ws, [
                 att.member.last_name,
@@ -2444,6 +2446,7 @@ async def meeting_register(
     agape_guests:      str = Form("0"),
     excuse_reason:     str = Form(""),
     dietary_restrictions: str = Form("NONE"),
+    dietary_notes:     str = Form(""),
 ):
     user, member = ctx
 
@@ -2456,6 +2459,7 @@ async def meeting_register(
         diet = DietaryRestriction(dietary_restrictions)
     except ValueError:
         diet = DietaryRestriction.NONE
+    diet_notes = dietary_notes.strip()[:300] or None
 
     # Vérifier si déjà inscrit
     existing = await db.execute(
@@ -2472,6 +2476,7 @@ async def meeting_register(
         att.agape_guests = int(agape_guests) if agape_guests else 0
         att.excuse_reason = excuse_reason or None
         att.dietary_restrictions = diet
+        att.dietary_notes = diet_notes
     else:
         att = Attendance(
             meeting_id=meeting_id,
@@ -2481,6 +2486,7 @@ async def meeting_register(
             agape_guests=int(agape_guests) if agape_guests else 0,
             excuse_reason=excuse_reason or None,
             dietary_restrictions=diet,
+            dietary_notes=diet_notes,
         )
         db.add(att)
 

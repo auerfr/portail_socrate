@@ -173,6 +173,9 @@ class Attendance(Base):
     dietary_restrictions: Mapped[DietaryRestriction] = mapped_column(
         Enum(DietaryRestriction), default=DietaryRestriction.NONE
     )
+    # Précisions libres (ex : "sans alcool" même cuisiné dans une sauce) —
+    # pré-rempli depuis le profil du membre, modifiable pour cette tenue.
+    dietary_notes: Mapped[Optional[str]] = mapped_column(String(300))
 
     # Pour les tenues multi-degrés : jusqu'à quel degré le frère a-t-il participé ?
     degree_attended: Mapped[Optional[DegreeAttended]] = mapped_column(

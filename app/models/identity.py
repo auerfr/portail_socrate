@@ -151,6 +151,10 @@ class Member(Base):
     dietary_restrictions: Mapped[DietaryRestriction] = mapped_column(
         Enum(DietaryRestriction), default=DietaryRestriction.NONE
     )
+    # Précisions libres sur le régime (ex : "sans alcool" même cuisiné dans
+    # une sauce, ou au contraire alcool cuisiné toléré) — la case à cocher
+    # seule ne dit pas ce niveau de nuance au Maître des Banquets.
+    dietary_notes: Mapped[Optional[str]] = mapped_column(String(300))
     # Notifications email : True = reçoit un email à chaque message reçu sur le portail
     email_notifications: Mapped[bool]   = mapped_column(Boolean, default=True)
     # Présence — dernière activité authentifiée sur le portail (battement, cf. app/dependencies.py)

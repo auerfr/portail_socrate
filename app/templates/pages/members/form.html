@@ -85,6 +85,10 @@
             <option value="OTHER" {% if current_diet == 'OTHER' %}selected{% endif %}>⚠ Autre (allergie, intolérance…)</option>
           </select>
           <p class="text-xs text-gray-400 mt-1">Pré-rempli automatiquement lors de vos inscriptions aux agapes — modifiable à chaque tenue si besoin.</p>
+          <input type="text" name="dietary_notes" maxlength="300"
+                 value="{{ (form_data.dietary_notes if form_data else '') or (target.dietary_notes if target and target.dietary_notes else '') }}"
+                 placeholder="Précisions (ex : alcool toléré si cuisiné dans une sauce)…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-2 focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
 
       </div>

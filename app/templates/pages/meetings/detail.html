@@ -315,6 +315,10 @@
                 <option value="NO_ALCOHOL" {% if current_diet == 'NO_ALCOHOL' %}selected{% endif %}>🚱 Sans alcool</option>
                 <option value="OTHER" {% if current_diet == 'OTHER' %}selected{% endif %}>⚠ Autre (allergie, intolérance…)</option>
               </select>
+              {% set current_diet_notes = my_attendance.dietary_notes if my_attendance and my_attendance.dietary_notes else (current_member.dietary_notes if current_member.dietary_notes else '') %}
+              <input type="text" name="dietary_notes" maxlength="300" value="{{ current_diet_notes }}"
+                     placeholder="Précisions (ex : alcool toléré si cuisiné dans une sauce)…"
+                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm mt-2 focus:outline-none focus:ring-2 focus:ring-loge-500">
             </div>
           </div>
           {% endif %}
@@ -405,6 +409,7 @@
               {% endif %}
               {% if att.dietary_restrictions and att.dietary_restrictions.value != 'NONE' %}
               <span class="text-xs text-amber-600 ml-1">{{ diet_labels[att.dietary_restrictions.value] }}</span>
+              {% if att.dietary_notes %}<span class="text-xs text-amber-500 italic ml-1">« {{ att.dietary_notes }} »</span>{% endif %}
               {% endif %}
             </div>
             <span class="text-xs text-loge-400 shrink-0">Membre</span>
