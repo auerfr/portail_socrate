@@ -131,8 +131,30 @@ async def _get_offices(db: AsyncSession) -> list:
 
 
 async def _current_office_id(db: AsyncSession, member_id: int) -> int | None:
-    r = await db.execute(select(LodgeOffice.id).where(LodgeOffice.member_id == member_id).limit(1))
+    # order_by sort_order : un membre peut cumuler un office rituel et un
+    # office "libre" (ex: Webmestre, ajouté après coup avec un sort_order
+    # plus grand — cf. settings.py) — sans ce tri, lequel des deux revient
+    # dépendait de l'ordre de retour SQLite, pas de la priorité voulue.
+    r = await db.execute(
+        select(LodgeOffice.id).where(LodgeOffice.member_id == member_id)
+        .order_by(LodgeOffice.sort_order, LodgeOffice.id).limit(1)
+    )
     return r.scalar_one_or_none()
+
+
+async def _office_by_member(db: AsyncSession) -> dict[int, str]:
+    """Office principal de chaque membre ayant une fonction assignée — en cas
+    de cumul (ex: 2e Surveillant + Webmestre), c'est le sort_order le plus
+    bas (l'office rituel, listé en premier dans Réglages → Officiers) qui
+    l'emporte, pas le dernier lu en base."""
+    r = await db.execute(
+        select(LodgeOffice).where(LodgeOffice.member_id.isnot(None))
+        .order_by(LodgeOffice.sort_order, LodgeOffice.id)
+    )
+    result: dict[int, str] = {}
+    for o in r.scalars().all():
+        result.setdefault(o.member_id, o.label)
+    return result
 
 
 async def _assign_office(db: AsyncSession, member_id: int, office_id: int | None):
@@ -212,8 +234,7 @@ async def members_list(
     members = result.scalars().all()
 
     # Construire un dict member_id → label d'office
-    offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
-    office_by_member = {o.member_id: o.label for o in offices_r.scalars().all()}
+    office_by_member = await _office_by_member(db)
 
     return templates.TemplateResponse(request, "pages/members/list.html", {
         "current_member": member,
@@ -249,8 +270,7 @@ async def members_export_csv(
     result = await db.execute(_filtered_members_query(search, grade, status_filter))
     members = result.scalars().all()
 
-    offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
-    office_by_member = {o.member_id: o.label for o in offices_r.scalars().all()}
+    office_by_member = await _office_by_member(db)
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
@@ -283,8 +303,7 @@ async def members_print(
     result = await db.execute(_filtered_members_query(search, grade, status_filter))
     members = result.scalars().all()
 
-    offices_r = await db.execute(select(LodgeOffice).where(LodgeOffice.member_id.isnot(None)))
-    office_by_member = {o.member_id: o.label for o in offices_r.scalars().all()}
+    office_by_member = await _office_by_member(db)
 
     ls_r = await db.execute(select(LodgeSettings).limit(1))
     lodge = ls_r.scalar_one_or_none()
