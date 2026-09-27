@@ -80,8 +80,8 @@
   </h3>
   <p class="text-xs text-gray-400 mb-4">Jour × heure (heure de Paris) — pour choisir les meilleurs moments d'envoi des communications.</p>
   <div class="overflow-x-auto">
-    <div class="min-w-[640px]">
-      <div class="grid gap-[2px]" style="grid-template-columns: 34px repeat(24, minmax(0,1fr));">
+    <div style="min-width: 640px;">
+      <div class="grid" style="grid-template-columns: 34px repeat(24, minmax(0,1fr)); gap: 2px;">
         <div></div>
         {% for h in range(24) %}
         <div class="text-[9px] text-gray-400 text-center">{{ h if h % 3 == 0 else '' }}</div>
@@ -89,15 +89,15 @@
         {% for row in heatmap %}
         <div class="text-[10px] text-gray-500 font-medium flex items-center">{{ row.label }}</div>
         {% for cell in row.cells %}
-        <div class="aspect-square rounded-sm"
-             style="background-color: rgba(44,122,123,{{ cell.alpha }});"
+        <div class="rounded-sm"
+             style="background-color: rgba(44,122,123,{{ cell.alpha }}); aspect-ratio: 1;"
              title="{{ row.label }} {{ '%02d'|format(loop.index0) }}h — {{ cell.count }} vue{{ 's' if cell.count > 1 }}"></div>
         {% endfor %}
         {% endfor %}
       </div>
       <div class="flex items-center gap-2 mt-3 text-[10px] text-gray-400">
         <span>Moins</span>
-        <div class="flex gap-[2px]">
+        <div class="flex" style="gap: 2px;">
           {% for a in [0.06, 0.25, 0.45, 0.65, 0.85] %}
           <div class="w-3 h-3 rounded-sm" style="background-color: rgba(44,122,123,{{ a }});"></div>
           {% endfor %}
