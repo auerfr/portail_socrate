@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth
+from app.dependencies import require_auth, has_fine_permission
 from app.models.content import Poll, PollOption, PollVote
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.identity import Member, MasonicGrade, LodgeFunction, MemberStatus
@@ -127,6 +127,10 @@ async def _check_group_access(member: Member, group_id: int, db: AsyncSession) -
 
 async def _can_access(poll: Poll, member: Member, is_admin: bool, db: AsyncSession) -> bool:
     if is_admin:
+        return True
+    # Délégation "Sondages" (cf. /admin/permissions) : même visibilité totale
+    # qu'un admin sur ce module, sans les droits admin complets.
+    if has_fine_permission(member, "can_manage_polls"):
         return True
     # Le créateur doit toujours pouvoir voir/répondre à son propre sondage —
     # sans ça, un ciblage (membres, grade, groupe) qui l'exclut par oubli

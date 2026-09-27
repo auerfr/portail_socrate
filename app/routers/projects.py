@@ -10,7 +10,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth, can_manage_members
+from app.dependencies import require_auth, can_manage_members, has_fine_permission
 from app.models.identity import Member, MemberStatus
 from app.models.groups import LodgeGroup
 from app.models.projects import (
@@ -27,7 +27,11 @@ from app.template_engine import templates
 
 
 def _is_manager(user, member) -> bool:
-    return bool(getattr(user, "is_admin", False) or can_manage_members(member))
+    return bool(
+        getattr(user, "is_admin", False)
+        or can_manage_members(member)
+        or has_fine_permission(member, "can_manage_projects")
+    )
 
 
 def _parse_date(s: str) -> Optional[date]:

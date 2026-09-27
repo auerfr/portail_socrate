@@ -14,13 +14,21 @@ from app.models.system import ModulePermission
 
 # Toutes les permissions possibles avec leur libellé
 ALL_PERMISSIONS = {
-    "can_manage_finance":   "Finance — budget, cotisations, bilan",
+    "can_manage_finance":   "Finance — budget, cotisations, bilan (délégation du rôle de Trésorier)",
     "can_manage_meetings":  "Tenues — créer, modifier, supprimer",
     "can_manage_members":   "Membres — ajouter, modifier les grades",
     "can_send_mailing":     "Diffusion — envoyer des campagnes email",
     "can_manage_documents": "GED — upload, gestion des dossiers",
     "can_manage_programs":  "Programmes — créer et envoyer",
     "can_manage_projects":  "Projets — créer et gérer des projets",
+    "can_manage_news":              "Actualités — créer, modifier, supprimer",
+    "can_manage_polls":             "Sondages — voir tous les sondages, gérer/clôturer ceux des autres",
+    "can_manage_forum":             "Forum — modérer, gérer les catégories",
+    "can_manage_calendar":          "Agenda — créer des événements partagés",
+    "can_manage_announcements":     "Annonces — créer, modifier, supprimer",
+    "can_manage_planches":          "Planches — rédiger/gérer au nom d'un officier",
+    "can_manage_groups":            "Groupes — créer, modifier la composition",
+    "can_manage_partner_lodges":    "Loges voisines — ajouter, modifier l'annuaire",
 }
 
 _CACHE: dict[int, set] = {}

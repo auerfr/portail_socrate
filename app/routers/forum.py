@@ -20,7 +20,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth, can_manage_members
+from app.dependencies import require_auth, can_manage_members, has_fine_permission
 from app.models.identity import Member, MemberStatus, LodgeFunction
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.forum import (
@@ -51,7 +51,11 @@ _OFFICER_FUNCTIONS = {
 
 
 def _is_admin_or_manager(user, member) -> bool:
-    return bool(getattr(user, "is_admin", False) or can_manage_members(member))
+    return bool(
+        getattr(user, "is_admin", False)
+        or can_manage_members(member)
+        or has_fine_permission(member, "can_manage_forum")
+    )
 
 
 async def _check_group_access(member: Member, group_id: int, db: AsyncSession) -> bool:
@@ -202,7 +206,7 @@ async def forum_index(
         select(ForumTheme).order_by(ForumTheme.order_position, ForumTheme.id)
     )
     all_themes = r.scalars().all()
-    themes = [th for th in all_themes if await _can_access_theme(th, member, user.is_admin, db)]
+    themes = [th for th in all_themes if await _can_access_theme(th, member, _is_admin_or_manager(user, member), db)]
 
     # Comptes par thème — 3 requêtes fixes au lieu de 3×N
     sub_counts_r = await db.execute(
@@ -274,7 +278,7 @@ async def forum_category(
     )).scalar_one_or_none()
     if not th:
         raise HTTPException(404, "Catégorie introuvable")
-    if not await _can_access_theme(th, member, user.is_admin, db):
+    if not await _can_access_theme(th, member, _is_admin_or_manager(user, member), db):
         raise HTTPException(403, "Catégorie réservée")
 
     r = await db.execute(
@@ -333,7 +337,7 @@ async def forum_thread(
     )).scalar_one_or_none()
     if not s:
         raise HTTPException(404, "Sujet introuvable")
-    if not await _can_access_theme(s.theme, member, user.is_admin, db):
+    if not await _can_access_theme(s.theme, member, _is_admin_or_manager(user, member), db):
         raise HTTPException(403, "Catégorie réservée")
 
     # Messages + attachments
@@ -423,7 +427,7 @@ async def forum_new_form(
         select(ForumTheme).order_by(ForumTheme.order_position, ForumTheme.id)
     )
     all_themes = r.scalars().all()
-    themes = [th for th in all_themes if await _can_access_theme(th, member, user.is_admin, db)]
+    themes = [th for th in all_themes if await _can_access_theme(th, member, _is_admin_or_manager(user, member), db)]
     return templates.TemplateResponse(request, "pages/forum/new.html", {
         "current_user": user,
         "current_member": member,
@@ -461,7 +465,7 @@ async def forum_create_subject(
     )).scalar_one_or_none()
     if not th:
         raise HTTPException(404, "Catégorie introuvable")
-    if not await _can_access_theme(th, member, user.is_admin, db):
+    if not await _can_access_theme(th, member, _is_admin_or_manager(user, member), db):
         raise HTTPException(403, "Catégorie réservée")
 
     now = datetime.utcnow()
@@ -522,7 +526,7 @@ async def forum_post(
     )).scalar_one_or_none()
     if not s:
         raise HTTPException(404)
-    if not await _can_access_theme(s.theme, member, user.is_admin, db):
+    if not await _can_access_theme(s.theme, member, _is_admin_or_manager(user, member), db):
         raise HTTPException(403, "Catégorie réservée")
     if s.is_locked and not _is_admin_or_manager(user, member):
         raise HTTPException(403, "Sujet verrouillé")

@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_auth
+from app.dependencies import require_auth, has_fine_permission
 from app.models.lodge import LodgeSettings
 from app.models.lodge_calendar import EventType, EventVisibility, LodgeEvent
 from app.models.identity import LodgeFunction, MasonicGrade, Member, MemberStatus
@@ -46,7 +46,13 @@ async def _event_visible_to(event: LodgeEvent, member: Member, db: AsyncSession,
         return True
 
     if event.is_personal:
+        # Même une délégation générale "Agenda" ne doit pas ouvrir les
+        # événements personnels d'un autre membre — seuls l'admin et le
+        # créateur y ont accès.
         return event.created_by_id == member.id
+
+    if has_fine_permission(member, "can_manage_calendar"):
+        return True
 
     v = event.visibility
 
@@ -308,7 +314,8 @@ def _can_create_event(user, member: Member) -> bool:
 
 
 def _can_create_shared_event(user, member: Member) -> bool:
-    """VM, Secrétaire, surveillants ou admin peuvent créer des événements visibles par tous."""
+    """VM, Secrétaire, surveillants, admin, ou délégation "Agenda" peuvent
+    créer des événements visibles par tous."""
     if user.is_admin:
         return True
     return member.lodge_function in (
@@ -316,7 +323,7 @@ def _can_create_shared_event(user, member: Member) -> bool:
         LodgeFunction.SECRETAIRE,
         LodgeFunction.PREMIER_S,
         LodgeFunction.SECOND_S,
-    )
+    ) or has_fine_permission(member, "can_manage_calendar")
 
 
 def _ics_escape(text: str) -> str:

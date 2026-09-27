@@ -10,7 +10,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth, can_manage_members
+from app.dependencies import require_auth, can_manage_members, has_fine_permission
 from app.models.lodges_directory import NeighboringLodge
 
 router = APIRouter(prefix="/loges-voisines", tags=["lodges_directory"])
@@ -21,7 +21,11 @@ _ORDINAUX = {1: "1er", 2: "2e", 3: "3e", 4: "4e", 5: "5e"}
 
 
 def _can_manage(user, member) -> bool:
-    return bool(getattr(user, "is_admin", False) or can_manage_members(member))
+    return bool(
+        getattr(user, "is_admin", False)
+        or can_manage_members(member)
+        or has_fine_permission(member, "can_manage_partner_lodges")
+    )
 
 
 def _schedule_label(schedule: Optional[list]) -> str:

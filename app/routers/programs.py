@@ -20,7 +20,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_auth, require_admin
+from app.dependencies import require_auth, require_admin, has_fine_permission
 from app.models.programs import Program, ProgramMeeting
 from app.models.identity import LodgeFunction
 from app.models.meetings import Meeting, MeetingType, MeetingGrade
@@ -34,10 +34,18 @@ from app.template_engine import templates
 _PROGRAM_MANAGERS = {LodgeFunction.VM, LodgeFunction.SECRETAIRE}
 
 
+def _can_manage_programs(user, member) -> bool:
+    return bool(
+        user.is_admin
+        or member.lodge_function in _PROGRAM_MANAGERS
+        or has_fine_permission(member, "can_manage_programs")
+    )
+
+
 async def _require_program_manager(ctx: Annotated[object, Depends(require_auth)]):
     from fastapi import HTTPException
     user, member = ctx
-    if not (user.is_admin or member.lodge_function in _PROGRAM_MANAGERS):
+    if not _can_manage_programs(user, member):
         raise HTTPException(403, "Réservé au Secrétaire, au VM ou à l'administrateur")
     return ctx
 
@@ -453,14 +461,13 @@ async def programs_list(
     )
     programs = r.scalars().all()
 
-    can_manage = user.is_admin or member.lodge_function in _PROGRAM_MANAGERS
+    can_manage = _can_manage_programs(user, member)
     return templates.TemplateResponse(request, "pages/programs/list.html", {
         "current_member": member,
         "current_user": user,
         "programs": programs,
         "MOIS_FR": MOIS_FR,
         "is_admin": user.is_admin,
-        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
         "can_manage_programs": can_manage,
         "now": datetime.now(),
     })
@@ -506,7 +513,7 @@ async def programs_create_form(
         "MEETING_TYPE_LABELS": MEETING_TYPE_LABELS,
         "GRADE_LABELS": GRADE_LABELS,
         "is_admin": user.is_admin,
-        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
+        "can_manage_programs": _can_manage_programs(user, member),
     })
 
 
@@ -638,7 +645,7 @@ async def program_detail(
         "date_civil": _date_civil,
         "inscription_url": lambda token: _inscription_url(request, token),
         "is_admin": user.is_admin,
-        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
+        "can_manage_programs": _can_manage_programs(user, member),
         "print_mode": print_mode,
         "now": datetime.now(),
         "external_contacts": external_contacts,
@@ -693,7 +700,7 @@ async def program_edit_form(
         "MEETING_TYPE_LABELS": MEETING_TYPE_LABELS,
         "GRADE_LABELS": GRADE_LABELS,
         "is_admin": user.is_admin,
-        "can_manage_programs": user.is_admin or member.lodge_function in _PROGRAM_MANAGERS,
+        "can_manage_programs": _can_manage_programs(user, member),
     })
 
 

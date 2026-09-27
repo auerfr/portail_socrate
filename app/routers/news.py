@@ -8,7 +8,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth
+from app.dependencies import require_auth, has_fine_permission
 from app.models.content import NewsArticle
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.identity import Member, MasonicGrade, LodgeFunction
@@ -25,6 +25,10 @@ _OFFICER_FUNCTIONS = {
     LodgeFunction.HOSPITALIER, LodgeFunction.TUILEUR, LodgeFunction.ARCHITECTE,
     LodgeFunction.MAITRE_BANQUETS,
 }
+
+
+def _can_manage(user, member) -> bool:
+    return bool(user.is_admin or has_fine_permission(member, "can_manage_news"))
 
 
 def _parse_target(target: str) -> tuple[Optional[str], Optional[int]]:
@@ -104,7 +108,7 @@ async def news_list(
     all_articles = r.scalars().all()
     articles = []
     for a in all_articles:
-        if await _can_read(a, member, user.is_admin, db):
+        if await _can_read(a, member, _can_manage(user, member), db):
             articles.append(a)
 
     author_ids = {a.created_by_id for a in articles if a.created_by_id}
@@ -114,7 +118,7 @@ async def news_list(
         authors_map = {m.id: m for m in ar.scalars().all()}
 
     admin_all = []
-    if user.is_admin:
+    if _can_manage(user, member):
         ra = await db.execute(
             select(NewsArticle).order_by(NewsArticle.created_at.desc())
         )
@@ -136,7 +140,7 @@ async def news_new_form(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not user.is_admin:
+    if not _can_manage(user, member):
         raise HTTPException(status_code=403)
     return templates.TemplateResponse(request, "pages/news/form.html", {
         "current_member": member,
@@ -161,7 +165,7 @@ async def news_create(
     notify_members: str = Form(""),
 ):
     user, member = ctx
-    if not user.is_admin:
+    if not _can_manage(user, member):
         raise HTTPException(status_code=403)
 
     content_html = content.replace("\r\n", "\n").replace("\r", "\n")
@@ -217,7 +221,7 @@ async def news_detail(
     article = await db.get(NewsArticle, article_id)
     if not article:
         raise HTTPException(status_code=404)
-    if not await _can_read(article, member, user.is_admin, db):
+    if not await _can_read(article, member, _can_manage(user, member), db):
         raise HTTPException(status_code=403)
     author = await db.get(Member, article.created_by_id) if article.created_by_id else None
     return templates.TemplateResponse(request, "pages/news/detail.html", {
@@ -236,7 +240,7 @@ async def news_edit_form(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not user.is_admin:
+    if not _can_manage(user, member):
         raise HTTPException(status_code=403)
     article = await db.get(NewsArticle, article_id)
     if not article:
@@ -263,7 +267,7 @@ async def news_update(
     publish_until: str = Form(""),
 ):
     user, member = ctx
-    if not user.is_admin:
+    if not _can_manage(user, member):
         raise HTTPException(status_code=403)
     article = await db.get(NewsArticle, article_id)
     if not article:
@@ -299,7 +303,7 @@ async def news_delete(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not user.is_admin:
+    if not _can_manage(user, member):
         raise HTTPException(status_code=403)
     article = await db.get(NewsArticle, article_id)
     if not article:

@@ -9,7 +9,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth, can_manage_members
+from app.dependencies import require_auth, can_manage_members, has_fine_permission
 from app.models.identity import Member
 from app.models.communication import Announcement, AnnouncementRead
 
@@ -17,8 +17,16 @@ router = APIRouter(prefix="/announcements", tags=["announcements"])
 from app.template_engine import templates
 
 
+def _can_manage(user, member) -> bool:
+    return bool(
+        can_manage_members(member)
+        or user.is_admin
+        or has_fine_permission(member, "can_manage_announcements")
+    )
+
+
 def _require_manager(user, member):
-    if not (can_manage_members(member) or user.is_admin):
+    if not _can_manage(user, member):
         raise HTTPException(status_code=403, detail="Réservé au VM et Secrétaire")
 
 
@@ -172,5 +180,5 @@ async def mark_read(
         await db.commit()
 
     # Retour vers la page d'origine (referer) ou dashboard
-    referer = "/announcements/" if (can_manage_members(member) or user.is_admin) else "/"
+    referer = "/announcements/" if _can_manage(user, member) else "/"
     return RedirectResponse(url=referer, status_code=303)

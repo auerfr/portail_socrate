@@ -9,7 +9,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_auth, require_finance_manager, can_manage_finance
+from app.dependencies import require_auth, require_finance_manager, can_manage_finance, has_fine_permission
 from app.models.groups import LodgeGroup as Group, GroupMembership, GroupType, SYSTEM_GROUPS
 from app.models.identity import Member, MemberStatus, LodgeFunction, MasonicGrade
 
@@ -35,7 +35,7 @@ OFFICER_FUNCTIONS = {
 def _can_manage_groups(user, member: Member) -> bool:
     return user.is_admin or member.lodge_function in (
         LodgeFunction.VM, LodgeFunction.SECRETAIRE
-    )
+    ) or has_fine_permission(member, "can_manage_groups")
 
 
 async def _get_active_members(db: AsyncSession) -> list[Member]:

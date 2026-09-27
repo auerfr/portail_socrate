@@ -10,7 +10,7 @@ from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth
+from app.dependencies import require_auth, has_fine_permission
 from app.models.identity import Member, MemberStatus, LodgeFunction
 from app.models.mailing import (
     MailingList, MailingListMember, MailingListExternal, MailingListType,
@@ -29,6 +29,8 @@ from app.template_engine import templates
 
 def _can_send(user, member) -> bool:
     if user.is_admin:
+        return True
+    if member and has_fine_permission(member, "can_send_mailing"):
         return True
     if not member or not member.lodge_function:
         return False

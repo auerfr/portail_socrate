@@ -13,7 +13,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth
+from app.dependencies import require_auth, has_fine_permission
 from app.models.planches import Planche, PlancheComment, PlancheStatus, PlancheGrade
 from app.models.identity import Member, MasonicGrade
 from app.models.meetings import Meeting
@@ -51,7 +51,7 @@ def _can_write(user, member: Member) -> bool:
     from app.models.identity import LodgeFunction
     return user.is_admin or member.lodge_function in (
         LodgeFunction.SECRETAIRE, LodgeFunction.VM, LodgeFunction.ORATEUR,
-    )
+    ) or has_fine_permission(member, "can_manage_planches")
 
 
 def _can_edit_planche(user, member: Member, planche: Planche) -> bool:

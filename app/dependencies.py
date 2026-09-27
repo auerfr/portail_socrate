@@ -117,6 +117,14 @@ async def get_current_user(
     if member is None:
         return None
 
+    # Permissions fines par module (déléguées via /admin/permissions) —
+    # attachées une fois ici (attribut transitoire, non mappé/persisté) pour
+    # que les fonctions can_manage_xxx(member) ci-dessous et celles des
+    # routers puissent les consulter sans avoir à threader `db` partout où
+    # elles sont déjà appelées de façon synchrone.
+    from app.services.permissions import user_permissions as _user_permissions
+    member._fine_permissions = await _user_permissions(db, user.id)
+
     # Présence — battement throttlé (pas plus d'une écriture par minute par membre)
     now = datetime.utcnow()
     if member.last_activity_at is None or (now - member.last_activity_at) > timedelta(seconds=60):
@@ -208,6 +216,13 @@ async def require_admin(
 
 # ── Helpers de permission ───────────────────────────────────────────────────
 
+def has_fine_permission(member: Member, perm: str) -> bool:
+    """Le membre a-t-il cette permission fine déléguée (cf. /admin/permissions) ?
+    Sync — lit l'attribut attaché une fois par requête dans get_current_user(),
+    pour rester utilisable partout où can_manage_xxx(member) l'est déjà."""
+    return perm in getattr(member, "_fine_permissions", ())
+
+
 def can_manage_meeting(member: Member) -> bool:
     """Peut créer/modifier une tenue."""
     return member.lodge_function in (
@@ -215,7 +230,7 @@ def can_manage_meeting(member: Member) -> bool:
         LodgeFunction.SECRETAIRE,
         LodgeFunction.PREMIER_S,
         LodgeFunction.SECOND_S,
-    )
+    ) or has_fine_permission(member, "can_manage_meetings")
 
 
 def can_lock_meeting(member: Member) -> bool:
@@ -224,8 +239,10 @@ def can_lock_meeting(member: Member) -> bool:
 
 
 def can_manage_finance(member: Member) -> bool:
-    """Peut gérer les cotisations et la trésorerie (VM, Trésorier)."""
-    return member.lodge_function in (LodgeFunction.VM, LodgeFunction.TRESORIER)
+    """Peut gérer les cotisations et la trésorerie (VM, Trésorier, ou
+    délégation ponctuelle du rôle de Trésorier via /admin/permissions)."""
+    return member.lodge_function in (LodgeFunction.VM, LodgeFunction.TRESORIER) \
+        or has_fine_permission(member, "can_manage_finance")
 
 
 async def require_finance_manager(
@@ -246,7 +263,7 @@ def can_manage_members(member: Member) -> bool:
     return member.lodge_function in (
         LodgeFunction.VM,
         LodgeFunction.SECRETAIRE,
-    )
+    ) or has_fine_permission(member, "can_manage_members")
 
 
 async def require_secretariat_manager(

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_admin, require_auth
+from app.dependencies import require_admin, require_auth, has_fine_permission
 from app.models.documents import DocFolder, DocFolderDelegate, DocSpace, DocStatus, Document, DocumentVersion, MinGrade, PlancheEntry
 import json as _json
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
@@ -171,7 +171,12 @@ async def _can_write(member: Member, user, folder: DocFolder, db: AsyncSession) 
     if user.is_admin:
         return True
     if folder.personal_owner_id is not None:
+        # Dossier personnel : même une délégation générale "GED" ne doit pas
+        # ouvrir l'accès à l'espace privé d'un autre membre — seuls
+        # l'admin et le propriétaire y écrivent.
         return member.id == folder.personal_owner_id
+    if has_fine_permission(member, "can_manage_documents"):
+        return True
     if await _is_folder_delegate(member, folder, db):
         return True
     if folder.write_group_id:
