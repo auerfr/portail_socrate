@@ -98,7 +98,9 @@
     <tbody>
       {% for mv in visitors %}
       <tr>
-        <td style="width:25%;">{{ mv.visitor.first_name }} {{ mv.visitor.last_name | masonic_write }}&nbsp;</td>
+        {# Nom en clair pour les maçons passants (pas d'écriture maçonnique) —
+           cf. trace.html : une Secrétaire au pied levé doit pouvoir les lire. #}
+        <td style="width:25%;">{{ mv.visitor.first_name }} {{ mv.visitor.last_name }}&nbsp;</td>
         <td style="width:40%; color:#555;">R∴L∴ {{ mv.visitor.lodge_name or '—' }}&nbsp;</td>
         <td style="width:15%; color:#666; font-size:9.5pt;">{{ mv.visitor.obedience or '' }}&nbsp;</td>
         <td style="color:#666; font-size:9.5pt;">{% if mv.visitor.orient_city %}Or∴ de {{ mv.visitor.orient_city }}{% endif %}</td>

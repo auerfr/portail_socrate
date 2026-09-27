@@ -391,7 +391,11 @@
             {% for mv in visitors %}
             <tr>
               <td class="border border-gray-300 px-3 py-1.5 w-1/4">
-                {{ mv.visitor.first_name }} {{ mv.visitor.last_name | masonic_write }}
+                {# Nom en clair (pas d'écriture maçonnique) pour les maçons
+                   passants uniquement : contrairement aux membres de la
+                   loge, une Secrétaire au pied levé ne connaît pas forcément
+                   ces visiteurs et doit pouvoir lire leur nom. #}
+                {{ mv.visitor.first_name }} {{ mv.visitor.last_name }}
               </td>
               <td class="border border-gray-300 px-3 py-1.5 w-2/5 text-gray-600">
                 R∴L∴ {{ mv.visitor.lodge_name or '—' }}
