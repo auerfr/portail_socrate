@@ -303,9 +303,9 @@
       <!-- Barre empilée -->
       <div class="px-5 pt-4 pb-2">
         <div class="flex h-6 rounded-lg overflow-hidden w-full gap-px">
-          {% if b_crit  > 0 %}<div class="bg-red-500"     style="width:{{ (b_crit  * 100 // total_m) }}%" title="Critique &lt;15% : {{ b_crit }} frère{{ 's' if b_crit>1 }}"></div>{% endif %}
-          {% if b_low   > 0 %}<div class="bg-orange-400"  style="width:{{ (b_low   * 100 // total_m) }}%" title="Insuffisant 15–49% : {{ b_low }} frère{{ 's' if b_low>1 }}"></div>{% endif %}
-          {% if b_mid   > 0 %}<div class="bg-yellow-400"  style="width:{{ (b_mid   * 100 // total_m) }}%" title="Passable 50–74% : {{ b_mid }} frère{{ 's' if b_mid>1 }}"></div>{% endif %}
+          {% if b_crit  > 0 %}<div class="bg-red-500"     style="width:{{ (b_crit  * 100 // total_m) }}%" title="À encourager &lt;15% : {{ b_crit }} frère{{ 's' if b_crit>1 }}"></div>{% endif %}
+          {% if b_low   > 0 %}<div class="bg-orange-400"  style="width:{{ (b_low   * 100 // total_m) }}%" title="En progression 15–49% : {{ b_low }} frère{{ 's' if b_low>1 }}"></div>{% endif %}
+          {% if b_mid   > 0 %}<div class="bg-yellow-400"  style="width:{{ (b_mid   * 100 // total_m) }}%" title="Sur la bonne voie 50–74% : {{ b_mid }} frère{{ 's' if b_mid>1 }}"></div>{% endif %}
           {% if b_good  > 0 %}<div class="bg-green-400"   style="width:{{ (b_good  * 100 // total_m) }}%" title="Bon 75–99% : {{ b_good }} frère{{ 's' if b_good>1 }}"></div>{% endif %}
           {% if b_perf  > 0 %}<div class="bg-green-600"   style="width:{{ (b_perf  * 100 // total_m) }}%" title="Parfait 100% : {{ b_perf }} frère{{ 's' if b_perf>1 }}"></div>{% endif %}
         </div>
@@ -314,9 +314,9 @@
       <!-- Légende détaillée -->
       <div class="px-5 pb-5 grid grid-cols-2 sm:grid-cols-5 gap-3 mt-2">
         {% for label, color_bg, color_text, count, desc in [
-          ('< 15%',    'bg-red-50',    'text-red-700',    b_crit, 'Alerte critique'),
-          ('15–49%',   'bg-orange-50', 'text-orange-700', b_low,  'Insuffisant'),
-          ('50–74%',   'bg-yellow-50', 'text-yellow-700', b_mid,  'Passable'),
+          ('< 15%',    'bg-red-50',    'text-red-700',    b_crit, 'À encourager'),
+          ('15–49%',   'bg-orange-50', 'text-orange-700', b_low,  'En progression'),
+          ('50–74%',   'bg-yellow-50', 'text-yellow-700', b_mid,  'Sur la bonne voie'),
           ('75–99%',   'bg-green-50',  'text-green-700',  b_good, 'Bien'),
           ('100%',     'bg-emerald-50','text-emerald-700',b_perf, 'Parfait'),
         ] %}
