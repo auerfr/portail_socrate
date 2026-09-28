@@ -1,5 +1,5 @@
 // Service Worker — Portail Socrate PWA
-const CACHE_NAME = 'socrate-v4';
+const CACHE_NAME = 'socrate-v5';
 const STATIC_ASSETS = [
   '/static/manifest.json',
   '/static/img/icon-192.png',
@@ -24,11 +24,17 @@ async function trimCache(cacheName, maxEntries) {
   } catch (e) { /* silent */ }
 }
 
-// Installation : précache des assets statiques + page offline
+// Installation : précache des assets statiques + page offline. Chaque
+// fichier est mis en cache indépendamment (pas cache.addAll(), qui est
+// tout-ou-rien : un seul échec — proxy d'entreprise, requête coupée —
+// viderait tout le précache, y compris offline.html, le filet de
+// sécurité dont dépend le fallback réseau plus bas.
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) =>
-      cache.addAll(STATIC_ASSETS).catch(() => {})
+      Promise.all(
+        STATIC_ASSETS.map((url) => cache.add(url).catch(() => {}))
+      )
     )
   );
   self.skipWaiting();
@@ -72,7 +78,7 @@ self.addEventListener('fetch', (event) => {
             caches.open(CACHE_NAME).then((cache) => cache.put(req, clone));
           }
           return resp;
-        }).catch(() => cached)
+        }).catch(() => cached || Response.error())
       )
     );
     return;
@@ -92,7 +98,22 @@ self.addEventListener('fetch', (event) => {
           return resp;
         })
         .catch(() =>
-          caches.match(req).then((cached) => cached || caches.match('/static/offline.html'))
+          caches.match(req).then((cached) => {
+            if (cached) return cached;
+            return caches.match('/static/offline.html').then((offline) =>
+              // Filet de sécurité ultime : si même offline.html n'est pas en
+              // cache (précache jamais abouti), event.respondWith() ne doit
+              // jamais recevoir undefined — ça fait planter le SW avec
+              // "Failed to convert value to 'Response'" et casse la
+              // navigation entière au lieu d'un simple message hors-ligne.
+              offline || new Response(
+                '<!doctype html><html lang="fr"><meta charset="utf-8">' +
+                '<title>Hors ligne</title><body style="font-family:sans-serif;text-align:center;padding:3rem">' +
+                '<h1>Connexion indisponible</h1><p>Impossible de contacter le serveur. Réessayez dans un instant.</p></body></html>',
+                { status: 503, headers: { 'Content-Type': 'text/html; charset=utf-8' } }
+              )
+            );
+          })
         )
     );
     return;
@@ -100,7 +121,7 @@ self.addEventListener('fetch', (event) => {
 
   // Reste : network puis cache
   event.respondWith(
-    fetch(req).catch(() => caches.match(req))
+    fetch(req).catch(() => caches.match(req).then((cached) => cached || Response.error()))
   );
 });
 
