@@ -65,6 +65,12 @@ def configure_logging(environment: str = "development") -> None:
     logging.getLogger("uvicorn.access").setLevel(logging.WARNING)
     logging.getLogger("uvicorn.error").setLevel(logging.INFO)
 
+    # fontTools (sous-jacent à WeasyPrint pour la génération PDF des tracés)
+    # émet des centaines de lignes INFO par document (une par glyphe/table
+    # de police sous-ensemblée) — bruit pur qui peut vite saturer les logs.
+    logging.getLogger("fontTools").setLevel(logging.WARNING)
+    logging.getLogger("weasyprint").setLevel(logging.WARNING)
+
     logging.getLogger(__name__).info(
         "Logging configuré", extra={"environment": environment}
     )
