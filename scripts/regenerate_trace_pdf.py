@@ -21,7 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent))
 import app.main  # noqa: F401
 from app.database import AsyncSessionLocal
 from app.models.meetings import Meeting, Attendance, MeetingVisitor
-from app.models.reports import MeetingReport, ReportStatus
+from app.models.reports import MeetingReport
 from app.models.documents import Document
 from app.models.lodge import LodgeSettings
 from app.routers.meetings import (
@@ -37,12 +37,15 @@ import uuid
 
 async def main(meeting_id: int | None):
     async with AsyncSessionLocal() as db:
+        # Pas de filtre sur le statut : un tracé archivé en HTML le reste
+        # même après être passé à ADOPTE ou ARCHIVE (étapes en aval de
+        # l'approbation) — seul compte le fait que archived_doc_id pointe
+        # vers un document HTML à remplacer.
         stmt = (
             select(MeetingReport)
             .options(selectinload(MeetingReport.approved_by))
             .join(Document, MeetingReport.archived_doc_id == Document.id)
             .where(
-                MeetingReport.status == ReportStatus.APPROUVE,
                 MeetingReport.archived_doc_id.isnot(None),
                 Document.mime_type == "text/html",
             )
