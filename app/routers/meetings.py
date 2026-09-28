@@ -1065,71 +1065,63 @@ async def trace_approve(
     if not meeting:
         raise HTTPException(status_code=404)
 
+    # ── Archivage GED : PDF officiel du tracé — condition de l'approbation ──
+    # L'archivage n'est plus un best-effort silencieux : si le PDF ne peut
+    # pas être généré, l'approbation échoue explicitement (rien n'est
+    # committé, cf. get_db qui rollback sur exception) plutôt que d'archiver
+    # discrètement en HTML sans que personne ne le remarque.
+    approved_at = datetime.now()
+
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+    ctx_vars = await _trace_snapshot_context(db, meeting)
+
+    archive_html = templates.get_template("pages/meetings/trace_archive.html").render({
+        "request": request, "meeting": meeting, "lodge": lodge,
+        "grade_label": _grade_label,
+        "approved_by": member, "approved_at": approved_at,
+        **ctx_vars,
+    })
+
+    try:
+        pdf_bytes = _render_trace_pdf(archive_html)
+    except Exception as e:
+        logger.error("Génération PDF du tracé échouée à l'approbation : %s", e, exc_info=True)
+        raise HTTPException(
+            status_code=500,
+            detail="La génération du PDF du tracé a échoué : le tracé n'a pas été approuvé. "
+                   "Réessayez dans un instant ou contactez l'administrateur si le problème persiste.",
+        )
+
+    year_label = str(meeting.meeting_date.year)
+    folder = await _get_or_create_pv_folder(db, year_label)
+    doc_name = _archive_doc_name(meeting)
+
+    os.makedirs(TRACE_ARCHIVE_UPLOAD_DIR, exist_ok=True)
+    filename = f"pv_{uuid.uuid4().hex}.pdf"
+    storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
+    with open(storage_path, "wb") as f:
+        f.write(pdf_bytes)
+
     report.status = ReportStatus.APPROUVE
     report.approved_by_id = member.id
-    report.approved_at = datetime.now()
+    report.approved_at = approved_at
 
-    # ── Archivage GED : snapshot HTML complet du tracé officiel ─────────────
-    try:
-        lodge_r = await db.execute(select(LodgeSettings).limit(1))
-        lodge = lodge_r.scalar_one_or_none()
-
-        ctx_vars = await _trace_snapshot_context(db, meeting)
-
-        archive_html = templates.get_template("pages/meetings/trace_archive.html").render({
-            "request": request, "meeting": meeting, "lodge": lodge,
-            "grade_label": _grade_label,
-            "approved_by": member, "approved_at": report.approved_at,
-            **ctx_vars,
-        })
-
-        year_label = str(meeting.meeting_date.year)
-        folder = await _get_or_create_pv_folder(db, year_label)
-        doc_name = _archive_doc_name(meeting)
-
-        os.makedirs(TRACE_ARCHIVE_UPLOAD_DIR, exist_ok=True)
-
-        # PDF plutôt que HTML : plus adapté à un document officiel archivé
-        # (impression, partage, mise en page figée) — rendu à partir du même
-        # gabarit trace_archive.html (WeasyPrint gère nativement le CSS de
-        # mise en page imprimée, @page compris). En cas d'échec (ex: policy
-        # d'hébergement empêchant WeasyPrint), on retombe sur le HTML plutôt
-        # que de perdre l'archivage.
-        try:
-            pdf_bytes = _render_trace_pdf(archive_html)
-            filename = f"pv_{uuid.uuid4().hex}.pdf"
-            storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
-            with open(storage_path, "wb") as f:
-                f.write(pdf_bytes)
-            mime_type = "application/pdf"
-            file_size = len(pdf_bytes)
-        except Exception as e:
-            logger.warning("Génération PDF du tracé échouée, archivage en HTML : %s", e, exc_info=True)
-            filename = f"pv_{uuid.uuid4().hex}.html"
-            storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
-            with open(storage_path, "w", encoding="utf-8") as f:
-                f.write(archive_html)
-            mime_type = "text/html"
-            file_size = len(archive_html.encode())
-
-        doc = Document(
-            folder_id=folder.id,
-            name=doc_name,
-            original_filename=filename,
-            mime_type=mime_type,
-            file_size=file_size,
-            storage_path=storage_path,
-            status=DocStatus.PUBLISHED,
-            author_id=report.author_id,
-            validated_by_id=member.id,
-            validated_at=report.approved_at,
-        )
-        db.add(doc)
-        await db.flush()
-        report.archived_doc_id = doc.id
-
-    except Exception as e:
-        logger.warning("Archivage GED du tracé échoué : %s", e, exc_info=True)
+    doc = Document(
+        folder_id=folder.id,
+        name=doc_name,
+        original_filename=filename,
+        mime_type="application/pdf",
+        file_size=len(pdf_bytes),
+        storage_path=storage_path,
+        status=DocStatus.PUBLISHED,
+        author_id=report.author_id,
+        validated_by_id=member.id,
+        validated_at=approved_at,
+    )
+    db.add(doc)
+    await db.flush()
+    report.archived_doc_id = doc.id
 
     await db.commit()
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?approved=1", status_code=303)
