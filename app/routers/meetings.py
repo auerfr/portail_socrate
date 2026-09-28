@@ -1052,17 +1052,54 @@ async def trace_approve(
         doc_name = _archive_doc_name(meeting)
 
         os.makedirs(TRACE_ARCHIVE_UPLOAD_DIR, exist_ok=True)
-        filename = f"pv_{uuid.uuid4().hex}.html"
-        storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
-        with open(storage_path, "w", encoding="utf-8") as f:
-            f.write(archive_html)
+
+        # PDF plutôt que HTML : plus adapté à un document officiel archivé
+        # (impression, partage, mise en page figée) — rendu à partir du même
+        # gabarit trace_archive.html (WeasyPrint gère nativement le CSS de
+        # mise en page imprimée, @page compris). En cas d'échec (ex: policy
+        # d'hébergement empêchant WeasyPrint), on retombe sur le HTML plutôt
+        # que de perdre l'archivage.
+        try:
+            import weasyprint
+
+            def _static_url_fetcher(url: str):
+                # Les références d'images du gabarit sont en chemin absolu
+                # (ex: /static/img/sceau-socrate-transparent.png) — pensées
+                # pour être servies par Starlette, pas résolues comme chemin
+                # fichier. Une fois converties en file:// par WeasyPrint via
+                # base_url, la résolution RFC 3986 d'un chemin absolu ignore
+                # le path de la base et repart de la racine du filesystem :
+                # on les redirige donc explicitement vers app/static/.
+                if url.startswith("file:///static/"):
+                    rel = url[len("file:///static/"):]
+                    url = f"file://{os.getcwd()}/app/static/{rel}"
+                return weasyprint.default_url_fetcher(url)
+
+            base_url = f"file://{os.getcwd()}/"
+            pdf_bytes = weasyprint.HTML(
+                string=archive_html, base_url=base_url, url_fetcher=_static_url_fetcher
+            ).write_pdf()
+            filename = f"pv_{uuid.uuid4().hex}.pdf"
+            storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
+            with open(storage_path, "wb") as f:
+                f.write(pdf_bytes)
+            mime_type = "application/pdf"
+            file_size = len(pdf_bytes)
+        except Exception as e:
+            logger.warning("Génération PDF du tracé échouée, archivage en HTML : %s", e, exc_info=True)
+            filename = f"pv_{uuid.uuid4().hex}.html"
+            storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
+            with open(storage_path, "w", encoding="utf-8") as f:
+                f.write(archive_html)
+            mime_type = "text/html"
+            file_size = len(archive_html.encode())
 
         doc = Document(
             folder_id=folder.id,
             name=doc_name,
             original_filename=filename,
-            mime_type="text/html",
-            file_size=len(archive_html.encode()),
+            mime_type=mime_type,
+            file_size=file_size,
             storage_path=storage_path,
             status=DocStatus.PUBLISHED,
             author_id=report.author_id,
