@@ -133,6 +133,76 @@ def _can_upload_signed_pdf(user, member: Member, report: "MeetingReport") -> boo
     )
 
 
+async def _trace_snapshot_context(db: AsyncSession, meeting: "Meeting") -> dict:
+    """Contexte de rendu du gabarit trace_archive.html (présences, offices,
+    date maçonnique...) — partagé entre l'archivage à l'approbation
+    (trace_approve) et l'export PDF de relecture avant validation
+    (trace_export_pdf)."""
+    all_offices, _uses_previous_college = await _officer_baseline_for_meeting(db, meeting)
+    offices = [o for o in all_offices if o.member_id]
+    member_office_lists: dict[int, list[str]] = {}
+    for o in offices:
+        member_office_lists.setdefault(o.member_id, []).append(o.label)
+    meeting_subs = (await db.execute(
+        select(MeetingOffice).where(MeetingOffice.meeting_id == meeting.id)
+    )).scalars().all()
+    for ms in meeting_subs:
+        if ms.substitute_member_id and ms.substitute_member_id not in member_office_lists:
+            member_office_lists[ms.substitute_member_id] = [ms.office_label + " remplaçant"]
+    member_office: dict[int, str] = {
+        mid: " · ".join(labels) for mid, labels in member_office_lists.items()
+    }
+    officer_rows = [r for r in await _build_officer_rows(db, meeting) if r["needs_substitute"] or r["substitute"]]
+
+    present  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.PRESENT], key=lambda a: a.member.last_name)
+    excused  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.EXCUSED], key=lambda a: a.member.last_name)
+    absent   = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.ABSENT], key=lambda a: a.member.last_name)
+    visitors = sorted([mv for mv in meeting.meeting_visitors if mv.status.value == "CONFIRMED"], key=lambda mv: mv.visitor.last_name)
+
+    d = meeting.meeting_date
+    masonic_year  = d.year + 4000
+    masonic_month = d.month - 2 if d.month >= 3 else d.month + 10
+    day_suffix    = "er" if d.day == 1 else "ème"
+    month_suffix  = "er" if masonic_month == 1 else "ème"
+    vm_office = _find_vm_office(offices)
+    vm_name = ""
+    if vm_office and vm_office.member_id:
+        for att in present:
+            if att.member_id == vm_office.member_id:
+                vm_name = f"{att.member.first_name} {masonic_write(att.member.last_name)}"
+                break
+
+    return {
+        "present": present, "excused": excused, "absent": absent, "visitors": visitors,
+        "member_office": member_office, "officer_rows": officer_rows,
+        "masonic_year": masonic_year, "masonic_month": masonic_month,
+        "day_suffix": day_suffix, "month_suffix": month_suffix, "vm_name": vm_name,
+    }
+
+
+def _render_trace_pdf(html: str) -> bytes:
+    """Rend un gabarit trace_archive.html en PDF via WeasyPrint."""
+    import weasyprint
+
+    def _static_url_fetcher(url: str):
+        # Les références d'images du gabarit sont en chemin absolu
+        # (ex: /static/img/sceau-socrate-transparent.png) — pensées pour
+        # être servies par Starlette, pas résolues comme chemin fichier.
+        # Une fois converties en file:// par WeasyPrint via base_url, la
+        # résolution RFC 3986 d'un chemin absolu ignore le path de la
+        # base et repart de la racine du filesystem : on les redirige
+        # donc explicitement vers app/static/.
+        if url.startswith("file:///static/"):
+            rel = url[len("file:///static/"):]
+            url = f"file://{os.getcwd()}/app/static/{rel}"
+        return weasyprint.default_url_fetcher(url)
+
+    base_url = f"file://{os.getcwd()}/"
+    return weasyprint.HTML(
+        string=html, base_url=base_url, url_fetcher=_static_url_fetcher
+    ).write_pdf()
+
+
 def _find_vm_office(offices):
     """Trouve l'office du V∴M∴ dans une liste d'offices (LodgeOffice, ou
     SimpleNamespace du Collège précédent — cf. _officer_baseline_for_meeting).
@@ -1004,47 +1074,13 @@ async def trace_approve(
         lodge_r = await db.execute(select(LodgeSettings).limit(1))
         lodge = lodge_r.scalar_one_or_none()
 
-        all_offices, _uses_previous_college = await _officer_baseline_for_meeting(db, meeting)
-        offices = [o for o in all_offices if o.member_id]
-        member_office_lists: dict[int, list[str]] = {}
-        for o in offices:
-            member_office_lists.setdefault(o.member_id, []).append(o.label)
-        meeting_subs = (await db.execute(
-            select(MeetingOffice).where(MeetingOffice.meeting_id == meeting_id)
-        )).scalars().all()
-        for ms in meeting_subs:
-            if ms.substitute_member_id and ms.substitute_member_id not in member_office_lists:
-                member_office_lists[ms.substitute_member_id] = [ms.office_label + " remplaçant"]
-        member_office: dict[int, str] = {
-            mid: " · ".join(labels) for mid, labels in member_office_lists.items()
-        }
-        officer_rows = [r for r in await _build_officer_rows(db, meeting) if r["needs_substitute"] or r["substitute"]]
-
-        present  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.PRESENT], key=lambda a: a.member.last_name)
-        excused  = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.EXCUSED], key=lambda a: a.member.last_name)
-        absent   = sorted([a for a in meeting.attendances if a.status == AttendanceStatus.ABSENT], key=lambda a: a.member.last_name)
-        visitors = sorted([mv for mv in meeting.meeting_visitors if mv.status.value == "CONFIRMED"], key=lambda mv: mv.visitor.last_name)
-
-        d = meeting.meeting_date
-        masonic_year  = d.year + 4000
-        masonic_month = d.month - 2 if d.month >= 3 else d.month + 10
-        day_suffix    = "er" if d.day == 1 else "ème"
-        month_suffix  = "er" if masonic_month == 1 else "ème"
-        vm_office = _find_vm_office(offices)
-        vm_name = ""
-        if vm_office and vm_office.member_id:
-            for att in present:
-                if att.member_id == vm_office.member_id:
-                    vm_name = f"{att.member.first_name} {masonic_write(att.member.last_name)}"
-                    break
+        ctx_vars = await _trace_snapshot_context(db, meeting)
 
         archive_html = templates.get_template("pages/meetings/trace_archive.html").render({
             "request": request, "meeting": meeting, "lodge": lodge,
-            "present": present, "excused": excused, "absent": absent, "visitors": visitors,
-            "member_office": member_office, "officer_rows": officer_rows,
-            "grade_label": _grade_label, "masonic_year": masonic_year, "masonic_month": masonic_month,
-            "day_suffix": day_suffix, "month_suffix": month_suffix, "vm_name": vm_name,
+            "grade_label": _grade_label,
             "approved_by": member, "approved_at": report.approved_at,
+            **ctx_vars,
         })
 
         year_label = str(meeting.meeting_date.year)
@@ -1060,25 +1096,7 @@ async def trace_approve(
         # d'hébergement empêchant WeasyPrint), on retombe sur le HTML plutôt
         # que de perdre l'archivage.
         try:
-            import weasyprint
-
-            def _static_url_fetcher(url: str):
-                # Les références d'images du gabarit sont en chemin absolu
-                # (ex: /static/img/sceau-socrate-transparent.png) — pensées
-                # pour être servies par Starlette, pas résolues comme chemin
-                # fichier. Une fois converties en file:// par WeasyPrint via
-                # base_url, la résolution RFC 3986 d'un chemin absolu ignore
-                # le path de la base et repart de la racine du filesystem :
-                # on les redirige donc explicitement vers app/static/.
-                if url.startswith("file:///static/"):
-                    rel = url[len("file:///static/"):]
-                    url = f"file://{os.getcwd()}/app/static/{rel}"
-                return weasyprint.default_url_fetcher(url)
-
-            base_url = f"file://{os.getcwd()}/"
-            pdf_bytes = weasyprint.HTML(
-                string=archive_html, base_url=base_url, url_fetcher=_static_url_fetcher
-            ).write_pdf()
+            pdf_bytes = _render_trace_pdf(archive_html)
             filename = f"pv_{uuid.uuid4().hex}.pdf"
             storage_path = os.path.join(TRACE_ARCHIVE_UPLOAD_DIR, filename)
             with open(storage_path, "wb") as f:
@@ -1115,6 +1133,60 @@ async def trace_approve(
 
     await db.commit()
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?approved=1", status_code=303)
+
+
+# ── Export PDF de relecture (avant validation) ───────────────────────────────
+
+@router.get("/{meeting_id}/trace/pdf")
+async def trace_export_pdf(
+    request: Request,
+    meeting_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Export PDF à la volée du tracé dans son état courant (brouillon ou
+    soumis) — pour relecture avant validation en tenue. Contrairement à
+    trace_approve, ne modifie rien et n'archive rien dans la GED : c'est un
+    rendu jetable du même gabarit, marqué "document provisoire"."""
+    user, member = ctx
+    if not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=403, detail="Accès réservé à la Secrétaire et aux officiers")
+
+    meeting_r = await db.execute(
+        select(Meeting)
+        .options(
+            selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+        )
+        .where(Meeting.id == meeting_id)
+    )
+    meeting = meeting_r.scalar_one_or_none()
+    if not meeting:
+        raise HTTPException(status_code=404)
+
+    lodge_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lodge_r.scalar_one_or_none()
+    ctx_vars = await _trace_snapshot_context(db, meeting)
+
+    archive_html = templates.get_template("pages/meetings/trace_archive.html").render({
+        "request": request, "meeting": meeting, "lodge": lodge,
+        "grade_label": _grade_label,
+        "approved_by": None, "approved_at": None, "draft": True,
+        **ctx_vars,
+    })
+
+    try:
+        pdf_bytes = _render_trace_pdf(archive_html)
+    except Exception as e:
+        logger.warning("Export PDF de relecture du tracé échoué : %s", e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Échec de la génération du PDF")
+
+    filename = f"trace_brouillon_{meeting.meeting_date.strftime('%Y%m%d')}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 # ── Adoption en tenue + import du PDF signé (étape en aval de l'approbation) ─

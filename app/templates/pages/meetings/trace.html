@@ -83,6 +83,13 @@
         </svg>
         {% if report and report.signed_pdf_doc_id %}PDF de travail{% else %}Imprimer / PDF{% endif %}
       </button>
+      {% if not (report and report.status.value == 'APPROUVE') %}
+      <a href="/meetings/{{ meeting.id }}/trace/pdf" target="_blank"
+         class="flex items-center gap-2 bg-white border border-gray-200 text-gray-700 text-sm px-4 py-2 rounded-lg hover:bg-gray-50 transition-colors">
+        <i class="ti ti-file-type-pdf"></i>
+        Export PDF (relecture)
+      </a>
+      {% endif %}
       {% if report and report.signed_pdf_doc_id %}
       <a href="/documents/file/{{ report.signed_pdf_doc_id }}/view" target="_blank"
          class="flex items-center gap-2 bg-emerald-600 text-white text-sm px-4 py-2 rounded-lg hover:bg-emerald-700 transition-colors">

@@ -23,6 +23,14 @@
 </head>
 <body>
 
+  {% if draft %}
+  <div style="background:#fef3c7; color:#92400e; text-align:center; font-weight:bold; font-size:9pt;
+              letter-spacing:.04em; text-transform:uppercase; padding:.5rem; margin-bottom:1rem;
+              border:1px solid #fcd34d; border-radius:4px;">
+    Document provisoire — non validé en tenue — pour relecture uniquement
+  </div>
+  {% endif %}
+
   <div class="header">
     <img src="/static/img/sceau-socrate-transparent.png" alt="Sceau">
     <div>
@@ -121,7 +129,11 @@
   </div>
 
   <div class="footer">
+    {% if approved_by and approved_at %}
     Tracé approuvé par {{ approved_by.last_name }} {{ approved_by.first_name }} le {{ approved_at.strftime('%d/%m/%Y') }} — Portail Socrate
+    {% else %}
+    Document provisoire, non encore validé en tenue — Portail Socrate
+    {% endif %}
   </div>
 
 </body>
