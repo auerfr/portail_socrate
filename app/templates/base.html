@@ -288,6 +288,12 @@
         Anniversaires
       </a>
 
+      <a href="/statistiques/"
+         class="nav-item {% if '/statistiques' in request.url.path %}active{% endif %}">
+        <i class="ti ti-chart-bar"></i>
+        Statistiques de la loge
+      </a>
+
       <a href="/members"
          class="nav-item {% if '/members' in request.url.path %}active{% endif %}">
         <i class="ti ti-users"></i>
@@ -601,6 +607,12 @@
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/anniversaires' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-cake text-lg opacity-70"></i>
         Anniversaires
+      </a>
+
+      <a href="/statistiques/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/statistiques' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-chart-bar text-lg opacity-70"></i>
+        Statistiques de la loge
       </a>
 
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}

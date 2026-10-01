@@ -48,6 +48,11 @@
               ● {{ status_label(target.status) }}
             </span>
             {% endif %}
+            {% if target.is_founder %}
+            <span class="inline-flex items-center gap-1 text-xs font-medium text-amber-200 bg-black/20 rounded-full px-2.5 py-1">
+              ★ Membre fondateur
+            </span>
+            {% endif %}
           </div>
         </div>
       </div>

@@ -1,6 +1,9 @@
 """Domaine 1 — Identité & Accès"""
 import enum
 from datetime import datetime, date as date_type
+
+# Allumage des feux de la loge : les membres entrés ce jour-là sont fondateurs
+LODGE_FOUNDING_DATE = date_type(2022, 12, 21)
 from typing import Optional
 from sqlalchemy import String, Enum, Boolean, DateTime, Date, Integer, ForeignKey, Text, UniqueConstraint, func, or_, and_
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -195,6 +198,11 @@ class Member(Base):
     @property
     def is_active(self) -> bool:
         return self.status == MemberStatus.ACTIVE
+
+    @property
+    def is_founder(self) -> bool:
+        """Membre fondateur : entré à l'allumage des feux (même parti depuis)."""
+        return self.membership_start_date == LODGE_FOUNDING_DATE
 
     @property
     def active_responsibilities(self) -> list["MemberResponsibility"]:

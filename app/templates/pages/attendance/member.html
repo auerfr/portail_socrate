@@ -25,6 +25,7 @@
         </h1>
         <div class="text-loge-200 text-sm">
           {{ target.masonic_grade.value if target.masonic_grade else '' }}
+          {% if target.is_founder %}· ★ Membre fondateur{% endif %}
           {% if target.status.value != 'ACTIVE' and target.status_date %}
           · a quitté la loge le {{ target.status_date.strftime('%d/%m/%Y') }}
           {% endif %}

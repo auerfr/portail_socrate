@@ -1,0 +1,431 @@
+{% extends "base.html" %}
+{% block title %}Statistiques de la loge — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="p-4 lg:p-8 max-w-6xl mx-auto space-y-8">
+
+  <!-- En-tête -->
+  <div>
+    <h1 class="text-xl font-bold text-gray-900 flex items-center gap-2">
+      <i class="ti ti-chart-bar text-loge-700"></i> Statistiques de la loge
+    </h1>
+    <p class="text-sm text-gray-500 mt-0.5">
+      Depuis l'allumage des feux du {{ allumage.strftime('%d/%m/%Y') }}
+      — {{ lodge_age_years | round(1) | replace('.', ',') }} ans de travaux.
+      Chiffres d'ensemble, sans aucun nom.
+    </p>
+  </div>
+
+  <!-- ══ Chiffres clés ══════════════════════════════════════════════════ -->
+  <div class="grid grid-cols-2 lg:grid-cols-4 gap-4">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Membres</div>
+      <div class="text-3xl font-bold text-loge-700">{{ kpi.members }}</div>
+      <div class="text-xs text-gray-500 mt-1">{{ kpi.freres }} frères · {{ kpi.soeurs }} sœurs</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Tenues</div>
+      <div class="text-3xl font-bold text-gray-800">{{ kpi.meetings }}</div>
+      <div class="text-xs text-gray-500 mt-1">depuis l'allumage des feux</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Assiduité moyenne</div>
+      <div class="text-3xl font-bold text-gray-800">{% if kpi.avg_attendance is not none %}{{ kpi.avg_attendance }}%{% else %}—{% endif %}</div>
+      <div class="text-xs text-gray-500 mt-1">présence des membres aux tenues</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Maçons passants</div>
+      <div class="text-3xl font-bold text-gray-800">{{ kpi.visits }}</div>
+      <div class="text-xs text-gray-500 mt-1">visites de {{ kpi.unique_visitors }} FF∴ et SS∴</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Âge moyen</div>
+      <div class="text-3xl font-bold text-gray-800">{% if kpi.avg_age %}{{ kpi.avg_age }} ans{% else %}—{% endif %}</div>
+      <div class="text-xs text-gray-500 mt-1">sur {{ kpi.ages_known }} membres renseignés</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Ancienneté maçonnique</div>
+      <div class="text-3xl font-bold text-gray-800">{% if kpi.avg_masonic %}{{ kpi.avg_masonic }} ans{% else %}—{% endif %}</div>
+      <div class="text-xs text-gray-500 mt-1">en moyenne depuis l'initiation</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Loges visiteuses</div>
+      <div class="text-3xl font-bold text-gray-800">{{ kpi.distinct_lodges }}</div>
+      <div class="text-xs text-gray-500 mt-1">venues de {{ kpi.distinct_orients }} orients</div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+      <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Planches</div>
+      <div class="text-3xl font-bold text-gray-800">{{ kpi.planches }}</div>
+      <div class="text-xs text-gray-500 mt-1">dans la bibliothèque depuis {{ allumage.year }}</div>
+    </div>
+  </div>
+
+  <!-- ══ Le saviez-vous ? ═══════════════════════════════════════════════ -->
+  <section class="bg-loge-50 border border-loge-100 rounded-xl px-5 py-4">
+    <h2 class="text-sm font-semibold text-loge-800 mb-2 flex items-center gap-1.5">
+      <i class="ti ti-bulb"></i> Le saviez-vous ?
+    </h2>
+    <ul class="text-sm text-gray-700 space-y-1.5">
+      {% if founders_total %}
+      <li>• La loge compte <strong>{{ founders_total }} membres fondateurs</strong>, présents à l'allumage des feux ;
+        <strong>{{ founders_active }}</strong> d'entre eux sont toujours sur les colonnes.</li>
+      {% endif %}
+      {% if kpi.total_masonic_years %}
+      <li>• À nous tous, nous totalisons environ <strong>{{ kpi.total_masonic_years }} années de maçonnerie</strong>
+        <span class="text-gray-400">(sur {{ kpi.masonic_known }} membres dont la date d'initiation est connue)</span>.</li>
+      {% endif %}
+      {% if record %}
+      <li>• La tenue la plus fréquentée reste celle du <strong>{{ record.date.strftime('%d/%m/%Y') }}</strong>
+        {% if record.title %}({{ record.title }}){% endif %} : <strong>{{ record.total }} participants</strong>,
+        dont {{ record.visitors }} maçons passants.</li>
+      {% endif %}
+      {% if best_year %}
+      <li>• Meilleure année d'assiduité : <strong>{{ best_year.label }}</strong>, avec <strong>{{ best_year.attendance_pct }}%</strong> de présence.</li>
+      {% endif %}
+      {% if kpi.unique_visitors %}
+      <li>• <strong>{{ kpi.loyal_visitors }}</strong> maçons passants sont venus au moins deux fois
+        ({{ (kpi.loyal_visitors * 100 / kpi.unique_visitors) | round | int }}% des visiteurs) : ils reviennent !</li>
+      {% endif %}
+      {% if kpi.avg_lodge %}
+      <li>• Ancienneté moyenne au sein de la loge : <strong>{{ kpi.avg_lodge | replace('.', ',') }} ans</strong>.</li>
+      {% endif %}
+    </ul>
+  </section>
+
+  <!-- ══ Effectif ═══════════════════════════════════════════════════════ -->
+  <section class="space-y-4">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+      <i class="ti ti-users text-loge-600"></i> L'effectif
+    </h2>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Membres en fin d'année maçonnique</h3>
+        <p class="text-xs text-gray-400 mb-3">Frères et sœurs au 30 juin (aujourd'hui pour l'année en cours)</p>
+        <div class="relative" style="height:256px;"><canvas id="effectifChart" aria-label="Effectif par année"></canvas></div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Répartition par grade</h3>
+        <p class="text-xs text-gray-400 mb-3">Apprentis, compagnons et maîtres à la même date</p>
+        <div class="relative" style="height:256px;"><canvas id="gradesChart" aria-label="Grades par année"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Arrivées et départs</h3>
+        <p class="text-xs text-gray-400 mb-3">Par année maçonnique, hors membres fondateurs</p>
+        <div class="relative" style="height:256px;"><canvas id="mouvementsChart" aria-label="Arrivées et départs"></canvas></div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Aujourd'hui</h3>
+        <p class="text-xs text-gray-400 mb-4">Composition de la loge</p>
+
+        {% set total = kpi.members or 1 %}
+        <div class="text-xs text-gray-500 mb-1 flex justify-between">
+          <span>Frères {{ kpi.freres }}</span><span>Sœurs {{ kpi.soeurs }} ({{ kpi.pct_soeurs }}%)</span>
+        </div>
+        <div class="flex h-3 rounded-full overflow-hidden mb-5" style="gap:2px;">
+          <div style="width:{{ kpi.freres * 100 / total }}%; background:#2a78d6;" title="Frères : {{ kpi.freres }}"></div>
+          <div style="width:{{ kpi.soeurs * 100 / total }}%; background:#eb6834;" title="Sœurs : {{ kpi.soeurs }}"></div>
+        </div>
+
+        {% set g = grades_now %}
+        <div class="text-xs text-gray-500 mb-1 flex justify-between">
+          <span>Apprentis {{ g[0] }}</span><span>Compagnons {{ g[1] }}</span><span>Maîtres {{ g[2] }}</span>
+        </div>
+        <div class="flex h-3 rounded-full overflow-hidden mb-5" style="gap:2px;">
+          <div style="width:{{ g[0] * 100 / total }}%; background:#8fd3cb;" title="Apprentis : {{ g[0] }}"></div>
+          <div style="width:{{ g[1] * 100 / total }}%; background:#3a9e95;" title="Compagnons : {{ g[1] }}"></div>
+          <div style="width:{{ g[2] * 100 / total }}%; background:#1d5f5c;" title="Maîtres : {{ g[2] }}"></div>
+        </div>
+
+        <details class="text-xs text-gray-500">
+          <summary class="cursor-pointer text-loge-700">Voir les données année par année</summary>
+          <div class="overflow-x-auto mt-2">
+            <table class="w-full text-xs">
+              <thead>
+                <tr class="text-left text-gray-400 border-b border-gray-100">
+                  <th class="py-1 pr-2 font-medium">Année</th>
+                  <th class="py-1 px-1 font-medium text-right">Membres</th>
+                  <th class="py-1 px-1 font-medium text-right">Sœurs</th>
+                  <th class="py-1 px-1 font-medium text-right">Initiations</th>
+                  <th class="py-1 px-1 font-medium text-right">Passages</th>
+                  <th class="py-1 px-1 font-medium text-right">Élévations</th>
+                  <th class="py-1 px-1 font-medium text-right">Départs</th>
+                </tr>
+              </thead>
+              <tbody>
+                {% for y in per_year %}
+                <tr class="border-b border-gray-50">
+                  <td class="py-1 pr-2 text-gray-700">{{ y.label }}</td>
+                  <td class="py-1 px-1 text-right">{{ y.members }}</td>
+                  <td class="py-1 px-1 text-right">{{ y.soeurs }}</td>
+                  <td class="py-1 px-1 text-right">{{ y.initiations }}</td>
+                  <td class="py-1 px-1 text-right">{{ y.passages }}</td>
+                  <td class="py-1 px-1 text-right">{{ y.elevations }}</td>
+                  <td class="py-1 px-1 text-right">{{ y.departures }}</td>
+                </tr>
+                {% endfor %}
+              </tbody>
+            </table>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Pyramide des âges</h3>
+        <p class="text-xs text-gray-400 mb-3">Membres actuels dont la date de naissance est connue ({{ kpi.ages_known }})</p>
+        <div class="relative" style="height:224px;"><canvas id="ageChart" aria-label="Répartition par âge"></canvas></div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Ancienneté maçonnique</h3>
+        <p class="text-xs text-gray-400 mb-3">Années depuis l'initiation ({{ kpi.masonic_known }} membres renseignés)</p>
+        <div class="relative" style="height:224px;"><canvas id="masonicChart" aria-label="Ancienneté maçonnique"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ Tenues & assiduité ═════════════════════════════════════════════ -->
+  <section class="space-y-4">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+      <i class="ti ti-building-arch text-loge-600"></i> Les tenues
+    </h2>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-800">Fréquentation, tenue après tenue</h3>
+      <p class="text-xs text-gray-400 mb-3">Membres présents et maçons passants à chacune des {{ kpi.meetings }} tenues</p>
+      <div class="relative" style="height:288px;"><canvas id="timelineChart" aria-label="Fréquentation de chaque tenue"></canvas></div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Taux de présence des membres</h3>
+        <p class="text-xs text-gray-400 mb-3">Par année maçonnique, tenues de son grade uniquement</p>
+        <div class="relative" style="height:224px;"><canvas id="attendanceChart" aria-label="Taux de présence par année"></canvas></div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Nombre et nature des tenues</h3>
+        <p class="text-xs text-gray-400 mb-3">Par année maçonnique</p>
+        <div class="relative" style="height:224px;"><canvas id="tenuesChart" aria-label="Tenues par année"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      {% if weekday_stats | length > 1 %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Mercredi ou jeudi ?</h3>
+        <p class="text-xs text-gray-400 mb-3">Participation moyenne selon le jour de la tenue</p>
+        <div class="relative" style="height:224px;"><canvas id="weekdayChart" aria-label="Participation par jour de la semaine"></canvas></div>
+      </div>
+      {% endif %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Les mois les plus fréquentés</h3>
+        <p class="text-xs text-gray-400 mb-3">Participants en moyenne par tenue (membres + passants)</p>
+        <div class="relative" style="height:224px;"><canvas id="monthChart" aria-label="Participation par mois"></canvas></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ Maçons passants ════════════════════════════════════════════════ -->
+  <section class="space-y-4">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+      <i class="ti ti-door-enter text-loge-600"></i> Les maçons passants
+    </h2>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Visites par année</h3>
+        <p class="text-xs text-gray-400 mb-3">Nombre de visites et nombre de visiteurs différents</p>
+        <div class="relative" style="height:224px;"><canvas id="visitsChart" aria-label="Visites par année"></canvas></div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Obédiences</h3>
+        <p class="text-xs text-gray-400 mb-3">Répartition des visites depuis l'allumage des feux</p>
+        <div class="relative" style="height:224px;"><canvas id="obedienceChart" aria-label="Visites par obédience"></canvas></div>
+      </div>
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">D'où viennent-ils ? <span class="text-xs font-normal text-gray-400">— 10 premiers orients</span></h3>
+        {% set max_o = top_orients[0][1] if top_orients else 1 %}
+        <div class="space-y-2">
+          {% for name, n in top_orients %}
+          <div class="text-xs">
+            <div class="flex justify-between text-gray-600 mb-0.5"><span>{{ name }}</span><span class="font-semibold">{{ n }}</span></div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:{{ n * 100 / max_o }}%; background:#2c7a7b;"></div></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800 mb-3">Loges les plus fidèles <span class="text-xs font-normal text-gray-400">— nombre de visites</span></h3>
+        {% set max_l = top_lodges[0][1] if top_lodges else 1 %}
+        <div class="space-y-2">
+          {% for name, n in top_lodges %}
+          <div class="text-xs">
+            <div class="flex justify-between text-gray-600 mb-0.5"><span>{{ name }}</span><span class="font-semibold">{{ n }}</span></div>
+            <div class="h-2 bg-gray-100 rounded-full overflow-hidden"><div class="h-full rounded-full" style="width:{{ n * 100 / max_l }}%; background:#2c7a7b;"></div></div>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ══ Planches ═══════════════════════════════════════════════════════ -->
+  {% if planche_years %}
+  <section class="space-y-4">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wider flex items-center gap-2">
+      <i class="ti ti-feather text-loge-600"></i> Les travaux
+    </h2>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-800">Planches par année civile</h3>
+      <p class="text-xs text-gray-400 mb-3">Planches déposées dans la bibliothèque, par grade</p>
+      <div class="relative" style="height:224px;"><canvas id="planchesChart" aria-label="Planches par année"></canvas></div>
+    </div>
+  </section>
+  {% endif %}
+
+  <p class="text-xs text-gray-400">
+    Toutes les statistiques sont calculées à partir des données du portail (fiches membres, pointages des tenues,
+    maçons passants, bibliothèque). Âges et anciennetés ne portent que sur les fiches renseignées.
+    Aucune donnée nominative n'est affichée.
+  </p>
+</div>
+
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+(function () {
+  if (typeof Chart === 'undefined') return;
+
+  // Palette validée (référence dataviz) : catégorielle en ordre fixe + rampe sarcelle pour les grades
+  var C = { blue: '#2a78d6', orange: '#eb6834', aqua: '#1baf7a', yellow: '#eda100', magenta: '#e87ba4',
+            green: '#008300', violet: '#4a3aa7', red: '#e34948', loge: '#2c7a7b' };
+  var CATEGORICAL = [C.blue, C.orange, C.aqua, C.yellow, C.magenta, C.green, C.violet, C.red];
+  var GRADES = ['#8fd3cb', '#3a9e95', '#1d5f5c'];
+
+  Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#6b7280';
+
+  function bar(id, labels, datasets, opts) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    opts = opts || {};
+    datasets.forEach(function (d) {
+      d.borderRadius = 4;
+      d.borderSkipped = 'start';
+      d.maxBarThickness = opts.thick || 42;
+      d.borderColor = '#ffffff';
+      d.borderWidth = opts.stacked ? { top: 2 } : 0;
+    });
+    new Chart(el.getContext('2d'), {
+      type: 'bar',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        indexAxis: opts.horizontal ? 'y' : 'x',
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: datasets.length > 1, position: 'bottom',
+                    labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 2 } },
+          tooltip: { backgroundColor: '#1f2937', padding: 10,
+                     callbacks: opts.suffix ? { label: function (c) { return (c.dataset.label ? c.dataset.label + ' : ' : '') + c.formattedValue + opts.suffix; } } : {} },
+        },
+        scales: {
+          x: { stacked: !!opts.stacked, grid: { display: !!opts.horizontal, color: '#eef0ee' }, border: { display: false },
+               ticks: { maxRotation: 0, autoSkip: true }, max: opts.horizontal ? opts.max : undefined, beginAtZero: true },
+          y: { stacked: !!opts.stacked, beginAtZero: true, max: opts.horizontal ? undefined : opts.max,
+               grid: { display: !opts.horizontal, color: '#eef0ee', drawTicks: false }, border: { display: false },
+               ticks: { precision: 0, maxTicksLimit: 6 } },
+        },
+      },
+    });
+  }
+
+  var years = {{ per_year | tojson }};
+  var yearLabels = years.map(function (y) { return y.label + (y.is_current ? ' (en cours)' : ''); });
+  var col = function (k) { return years.map(function (y) { return y[k]; }); };
+
+  bar('effectifChart', yearLabels, [
+    { label: 'Frères', data: col('freres'), backgroundColor: C.blue },
+    { label: 'Sœurs', data: col('soeurs'), backgroundColor: C.orange },
+  ], { stacked: true });
+
+  bar('gradesChart', yearLabels, [
+    { label: 'Apprentis', data: col('apprentis'), backgroundColor: GRADES[0] },
+    { label: 'Compagnons', data: col('compagnons'), backgroundColor: GRADES[1] },
+    { label: 'Maîtres', data: col('maitres'), backgroundColor: GRADES[2] },
+  ], { stacked: true });
+
+  bar('mouvementsChart', yearLabels, [
+    { label: 'Initiations', data: col('initiations'), backgroundColor: C.blue },
+    { label: 'Affiliations', data: col('affiliations'), backgroundColor: C.orange },
+    { label: 'Départs', data: col('departures'), backgroundColor: C.aqua },
+  ]);
+
+  var age = {{ age_dist | tojson }};
+  bar('ageChart', age.labels, [{ label: 'Membres', data: age.values, backgroundColor: C.loge }]);
+  var mas = {{ masonic_dist | tojson }};
+  bar('masonicChart', mas.labels, [{ label: 'Membres', data: mas.values, backgroundColor: C.loge }]);
+
+  // Tenue après tenue
+  var tl = {{ timeline | tojson }};
+  bar('timelineChart', tl.map(function (t) { return t.label; }), [
+    { label: 'Membres présents', data: tl.map(function (t) { return t.members; }), backgroundColor: C.blue },
+    { label: 'Maçons passants', data: tl.map(function (t) { return t.visitors; }), backgroundColor: C.orange },
+  ], { stacked: true, thick: 14 });
+
+  bar('attendanceChart', yearLabels, [
+    { label: 'Présence', data: col('attendance_pct'), backgroundColor: C.loge },
+  ], { max: 100, suffix: ' %' });
+
+  var typeKeys = {{ type_keys | tojson }};
+  var typeLabels = {{ type_labels | tojson }};
+  var shownTypes = typeKeys.slice(0, 5);
+  var tenueSets = shownTypes.map(function (t, i) {
+    return { label: typeLabels[t] || t, backgroundColor: CATEGORICAL[i],
+             data: years.map(function (y) { return y.meeting_types[t] || 0; }) };
+  });
+  if (typeKeys.length > 5) {
+    tenueSets.push({ label: 'Autres', backgroundColor: '#9ca3af', data: years.map(function (y) {
+      return typeKeys.slice(5).reduce(function (s, t) { return s + (y.meeting_types[t] || 0); }, 0);
+    }) });
+  }
+  bar('tenuesChart', yearLabels, tenueSets, { stacked: true });
+
+  var wd = {{ weekday_stats | tojson }};
+  bar('weekdayChart', wd.map(function (w) { return w.day + ' (' + w.count + ' tenues)'; }), [
+    { label: 'Membres présents', data: wd.map(function (w) { return w.members; }), backgroundColor: C.blue },
+    { label: 'Maçons passants', data: wd.map(function (w) { return w.visitors; }), backgroundColor: C.orange },
+  ], { stacked: true });
+
+  var mo = {{ month_stats | tojson }};
+  bar('monthChart', mo.map(function (m) { return m.month; }), [
+    { label: 'Participants', data: mo.map(function (m) { return m.avg; }), backgroundColor: C.loge },
+  ]);
+
+  bar('visitsChart', yearLabels, [
+    { label: 'Visites', data: col('visits'), backgroundColor: C.blue },
+    { label: 'Visiteurs différents', data: col('unique_visitors'), backgroundColor: C.orange },
+  ]);
+
+  var ob = {{ obediences | tojson }};
+  bar('obedienceChart', ob.map(function (o) { return o[0]; }), [
+    { label: 'Visites', data: ob.map(function (o) { return o[1]; }), backgroundColor: C.loge },
+  ], { horizontal: true, thick: 22 });
+
+  var py = {{ planche_years | tojson }};
+  var pg = {{ planche_grades | tojson }};
+  var pby = {{ planches_by_year | tojson }};
+  var gradeColor = { 'Apprenti': GRADES[0], 'Compagnon': GRADES[1], 'Maître': GRADES[2], 'Autre': '#9ca3af' };
+  bar('planchesChart', py.map(String), pg.map(function (g) {
+    return { label: g, backgroundColor: gradeColor[g], data: py.map(function (y) { return (pby[y] || {})[g] || 0; }) };
+  }), { stacked: true });
+})();
+</script>
+{% endblock %}

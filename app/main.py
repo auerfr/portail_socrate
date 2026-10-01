@@ -49,6 +49,7 @@ from app.routers import notifications as notifications_router
 from app.routers import engagement as engagement_router
 from app.routers import secretariat as secretariat_router
 from app.routers import lodges_directory as lodges_directory_router
+from app.routers import statistiques as statistiques_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -601,6 +602,7 @@ app.include_router(search_router.router)
 app.include_router(notifications_router.router)
 app.include_router(engagement_router.router)
 app.include_router(lodges_directory_router.router)
+app.include_router(statistiques_router.router)
 # app.include_router(admin.router)
 
 
