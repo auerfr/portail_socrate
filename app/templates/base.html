@@ -334,9 +334,14 @@
 
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
       <a href="/secretariat/annees"
-         class="nav-item {% if '/secretariat' in request.url.path %}active{% endif %}">
+         class="nav-item {% if '/secretariat/annees' in request.url.path %}active{% endif %}">
         <i class="ti ti-calendar-event"></i>
         Années maçonniques
+      </a>
+      <a href="/secretariat/traces"
+         class="nav-item {% if '/secretariat/traces' in request.url.path %}active{% endif %}">
+        <i class="ti ti-file-check"></i>
+        Suivi des tracés
       </a>
       {% endif %}
 
@@ -650,9 +655,14 @@
 
       {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE'])) %}
       <a href="/secretariat/annees" @click="moreOpen=false"
-         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/secretariat' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/secretariat/annees' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-calendar-event text-lg opacity-70"></i>
         Années maçonniques
+      </a>
+      <a href="/secretariat/traces" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/secretariat/traces' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-file-check text-lg opacity-70"></i>
+        Suivi des tracés
       </a>
       {% endif %}
 
