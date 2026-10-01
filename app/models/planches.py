@@ -53,6 +53,15 @@ class Planche(Base):
         ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
     )
 
+    # Planche de la bibliothèque (GED) rattachée à sa tenue : simple référence
+    # au document existant — jamais supprimé ni modifié par le module Planches,
+    # contrairement à archived_doc_id qui appartient à la planche.
+    library_doc_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("documents.id", ondelete="SET NULL"), nullable=True
+    )
+    # Auteur hors loge (frère ou sœur d'une autre loge), « Prénom NOM »
+    author_name: Mapped[Optional[str]] = mapped_column(String(200), nullable=True)
+
     author:  Mapped[Optional[object]] = relationship("Member",  foreign_keys=[author_id],  lazy="selectin")
     meeting: Mapped[Optional[object]] = relationship("Meeting", foreign_keys=[meeting_id], lazy="selectin")
     comments: Mapped[list] = relationship(

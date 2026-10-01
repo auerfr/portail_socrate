@@ -55,10 +55,11 @@
         <div class="min-w-0">
           <p class="font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ p.title }}</p>
           <p class="text-xs text-gray-400 mt-0.5">
-            {% if p.author %}{{ p.author.first_name }} {{ p.author.last_name | anon_nom | first }}∴{% endif %}
-            · {{ (p.published_at or p.created_at).strftime('%d/%m/%Y') }}
-            {% if p.meeting %} · Ten∴ du {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}{% endif %}
-            {% if p.file_path %} · 📎{% endif %}
+            {% if p.author %}{{ p.author.first_name }} {{ p.author.last_name | anon_nom | first }}∴
+            {% elif p.author_name %}{% set an = p.author_name.split(' ') %}{{ an[0] }} {{ an[-1] | anon_nom | first }}∴{% endif %}
+            {% if p.meeting %} · Ten∴ du {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}
+            {% else %} · {{ (p.published_at or p.created_at).strftime('%d/%m/%Y') }}{% endif %}
+            {% if p.file_path or p.library_doc_id %} · 📎{% endif %}
             {% if p.comments %} · 💬 {{ p.comments|length }}{% endif %}
           </p>
         </div>

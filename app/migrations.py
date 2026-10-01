@@ -1374,3 +1374,16 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 "ALTER TABLE attendances ADD COLUMN dietary_notes VARCHAR(300)"
             )
 
+
+    # ── Planches de la bibliothèque rattachées à leur tenue ───────────────────
+    async with engine.begin() as conn:
+        r_pl2 = await conn.exec_driver_sql("PRAGMA table_info(planches)")
+        cols_pl2 = [row[1] for row in r_pl2.fetchall()]
+        if cols_pl2 and "library_doc_id" not in cols_pl2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE planches ADD COLUMN library_doc_id INTEGER REFERENCES documents(id) ON DELETE SET NULL"
+            )
+        if cols_pl2 and "author_name" not in cols_pl2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE planches ADD COLUMN author_name VARCHAR(200)"
+            )

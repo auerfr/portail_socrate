@@ -228,7 +228,14 @@ async def planches_list(
 
     # Filtre par grade
     planches = [p for p in all_planches if _can_read(member, p)]
-    published = [p for p in planches if p.status == PlancheStatus.PUBLIE]
+    # Les plus récentes d'abord : date de la tenue où la planche a été présentée,
+    # à défaut sa date de publication (les planches de la bibliothèque sont
+    # rattachées après coup, leur date de création ne veut rien dire)
+    published = sorted(
+        (p for p in planches if p.status == PlancheStatus.PUBLIE),
+        key=lambda p: p.meeting.meeting_date if p.meeting else (p.published_at or p.created_at).date(),
+        reverse=True,
+    )
     drafts    = [p for p in planches if p.status == PlancheStatus.BROUILLON
                  and (p.author_id == member.id or user.is_admin or _can_write(user, member))]
 
@@ -470,10 +477,15 @@ async def planche_download(
 ):
     user, member = ctx
     planche = await db.get(Planche, planche_id)
-    if not planche or not planche.file_path:
+    if not planche:
         raise HTTPException(404)
     if not _can_read(member, planche):
         raise HTTPException(403)
+    if not planche.file_path and planche.library_doc_id:
+        # Planche de la bibliothèque : consultation via la GED (et ses droits d'accès)
+        return RedirectResponse(url=f"/documents/file/{planche.library_doc_id}/view", status_code=303)
+    if not planche.file_path:
+        raise HTTPException(404)
     if not Path(planche.file_path).exists():
         raise HTTPException(404, "Fichier introuvable")
     return FileResponse(
