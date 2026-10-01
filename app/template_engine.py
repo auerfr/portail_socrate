@@ -92,3 +92,10 @@ def _anon_nom(ctx, name: str) -> str:
 
 templates.env.filters["anon_nom"] = _anon_nom
 templates.env.filters["masonic_write"] = _masonic_write
+
+# HTML saisi par les rédacteurs (actualités) : nettoyé à l'affichage aussi,
+# pour couvrir les contenus enregistrés avant l'ajout du nettoyage.
+from markupsafe import Markup as _Markup
+from app.utils.html_sanitizer import sanitize_html as _sanitize_html, html_to_editable as _html_to_editable
+templates.env.filters["sanitize_html"] = lambda v: _Markup(_sanitize_html(v))
+templates.env.filters["html_to_editable"] = _html_to_editable

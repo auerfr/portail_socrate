@@ -49,7 +49,7 @@
 
       <!-- Contenu -->
       <div class="prose prose-sm max-w-none text-gray-700 leading-relaxed">
-        {{ article.content_html | safe }}
+        {{ article.content_html | sanitize_html }}
       </div>
     </div>
   </article>
