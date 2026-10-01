@@ -13,9 +13,23 @@
         <span class="text-gray-700">Maçons passants</span>
       </nav>
       <h1 class="text-2xl font-bold text-gray-900">Maçons passants</h1>
-      <p class="text-sm text-gray-500 mt-0.5">{{ total_unique }} frère{{ 's' if total_unique != 1 }} · {{ total_visits }} visite{{ 's' if total_visits != 1 }} au total</p>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {{ total_unique }} frère{{ 's' if total_unique != 1 }} · {{ total_visits }} visite{{ 's' if total_visits != 1 }}
+        {% if selected_year %}en {{ selected_year.label }}{% else %}au total{% endif %}
+      </p>
     </div>
-    <div class="flex gap-2">
+    <div class="flex gap-2 items-center flex-wrap">
+      {% if years %}
+      <select onchange="window.location='/attendance/visitors'+(this.value ? '?year_id='+this.value : '')"
+              class="text-sm border border-gray-200 rounded-lg px-3 py-2 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="" {% if not selected_year %}selected{% endif %}>Toutes les années</option>
+        {% for y in years %}
+        <option value="{{ y.id }}" {% if selected_year and y.id == selected_year.id %}selected{% endif %}>
+          {{ y.label }}{% if y.is_current %} (en cours){% endif %}
+        </option>
+        {% endfor %}
+      </select>
+      {% endif %}
       <button onclick="openVisitorModal()"
               class="text-sm bg-loge-700 text-white px-4 py-2 rounded-lg hover:bg-loge-800 font-medium">
         + Ajouter un passant
