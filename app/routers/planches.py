@@ -357,10 +357,17 @@ async def planche_detail(
     except Exception:
         pass
 
+    # Type du document de la bibliothèque (aperçu PDF possible ou non)
+    library_mime = None
+    if planche.library_doc_id and not planche.file_path:
+        library_doc = await db.get(Document, planche.library_doc_id)
+        library_mime = library_doc.mime_type if library_doc else None
+
     return templates.TemplateResponse(request, "pages/planches/detail.html", {
         "current_user": user,
         "current_member": member,
         "planche": planche,
+        "library_mime": library_mime,
         "can_edit": _can_edit_planche(user, member, planche),
         "can_comment": _can_read(member, planche),
     })
@@ -474,7 +481,10 @@ async def planche_download(
     planche_id: int,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    inline: bool = False,
 ):
+    """Fichier de la planche — téléchargé, ou affiché dans la page (inline=1,
+    pour l'aperçu PDF / image)."""
     user, member = ctx
     planche = await db.get(Planche, planche_id)
     if not planche:
@@ -483,7 +493,8 @@ async def planche_download(
         raise HTTPException(403)
     if not planche.file_path and planche.library_doc_id:
         # Planche de la bibliothèque : consultation via la GED (et ses droits d'accès)
-        return RedirectResponse(url=f"/documents/file/{planche.library_doc_id}/view", status_code=303)
+        target = "preview" if inline else "view"
+        return RedirectResponse(url=f"/documents/file/{planche.library_doc_id}/{target}", status_code=303)
     if not planche.file_path:
         raise HTTPException(404)
     if not Path(planche.file_path).exists():
@@ -492,6 +503,7 @@ async def planche_download(
         planche.file_path,
         filename=planche.original_filename or "planche",
         media_type=planche.mime_type or "application/octet-stream",
+        content_disposition_type="inline" if inline else "attachment",
     )
 
 

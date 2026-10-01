@@ -77,6 +77,14 @@
       Consulter
     </a>
   </div>
+  {% if library_mime == 'application/pdf' %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+    <div class="relative" style="height:70vh; min-height:380px;">
+      <iframe src="/planches/{{ planche.id }}/download?inline=1"
+              class="w-full h-full border-0" title="{{ planche.title }}"></iframe>
+    </div>
+  </div>
+  {% endif %}
   {% elif planche.file_path %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 flex items-center gap-4">
     <div class="text-4xl">📎</div>
@@ -96,13 +104,13 @@
   {% if planche.mime_type == 'application/pdf' %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
     <div class="relative" style="height:70vh; min-height:380px;">
-      <iframe src="/planches/{{ planche.id }}/download"
+      <iframe src="/planches/{{ planche.id }}/download?inline=1"
               class="w-full h-full border-0" title="{{ planche.title }}"></iframe>
     </div>
   </div>
   {% elif planche.mime_type and planche.mime_type.startswith('image/') %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4 text-center">
-    <img src="/planches/{{ planche.id }}/download" alt="{{ planche.title }}"
+    <img src="/planches/{{ planche.id }}/download?inline=1" alt="{{ planche.title }}"
          class="max-w-full mx-auto rounded-lg shadow">
   </div>
   {% endif %}
