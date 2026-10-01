@@ -537,18 +537,21 @@ def _linkify(text: str) -> Markup:
     documents partagés) qui n'ont pas de version body_html."""
     if not text:
         return Markup("")
-    url_pat = re.compile(r"(https?://[^\s]+)")
+    url_pat = re.compile(r"(https?://[^\s<>\"]+)")
     parts = []
     last = 0
     for m in url_pat.finditer(text):
-        parts.append(str(_escape(text[last:m.start()])))
         url = m.group(1)
+        # La ponctuation qui suit une adresse en fin de phrase n'en fait pas partie
+        end = m.start() + len(url.rstrip(".,;:!?)»'"))
+        url = text[m.start():end]
+        parts.append(str(_escape(text[last:m.start()])))
         eu = str(_escape(url))
         parts.append(
             f'<a href="{eu}" target="_blank" rel="noopener" '
             f'class="text-loge-700 underline hover:text-loge-900 break-all">{eu}</a>'
         )
-        last = m.end()
+        last = end
     parts.append(str(_escape(text[last:])))
     return Markup("".join(parts))
 
