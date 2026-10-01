@@ -45,34 +45,91 @@
   {% endif %}
 
   {% if published %}
-  <section>
-    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide mb-3">Planches publiées</h2>
+  <section x-data="plancheFilters()">
+    <div class="flex items-center justify-between mb-3">
+      <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">Planches publiées</h2>
+      <span class="text-xs text-gray-400"><span x-text="shown"></span> / {{ published | length }}</span>
+    </div>
+
+    <!-- Filtres -->
+    <div class="bg-white border border-gray-100 rounded-xl shadow-sm p-3 mb-3 grid grid-cols-2 sm:grid-cols-5 gap-2">
+      <input type="search" x-model="q" @input="apply()" placeholder="Titre, auteur, loge…"
+             class="col-span-2 border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <select x-model="year" @change="apply()" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white">
+        <option value="">Toutes années</option>
+        {% for y in published_years %}<option value="{{ y }}">{{ y }}</option>{% endfor %}
+      </select>
+      <select x-model="grade" @change="apply()" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white">
+        <option value="">Tous grades</option>
+        <option value="APPRENTI">App∴</option>
+        <option value="COMPAGNON">Comp∴</option>
+        <option value="MAITRE">M∴</option>
+      </select>
+      <select x-model="kind" @change="apply()" class="border border-gray-200 rounded-lg px-2 py-1.5 text-sm bg-white">
+        <option value="">Tous auteurs</option>
+        <option value="member">Membres de la loge</option>
+        <option value="external">Autres loges</option>
+        <option value="meeting">Liées à une tenue</option>
+        <option value="nomeeting">Sans tenue</option>
+      </select>
+    </div>
+
     <div class="space-y-2">
       {% for p in published %}
       {% set GRADE_LABELS = {'TOUS':'', 'APPRENTI':'App∴', 'COMPAGNON':'Comp∴', 'MAITRE':'M∴'} %}
-      <a href="/planches/{{ p.id }}"
+      {% set grade_val = p.grade.value if p.grade.value is defined else p.grade %}
+      {% set d = p.meeting.meeting_date if p.meeting else (p.published_at or p.created_at) %}
+      {% if p.author %}{% set who = p.author.first_name ~ ' ' ~ (p.author.last_name | anon_nom | first) ~ '∴' %}
+      {% elif p.author_name %}{% set an = p.author_name.split(' ') %}{% set who = an[0] ~ ' ' ~ (an[-1] | anon_nom | first) ~ '∴' %}
+      {% else %}{% set who = '' %}{% endif %}
+      <a href="/planches/{{ p.id }}" data-planche
+         data-search="{{ (p.title ~ ' ' ~ who ~ ' ' ~ (p.author_lodge or '')) | lower }}"
+         data-year="{{ d.year }}" data-grade="{{ grade_val }}"
+         data-kind="{{ 'external' if (not p.author and p.author_name) else 'member' }}"
+         data-meeting="{{ 'meeting' if p.meeting else 'nomeeting' }}"
          class="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 hover:border-loge-200 hover:bg-loge-50 transition-colors group shadow-sm">
         <div class="min-w-0">
           <p class="font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ p.title }}</p>
           <p class="text-xs text-gray-400 mt-0.5">
-            {% if p.author %}{{ p.author.first_name }} {{ p.author.last_name | anon_nom | first }}∴
-            {% elif p.author_name %}{% set an = p.author_name.split(' ') %}{{ an[0] }} {{ an[-1] | anon_nom | first }}∴{% endif %}
-            {% if p.meeting %} · Ten∴ du {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}
-            {% else %} · {{ (p.published_at or p.created_at).strftime('%d/%m/%Y') }}{% endif %}
+            {{ who }}{% if p.author_lodge %} <span class="text-gray-400">({{ p.author_lodge }})</span>{% endif %}
+            {% if p.meeting %} · {% if p.meeting.meeting_number is not none %}n°{{ p.meeting.meeting_number }} · {% endif %}Ten∴ du {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}
+            {% else %} · {{ d.strftime('%d/%m/%Y') }}{% endif %}
             {% if p.file_path or p.library_doc_id %} · 📎{% endif %}
             {% if p.comments %} · 💬 {{ p.comments|length }}{% endif %}
           </p>
         </div>
         <div class="flex items-center gap-2 ml-3 shrink-0">
-          {% if p.grade != 'TOUS' %}
-          <span class="text-xs bg-loge-50 text-loge-700 border border-loge-100 px-2 py-0.5 rounded-full">{{ GRADE_LABELS[p.grade] }}</span>
+          {% if grade_val != 'TOUS' %}
+          <span class="text-xs bg-loge-50 text-loge-700 border border-loge-100 px-2 py-0.5 rounded-full">{{ GRADE_LABELS.get(grade_val, '') }}</span>
           {% endif %}
           <span class="text-gray-300">›</span>
         </div>
       </a>
       {% endfor %}
+      <p x-show="shown === 0" x-cloak class="text-sm text-gray-400 text-center py-6">Aucune planche ne correspond à ces filtres.</p>
     </div>
   </section>
+  <script>
+    function plancheFilters() {
+      const fold = s => (s || '').normalize('NFD').replace(/[̀-ͯ]/g, '').toLowerCase();
+      return {
+        q: '', year: '', grade: '', kind: '', shown: {{ published | length }},
+        apply() {
+          const q = fold(this.q).trim();
+          let n = 0;
+          document.querySelectorAll('[data-planche]').forEach(el => {
+            const ok = (!q || fold(el.dataset.search).includes(q))
+              && (!this.year || el.dataset.year === this.year)
+              && (!this.grade || el.dataset.grade === this.grade)
+              && (!this.kind || el.dataset.kind === this.kind || el.dataset.meeting === this.kind);
+            el.style.display = ok ? '' : 'none';
+            if (ok) n++;
+          });
+          this.shown = n;
+        },
+      };
+    }
+  </script>
   {% endif %}
 
   {% if not published and not drafts %}

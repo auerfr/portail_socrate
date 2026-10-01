@@ -1387,3 +1387,11 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE planches ADD COLUMN author_name VARCHAR(200)"
             )
+        if cols_pl2 and "author_lodge" not in cols_pl2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE planches ADD COLUMN author_lodge VARCHAR(200)"
+            )
+        if cols_pl2 and "created_by_id" not in cols_pl2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE planches ADD COLUMN created_by_id INTEGER REFERENCES members(id)"
+            )

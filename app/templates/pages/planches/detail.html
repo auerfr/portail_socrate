@@ -41,7 +41,7 @@
       <span>Par {{ planche.author.first_name }} {{ planche.author.last_name | anon_nom | first }}∴</span>
       {% elif planche.author_name %}
       {% set an = planche.author_name.split(' ') %}
-      <span>Par {{ an[0] }} {{ an[-1] | anon_nom | first }}∴ <span class="text-gray-300">(visiteur)</span></span>
+      <span>Par {{ an[0] }} {{ an[-1] | anon_nom | first }}∴ <span class="text-gray-300">({{ planche.author_lodge or "autre loge" }})</span></span>
       {% endif %}
       {% if planche.meeting %}
       <span>· Présentée en {% if planche.meeting.meeting_number is not none %}{{ '1ère' if planche.meeting.meeting_number == 1 else planche.meeting.meeting_number ~ 'e' }} {% endif %}Ten∴ du {{ planche.meeting.meeting_date.strftime('%d/%m/%Y') }}</span>
