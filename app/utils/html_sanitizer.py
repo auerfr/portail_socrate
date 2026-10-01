@@ -9,11 +9,12 @@ import re
 from html import escape
 from html.parser import HTMLParser
 
-ALLOWED_TAGS = {"p", "br", "strong", "b", "em", "i", "u", "a", "ul", "ol", "li", "h3", "h4", "blockquote"}
+ALLOWED_TAGS = {"p", "br", "strong", "b", "em", "i", "u", "a", "ul", "ol", "li", "h2", "h3", "h4", "blockquote"}
 VOID_TAGS = {"br"}
 DROP_CONTENT_TAGS = {"script", "style", "iframe", "object", "embed", "template", "noscript"}
 # Balises de bloc : si le texte en contient, l'auteur gère lui-même ses paragraphes
-BLOCK_TAGS_RE = re.compile(r"<\s*/?\s*(p|br|ul|ol|li|h3|h4|blockquote)\b", re.I)
+BLOCK_TAGS_RE = re.compile(r"<\s*/?\s*(p|br|ul|ol|li|h2|h3|h4|blockquote)\b", re.I)
+URL_RE = re.compile(r"https?://[^\s<>\"]+")
 SAFE_HREF_RE = re.compile(r"^(https?://|mailto:|/(?!/)|#)", re.I)
 
 
@@ -60,8 +61,20 @@ class _Sanitizer(HTMLParser):
                 break
 
     def handle_data(self, data):
-        if not self.dropping:
+        if self.dropping:
+            return
+        if "a" in self.open:
             self.out.append(escape(data, quote=False))
+            return
+        # Adresse collée telle quelle : rendue cliquable (sans la ponctuation finale)
+        last = 0
+        for m in URL_RE.finditer(data):
+            url = m.group(0).rstrip(".,;:!?)»'\"")
+            self.out.append(escape(data[last:m.start()], quote=False))
+            eu = escape(url, quote=True)
+            self.out.append(f'<a href="{eu}" target="_blank" rel="noopener noreferrer">{eu}</a>')
+            last = m.start() + len(url)
+        self.out.append(escape(data[last:], quote=False))
 
     def result(self) -> str:
         self.close()
@@ -93,6 +106,6 @@ def html_to_editable(html: str | None) -> str:
     <br> sous forme de sauts de ligne quand c'est eux qui portaient la mise en
     page, et on conserve toutes les autres balises (liens, gras…)."""
     html = html or ""
-    if re.search(r"<\s*/?\s*(p|ul|ol|li|h3|h4|blockquote)\b", html, re.I):
+    if re.search(r"<\s*/?\s*(p|ul|ol|li|h2|h3|h4|blockquote)\b", html, re.I):
         return html
     return re.sub(r"<br\s*/?>", "\n", html, flags=re.I)

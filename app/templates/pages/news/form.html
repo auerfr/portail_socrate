@@ -28,15 +28,37 @@
 
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1.5">Contenu</label>
-        <textarea id="news-content-textarea" name="content" rows="10"
-                  placeholder="Contenu de l'actualité. Supporte le HTML basique : &lt;b&gt;, &lt;a&gt;, &lt;ul&gt;, &lt;li&gt;…"
-                  class="w-full border border-gray-200 rounded-xl px-4 py-2.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500 resize-y font-mono">{% if article %}{{ article.content_html | html_to_editable }}{% endif %}</textarea>
-        <button type="button" @click="insertMasonicTextarea('news-content-textarea', '∴')"
+        <div id="news-quill-toolbar" class="border border-gray-200 rounded-t-lg bg-gray-50">
+          <span class="ql-formats">
+            <button type="button" class="ql-bold" title="Gras"></button>
+            <button type="button" class="ql-italic" title="Italique"></button>
+            <button type="button" class="ql-underline" title="Souligné"></button>
+          </span>
+          <span class="ql-formats">
+            <select class="ql-header" title="Taille">
+              <option selected></option>
+              <option value="2">Titre</option>
+              <option value="3">Sous-titre</option>
+            </select>
+          </span>
+          <span class="ql-formats">
+            <button type="button" class="ql-list" value="ordered" title="Liste numérotée"></button>
+            <button type="button" class="ql-list" value="bullet" title="Liste à puces"></button>
+          </span>
+          <span class="ql-formats">
+            <button type="button" class="ql-link" title="Lien : sélectionnez un texte puis cliquez ici"></button>
+            <button type="button" class="ql-clean" title="Effacer la mise en forme"></button>
+          </span>
+        </div>
+        <div id="news-quill-editor" class="border border-gray-200 border-t-0 rounded-b-lg bg-white text-sm"
+             style="min-height:220px;"></div>
+        <input type="hidden" name="content" id="news-content-input">
+        <button type="button" onclick="insertMasonicNews('∴')"
                 title="Insérer le caractère ∴"
                 class="mt-1.5 flex items-center gap-1.5 text-xs text-loge-700 hover:text-loge-800 font-medium px-2.5 py-1.5 rounded-lg border border-loge-200 hover:bg-loge-50 transition-colors">
           ∴
         </button>
-        <p class="text-xs text-gray-400 mt-1">Sauts de ligne acceptés. HTML basique supporté : &lt;b&gt;, &lt;i&gt;, &lt;u&gt;, &lt;a href="…"&gt;, &lt;ul&gt;/&lt;li&gt;, &lt;p&gt;, &lt;h3&gt;.</p>
+        <p class="text-xs text-gray-400 mt-1">Pour un lien : sélectionnez le texte, cliquez sur l'icône de lien et collez l'adresse. Une adresse collée telle quelle devient aussi cliquable.</p>
       </div>
 
       <div class="grid sm:grid-cols-2 gap-4">
@@ -108,4 +130,44 @@
   </div>
 
 </div>
+
+<link href="/static/css/quill.snow.css" rel="stylesheet">
+<script src="/static/js/quill.min.js"></script>
+<script>
+  // Même garde-fou que la messagerie : URL sans schéma ou lien Markdown collé
+  (function () {
+    const BaseLink = Quill.import('formats/link');
+    class SafeLink extends BaseLink {
+      static sanitize(url) {
+        let clean = (url || '').trim();
+        const mdMatch = clean.match(/^\[.*?\]\((https?:\/\/[^)]+)\)$/);
+        if (mdMatch) clean = mdMatch[1];
+        else if (!/^[a-zA-Z][a-zA-Z0-9+.-]*:/.test(clean)) clean = 'https://' + clean;
+        return BaseLink.sanitize(clean);
+      }
+    }
+    Quill.register(SafeLink, true);
+  })();
+
+  var newsQuill = new Quill('#news-quill-editor', {
+    theme: 'snow',
+    modules: { toolbar: '#news-quill-toolbar' },
+    placeholder: "Contenu de l'actualité…",
+  });
+  {% if article %}
+  newsQuill.clipboard.dangerouslyPasteHTML({{ (article.content_html | sanitize_html | string) | tojson }});
+  newsQuill.setSelection(0, 0);
+  {% endif %}
+
+  function insertMasonicNews(token) {
+    const range = newsQuill.getSelection(true);
+    newsQuill.insertText(range.index, token, 'user');
+    newsQuill.setSelection(range.index + token.length);
+  }
+
+  document.querySelector('#news-quill-editor').closest('form').addEventListener('submit', function () {
+    const empty = newsQuill.getText().trim() === '';
+    document.getElementById('news-content-input').value = empty ? '' : newsQuill.root.innerHTML;
+  });
+</script>
 {% endblock %}
