@@ -22,7 +22,82 @@ from app.models.lodge import MasonicYear
 from app.models.meetings import (
     Attendance, AttendanceStatus, Meeting, MeetingVisitor, Visitor, VisitorStatus,
 )
+from app.models.lodge import LodgeSettings
 from app.services.attendance_stats import compute_lodge_attendance
+from app.services.orient_coords import orient_coords
+
+# Carte des maçons passants : au plus large le Grand Est et ses voisins immédiats ;
+# le cadre se resserre ensuite automatiquement sur les orients présents.
+MAP_LON = (3.6, 8.1)
+MAP_LAT = (47.35, 50.0)
+MAP_WIDTH = 760
+MAP_PAD = 0.25   # marge autour des orients, en degrés
+_MAP_KX = 0.66   # cos(48,7°) : corrige l'étirement est-ouest de la projection
+_FONT_PX = 13
+_CHAR_PX = 7.0   # largeur moyenne d'un caractère à 13 px
+
+
+def build_visitor_map(orients: Counter, home_orient: str) -> dict:
+    """Pastilles des orients d'où viennent les passants, en coordonnées SVG.
+    Les orients hors du cadre régional sont listés à part (« plus loin »),
+    ceux sans coordonnées connues aussi (« non localisés »)."""
+    home = orient_coords(home_orient)
+    located, far, unknown = [], [], []
+    for name, n in orients.most_common():
+        coords = orient_coords(name)
+        if not coords:
+            unknown.append((name, n))
+        elif MAP_LAT[0] <= coords[0] <= MAP_LAT[1] and MAP_LON[0] <= coords[1] <= MAP_LON[1]:
+            located.append((name, n, coords))
+        else:
+            far.append((name, n))
+
+    # Cadre resserré sur les orients (et notre orient), avec une marge
+    lats = [c[0] for _, _, c in located] + ([home[0]] if home else [])
+    lons = [c[1] for _, _, c in located] + ([home[1]] if home else [])
+    if not lats:
+        return {"points": [], "far": far, "unknown": unknown, "home": None, "countries": []}
+    lat0, lat1 = min(lats) - MAP_PAD, max(lats) + MAP_PAD
+    lon0, lon1 = min(lons) - MAP_PAD, max(lons) + MAP_PAD
+    scale = MAP_WIDTH / ((lon1 - lon0) * _MAP_KX)
+    height = round((lat1 - lat0) * scale)
+
+    def project(lat, lon):
+        return round((lon - lon0) * _MAP_KX * scale, 1), round((lat1 - lat) * scale, 1)
+
+    biggest = max(n for _, n, _ in located)
+    points = []
+    for name, n, coords in located:
+        x, y = project(*coords)
+        points.append({"name": name, "n": n, "x": x, "y": y,
+                       "r": round(5 + 26 * (n / biggest) ** 0.5, 1)})  # surface ∝ nombre de visites
+
+    # Étiquettes : des plus visités aux moins visités, à droite de la pastille,
+    # sinon à gauche, sinon omises (détail au survol) — jamais superposées.
+    placed: list[tuple[float, float, float, float]] = []
+    for p in points:
+        text_w = len(f"{p['name']} {p['n']}") * _CHAR_PX
+        p["label"] = None
+        for side in ("right", "left"):
+            x = p["x"] + p["r"] + 4 if side == "right" else p["x"] - p["r"] - 4 - text_w
+            box = (x, p["y"] - _FONT_PX / 2 - 2, x + text_w, p["y"] + _FONT_PX / 2 + 2)
+            inside = box[0] >= 0 and box[2] <= MAP_WIDTH
+            free = all(box[2] < b[0] or box[0] > b[2] or box[3] < b[1] or box[1] > b[3] for b in placed)
+            if inside and free:
+                placed.append(box)
+                p["label"] = {"x": round(x, 1), "y": round(p["y"] + _FONT_PX / 2 - 2, 1)}
+                break
+    points.sort(key=lambda p: -p["r"])  # les petites pastilles par-dessus les grandes
+
+    countries = [("LUXEMBOURG", 49.83, 5.95), ("ALLEMAGNE", 49.45, 7.55),
+                 ("BELGIQUE", 49.90, 5.05), ("SUISSE", 47.45, 7.75)]
+    return {
+        "width": MAP_WIDTH, "height": height, "font": _FONT_PX,
+        "points": points, "far": far, "unknown": unknown,
+        "home": dict(zip(("x", "y"), project(*home)), name=home_orient) if home else None,
+        "countries": [{"name": c, "x": project(lat, lon)[0], "y": project(lat, lon)[1]}
+                      for c, lat, lon in countries if lat0 <= lat <= lat1 and lon0 <= lon <= lon1],
+    }
 
 ALLUMAGE_DES_FEUX = LODGE_FOUNDING_DATE
 
@@ -229,6 +304,8 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
         top_obed.append(("Autres", others))
     orients = Counter(visitors[vid].orient_city for _, vid in visits if vid in visitors and visitors[vid].orient_city)
     lodges = Counter(visitors[vid].lodge_name for _, vid in visits if vid in visitors and visitors[vid].lodge_name)
+    home_orient = (await db.execute(select(LodgeSettings.orient_city).limit(1))).scalar() or ""
+    visitor_map = build_visitor_map(orients, home_orient)
 
     # ── Planches (bibliothèque de la GED) ──────────────────────────────────
     folders = list(await db.execute(select(DocFolder.id, DocFolder.name)))
@@ -310,6 +387,7 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
         # Base de la projection de fin d'année : effectif à la fin de l'année précédente
         "previous_year": next((y for y in reversed(per_year) if not y["is_current"]), None)
                          if per_year and per_year[-1]["is_current"] else (per_year[-1] if per_year else None),
+        "visitor_map": visitor_map,
         "founders_total": sum(1 for m in members if m.is_founder),
         "founders_active": sum(1 for m in current if m.is_founder),
     }
