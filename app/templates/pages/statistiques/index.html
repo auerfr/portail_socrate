@@ -176,6 +176,54 @@
 
     <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+        <h3 class="text-sm font-semibold text-gray-800">Progression annuelle de l'effectif</h3>
+        <p class="text-xs text-gray-400 mb-3">Évolution du nombre de membres par rapport à l'année précédente — bleu : hausse, orange : baisse</p>
+        <div class="relative" style="height:224px;"><canvas id="growthChart" aria-label="Progression annuelle de l'effectif"></canvas></div>
+        <div class="flex flex-wrap gap-x-4 gap-y-1 mt-3 text-xs text-gray-500">
+          {% for y in per_year if y.growth is not none %}
+          <span>{{ y.label }}{% if y.is_current %} (à date){% endif %} :
+            <strong class="text-gray-800">{{ '%+d' % y.growth }} membre{{ 's' if y.growth | abs > 1 }}</strong>
+            ({{ ('%+.1f' % y.growth_pct) | replace('.', ',') }} %)</span>
+          {% endfor %}
+        </div>
+      </div>
+
+      {% if previous_year %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5" id="projection"
+           data-base="{{ kpi.members }}" data-previous="{{ previous_year.members }}">
+        <h3 class="text-sm font-semibold text-gray-800">Et d'ici la fin de l'année ?</h3>
+        <p class="text-xs text-gray-400 mb-4">
+          Projection à partir des {{ kpi.members }} membres d'aujourd'hui, comparée aux
+          {{ previous_year.members }} membres de fin {{ previous_year.label }}. Saisissez les mouvements attendus.
+        </p>
+        <div class="grid grid-cols-2 gap-4 mb-5">
+          <label class="text-xs text-gray-500">
+            Arrivées prévues <span class="text-gray-400">(initiations, affiliations)</span>
+            <input type="number" min="0" max="50" value="0" data-proj="in"
+                   class="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </label>
+          <label class="text-xs text-gray-500">
+            Départs prévus <span class="text-gray-400">(démissions…)</span>
+            <input type="number" min="0" max="50" value="0" data-proj="out"
+                   class="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </label>
+        </div>
+        <div class="grid grid-cols-2 gap-4">
+          <div class="bg-loge-50 rounded-xl px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Effectif projeté</div>
+            <div class="text-3xl font-bold text-loge-700" data-proj="total">{{ kpi.members }}</div>
+          </div>
+          <div class="bg-loge-50 rounded-xl px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Progression sur l'année</div>
+            <div class="text-3xl font-bold text-loge-700" data-proj="pct">—</div>
+          </div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
+
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
         <h3 class="text-sm font-semibold text-gray-800">Pyramide des âges</h3>
         <p class="text-xs text-gray-400 mb-3">Membres actuels dont la date de naissance est connue ({{ kpi.ages_known }})</p>
         <div class="relative" style="height:224px;"><canvas id="ageChart" aria-label="Répartition par âge"></canvas></div>
@@ -367,6 +415,31 @@
     { label: 'Affiliations', data: col('affiliations'), backgroundColor: C.orange },
     { label: 'Départs', data: col('departures'), backgroundColor: C.aqua },
   ]);
+
+  // Progression annuelle : bleu si l'effectif croît, orange s'il baisse (+ signe dans l'étiquette)
+  var grown = years.filter(function (y) { return y.growth_pct !== null; });
+  bar('growthChart', grown.map(function (y) { return y.label + (y.is_current ? ' (à date)' : ''); }), [{
+    label: 'Progression',
+    data: grown.map(function (y) { return y.growth_pct; }),
+    backgroundColor: grown.map(function (y) { return y.growth_pct >= 0 ? C.blue : C.orange; }),
+  }], { suffix: ' %' });
+
+  // Projection de fin d'année
+  var proj = document.getElementById('projection');
+  if (proj) {
+    var base = +proj.dataset.base, previous = +proj.dataset.previous;
+    var inEl = proj.querySelector('[data-proj="in"]'), outEl = proj.querySelector('[data-proj="out"]');
+    var update = function () {
+      var total = base + (+inEl.value || 0) - (+outEl.value || 0);
+      var pct = previous ? (total - previous) * 100 / previous : 0;
+      proj.querySelector('[data-proj="total"]').textContent = total;
+      proj.querySelector('[data-proj="pct"]').textContent =
+        (pct > 0 ? '+' : '') + pct.toFixed(1).replace('.', ',') + ' %';
+    };
+    inEl.addEventListener('input', update);
+    outEl.addEventListener('input', update);
+    update();
+  }
 
   var age = {{ age_dist | tojson }};
   bar('ageChart', age.labels, [{ label: 'Membres', data: age.values, backgroundColor: C.loge }]);

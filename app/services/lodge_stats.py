@@ -178,6 +178,13 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
             "lodges": len({visitors[vid].lodge_name for _, vid in year_visits if visitors.get(vid) and visitors[vid].lodge_name}),
         })
 
+    # Progression de l'effectif d'une année sur l'autre (fin d'année à fin d'année)
+    for prev, y in zip(per_year, per_year[1:]):
+        y["growth"] = y["members"] - prev["members"]
+        y["growth_pct"] = round(y["growth"] * 100 / prev["members"], 1) if prev["members"] else None
+    if per_year:
+        per_year[0]["growth"] = per_year[0]["growth_pct"] = None
+
     # ── Tenue par tenue ────────────────────────────────────────────────────
     timeline = [{
         "date": m.meeting_date.strftime("%d/%m/%Y"),
@@ -300,6 +307,9 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
         "planche_years": planche_years,
         "planche_grades": planche_grades,
         "planches_by_year": {y: dict(c) for y, c in planches_by_year.items()},
+        # Base de la projection de fin d'année : effectif à la fin de l'année précédente
+        "previous_year": next((y for y in reversed(per_year) if not y["is_current"]), None)
+                         if per_year and per_year[-1]["is_current"] else (per_year[-1] if per_year else None),
         "founders_total": sum(1 for m in members if m.is_founder),
         "founders_active": sum(1 for m in current if m.is_founder),
     }
