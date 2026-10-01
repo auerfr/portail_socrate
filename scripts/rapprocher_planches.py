@@ -204,8 +204,15 @@ async def proposer(db, out_path: str) -> None:
 # ── 2. Appliquer ─────────────────────────────────────────────────────────────
 
 async def appliquer(db, csv_path: str) -> None:
-    with open(csv_path, encoding="utf-8-sig", newline="") as f:
-        rows = [r for r in csv.DictReader(f, delimiter=";") if (r.get("valider") or "").strip().lower() in YES]
+    # Excel peut réenregistrer en UTF-8 ou en Windows-1252, avec ; ou ,
+    raw_bytes = Path(csv_path).read_bytes()
+    try:
+        content = raw_bytes.decode("utf-8-sig")
+    except UnicodeDecodeError:
+        content = raw_bytes.decode("cp1252")
+    delimiter = ";" if content.splitlines()[0].count(";") >= content.splitlines()[0].count(",") else ","
+    rows = [r for r in csv.DictReader(content.splitlines(), delimiter=delimiter)
+            if (r.get("valider") or "").strip().lower() in YES]
     members = list((await db.execute(select(Member))).scalars())
     existing = {p.library_doc_id: p for p in (await db.execute(
         select(Planche).where(Planche.library_doc_id.isnot(None))
