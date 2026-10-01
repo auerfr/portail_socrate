@@ -29,6 +29,52 @@ def _require_attendance_mgr(user, member):
         raise HTTPException(status_code=403, detail="Accès réservé au VM, Secrétaire et Surveillants")
 
 
+_GRADE_ORDER = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
+
+
+async def _members_for_period(db: AsyncSession, meeting_ids: list[int], include_active: bool) -> list[Member]:
+    """Membres à afficher pour une période : tous ceux qui ont au moins un pointage
+    sur ces tenues (y compris les membres partis depuis), plus les membres actifs
+    si la période inclut l'année en cours. Comptes admin techniques exclus."""
+    from app.models.identity import User as _User
+    admin_r = await db.execute(
+        select(_User.member_id).where(_User.is_admin == True, _User.member_id.isnot(None))
+    )
+    admin_ids = {row[0] for row in admin_r}
+
+    with_records = select(Attendance.member_id).where(Attendance.meeting_id.in_(meeting_ids))
+    cond = Member.id.in_(with_records)
+    if include_active:
+        cond = cond | (Member.status == MemberStatus.ACTIVE)
+    r = await db.execute(
+        select(Member)
+        .where(cond, Member.id.notin_(admin_ids))
+        .order_by(Member.last_name, Member.first_name)
+    )
+    return list(r.scalars().all())
+
+
+def _is_expected(mbr: Member, mtg: Meeting, member_grid: dict, historical: bool) -> bool:
+    """La tenue compte-t-elle dans l'assiduité de ce membre ?
+
+    Un pointage existant fait toujours foi. Pour une année archivée, seul le
+    pointage compte (le livre des chantiers laissait vide ce qui ne concernait
+    pas le membre : pas encore entré, parti, grade insuffisant à l'époque).
+    Pour l'année en cours, on déduit de la date d'entrée, du départ et du grade.
+    """
+    if mtg.id in member_grid:
+        return True
+    if historical:
+        return False
+    if mbr.membership_start_date and mtg.meeting_date < mbr.membership_start_date:
+        return False
+    if mbr.status != MemberStatus.ACTIVE and mbr.status_date and mtg.meeting_date > mbr.status_date:
+        return False
+    grade_val = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
+    mtg_grade = mtg.grade.value if hasattr(mtg.grade, "value") else str(mtg.grade)
+    return mtg_grade == "ALL" or _GRADE_ORDER.get(grade_val, 0) >= _GRADE_ORDER.get(mtg_grade, 0)
+
+
 # ── Dashboard assiduité ───────────────────────────────────────────────────────
 
 @router.get("/", response_class=HTMLResponse)
@@ -99,19 +145,9 @@ async def attendance_dashboard(
         )
         upcoming_visitors_count = {row.meeting_id: row.n for row in uv_r}
 
-    # ── Membres actifs (hors comptes admin techniques) ──────────────────────
-    from app.models.identity import User as _User
-    admin_member_ids_r = await db.execute(
-        select(_User.member_id).where(_User.is_admin == True, _User.member_id.isnot(None))
-    )
-    _admin_ids = {row[0] for row in admin_member_ids_r}
-
-    members_r = await db.execute(
-        select(Member)
-        .where(Member.status == MemberStatus.ACTIVE, Member.id.notin_(_admin_ids))
-        .order_by(Member.last_name, Member.first_name)
-    )
-    active_members = members_r.scalars().all()
+    # ── Membres de la période (actifs + partis ayant un pointage) ───────────
+    historical = bool(selected_year and not selected_year.is_current)
+    active_members = await _members_for_period(db, past_ids, include_active=not historical)
 
     # ── Présences membres (tenues passées) ──────────────────────────────────
     stats = {}   # member_id → {PRESENT: n, EXCUSED: n, ABSENT: n}
@@ -125,20 +161,14 @@ async def attendance_dashboard(
             s[att.status.value] = s.get(att.status.value, 0) + 1
             grid.setdefault(att.member_id, {})[att.meeting_id] = att.status.value
 
-    # ── Tenues applicables par membre (grade + date d'arrivée) ──────────────
-    _grade_order = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
-    member_applicable: dict[int, set[int]] = {}
-    for mbr in active_members:
-        grade_val = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
-        start = mbr.membership_start_date
-        applicable: set[int] = set()
-        for mtg in past_meetings:
-            if start and mtg.meeting_date < start:
-                continue
-            mtg_grade = mtg.grade.value if hasattr(mtg.grade, "value") else str(mtg.grade)
-            if mtg_grade == "ALL" or _grade_order.get(grade_val, 0) >= _grade_order.get(mtg_grade, 0):
-                applicable.add(mtg.id)
-        member_applicable[mbr.id] = applicable
+    # ── Tenues applicables par membre ───────────────────────────────────────
+    member_applicable: dict[int, set[int]] = {
+        mbr.id: {
+            mtg.id for mtg in past_meetings
+            if _is_expected(mbr, mtg, grid.get(mbr.id, {}), historical)
+        }
+        for mbr in active_members
+    }
 
     # ── KPIs globaux cumulés ────────────────────────────────────────────────
     g_expected = g_present = g_excused = g_absent = 0
@@ -825,9 +855,10 @@ async def member_attendance(
 
     att_r = await db.execute(
         select(Attendance)
+        .join(Meeting, Meeting.id == Attendance.meeting_id)
         .options(selectinload(Attendance.meeting))
         .where(Attendance.member_id == member_id)
-        .order_by(Attendance.meeting_id.desc())
+        .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
     )
     attendances = att_r.scalars().all()
 
@@ -835,6 +866,24 @@ async def member_attendance(
     present = sum(1 for a in attendances if a.status == AttendanceStatus.PRESENT)
     excused = sum(1 for a in attendances if a.status == AttendanceStatus.EXCUSED)
     absent  = sum(1 for a in attendances if a.status == AttendanceStatus.ABSENT)
+
+    # Récapitulatif par année maçonnique (de la plus récente à la plus ancienne)
+    years_r = await db.execute(select(MasonicYear))
+    year_labels = {y.id: y.label for y in years_r.scalars().all()}
+    by_year: dict[int, dict] = {}
+    for a in attendances:
+        y = by_year.setdefault(a.meeting.masonic_year_id, {
+            "label": year_labels.get(a.meeting.masonic_year_id, "—"),
+            "PRESENT": 0, "EXCUSED": 0, "ABSENT": 0, "attendances": [],
+        })
+        y[a.status.value] += 1
+        y["attendances"].append(a)
+    years_summary = []
+    for y in by_year.values():  # déjà dans l'ordre décroissant des dates
+        y_total = y["PRESENT"] + y["EXCUSED"] + y["ABSENT"]
+        y["total"] = y_total
+        y["pct"] = round(y["PRESENT"] * 100 / y_total) if y_total else 0
+        years_summary.append(y)
 
     return templates.TemplateResponse(request, "pages/attendance/member.html", {
         "current_member": current_member,
@@ -846,6 +895,7 @@ async def member_attendance(
         "excused": excused,
         "absent": absent,
         "pct": round(present * 100 / total) if total else 0,
+        "years_summary": years_summary,
     })
 
 
@@ -882,17 +932,8 @@ async def attendance_export_excel(
     past_meetings = past_r.scalars().all()
     past_ids = [m.id for m in past_meetings]
 
-    from app.models.identity import User as _UserExp
-    _admin_exp_r = await db.execute(
-        select(_UserExp.member_id).where(_UserExp.is_admin == True, _UserExp.member_id.isnot(None))
-    )
-    _admin_exp = {row[0] for row in _admin_exp_r}
-    members_r = await db.execute(
-        select(Member)
-        .where(Member.status == MemberStatus.ACTIVE, Member.id.notin_(_admin_exp))
-        .order_by(Member.last_name, Member.first_name)
-    )
-    active_members = members_r.scalars().all()
+    historical = bool(selected_year and not selected_year.is_current)
+    active_members = await _members_for_period(db, past_ids, include_active=not historical)
 
     # Seuils
     ls_r = await db.execute(select(LodgeSettings).limit(1))
@@ -941,7 +982,7 @@ async def attendance_export_excel(
     ws.row_dimensions[1].height = 26
 
     ws.merge_cells(f"A2:{last_col}2")
-    ws["A2"] = f"{len(past_meetings)} tenue(s) · {len(active_members)} membre(s) actif(s) · Exporté le {date.today().strftime('%d/%m/%Y')}"
+    ws["A2"] = f"{len(past_meetings)} tenue(s) · {len(active_members)} membre(s) · Exporté le {date.today().strftime('%d/%m/%Y')}"
     ws["A2"].font  = Font(italic=True, size=9, color="9CA3AF")
     ws["A2"].alignment = Alignment(horizontal="center")
 
@@ -984,8 +1025,6 @@ async def attendance_export_excel(
 
     ws.row_dimensions[4].height = 20
 
-    # Tenues applicables par membre (grade + date d'arrivée)
-    _grade_order_exp = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
     F_NA = PatternFill("solid", fgColor="E5E7EB")  # gris = non concerné
 
     # Données membres
@@ -993,8 +1032,6 @@ async def attendance_export_excel(
         r = 5 + row_idx
         member_grid = grid.get(mbr.id, {})
         present = excused = absent = 0
-        grade_val = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
-        start = mbr.membership_start_date
 
         ws.cell(row=r, column=1, value=mbr.last_name).fill  = F_NAME
         ws.cell(row=r, column=1).border = brd
@@ -1006,11 +1043,7 @@ async def attendance_export_excel(
         expected = 0
         for i, m in enumerate(past_meetings):
             col = 3 + i
-            mtg_grade = m.grade.value if hasattr(m.grade, "value") else str(m.grade)
-            applicable = (
-                (not start or m.meeting_date >= start)
-                and (mtg_grade == "ALL" or _grade_order_exp.get(grade_val, 0) >= _grade_order_exp.get(mtg_grade, 0))
-            )
+            applicable = _is_expected(mbr, m, member_grid, historical)
             val = member_grid.get(m.id, "")
             if not applicable:
                 label, fill, bold, color = "—", F_NA, False, "9CA3AF"
@@ -1078,14 +1111,9 @@ async def attendance_export_excel(
     for row_idx, mbr in enumerate(active_members):
         r = 4 + row_idx
         member_grid = grid.get(mbr.id, {})
-        grade_val2 = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
-        start2 = mbr.membership_start_date
         present = excused = absent = expected2 = 0
         for m in past_meetings:
-            mtg_grade2 = m.grade.value if hasattr(m.grade, "value") else str(m.grade)
-            if (not start2 or m.meeting_date >= start2) and (
-                mtg_grade2 == "ALL" or _grade_order_exp.get(grade_val2, 0) >= _grade_order_exp.get(mtg_grade2, 0)
-            ):
+            if _is_expected(mbr, m, member_grid, historical):
                 expected2 += 1
                 v = member_grid.get(m.id, "")
                 if v == "PRESENT":   present += 1
@@ -1184,9 +1212,26 @@ async def visitors_dashboard(
     request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: int = 0,
 ):
     user, member = ctx
     _require_attendance_mgr(user, member)
+
+    years_r = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    years = years_r.scalars().all()
+    selected_year = next((y for y in years if y.id == year_id), None)  # None = toutes les années
+
+    if selected_year:
+        # Seuls les passants venus cette année-là
+        visit_filter = (
+            (MeetingVisitor.status == VisitorStatus.CONFIRMED)
+            & (Meeting.masonic_year_id == selected_year.id)
+        )
+    else:
+        visit_filter = (
+            (MeetingVisitor.status == VisitorStatus.CONFIRMED) |
+            (MeetingVisitor.id.is_(None))
+        )
 
     vis_r = await db.execute(
         select(
@@ -1196,10 +1241,7 @@ async def visitors_dashboard(
         )
         .join(MeetingVisitor, MeetingVisitor.visitor_id == Visitor.id, isouter=True)
         .join(Meeting, Meeting.id == MeetingVisitor.meeting_id, isouter=True)
-        .where(
-            (MeetingVisitor.status == VisitorStatus.CONFIRMED) |
-            (MeetingVisitor.id.is_(None))
-        )
+        .where(visit_filter)
         .group_by(Visitor.id)
         .order_by(sql_func.count(MeetingVisitor.id).desc(), Visitor.last_name)
     )
@@ -1209,33 +1251,26 @@ async def visitors_dashboard(
     total_unique  = len(visitor_rows)
     optin_count   = sum(1 for r in visitor_rows if r.Visitor.program_optin)
 
-    lodge_r = await db.execute(
-        select(Visitor.lodge_name, sql_func.count().label("n"))
-        .join(MeetingVisitor, MeetingVisitor.visitor_id == Visitor.id)
-        .where(MeetingVisitor.status == VisitorStatus.CONFIRMED, Visitor.lodge_name.isnot(None))
-        .group_by(Visitor.lodge_name).order_by(sql_func.count().desc()).limit(15)
-    )
-    top_lodges = lodge_r.all()
+    def _top(column, limit):
+        q = (
+            select(column, sql_func.count().label("n"))
+            .join(MeetingVisitor, MeetingVisitor.visitor_id == Visitor.id)
+            .join(Meeting, Meeting.id == MeetingVisitor.meeting_id)
+            .where(MeetingVisitor.status == VisitorStatus.CONFIRMED, column.isnot(None))
+        )
+        if selected_year:
+            q = q.where(Meeting.masonic_year_id == selected_year.id)
+        return q.group_by(column).order_by(sql_func.count().desc()).limit(limit)
 
-    orient_r = await db.execute(
-        select(Visitor.orient_city, sql_func.count().label("n"))
-        .join(MeetingVisitor, MeetingVisitor.visitor_id == Visitor.id)
-        .where(MeetingVisitor.status == VisitorStatus.CONFIRMED, Visitor.orient_city.isnot(None))
-        .group_by(Visitor.orient_city).order_by(sql_func.count().desc()).limit(15)
-    )
-    top_orients = orient_r.all()
-
-    obed_r = await db.execute(
-        select(Visitor.obedience, sql_func.count().label("n"))
-        .join(MeetingVisitor, MeetingVisitor.visitor_id == Visitor.id)
-        .where(MeetingVisitor.status == VisitorStatus.CONFIRMED, Visitor.obedience.isnot(None))
-        .group_by(Visitor.obedience).order_by(sql_func.count().desc()).limit(10)
-    )
-    top_obediences = obed_r.all()
+    top_lodges     = (await db.execute(_top(Visitor.lodge_name, 15))).all()
+    top_orients    = (await db.execute(_top(Visitor.orient_city, 15))).all()
+    top_obediences = (await db.execute(_top(Visitor.obedience, 10))).all()
 
     return templates.TemplateResponse(request, "pages/attendance/visitors.html", {
         "current_member": member,
         "current_user": user,
+        "years": years,
+        "selected_year": selected_year,
         "visitor_rows": visitor_rows,
         "total_visits": total_visits,
         "total_unique": total_unique,
@@ -1291,17 +1326,9 @@ async def bilan_annuel(
     past_meetings = [m for m in meetings if m.meeting_date <= _date.today()]
     past_ids = [m.id for m in past_meetings]
 
-    from app.models.identity import User as _UserBilan
-    _adm_r = await db.execute(
-        select(_UserBilan.member_id).where(_UserBilan.is_admin == True, _UserBilan.member_id.isnot(None))
-    )
-    _adm_ids = {row[0] for row in _adm_r}
-    mem_r = await db.execute(
-        select(Member)
-        .where(Member.status == MemberStatus.ACTIVE, Member.id.notin_(_adm_ids))
-        .order_by(Member.last_name, Member.first_name)
-    )
-    active_members = mem_r.scalars().all()
+    # Période entièrement antérieure à l'année en cours → règles d'archive
+    historical = bool(current_year and d_to < current_year.start_date)
+    active_members = await _members_for_period(db, past_ids, include_active=not historical)
 
     grid2: dict[int, dict[int, str]] = {}
     if past_ids:
@@ -1309,19 +1336,13 @@ async def bilan_annuel(
         for att in att_r.scalars().all():
             grid2.setdefault(att.member_id, {})[att.meeting_id] = att.status.value
 
-    _go = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
     member_stats = []
     g_exp = g_pres = g_exc = g_abs = 0
     for mbr in active_members:
-        gv    = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
-        start = mbr.membership_start_date
         mg    = grid2.get(mbr.id, {})
         exp = pres = exc = ab = 0
         for m in past_meetings:
-            if start and m.meeting_date < start:
-                continue
-            mgv = m.grade.value if hasattr(m.grade, "value") else str(m.grade)
-            if mgv != "ALL" and _go.get(gv, 0) < _go.get(mgv, 0):
+            if not _is_expected(mbr, m, mg, historical):
                 continue
             exp += 1
             v = mg.get(m.id, "")

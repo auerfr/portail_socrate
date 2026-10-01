@@ -202,6 +202,11 @@
                       {% if mbr.civility == 'S' %}S∴{% else %}F∴{% endif %}
                       {{ mbr.last_name | anon_nom }} {{ mbr.first_name }}
                     </div>
+                    {% if mbr.status.value != 'ACTIVE' %}
+                    <div class="text-xs text-gray-400 leading-tight">
+                      A quitté la loge{% if mbr.status_date %} le {{ mbr.status_date.strftime('%d/%m/%Y') }}{% endif %}
+                    </div>
+                    {% endif %}
                     {% if is_danger %}
                     <div class="text-xs text-red-500 font-medium leading-tight">🔴 Assiduité {{ pct }}%</div>
                     {% elif is_warn %}
