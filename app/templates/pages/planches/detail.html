@@ -54,12 +54,20 @@
       {% endif %}
     </div>
 
-    {% if can_edit %}
-    <div class="mt-4 pt-4 border-t border-gray-100">
+    {% if can_edit or (not planche.file_path and planche.content) %}
+    <div class="mt-4 pt-4 border-t border-gray-100 flex items-center gap-4">
+      {% if can_edit %}
       <a href="/planches/{{ planche.id }}/edit"
          class="inline-flex items-center gap-1.5 text-xs text-loge-700 hover:underline font-medium">
         ✎ Modifier
       </a>
+      {% endif %}
+      {% if not planche.file_path and planche.content %}
+      <a href="/planches/{{ planche.id }}/pdf" target="_blank"
+         class="inline-flex items-center gap-1.5 text-xs text-loge-700 hover:underline font-medium">
+        ⬇ Télécharger en PDF
+      </a>
+      {% endif %}
     </div>
     {% endif %}
   </div>

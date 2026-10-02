@@ -8,7 +8,7 @@ from pathlib import Path
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
-from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
+from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse, Response
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
@@ -17,6 +17,7 @@ from app.dependencies import require_auth, has_fine_permission
 from app.models.planches import Planche, PlancheComment, PlancheStatus, PlancheGrade
 from app.models.identity import Member, MasonicGrade, MemberStatus
 from app.models.meetings import Meeting
+from app.services.pdf_render import render_html_to_pdf
 from app.models.documents import (
     DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
 )
@@ -419,6 +420,63 @@ async def planche_detail(
         "can_edit": _can_edit_planche(user, member, planche),
         "can_comment": _can_read(member, planche),
     })
+
+
+@router.get("/{planche_id}/pdf")
+async def planche_export_pdf(
+    planche_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Télécharge en PDF une planche rédigée en ligne (pas pour celles
+    déposées comme fichier, déjà dans le format d'origine de l'auteur)."""
+    user, member = ctx
+    planche = await db.get(Planche, planche_id)
+    if not planche:
+        raise HTTPException(404)
+    if not _can_read(member, planche):
+        raise HTTPException(403, "Grade insuffisant")
+    if planche.status == PlancheStatus.BROUILLON and not _can_edit_planche(user, member, planche):
+        raise HTTPException(403, "Brouillon non accessible")
+    if planche.file_path:
+        raise HTTPException(400, "Cette planche a été déposée comme fichier, pas rédigée en ligne")
+    if not planche.content:
+        raise HTTPException(400, "Cette planche n'a pas encore de contenu")
+
+    if planche.author:
+        author_label = f"{planche.author.first_name} {planche.author.last_name}"
+    elif planche.author_name:
+        author_label = f"{planche.author_name} ({planche.author_lodge or 'autre loge'})"
+    else:
+        author_label = ""
+
+    html = f"""<!DOCTYPE html>
+<html lang="fr"><head><meta charset="UTF-8">
+<title>{planche.title}</title>
+<style>
+body{{font-family:Georgia,serif;max-width:800px;margin:2rem auto;padding:0 1rem;line-height:1.7;color:#111}}
+h1{{color:#1a5252;font-size:1.4rem;border-bottom:1px solid #d1fae5;padding-bottom:0.5rem}}
+h2{{color:#1a5252;font-size:1.1rem}}
+.meta{{color:#666;font-size:0.9rem;margin-bottom:1.5rem}}
+</style>
+</head><body>
+<h1>{planche.title}</h1>
+{f'<p class="meta">Par {author_label}</p>' if author_label else ''}
+{planche.content}
+</body></html>"""
+
+    try:
+        pdf_bytes = render_html_to_pdf(html)
+    except Exception as e:
+        logger.warning("Export PDF de la planche #%s échoué : %s", planche_id, e, exc_info=True)
+        raise HTTPException(status_code=500, detail="Échec de la génération du PDF")
+
+    filename = f"planche_{planche_id}.pdf"
+    return Response(
+        content=pdf_bytes,
+        media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
 
 
 # ── Édition ──────────────────────────────────────────────────────────────────

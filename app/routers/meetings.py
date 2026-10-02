@@ -31,6 +31,7 @@ from app.models.identity import Member, LodgeFunction, MemberStatus
 from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
 from app.models.associative import OfficerAssignment
 from app.models.documents import DocSpace, DocFolder, Document, DocumentVersion, DocStatus, MinGrade, DocAccessMode
+from app.services.pdf_render import render_html_to_pdf as _render_trace_pdf
 
 logger = logging.getLogger(__name__)
 TRACE_ARCHIVE_UPLOAD_DIR = "uploads/documents"
@@ -180,27 +181,6 @@ async def _trace_snapshot_context(db: AsyncSession, meeting: "Meeting") -> dict:
     }
 
 
-def _render_trace_pdf(html: str) -> bytes:
-    """Rend un gabarit trace_archive.html en PDF via WeasyPrint."""
-    import weasyprint
-
-    def _static_url_fetcher(url: str):
-        # Les références d'images du gabarit sont en chemin absolu
-        # (ex: /static/img/sceau-socrate-transparent.png) — pensées pour
-        # être servies par Starlette, pas résolues comme chemin fichier.
-        # Une fois converties en file:// par WeasyPrint via base_url, la
-        # résolution RFC 3986 d'un chemin absolu ignore le path de la
-        # base et repart de la racine du filesystem : on les redirige
-        # donc explicitement vers app/static/.
-        if url.startswith("file:///static/"):
-            rel = url[len("file:///static/"):]
-            url = f"file://{os.getcwd()}/app/static/{rel}"
-        return weasyprint.default_url_fetcher(url)
-
-    base_url = f"file://{os.getcwd()}/"
-    return weasyprint.HTML(
-        string=html, base_url=base_url, url_fetcher=_static_url_fetcher
-    ).write_pdf()
 
 
 def _find_vm_office(offices):
