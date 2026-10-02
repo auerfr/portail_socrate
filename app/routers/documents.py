@@ -1441,7 +1441,6 @@ async def admin_delete_file(
 
 # ── Admin — supprimer dossier ─────────────────────────────────────────────────
 
-@router.post("/admin/folder/{folder_id}/delete")
 async def _delete_documents_in(db: AsyncSession, folder_ids: list[int]) -> None:
     """Supprime (fichier + ligne) tous les documents des dossiers donnés.
     Utilisé avant de supprimer des DocFolder/DocSpace : la relation
@@ -1475,6 +1474,7 @@ async def _folder_subtree_ids(db: AsyncSession, folder_id: int) -> list[int]:
     return [r[0] for r in rows.fetchall()]
 
 
+@router.post("/admin/folder/{folder_id}/delete")
 async def admin_delete_folder(
     folder_id: int,
     ctx: Annotated[object, Depends(require_admin)],
