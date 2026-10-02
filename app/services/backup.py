@@ -17,6 +17,12 @@ logger = logging.getLogger(__name__)
 
 BACKUP_DIR = Path("backups")
 MAX_BACKUPS = 3  # nombre de ZIP à conserver localement (quota disque limité, cf. uploads/)
+# Au-delà de cette taille, le ZIP n'est plus joint à l'email (incident du
+# 02/10/2026 : charger un ZIP de 1,28 Go en mémoire pour l'encoder en base64
+# faisait tuer le process par l'OOM killer de PythonAnywhere avant même
+# d'atteindre le serveur SMTP — qui de toute façon refuse généralement les
+# pièces jointes au-delà de 20-25 Mo). Le ZIP reste disponible en local.
+MAX_EMAIL_ATTACHMENT_MB = 20
 
 
 def _db_path() -> Path | None:
@@ -94,26 +100,41 @@ def send_backup_email(zip_path: Path, to: str) -> bool:
         logger.warning("Envoi backup ignoré : pas de destinataire ou SMTP non configuré")
         return False
 
+    size_mb = zip_path.stat().st_size / 1_048_576
+    attach = size_mb <= MAX_EMAIL_ATTACHMENT_MB
+
     msg = MIMEMultipart()
     msg["From"] = s.smtp_from
     msg["To"] = to
     msg["Subject"] = f"[Portail Socrate] Sauvegarde automatique — {datetime.now().strftime('%d/%m/%Y %H:%M')}"
 
-    body = (
-        f"Bonjour,\n\n"
-        f"Veuillez trouver en pièce jointe la sauvegarde automatique du portail ({zip_path.name}).\n"
-        f"Taille : {zip_path.stat().st_size / 1_048_576:.1f} Mo\n\n"
-        f"Ce message est généré automatiquement — ne pas répondre.\n"
-        f"Portail Socrate"
-    )
+    if attach:
+        body = (
+            f"Bonjour,\n\n"
+            f"Veuillez trouver en pièce jointe la sauvegarde automatique du portail ({zip_path.name}).\n"
+            f"Taille : {size_mb:.1f} Mo\n\n"
+            f"Ce message est généré automatiquement — ne pas répondre.\n"
+            f"Portail Socrate"
+        )
+    else:
+        body = (
+            f"Bonjour,\n\n"
+            f"La sauvegarde automatique du portail a bien été créée ({zip_path.name}, {size_mb:.1f} Mo)\n"
+            f"mais n'est PAS jointe à cet email : elle dépasse {MAX_EMAIL_ATTACHMENT_MB} Mo, au-delà de quoi "
+            f"l'envoi par email n'est pas fiable (rejet côté serveur, ou surcharge mémoire côté serveur).\n"
+            f"Elle reste disponible sur le serveur dans le dossier backups/.\n\n"
+            f"Ce message est généré automatiquement — ne pas répondre.\n"
+            f"Portail Socrate"
+        )
     msg.attach(MIMEText(body, "plain", "utf-8"))
 
-    with open(zip_path, "rb") as f:
-        part = MIMEBase("application", "zip")
-        part.set_payload(f.read())
-    encoders.encode_base64(part)
-    part.add_header("Content-Disposition", "attachment", filename=zip_path.name)
-    msg.attach(part)
+    if attach:
+        with open(zip_path, "rb") as f:
+            part = MIMEBase("application", "zip")
+            part.set_payload(f.read())
+        encoders.encode_base64(part)
+        part.add_header("Content-Disposition", "attachment", filename=zip_path.name)
+        msg.attach(part)
 
     try:
         if s.smtp_secure == "ssl":
