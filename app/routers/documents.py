@@ -8,13 +8,13 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from sqlalchemy import or_, select
+from sqlalchemy import or_, select, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_admin, require_auth, has_fine_permission
-from app.models.documents import DocFolder, DocFolderDelegate, DocSpace, DocStatus, Document, DocumentVersion, MinGrade, PlancheEntry
+from app.dependencies import require_admin, require_doc_manager, require_auth, has_fine_permission
+from app.models.documents import DocFolder, DocFolderDelegate, DocSpace, DocSpaceDelegate, DocStatus, Document, DocumentVersion, MinGrade, PlancheEntry
 import json as _json
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.identity import MasonicGrade, Member, LodgeFunction, MemberStatus
@@ -131,11 +131,24 @@ async def _can_download(member: Member, user, folder: DocFolder, db: AsyncSessio
     return True
 
 
+async def _is_space_delegate(member: Member, space_id: int, db: AsyncSession) -> bool:
+    """Le membre a-t-il reçu une délégation active sur l'espace entier ?"""
+    now = datetime.now()
+    r = await db.execute(
+        _select_stmt(DocSpaceDelegate).where(
+            DocSpaceDelegate.space_id == space_id,
+            DocSpaceDelegate.member_id == member.id,
+        )
+    )
+    return any(d.expires_at is None or d.expires_at > now for d in r.scalars().all())
+
+
 async def _is_folder_delegate(member: Member, folder: DocFolder, db: AsyncSession) -> bool:
     """Le membre a-t-il reçu une délégation active (non expirée) sur ce
-    dossier, ou sur l'un de ses dossiers parents ? La délégation se
-    transmet aux sous-dossiers — déléguer « Chantiers d'apprentis » donne
-    la main sur tout ce qui est créé dessous."""
+    dossier, sur l'un de ses dossiers parents, ou sur l'espace entier qui le
+    contient ? La délégation se transmet aux sous-dossiers — déléguer
+    « Chantiers d'apprentis » (ou tout un espace) donne la main sur tout ce
+    qui est créé dessous."""
     now = datetime.now()
     current: Optional[DocFolder] = folder
     depth = 0
@@ -150,7 +163,7 @@ async def _is_folder_delegate(member: Member, folder: DocFolder, db: AsyncSessio
             if d.expires_at is None or d.expires_at > now:
                 return True
         if current.parent_id is None:
-            break
+            return await _is_space_delegate(member, current.space_id, db)
         current = await db.get(DocFolder, current.parent_id)
         depth += 1
     return False
@@ -342,6 +355,40 @@ async def documents_space(
 
     all_groups = await _load_groups(db) if user.is_admin else []
 
+    # Délégués actifs sur cet espace entier + autres espaces (fusion) —
+    # gestion réservée aux admins
+    delegates = []
+    active_members_for_delegate = []
+    other_spaces = []
+    if user.is_admin:
+        deleg_r = await db.execute(
+            select(DocSpaceDelegate)
+            .where(DocSpaceDelegate.space_id == space_id)
+            .order_by(DocSpaceDelegate.granted_at.desc())
+        )
+        delegate_rows = deleg_r.scalars().all()
+        if delegate_rows:
+            mids = {d.member_id for d in delegate_rows}
+            mr = await db.execute(select(Member).where(Member.id.in_(mids)))
+            members_map = {m.id: m for m in mr.scalars().all()}
+            now = datetime.now()
+            delegates = [
+                {"delegate": d, "member": members_map.get(d.member_id),
+                 "expired": bool(d.expires_at and d.expires_at <= now)}
+                for d in delegate_rows
+            ]
+        am_r = await db.execute(
+            select(Member).where(Member.status == MemberStatus.ACTIVE)
+            .order_by(Member.last_name, Member.first_name)
+        )
+        active_members_for_delegate = am_r.scalars().all()
+
+        os_r = await db.execute(
+            select(DocSpace).where(DocSpace.id != space_id, DocSpace.name != PERSONAL_SPACE_NAME)
+            .order_by(DocSpace.order_position, DocSpace.name)
+        )
+        other_spaces = os_r.scalars().all()
+
     return templates.TemplateResponse(request, "pages/documents/space.html", {
         "current_member": member,
         "current_user": user,
@@ -352,6 +399,9 @@ async def documents_space(
         "min_grades": list(MinGrade),
         "is_admin": user.is_admin,
         "saved": request.query_params.get("saved"),
+        "delegates": delegates,
+        "active_members_for_delegate": active_members_for_delegate,
+        "other_spaces": other_spaces,
         "breadcrumb": [{"label": "Bibliothèque", "url": "/documents/"},
                        {"label": space.name, "url": None}],
     })
@@ -1259,12 +1309,90 @@ async def admin_edit_space(
     return RedirectResponse(url=f"/documents/space/{space_id}?saved=1", status_code=303)
 
 
+# ── Admin — déléguer des droits d'écriture sur un espace entier à un membre ──
+
+@router.post("/space/{space_id}/delegate")
+async def space_delegate_add(
+    space_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    member_id: int = Form(...),
+    expires_at: str = Form(""),
+):
+    user, member = ctx
+    space = await db.get(DocSpace, space_id)
+    if not space:
+        raise HTTPException(status_code=404)
+    target = await db.get(Member, member_id)
+    if not target:
+        raise HTTPException(status_code=404)
+
+    exp = None
+    if expires_at.strip():
+        try:
+            exp = datetime.fromisoformat(expires_at)
+        except ValueError:
+            exp = None
+
+    db.add(DocSpaceDelegate(
+        space_id=space_id, member_id=member_id,
+        granted_by_id=member.id, expires_at=exp,
+    ))
+    await db.commit()
+    return RedirectResponse(url=f"/documents/space/{space_id}?saved=1", status_code=303)
+
+
+@router.post("/space/{space_id}/delegate/{delegate_id}/revoke")
+async def space_delegate_revoke(
+    space_id: int,
+    delegate_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    delegate = await db.get(DocSpaceDelegate, delegate_id)
+    if delegate and delegate.space_id == space_id:
+        await db.delete(delegate)
+        await db.commit()
+    return RedirectResponse(url=f"/documents/space/{space_id}?saved=1", status_code=303)
+
+
+# ── Admin — fusionner un espace dans un autre ────────────────────────────────
+
+@router.post("/admin/space/{space_id}/merge")
+async def admin_merge_space(
+    space_id: int,
+    ctx: Annotated[object, Depends(require_admin)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    target_space_id: int = Form(...),
+):
+    """Déplace TOUS les dossiers (racine et sous-dossiers, via une mise à
+    jour en masse de space_id — pas juste les racines, contrairement à un
+    déplacement dossier par dossier) de space_id vers target_space_id, puis
+    supprime l'espace devenu vide. Les droits propres à chaque dossier
+    (min_grade, group_id, délégués) ne changent pas ; seuls les réglages de
+    l'espace lui-même (et ses délégués d'espace) sont perdus avec sa
+    suppression."""
+    if space_id == target_space_id:
+        raise HTTPException(status_code=400, detail="Un espace ne peut pas fusionner avec lui-même")
+    source = await db.get(DocSpace, space_id)
+    target = await db.get(DocSpace, target_space_id)
+    if not source or not target:
+        raise HTTPException(status_code=404)
+
+    await db.execute(
+        update(DocFolder).where(DocFolder.space_id == space_id).values(space_id=target_space_id)
+    )
+    await db.delete(source)
+    await db.commit()
+    return RedirectResponse(url=f"/documents/space/{target_space_id}?saved=1", status_code=303)
+
+
 # ── Admin — créer dossier ─────────────────────────────────────────────────────
 
 @router.post("/admin/folder")
 async def admin_create_folder(
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
     space_id: int = Form(...),
@@ -1353,7 +1481,7 @@ async def admin_delete_space(
 async def folder_edit_form(
     request: Request,
     folder_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
@@ -1384,7 +1512,7 @@ async def folder_edit_form(
 @router.post("/folder/{folder_id}/edit")
 async def folder_edit_save(
     folder_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
     description: str = Form(""),
@@ -1442,7 +1570,7 @@ async def folder_edit_save(
 @router.post("/folder/{folder_id}/move")
 async def folder_move(
     folder_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     target_type: str = Form(...),       # "folder" or "space"
     target_id: int = Form(...),
@@ -1475,7 +1603,7 @@ async def folder_move(
 @router.get("/trash", response_class=HTMLResponse)
 async def documents_trash(
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
@@ -1490,14 +1618,14 @@ async def documents_trash(
         "current_member": member,
         "current_user": user,
         "documents": trashed,
-        "is_admin": True,
+        "is_admin": user.is_admin,
     })
 
 
 @router.post("/file/{doc_id}/trash")
 async def document_trash(
     doc_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     from datetime import datetime
@@ -1513,7 +1641,7 @@ async def document_trash(
 @router.post("/file/{doc_id}/restore")
 async def document_restore(
     doc_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     doc = await db.get(Document, doc_id)
@@ -1547,7 +1675,7 @@ async def document_destroy(
 @router.post("/file/{doc_id}/move")
 async def document_move(
     doc_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     target_folder_id: Annotated[int, Form()],
 ):
@@ -1568,7 +1696,7 @@ async def document_move(
 @router.post("/file/{doc_id}/rename")
 async def document_rename(
     doc_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
 ):
@@ -1752,7 +1880,7 @@ async def documents_picker(
 @router.post("/file/{doc_id}/new-version")
 async def document_new_version(
     doc_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     file: UploadFile = File(...),
     change_notes: str = Form(""),
@@ -1803,7 +1931,7 @@ async def document_new_version(
 async def document_version_restore(
     doc_id: int,
     version_id: int,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
@@ -1840,7 +1968,7 @@ async def document_version_restore(
 @router.post("/bulk")
 async def documents_bulk(
     request: Request,
-    ctx: Annotated[object, Depends(require_admin)],
+    ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     from datetime import datetime
@@ -1850,6 +1978,12 @@ async def documents_bulk(
     doc_ids = [int(x) for x in form.getlist("doc_ids") if str(x).isdigit()]
     target_folder_id = form.get("target_folder_id", "")
     back_folder = form.get("back_folder_id", "")
+
+    # Suppression définitive (irréversible) réservée aux admins, même en
+    # actions groupées — require_doc_manager laisse passer les
+    # gestionnaires GED non-admin pour trash/restore/move, pas destroy.
+    if action == "destroy" and not user.is_admin:
+        raise HTTPException(status_code=403, detail="Suppression définitive réservée aux administrateurs")
 
     if not doc_ids:
         return RedirectResponse(url=f"/documents/folder/{back_folder}?error=nosel", status_code=303)

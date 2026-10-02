@@ -147,6 +147,28 @@ class DocFolderDelegate(Base):
         return f"<DocFolderDelegate folder={self.folder_id} member={self.member_id}>"
 
 
+class DocSpaceDelegate(Base):
+    """Délégation de droits d'écriture sur un espace ENTIER (tous ses dossiers
+    racine et leurs sous-dossiers) à un membre précis — équivalent de
+    DocFolderDelegate mais pour tout un espace, pour éviter d'avoir à
+    déléguer dossier par dossier quand une personne doit gérer tout un
+    espace (ex: la Secrétaire sur l'espace "Secrétariat")."""
+    __tablename__ = "doc_space_delegates"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    space_id: Mapped[int] = mapped_column(ForeignKey("doc_spaces.id", ondelete="CASCADE"))
+    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    granted_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
+    granted_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
+    expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)  # None = permanent
+
+    space: Mapped["DocSpace"] = relationship(foreign_keys=[space_id])
+    member: Mapped["Member"] = relationship(foreign_keys=[member_id])
+
+    def __repr__(self) -> str:
+        return f"<DocSpaceDelegate space={self.space_id} member={self.member_id}>"
+
+
 class Document(Base):
     """Document avec workflow de publication et versioning."""
     __tablename__ = "documents"

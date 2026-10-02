@@ -214,6 +214,24 @@ async def require_admin(
     return ctx
 
 
+async def require_doc_manager(
+    ctx: Annotated[tuple, Depends(require_active_member)]
+) -> tuple[User, Member]:
+    """Exige un administrateur OU un membre avec le droit fin GED
+    (can_manage_documents) — pour les actions de gestion courante de la
+    bibliothèque (modifier/déplacer un dossier, corbeille, actions
+    groupées, documents) qu'une Secrétaire doit pouvoir faire sans être
+    administrateur technique. La suppression définitive d'un dossier ou
+    d'un espace, elle, reste réservée à require_admin (irréversible)."""
+    user, member = ctx
+    if not user.is_admin and not has_fine_permission(member, "can_manage_documents"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Accès réservé aux administrateurs ou aux gestionnaires de la GED"
+        )
+    return ctx
+
+
 # ── Helpers de permission ───────────────────────────────────────────────────
 
 def has_fine_permission(member: Member, perm: str) -> bool:

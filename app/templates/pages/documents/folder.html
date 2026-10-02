@@ -88,7 +88,7 @@
         </svg>
         <span class="hidden sm:inline">Partager</span>
       </button>
-    {% if is_admin %}
+    {% if is_admin or can_write %}
       <!-- Sélection multiple -->
       <button @click="selMode=!selMode; if(!selMode) sel=new Set()"
               :class="selMode ? 'bg-loge-100 border-loge-400 text-loge-700' : 'border-gray-300 text-gray-700 hover:bg-gray-50'"
@@ -112,7 +112,7 @@
         </svg>
         <span class="hidden sm:inline">Modifier</span>
       </a>
-      <button onclick="document.getElementById('modal-subfolder').classList.remove('hidden')"
+      <button onclick="document.getElementById('{{ 'modal-subfolder' if is_admin else 'modal-subfolder-simple' }}').classList.remove('hidden')"
               class="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
           <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
@@ -126,6 +126,7 @@
         </svg>
         <span class="hidden sm:inline">Corbeille</span>
       </a>
+      {% if is_admin %}
       <form method="post" action="/documents/admin/folder/{{ folder.id }}/delete"
             onsubmit="return confirm('Supprimer ce dossier et tout son contenu ?')">
         <button type="submit"
@@ -136,19 +137,12 @@
           <span class="hidden sm:inline">Dossier</span>
         </button>
       </form>
-    {% elif can_write %}
-      <button onclick="document.getElementById('modal-subfolder-simple').classList.remove('hidden')"
-              class="flex items-center gap-1.5 border border-gray-300 text-gray-700 text-sm font-medium px-3 py-2 rounded-lg hover:bg-gray-50 transition-colors">
-        <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-          <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>
-        </svg>
-        <span class="hidden sm:inline">Sous-dossier</span>
-      </button>
+      {% endif %}
     {% endif %}
     </div>
 
   <!-- Formulaire bulk (invisible, soumis par JS) -->
-  {% if is_admin %}
+  {% if is_admin or can_write %}
   <form id="bulk-form" method="post" action="/documents/bulk" class="hidden">
     <input type="hidden" name="action" value="">
     <input type="hidden" name="target_folder_id" value="">
@@ -339,7 +333,7 @@
   {% endif %}
 
   <!-- ── Barre d'actions flottante (sélection active) ───────────────────── -->
-  {% if is_admin %}
+  {% if is_admin or can_write %}
   <div x-show="selMode && sel.size > 0" x-cloak x-transition
        class="fixed bottom-20 lg:bottom-6 left-1/2 -translate-x-1/2 z-40
               bg-gray-900 text-white rounded-2xl shadow-2xl px-4 py-3
@@ -444,7 +438,7 @@
             <path stroke-linecap="round" stroke-linejoin="round" d="M7.217 10.907a2.25 2.25 0 100 2.186m0-2.186c.18.324.283.696.283 1.093s-.103.77-.283 1.093m0-2.186l9.566-5.314m-9.566 7.5l9.566 5.314m0 0a2.25 2.25 0 103.935 2.186 2.25 2.25 0 00-3.935-2.186zm0-12.814a2.25 2.25 0 103.933-2.185 2.25 2.25 0 00-3.933 2.185z"/>
           </svg>
         </button>
-        {% if is_admin %}
+        {% if is_admin or can_write %}
         <div draggable="true" data-drag-id="{{ sf.id }}"
              ondragstart="dfDragStart(this,event)"
              class="w-6 h-6 flex items-center justify-center rounded text-gray-300 hover:text-gray-500 cursor-grab active:cursor-grabbing"
@@ -453,6 +447,8 @@
             <path d="M8.5 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-7 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm-7 6a1.5 1.5 0 100-3 1.5 1.5 0 000 3zm7 0a1.5 1.5 0 100-3 1.5 1.5 0 000 3z"/>
           </svg>
         </div>
+        {% endif %}
+        {% if is_admin %}
         <form method="post" action="/documents/admin/folder/{{ sf.id }}/delete"
               onsubmit="return confirm('Supprimer ce dossier ?')">
           <button type="submit" class="w-6 h-6 flex items-center justify-center rounded text-red-400 hover:bg-red-50 hover:text-red-600">
