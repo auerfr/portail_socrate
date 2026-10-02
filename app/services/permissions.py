@@ -31,19 +31,20 @@ ALL_PERMISSIONS = {
     "can_manage_partner_lodges":    "Loges voisines — ajouter, modifier l'annuaire",
 }
 
-_CACHE: dict[int, set] = {}
-
-
 async def user_permissions(db: AsyncSession, user_id: int) -> set:
-    """Retourne le set des permissions fines de cet utilisateur."""
-    if user_id in _CACHE:
-        return _CACHE[user_id]
+    """Retourne le set des permissions fines de cet utilisateur.
+
+    Pas de cache : avec plusieurs processus serveur (uWSGI), un cache en
+    mémoire par processus n'est jamais invalidé dans les autres processus
+    quand une permission est accordée/révoquée — un utilisateur peut alors
+    voir l'ancien état pendant des heures selon le processus qui traite sa
+    requête (observé en production le 03/10/2026 : droits GED accordés à
+    un membre, invisibles pour lui). La requête est triviale (indexée sur
+    user_id), aucun besoin réel de caching ici."""
     r = await db.execute(
         select(ModulePermission.permission).where(ModulePermission.user_id == user_id)
     )
-    perms = {row[0] for row in r.all()}
-    _CACHE[user_id] = perms
-    return perms
+    return {row[0] for row in r.all()}
 
 
 async def has_permission(db: AsyncSession, user, perm: str) -> bool:
@@ -67,7 +68,6 @@ async def grant_permission(db: AsyncSession, user_id: int, perm: str,
         db.add(ModulePermission(user_id=user_id, permission=perm,
                                 granted_by_id=granted_by_id))
         await db.commit()
-    _CACHE.pop(user_id, None)
 
 
 async def revoke_permission(db: AsyncSession, user_id: int, perm: str) -> None:
@@ -80,4 +80,3 @@ async def revoke_permission(db: AsyncSession, user_id: int, perm: str) -> None:
         )
     )
     await db.commit()
-    _CACHE.pop(user_id, None)
