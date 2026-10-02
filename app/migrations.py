@@ -11,14 +11,25 @@ from sqlalchemy.ext.asyncio import AsyncEngine
 
 
 async def ensure_wal_mode(engine: AsyncEngine) -> None:
-    """Active le mode WAL (lectures simultanées même pendant une écriture) et
-    un busy_timeout généreux. Réglage persistant (stocké dans le fichier
-    SQLite lui-même), mais ne s'applique jamais si le lifespan ASGI qui
-    l'exécutait ne se déclenche pas sur l'hébergement — d'où son extraction
-    ici pour pouvoir être rejoué explicitement via scripts/migrate.py."""
-    async with engine.begin() as conn:
-        await conn.exec_driver_sql("PRAGMA journal_mode=WAL")
-        await conn.exec_driver_sql("PRAGMA busy_timeout=30000")  # 30s
+    """Règle un busy_timeout généreux sur la base SQLite.
+
+    N'active PLUS le mode WAL : le stockage PythonAnywhere (NFS) ne supporte
+    pas le verrouillage par fichier partagé (.db-shm) qu'exige WAL, ce qui
+    provoque un incident en production le 02/10/2026 — chaque connexion,
+    sur n'importe quelle route, échouait avec "sqlite3.OperationalError:
+    locking protocol" (SQLITE_PROTOCOL) dès que journal_mode=WAL était
+    persisté dans le fichier. Récupération : copie du fichier .db (ce qui
+    repart d'un état de verrouillage NFS neuf) puis repassage en
+    journal_mode=DELETE. Ne jamais réactiver WAL sur cet hébergement.
+
+    Reste défensif (try/except) : ce réglage ne doit jamais empêcher le
+    démarrage de l'application, même si le PRAGMA échoue pour une autre
+    raison transitoire."""
+    try:
+        async with engine.begin() as conn:
+            await conn.exec_driver_sql("PRAGMA busy_timeout=30000")  # 30s
+    except Exception:
+        pass
 
 
 async def run_lightweight_migrations(engine: AsyncEngine) -> None:

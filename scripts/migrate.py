@@ -1,13 +1,17 @@
-"""Applique les migrations de schéma (tables + colonnes manquantes) et le
-mode WAL SQLite, sans démarrer le serveur.
+"""Applique les migrations de schéma (tables + colonnes manquantes), sans
+démarrer le serveur.
 
 À lancer manuellement après chaque `git pull` en production. Nécessaire sur
 les hébergements où le cycle de vie ASGI (lifespan FastAPI) ne se déclenche
 pas au redémarrage de l'app (ex: PythonAnywhere en web app WSGI classique) —
 sans ça, les migrations normalement automatiques au démarrage ne s'appliquent
-jamais (colonnes manquantes) et le mode WAL n'est jamais activé (la base
-reste en mode "delete" par défaut, qui bloque les lectures pendant une
-écriture — cause probable de lenteurs intermittentes).
+jamais (colonnes manquantes).
+
+NE PAS activer le mode WAL ici (ensure_wal_mode ne le fait plus) : le
+stockage PythonAnywhere (NFS) ne supporte pas son verrouillage par fichier
+partagé — incident du 02/10/2026, tout le site en 500
+("sqlite3.OperationalError: locking protocol") dès que journal_mode=WAL
+était persisté. Rester en mode "delete" (défaut SQLite) sur cet hébergement.
 
 Usage :
     python scripts/migrate.py
