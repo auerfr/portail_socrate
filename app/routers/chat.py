@@ -58,10 +58,10 @@ async def _get_or_create_chat_share_folder(db: AsyncSession) -> DocFolder:
     if folder:
         return folder
 
-    sr = await db.execute(select(DocSpace).where(DocSpace.name == "Bibliothèque"))
+    sr = await db.execute(select(DocSpace).where(DocSpace.name == "Divers"))
     space = sr.scalar_one_or_none()
     if not space:
-        space = DocSpace(name="Bibliothèque", description="Travaux et planches de la loge",
+        space = DocSpace(name="Divers", description="Documents divers de la loge",
                           access_mode=DocAccessMode.OPEN, min_grade=MinGrade.ALL)
         db.add(space)
         await db.flush()

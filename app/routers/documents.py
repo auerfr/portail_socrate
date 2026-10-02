@@ -8,7 +8,7 @@ from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from sqlalchemy import or_, select, update
+from sqlalchemy import delete as sa_delete, or_, select, text, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -1442,6 +1442,39 @@ async def admin_delete_file(
 # ── Admin — supprimer dossier ─────────────────────────────────────────────────
 
 @router.post("/admin/folder/{folder_id}/delete")
+async def _delete_documents_in(db: AsyncSession, folder_ids: list[int]) -> None:
+    """Supprime (fichier + ligne) tous les documents des dossiers donnés.
+    Utilisé avant de supprimer des DocFolder/DocSpace : la relation
+    DocSpace.folders/DocFolder.children n'a pas de cascade ORM configurée
+    et space_id/folder_id sont NOT NULL, donc laisser l'ORM gérer la
+    suppression du parent plante avec une IntegrityError (constaté le
+    02/10/2026 sur un espace vide en apparence)."""
+    if not folder_ids:
+        return
+    docs = (await db.execute(select(Document).where(Document.folder_id.in_(folder_ids)))).scalars().all()
+    for doc in docs:
+        if doc.storage_path:
+            try:
+                Path(doc.storage_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+    await db.execute(sa_delete(Document).where(Document.folder_id.in_(folder_ids)))
+    await db.execute(sa_delete(DocFolderDelegate).where(DocFolderDelegate.folder_id.in_(folder_ids)))
+
+
+async def _folder_subtree_ids(db: AsyncSession, folder_id: int) -> list[int]:
+    """Renvoie l'id du dossier + tous ses descendants (profondeur quelconque)."""
+    rows = await db.execute(text("""
+        WITH RECURSIVE subtree(id) AS (
+            SELECT id FROM doc_folders WHERE id = :fid
+            UNION ALL
+            SELECT df.id FROM doc_folders df JOIN subtree s ON df.parent_id = s.id
+        )
+        SELECT id FROM subtree
+    """), {"fid": folder_id})
+    return [r[0] for r in rows.fetchall()]
+
+
 async def admin_delete_folder(
     folder_id: int,
     ctx: Annotated[object, Depends(require_admin)],
@@ -1452,7 +1485,9 @@ async def admin_delete_folder(
         raise HTTPException(status_code=404)
     parent_id = folder.parent_id
     space_id = folder.space_id
-    await db.delete(folder)
+    subtree_ids = await _folder_subtree_ids(db, folder_id)
+    await _delete_documents_in(db, subtree_ids)
+    await db.execute(sa_delete(DocFolder).where(DocFolder.id.in_(subtree_ids)))
     await db.commit()
     if parent_id:
         return RedirectResponse(url=f"/documents/folder/{parent_id}?saved=1", status_code=303)
@@ -1470,6 +1505,12 @@ async def admin_delete_space(
     space = await db.get(DocSpace, space_id)
     if not space:
         raise HTTPException(status_code=404)
+    folder_ids = [r[0] for r in (await db.execute(
+        select(DocFolder.id).where(DocFolder.space_id == space_id)
+    )).all()]
+    await _delete_documents_in(db, folder_ids)
+    await db.execute(sa_delete(DocFolder).where(DocFolder.space_id == space_id))
+    await db.execute(sa_delete(DocSpaceDelegate).where(DocSpaceDelegate.space_id == space_id))
     await db.delete(space)
     await db.commit()
     return RedirectResponse(url="/documents/?saved=1", status_code=303)
