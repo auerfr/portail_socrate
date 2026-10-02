@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_auth, has_fine_permission
 from app.models.planches import Planche, PlancheComment, PlancheStatus, PlancheGrade
-from app.models.identity import Member, MasonicGrade, MemberStatus, User
+from app.models.identity import Member, MasonicGrade, MemberStatus
 from app.models.meetings import Meeting
 from app.models.documents import (
     DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
@@ -65,11 +65,11 @@ async def _form_context(db: AsyncSession) -> dict:
     meetings = (await db.execute(
         select(Meeting).order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
     )).scalars().all()
-    # Comptes techniques admin exclus (comme pour l'assiduité)
-    admin_ids = {r[0] for r in await db.execute(
-        select(User.member_id).where(User.is_admin == True, User.member_id.isnot(None))
-    )}
-    members = [m for m in (await db.execute(select(Member))).scalars().all() if m.id not in admin_ids]
+    # Seul le compte technique placeholder créé par seed.py est exclu — pas
+    # "tout membre admin" (un vrai F∴/S∴ qui a aussi des droits admin reste
+    # un membre réel et peut parfaitement être auteur d'une planche ; bug
+    # signalé le 03/10/2026 : AUER, admin réel, absent de cette liste).
+    members = [m for m in (await db.execute(select(Member))).scalars().all() if m.email != "admin@loge.local"]
     return {
         "meetings": meetings,
         "author_members": sorted(members, key=lambda m: (m.status != MemberStatus.ACTIVE, m.last_name.upper(), m.first_name)),
