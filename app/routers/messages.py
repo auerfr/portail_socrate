@@ -252,6 +252,33 @@ def _target_description(target_type: str, target_filter: Optional[str]) -> str:
     return target_type
 
 
+def _fold(text: Optional[str]) -> str:
+    """Minuscules sans accents — la recherche ignore casse et accents."""
+    import unicodedata
+    return unicodedata.normalize("NFKD", text or "").encode("ascii", "ignore").decode().lower()
+
+
+def _search_terms(q: str) -> list[str]:
+    return [t for t in (_fold(w) for w in (q or "").split()) if t]
+
+
+def _matches(terms: list[str], *texts: Optional[str]) -> bool:
+    """Tous les mots cherchés apparaissent quelque part dans les textes."""
+    hay = _fold(" ".join(t or "" for t in texts))
+    return all(t in hay for t in terms)
+
+
+async def _attachment_names(db: AsyncSession, message_ids: list[int]) -> dict[int, str]:
+    names: dict[int, str] = {}
+    if message_ids:
+        for mid, fname in await db.execute(
+            select(MessageAttachment.message_id, MessageAttachment.filename)
+            .where(MessageAttachment.message_id.in_(message_ids))
+        ):
+            names[mid] = names.get(mid, "") + " " + (fname or "")
+    return names
+
+
 async def _unread_count(db: AsyncSession, member_id: int) -> int:
     r = await db.execute(
         select(func.count(MessageRecipient.id))
@@ -277,10 +304,12 @@ async def inbox(
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = 1,
     label: Optional[str] = None,
+    q: str = "",
 ):
     user, member = ctx
     per_page = 20
     offset = (page - 1) * per_page
+    terms = _search_terms(q)
 
     base_where = [
         MessageRecipient.member_id == member.id,
@@ -290,24 +319,48 @@ async def inbox(
     if label:
         base_where.append(MessageRecipient.label == label)
 
-    # Messages reçus
-    r = await db.execute(
-        select(MessageRecipient)
-        .join(Message, Message.id == MessageRecipient.message_id)
-        .where(*base_where)
-        .options(selectinload(MessageRecipient.message))
-        .order_by(Message.sent_at.desc())
-        .offset(offset).limit(per_page)
-    )
-    received = r.scalars().all()
+    if terms:
+        # Recherche : objet, texte, expéditeur, pièces jointes — filtrée ici
+        # (SQLite ne sait pas ignorer les accents), puis paginée.
+        rows = list(await db.execute(
+            select(MessageRecipient.id, Message.id, Message.subject, Message.body,
+                   Member.first_name, Member.last_name)
+            .join(Message, Message.id == MessageRecipient.message_id)
+            .outerjoin(Member, Member.id == Message.sender_id)
+            .where(*base_where)
+            .order_by(Message.sent_at.desc())
+        ))
+        attach = await _attachment_names(db, [row[1] for row in rows])
+        hit_ids = [row[0] for row in rows if _matches(terms, row[2], row[3], row[4], row[5], attach.get(row[1]))]
+        total = len(hit_ids)
+        page_ids = hit_ids[offset:offset + per_page]
+        r = await db.execute(
+            select(MessageRecipient)
+            .join(Message, Message.id == MessageRecipient.message_id)
+            .where(MessageRecipient.id.in_(page_ids))
+            .options(selectinload(MessageRecipient.message))
+            .order_by(Message.sent_at.desc())
+        )
+        received = r.scalars().all()
+    else:
+        # Messages reçus
+        r = await db.execute(
+            select(MessageRecipient)
+            .join(Message, Message.id == MessageRecipient.message_id)
+            .where(*base_where)
+            .options(selectinload(MessageRecipient.message))
+            .order_by(Message.sent_at.desc())
+            .offset(offset).limit(per_page)
+        )
+        received = r.scalars().all()
 
-    # Total pour pagination
-    r_total = await db.execute(
-        select(func.count(MessageRecipient.id))
-        .join(Message, Message.id == MessageRecipient.message_id)
-        .where(*base_where)
-    )
-    total = r_total.scalar_one() or 0
+        # Total pour pagination
+        r_total = await db.execute(
+            select(func.count(MessageRecipient.id))
+            .join(Message, Message.id == MessageRecipient.message_id)
+            .where(*base_where)
+        )
+        total = r_total.scalar_one() or 0
 
     # Labels existants de ce membre (pour filtres)
     r_labels = await db.execute(
@@ -345,6 +398,7 @@ async def inbox(
         "tab": "inbox",
         "active_label": label,
         "all_labels": all_labels,
+        "q": q.strip(),
     })
 
 
@@ -354,6 +408,7 @@ async def sent_messages(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     page: int = 1,
+    q: str = "",
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -368,19 +423,45 @@ async def sent_messages(
         Message.sender_deleted_at.is_(None),
     )
 
-    r = await db.execute(
-        select(Message)
-        .where(*sent_where)
-        .options(selectinload(Message.recipients))
-        .order_by(Message.sent_at.desc())
-        .offset(offset).limit(per_page)
-    )
-    sent = r.scalars().all()
+    terms = _search_terms(q)
+    if terms:
+        # Recherche : objet, texte, destinataires, pièces jointes
+        rows = list(await db.execute(
+            select(Message.id, Message.subject, Message.body).where(*sent_where).order_by(Message.sent_at.desc())
+        ))
+        ids = [row[0] for row in rows]
+        names: dict[int, str] = {}
+        if ids:
+            for mid, fn, ln in await db.execute(
+                select(MessageRecipient.message_id, Member.first_name, Member.last_name)
+                .join(Member, Member.id == MessageRecipient.member_id)
+                .where(MessageRecipient.message_id.in_(ids))
+            ):
+                names[mid] = names.get(mid, "") + f" {fn} {ln}"
+        attach = await _attachment_names(db, ids)
+        hit_ids = [row[0] for row in rows if _matches(terms, row[1], row[2], names.get(row[0]), attach.get(row[0]))]
+        total = len(hit_ids)
+        r = await db.execute(
+            select(Message)
+            .where(Message.id.in_(hit_ids[offset:offset + per_page]))
+            .options(selectinload(Message.recipients))
+            .order_by(Message.sent_at.desc())
+        )
+        sent = r.scalars().all()
+    else:
+        r = await db.execute(
+            select(Message)
+            .where(*sent_where)
+            .options(selectinload(Message.recipients))
+            .order_by(Message.sent_at.desc())
+            .offset(offset).limit(per_page)
+        )
+        sent = r.scalars().all()
 
-    r_total = await db.execute(
-        select(func.count(Message.id)).where(*sent_where)
-    )
-    total = r_total.scalar_one() or 0
+        r_total = await db.execute(
+            select(func.count(Message.id)).where(*sent_where)
+        )
+        total = r_total.scalar_one() or 0
     unread = await _unread_count(db, member.id)
 
     return templates.TemplateResponse(request, "pages/messages/inbox.html", {
@@ -395,6 +476,7 @@ async def sent_messages(
         "can_send": True,
         "tab": "sent",
         "target_description": _target_description,
+        "q": q.strip(),
     })
 
 

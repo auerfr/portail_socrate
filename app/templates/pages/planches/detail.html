@@ -39,11 +39,16 @@
     <div class="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-400">
       {% if planche.author %}
       <span>Par {{ planche.author.first_name }} {{ planche.author.last_name | anon_nom | first }}∴</span>
+      {% elif planche.author_name %}
+      {% set an = planche.author_name.split(' ') %}
+      <span>Par {{ an[0] }} {{ an[-1] | anon_nom | first }}∴ <span class="text-gray-300">({{ planche.author_lodge or "autre loge" }})</span></span>
       {% endif %}
       {% if planche.meeting %}
-      <span>· Ten∴ du {{ planche.meeting.meeting_date.strftime('%d/%m/%Y') }}</span>
+      <span>· Présentée en {% if planche.meeting.meeting_number is not none %}{{ '1ère' if planche.meeting.meeting_number == 1 else planche.meeting.meeting_number ~ 'e' }} {% endif %}Ten∴ du {{ planche.meeting.meeting_date.strftime('%d/%m/%Y') }}</span>
       {% endif %}
+      {% if not planche.library_doc_id %}
       <span>· {{ (planche.published_at or planche.created_at).strftime('%d/%m/%Y') }}</span>
+      {% endif %}
       {% if planche.updated_at %}
       <span>· modifiée le {{ planche.updated_at | localdt('%d/%m/%Y') }}</span>
       {% endif %}
@@ -60,7 +65,27 @@
   </div>
 
   <!-- Contenu : fichier ou texte -->
-  {% if planche.file_path %}
+  {% if not planche.file_path and planche.library_doc_id %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 flex items-center gap-4">
+    <div class="text-4xl">📚</div>
+    <div class="min-w-0">
+      <p class="font-medium text-gray-800">Planche conservée dans la bibliothèque</p>
+      <p class="text-xs text-gray-400 mt-0.5">Documents › Planches — accès selon le grade de la planche</p>
+    </div>
+    <a href="/planches/{{ planche.id }}/download"
+       class="ml-auto shrink-0 inline-flex items-center gap-2 bg-loge-700 text-white text-sm font-medium px-4 py-2 rounded-xl hover:bg-loge-800 transition-colors">
+      Consulter
+    </a>
+  </div>
+  {% if library_mime == 'application/pdf' %}
+  <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
+    <div class="relative" style="height:70vh; min-height:380px;">
+      <iframe src="/planches/{{ planche.id }}/download?inline=1"
+              class="w-full h-full border-0" title="{{ planche.title }}"></iframe>
+    </div>
+  </div>
+  {% endif %}
+  {% elif planche.file_path %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-6 mb-4 flex items-center gap-4">
     <div class="text-4xl">📎</div>
     <div class="min-w-0">
@@ -79,13 +104,13 @@
   {% if planche.mime_type == 'application/pdf' %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-4">
     <div class="relative" style="height:70vh; min-height:380px;">
-      <iframe src="/planches/{{ planche.id }}/download"
+      <iframe src="/planches/{{ planche.id }}/download?inline=1"
               class="w-full h-full border-0" title="{{ planche.title }}"></iframe>
     </div>
   </div>
   {% elif planche.mime_type and planche.mime_type.startswith('image/') %}
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 p-4 mb-4 text-center">
-    <img src="/planches/{{ planche.id }}/download" alt="{{ planche.title }}"
+    <img src="/planches/{{ planche.id }}/download?inline=1" alt="{{ planche.title }}"
          class="max-w-full mx-auto rounded-lg shadow">
   </div>
   {% endif %}

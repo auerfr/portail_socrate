@@ -78,7 +78,7 @@
               </button>
             </form>
           </div>
-          <p class="text-[10px] {% if ann.is_pinned %}text-loge-700{% else %}text-amber-800{% endif %} mt-0.5 line-clamp-2">{{ ann.content }}</p>
+          <p class="text-[10px] {% if ann.is_pinned %}text-loge-700{% else %}text-amber-800{% endif %} mt-0.5 line-clamp-2">{{ ann.content | linkify }}</p>
         </div>
       </div>
     </div>
@@ -417,7 +417,7 @@
                 </button>
               </form>
             </div>
-            <p class="text-[10px] {% if ann.is_pinned %}text-loge-700{% else %}text-amber-800{% endif %} mt-0.5 line-clamp-2">{{ ann.content }}</p>
+            <p class="text-[10px] {% if ann.is_pinned %}text-loge-700{% else %}text-amber-800{% endif %} mt-0.5 line-clamp-2">{{ ann.content | linkify }}</p>
           </div>
         </div>
       </div>

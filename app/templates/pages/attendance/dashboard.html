@@ -202,6 +202,12 @@
                       {% if mbr.civility == 'S' %}S∴{% else %}F∴{% endif %}
                       {{ mbr.last_name | anon_nom }} {{ mbr.first_name }}
                     </div>
+                    {% if mbr.status.value != 'ACTIVE' or mbr.is_founder %}
+                    <div class="text-xs text-gray-400 leading-tight">
+                      {% if mbr.is_founder %}<span class="text-amber-700">★ Fondateur</span>{% endif %}
+                      {% if mbr.status.value != 'ACTIVE' %}{% if mbr.is_founder %} · {% endif %}A quitté la loge{% if mbr.status_date %} le {{ mbr.status_date.strftime('%d/%m/%Y') }}{% endif %}{% endif %}
+                    </div>
+                    {% endif %}
                     {% if is_danger %}
                     <div class="text-xs text-red-500 font-medium leading-tight">🔴 Assiduité {{ pct }}%</div>
                     {% elif is_warn %}

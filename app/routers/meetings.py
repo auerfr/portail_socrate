@@ -406,10 +406,19 @@ async def meeting_detail(
     report = report_r.scalar_one_or_none()
     can_approve_report = _can_approve_trace(user, member)
 
+    # Planches présentées à cette tenue (publiées, visibles pour le grade du membre)
+    from app.models.planches import Planche, PlancheStatus
+    from app.routers.planches import _can_read as _can_read_planche
+    planches_r = await db.execute(
+        select(Planche).where(Planche.meeting_id == meeting_id, Planche.status == PlancheStatus.PUBLIE)
+    )
+    meeting_planches = [p for p in planches_r.scalars().all() if _can_read_planche(member, p)]
+
     return templates.TemplateResponse(request, "pages/meetings/detail.html", {
         "current_member": member,
         "current_user": user,
         "meeting": meeting,
+        "meeting_planches": meeting_planches,
         "my_attendance": my_attendance,
         "present_count": present_count,
         "excused_count": excused_count,

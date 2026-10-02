@@ -21,6 +21,43 @@ from app.models.meetings import Meeting, Attendance
 _GRADE_ORDER = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
 
 
+def is_archived_year(masonic_year: Optional[MasonicYear]) -> bool:
+    """Année close : ses pointages viennent des livres des chantiers (reprise
+    d'historique) ou d'une saisie terminée — ils font foi tels quels."""
+    return masonic_year is not None and not masonic_year.is_current
+
+
+def meeting_expected(mbr: Member, mtg: Meeting, member_grid: dict, archived: bool) -> bool:
+    """La tenue compte-t-elle dans l'assiduité de ce membre ?
+
+    Année close : seules les tenues pointées comptent (le livre des chantiers
+    laissait vide ce qui ne concernait pas le membre — pas encore entré, déjà
+    parti, grade insuffisant à l'époque ; son grade actuel n'est plus le bon
+    repère). Année en cours : fenêtre d'appartenance et grade de la tenue.
+    """
+    if archived:
+        return mtg.id in member_grid
+    start = mbr.membership_start_date
+    left = mbr.status_date if mbr.status != MemberStatus.ACTIVE else None
+    if start and mtg.meeting_date < start:
+        return False
+    if left and mtg.meeting_date > left:
+        return False
+    grade_val = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
+    mtg_grade = mtg.grade.value if hasattr(mtg.grade, "value") else str(mtg.grade)
+    return mtg_grade == "ALL" or _GRADE_ORDER.get(grade_val, 0) >= _GRADE_ORDER.get(mtg_grade, 0)
+
+
+def members_condition(masonic_year: Optional[MasonicYear], meeting_ids: list[int], archived: bool):
+    """Membres à lister : pour une année close, tous ceux qui ont un pointage
+    (y compris partis depuis) ; sinon les membres redevables de l'année."""
+    if archived:
+        return Member.id.in_(select(Attendance.member_id).where(Attendance.meeting_id.in_(meeting_ids)))
+    if masonic_year:
+        return member_liable_for_year_condition(masonic_year.start_date)
+    return Member.status == MemberStatus.ACTIVE
+
+
 @dataclass
 class LodgeAttendanceStats:
     past_meetings: list
@@ -79,12 +116,9 @@ async def compute_lodge_attendance(db: AsyncSession, masonic_year: Optional[Maso
     )
     admin_ids = {row[0] for row in admin_ids_r}
 
-    liable_condition = (
-        member_liable_for_year_condition(masonic_year.start_date)
-        if masonic_year else Member.status == MemberStatus.ACTIVE
-    )
+    archived = is_archived_year(masonic_year)
     members_r = await db.execute(
-        select(Member).where(liable_condition, Member.id.notin_(admin_ids))
+        select(Member).where(members_condition(masonic_year, past_ids, archived), Member.id.notin_(admin_ids))
         .order_by(Member.last_name, Member.first_name)
     )
     active_members = members_r.scalars().all()
@@ -98,21 +132,13 @@ async def compute_lodge_attendance(db: AsyncSession, masonic_year: Optional[Maso
             s[att.status.value] = s.get(att.status.value, 0) + 1
             grid.setdefault(att.member_id, {})[att.meeting_id] = att.status.value
 
-    member_applicable: dict = {}
-    for mbr in active_members:
-        grade_val = mbr.masonic_grade.value if hasattr(mbr.masonic_grade, "value") else str(mbr.masonic_grade)
-        start = mbr.membership_start_date
-        left = mbr.status_date if mbr.status != MemberStatus.ACTIVE else None
-        applicable = set()
-        for mtg in past_meetings:
-            if start and mtg.meeting_date < start:
-                continue
-            if left and mtg.meeting_date > left:
-                continue
-            mtg_grade = mtg.grade.value if hasattr(mtg.grade, "value") else str(mtg.grade)
-            if mtg_grade == "ALL" or _GRADE_ORDER.get(grade_val, 0) >= _GRADE_ORDER.get(mtg_grade, 0):
-                applicable.add(mtg.id)
-        member_applicable[mbr.id] = applicable
+    member_applicable: dict = {
+        mbr.id: {
+            mtg.id for mtg in past_meetings
+            if meeting_expected(mbr, mtg, grid.get(mbr.id, {}), archived)
+        }
+        for mbr in active_members
+    }
 
     expected = present = excused = absent = 0
     for mbr in active_members:

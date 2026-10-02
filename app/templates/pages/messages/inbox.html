@@ -50,6 +50,29 @@
     </a>
   </div>
 
+  <!-- Recherche -->
+  {% if tab in ('inbox', 'sent') %}
+  {% set qs = ('&q=' ~ (q | urlencode) if q else '') ~ ('&label=' ~ (active_label | urlencode) if active_label else '') %}
+  <form method="get" action="{{ '/messages/sent' if tab == 'sent' else '/messages/' }}" class="flex gap-2 mb-3">
+    {% if active_label %}<input type="hidden" name="label" value="{{ active_label }}">{% endif %}
+    <div class="relative flex-1">
+      <svg class="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+        <path stroke-linecap="round" stroke-linejoin="round" d="M21 21l-5.197-5.197m0 0A7.5 7.5 0 105.196 5.196a7.5 7.5 0 0010.607 10.607z"/>
+      </svg>
+      <input type="search" name="q" value="{{ q or '' }}"
+             placeholder="{{ 'Rechercher dans les messages envoyés : objet, texte, destinataire…' if tab == 'sent' else 'Rechercher un message : objet, texte, expéditeur…' }}"
+             class="w-full border border-gray-200 rounded-lg pl-9 pr-3 py-2 text-sm bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+    </div>
+    <button type="submit" class="px-4 py-2 rounded-lg text-sm font-medium bg-loge-700 text-white hover:bg-loge-800 transition-colors">Rechercher</button>
+  </form>
+  {% if q %}
+  <p class="text-xs text-gray-500 mb-3">
+    {{ total }} message{{ 's' if total != 1 }} trouvé{{ 's' if total != 1 }} pour « {{ q }} »
+    · <a href="{{ '/messages/sent' if tab == 'sent' else '/messages/' }}{{ '?label=' ~ (active_label | urlencode) if active_label else '' }}" class="text-loge-700 hover:underline">effacer la recherche</a>
+  </p>
+  {% endif %}
+  {% endif %}
+
   <!-- Filtres labels (si labels existants) -->
   {% if tab == 'inbox' and all_labels %}
   <div class="flex flex-wrap gap-2 mb-3">
@@ -163,19 +186,19 @@
   {% if total_pages > 1 %}
   <div class="flex justify-center gap-2 mt-6">
     {% if page > 1 %}
-    <a href="?page={{ page - 1 }}" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">← Précédent</a>
+    <a href="?page={{ page - 1 }}{{ qs }}" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">← Précédent</a>
     {% endif %}
     <span class="px-3 py-1.5 text-sm text-gray-500">{{ page }} / {{ total_pages }}</span>
     {% if page < total_pages %}
-    <a href="?page={{ page + 1 }}" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Suivant →</a>
+    <a href="?page={{ page + 1 }}{{ qs }}" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Suivant →</a>
     {% endif %}
   </div>
   {% endif %}
 
   {% else %}
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
-    <div class="text-4xl mb-3">📭</div>
-    <p class="text-gray-500 text-sm">Votre boîte de réception est vide</p>
+    <div class="text-4xl mb-3">{{ '🔍' if q else '📭' }}</div>
+    <p class="text-gray-500 text-sm">{{ 'Aucun message ne correspond à cette recherche' if q else 'Votre boîte de réception est vide' }}</p>
   </div>
   {% endif %}
 
@@ -243,10 +266,21 @@
       {% endfor %}
     </div>
   </div>
+  {% if total_pages > 1 %}
+  <div class="flex justify-center gap-2 mt-6">
+    {% if page > 1 %}
+    <a href="?page={{ page - 1 }}{{ qs }}" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">← Précédent</a>
+    {% endif %}
+    <span class="px-3 py-1.5 text-sm text-gray-500">{{ page }} / {{ total_pages }}</span>
+    {% if page < total_pages %}
+    <a href="?page={{ page + 1 }}{{ qs }}" class="px-3 py-1.5 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50">Suivant →</a>
+    {% endif %}
+  </div>
+  {% endif %}
   {% else %}
   <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-12 text-center">
-    <div class="text-4xl mb-3">📤</div>
-    <p class="text-gray-500 text-sm">Aucun message envoyé</p>
+    <div class="text-4xl mb-3">{{ '🔍' if q else '📤' }}</div>
+    <p class="text-gray-500 text-sm">{{ 'Aucun message envoyé ne correspond à cette recherche' if q else 'Aucun message envoyé' }}</p>
     <a href="/messages/compose" class="mt-3 inline-block text-sm text-loge-600 hover:underline">Rédiger un message →</a>
   </div>
   {% endif %}

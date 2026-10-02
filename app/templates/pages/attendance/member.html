@@ -23,7 +23,13 @@
           {% if target.civility == 'S' %}S∴{% else %}F∴{% endif %}
           {{ target.last_name | anon_nom }} {{ target.first_name }}
         </h1>
-        <div class="text-loge-200 text-sm">{{ target.masonic_grade.value if target.masonic_grade else '' }}</div>
+        <div class="text-loge-200 text-sm">
+          {{ target.masonic_grade.value if target.masonic_grade else '' }}
+          {% if target.is_founder %}· ★ Membre fondateur{% endif %}
+          {% if target.status.value != 'ACTIVE' and target.status_date %}
+          · a quitté la loge le {{ target.status_date.strftime('%d/%m/%Y') }}
+          {% endif %}
+        </div>
       </div>
     </div>
 
@@ -85,7 +91,18 @@
     </div>
     {% else %}
     <div class="divide-y divide-gray-50">
-      {% for att in attendances %}
+      {% for y in years_summary %}
+      <div class="flex items-center justify-between gap-3 px-5 py-2.5 bg-gray-50 text-xs">
+        <span class="font-semibold text-gray-700 uppercase tracking-wider">Année {{ y.label }}</span>
+        <span class="text-gray-500">
+          {{ y.total }} tenue{{ 's' if y.total != 1 else '' }} ·
+          <span class="text-green-700 font-medium">{{ y.PRESENT }} P</span> ·
+          <span class="text-yellow-600">{{ y.EXCUSED }} E</span> ·
+          <span class="text-red-500">{{ y.ABSENT }} A</span> ·
+          <span class="font-semibold {% if y.pct >= 80 %}text-green-700{% elif y.pct >= 50 %}text-yellow-600{% else %}text-red-600{% endif %}">{{ y.pct }}%</span>
+        </span>
+      </div>
+      {% for att in y.attendances %}
       <div class="flex items-center gap-3 px-5 py-3 hover:bg-gray-50/50 transition-colors">
 
         <!-- Date -->
@@ -136,6 +153,7 @@
         </div>
 
       </div>
+      {% endfor %}
       {% endfor %}
     </div>
     {% endif %}

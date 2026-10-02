@@ -15,7 +15,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_auth, has_fine_permission
 from app.models.planches import Planche, PlancheComment, PlancheStatus, PlancheGrade
-from app.models.identity import Member, MasonicGrade
+from app.models.identity import Member, MasonicGrade, MemberStatus, User
 from app.models.meetings import Meeting
 from app.models.documents import (
     DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
@@ -55,7 +55,43 @@ def _can_write(user, member: Member) -> bool:
 
 
 def _can_edit_planche(user, member: Member, planche: Planche) -> bool:
-    return user.is_admin or planche.author_id == member.id or _can_write(user, member)
+    return (user.is_admin or planche.author_id == member.id or planche.created_by_id == member.id
+            or _can_write(user, member))
+
+
+async def _form_context(db: AsyncSession) -> dict:
+    """Listes du formulaire : toutes les tenues (plus récentes d'abord) et les
+    membres pouvant être auteurs (actifs d'abord, puis anciens membres)."""
+    meetings = (await db.execute(
+        select(Meeting).order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
+    )).scalars().all()
+    # Comptes techniques admin exclus (comme pour l'assiduité)
+    admin_ids = {r[0] for r in await db.execute(
+        select(User.member_id).where(User.is_admin == True, User.member_id.isnot(None))
+    )}
+    members = [m for m in (await db.execute(select(Member))).scalars().all() if m.id not in admin_ids]
+    return {
+        "meetings": meetings,
+        "author_members": sorted(members, key=lambda m: (m.status != MemberStatus.ACTIVE, m.last_name.upper(), m.first_name)),
+    }
+
+
+def _apply_author(planche: Planche, user, member: Member, author_mode: str,
+                  author_member_id: str, author_name: str, author_lodge: str) -> None:
+    """Auteur de la planche : un membre de la loge, ou un auteur extérieur et sa
+    loge. Seuls les gestionnaires des planches peuvent désigner un autre auteur
+    qu'eux-mêmes ; sinon l'auteur est la personne qui dépose."""
+    if not _can_write(user, member):
+        if planche.author_id is None and not planche.author_name:
+            planche.author_id = member.id
+        return
+    if author_mode == "external" and author_name.strip():
+        planche.author_id = None
+        planche.author_name = " ".join(author_name.split())
+        planche.author_lodge = " ".join(author_lodge.split()) or None
+    else:
+        planche.author_id = int(author_member_id) if author_member_id.isdigit() else member.id
+        planche.author_name = planche.author_lodge = None
 
 
 async def _push_publish_planche(planche: Planche, db, sender_member_id: int) -> None:
@@ -228,14 +264,25 @@ async def planches_list(
 
     # Filtre par grade
     planches = [p for p in all_planches if _can_read(member, p)]
-    published = [p for p in planches if p.status == PlancheStatus.PUBLIE]
+    # Les plus récentes d'abord : date de la tenue où la planche a été présentée,
+    # à défaut sa date de publication (les planches de la bibliothèque sont
+    # rattachées après coup, leur date de création ne veut rien dire)
+    published = sorted(
+        (p for p in planches if p.status == PlancheStatus.PUBLIE),
+        key=lambda p: p.meeting.meeting_date if p.meeting else (p.published_at or p.created_at).date(),
+        reverse=True,
+    )
     drafts    = [p for p in planches if p.status == PlancheStatus.BROUILLON
-                 and (p.author_id == member.id or user.is_admin or _can_write(user, member))]
+                 and (p.author_id == member.id or p.created_by_id == member.id
+                      or user.is_admin or _can_write(user, member))]
 
     return templates.TemplateResponse(request, "pages/planches/list.html", {
         "current_user": user,
         "current_member": member,
         "published": published,
+        "published_years": sorted({
+            (p.meeting.meeting_date if p.meeting else (p.published_at or p.created_at)).year for p in published
+        }, reverse=True),
         "drafts": drafts,
         "can_write": _can_write(user, member),
     })
@@ -251,16 +298,13 @@ async def planche_new(
 ):
     user, member = ctx
 
-    meetings_r = await db.execute(
-        select(Meeting).order_by(Meeting.meeting_date.desc()).limit(30)
-    )
-    meetings = meetings_r.scalars().all()
+    form_ctx = await _form_context(db)
 
     return templates.TemplateResponse(request, "pages/planches/edit.html", {
         "current_user": user,
         "current_member": member,
         "planche": None,
-        "meetings": meetings,
+        **form_ctx,
         "can_write": _can_write(user, member),
     })
 
@@ -276,6 +320,10 @@ async def planche_create(
     meeting_id: str = Form(""),
     action: str = Form("draft"),
     upload: Optional[UploadFile] = File(None),
+    author_mode: str = Form("member"),
+    author_member_id: str = Form(""),
+    author_name: str = Form(""),
+    author_lodge: str = Form(""),
 ):
     user, member = ctx
 
@@ -297,7 +345,7 @@ async def planche_create(
         title=title.strip() or "Sans titre",
         content=content if not file_path else None,
         grade=PlancheGrade(grade) if grade in PlancheGrade.__members__ else PlancheGrade.TOUS,
-        author_id=member.id,
+        created_by_id=member.id,
         meeting_id=int(meeting_id) if meeting_id.isdigit() else None,
         status=PlancheStatus.PUBLIE if action == "publish" else PlancheStatus.BROUILLON,
         published_at=datetime.now() if action == "publish" else None,
@@ -306,6 +354,7 @@ async def planche_create(
         mime_type=mime_type,
         file_size=file_size,
     )
+    _apply_author(p, user, member, author_mode, author_member_id, author_name, author_lodge)
     db.add(p)
     await db.flush()
     if p.status == PlancheStatus.PUBLIE:
@@ -350,10 +399,17 @@ async def planche_detail(
     except Exception:
         pass
 
+    # Type du document de la bibliothèque (aperçu PDF possible ou non)
+    library_mime = None
+    if planche.library_doc_id and not planche.file_path:
+        library_doc = await db.get(Document, planche.library_doc_id)
+        library_mime = library_doc.mime_type if library_doc else None
+
     return templates.TemplateResponse(request, "pages/planches/detail.html", {
         "current_user": user,
         "current_member": member,
         "planche": planche,
+        "library_mime": library_mime,
         "can_edit": _can_edit_planche(user, member, planche),
         "can_comment": _can_read(member, planche),
     })
@@ -375,16 +431,13 @@ async def planche_edit_form(
     if not _can_edit_planche(user, member, planche):
         raise HTTPException(403)
 
-    meetings_r = await db.execute(
-        select(Meeting).order_by(Meeting.meeting_date.desc()).limit(30)
-    )
-    meetings = meetings_r.scalars().all()
+    form_ctx = await _form_context(db)
 
     return templates.TemplateResponse(request, "pages/planches/edit.html", {
         "current_user": user,
         "current_member": member,
         "planche": planche,
-        "meetings": meetings,
+        **form_ctx,
         "can_write": _can_write(user, member),
     })
 
@@ -401,6 +454,10 @@ async def planche_edit_save(
     meeting_id: str = Form(""),
     action: str = Form("draft"),
     upload: Optional[UploadFile] = File(None),
+    author_mode: str = Form("member"),
+    author_member_id: str = Form(""),
+    author_name: str = Form(""),
+    author_lodge: str = Form(""),
 ):
     user, member = ctx
     planche = await db.get(Planche, planche_id)
@@ -412,6 +469,7 @@ async def planche_edit_save(
     planche.title   = title.strip() or planche.title
     planche.grade   = PlancheGrade(grade) if grade in PlancheGrade.__members__ else planche.grade
     planche.meeting_id = int(meeting_id) if meeting_id.isdigit() else None
+    _apply_author(planche, user, member, author_mode, author_member_id, author_name, author_lodge)
     planche.updated_at = datetime.now()
 
     if upload and upload.filename:
@@ -467,19 +525,29 @@ async def planche_download(
     planche_id: int,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    inline: bool = False,
 ):
+    """Fichier de la planche — téléchargé, ou affiché dans la page (inline=1,
+    pour l'aperçu PDF / image)."""
     user, member = ctx
     planche = await db.get(Planche, planche_id)
-    if not planche or not planche.file_path:
+    if not planche:
         raise HTTPException(404)
     if not _can_read(member, planche):
         raise HTTPException(403)
+    if not planche.file_path and planche.library_doc_id:
+        # Planche de la bibliothèque : consultation via la GED (et ses droits d'accès)
+        target = "preview" if inline else "view"
+        return RedirectResponse(url=f"/documents/file/{planche.library_doc_id}/{target}", status_code=303)
+    if not planche.file_path:
+        raise HTTPException(404)
     if not Path(planche.file_path).exists():
         raise HTTPException(404, "Fichier introuvable")
     return FileResponse(
         planche.file_path,
         filename=planche.original_filename or "planche",
         media_type=planche.mime_type or "application/octet-stream",
+        content_disposition_type="inline" if inline else "attachment",
     )
 
 

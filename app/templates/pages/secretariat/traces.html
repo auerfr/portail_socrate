@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Suivi des tracés — Portail Socrate{% endblock %}
+
+
+
+{% block content %}
+{% set badge = {
+  'red':   'text-red-700 bg-red-50 border-red-200',
+  'amber': 'text-amber-700 bg-amber-50 border-amber-200',
+  'blue':  'text-blue-700 bg-blue-50 border-blue-200',
+  'gray':  'text-gray-600 bg-gray-100 border-gray-200',
+  'green': 'text-green-700 bg-green-50 border-green-200',
+} %}
+<div class="p-4 lg:p-8 max-w-5xl mx-auto space-y-6">
+
+  <nav class="text-sm text-gray-500">
+    <span class="text-gray-800">Secrétariat</span>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Suivi des tracés</span>
+  </nav>
+
+  <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-4">
+    <div>
+      <h1 class="text-2xl font-bold text-gray-900">Suivi des tracés</h1>
+      <p class="text-sm text-gray-400 mt-0.5">
+        Où en est le tracé de chaque tenue passée ?
+        {% if to_chase %}<strong class="text-red-600">{{ to_chase }} à relancer ou à finaliser</strong>, en tête de liste.
+        {% else %}Tout est à jour.{% endif %}
+      </p>
+    </div>
+    <select onchange="window.location='/secretariat/traces?year_id='+this.value"
+            class="text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <option value="0" {% if not selected_year %}selected{% endif %}>Toutes les années</option>
+      {% for y in years %}
+      <option value="{{ y.id }}" {% if selected_year and y.id == selected_year.id %}selected{% endif %}>
+        {{ y.label }}{% if y.is_current %} (en cours){% endif %}
+      </option>
+      {% endfor %}
+    </select>
+  </div>
+
+  <!-- Compteurs par état -->
+  <div class="flex flex-wrap gap-2">
+    {% for key, (label, order, color) in states.items() %}
+    <span class="inline-flex items-center gap-1.5 text-xs font-medium border rounded-full px-3 py-1 {{ badge[color] }}">
+      {{ label }} <strong>{{ counts[key] }}</strong>
+    </span>
+    {% endfor %}
+  </div>
+
+  {% if not rows %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-10 text-center text-gray-400 text-sm">
+    Aucune tenue passée sur cette période.
+  </div>
+  {% else %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
+    <table class="w-full text-sm">
+      <thead>
+        <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+          <th class="px-4 py-2 font-medium">Tenue</th>
+          <th class="px-4 py-2 font-medium">État du tracé</th>
+          <th class="px-4 py-2 font-medium">Détail</th>
+          <th class="px-4 py-2 font-medium text-right">Action</th>
+        </tr>
+      </thead>
+      <tbody>
+        {% for row in rows %}
+        {% set m = row.meeting %}
+        {% set rep = row.report %}
+        {% if loop.previtem is defined and loop.previtem.to_chase and not row.to_chase %}
+        <tr><td colspan="4" class="px-4 pt-4 pb-1 text-xs text-gray-400 uppercase tracking-wider">À jour ou hors circuit</td></tr>
+        {% endif %}
+        <tr class="border-b border-gray-50 {% if row.to_chase %}bg-red-50/40{% endif %}">
+          <td class="px-4 py-3 whitespace-nowrap">
+            <div class="font-medium text-gray-800">
+              {% if m.meeting_number is not none %}n°{{ m.meeting_number }} · {% endif %}{{ m.meeting_date.strftime('%d/%m/%Y') }}
+            </div>
+            <div class="text-xs text-gray-400">
+              {{ {'APPRENTI': "Loge d'App∴", 'COMPAGNON': 'Ch∴ de Comp∴', 'MAITRE': 'Ch∴ du Milieu', 'ALL': 'Tous grades'}.get(m.grade.value, m.grade.value) }}
+              · il y a {{ row.days_since }} jour{{ 's' if row.days_since > 1 }}
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <span class="inline-flex items-center text-xs font-medium border rounded-full px-2.5 py-0.5 {{ badge[row.color] }}">{{ row.label }}</span>
+          </td>
+          <td class="px-4 py-3 text-xs text-gray-500">
+            {% if rep and rep.submitted_at and row.state == 'SUBMITTED' %}
+              Soumis le {{ rep.submitted_at.strftime('%d/%m/%Y') }}
+              {% if rep.viewed_by_vm_at %}· lu par le V∴M∴ le {{ rep.viewed_by_vm_at.strftime('%d/%m/%Y') }}{% else %}· pas encore lu par le V∴M∴{% endif %}
+            {% elif rep and rep.approved_at and row.state == 'APPROVED' %}
+              Approuvé le {{ rep.approved_at.strftime('%d/%m/%Y') }}
+            {% elif rep and rep.adopted_at and row.state == 'ADOPTED' %}
+              Adopté le {{ rep.adopted_at.strftime('%d/%m/%Y') }}
+            {% elif rep and rep.reject_reason and row.state == 'DRAFT' %}
+              Renvoyé par le V∴M∴ : {{ rep.reject_reason | truncate(80) }}
+            {% elif row.state == 'MISSING' %}
+              Rien n'a encore été saisi
+            {% endif %}
+            {% if row.author %}<div class="text-gray-400">Rédaction : {{ row.author.first_name }} {{ row.author.last_name | anon_nom }}</div>{% endif %}
+          </td>
+          <td class="px-4 py-3 text-right whitespace-nowrap">
+            {% if row.state == 'ARCHIVED' and rep.signed_pdf_doc_id %}
+              <a href="/documents/file/{{ rep.signed_pdf_doc_id }}/view" target="_blank" class="text-xs text-loge-700 hover:underline">PDF signé</a>
+            {% elif row.state == 'GED_ONLY' %}
+              <a href="/documents/file/{{ row.ged_doc_id }}/view" target="_blank" class="text-xs text-loge-700 hover:underline">Voir dans la GED</a>
+            {% else %}
+              <a href="/meetings/{{ m.id }}/trace" class="text-xs font-medium text-loge-700 hover:underline">Ouvrir le tracé →</a>
+            {% endif %}
+          </td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <p class="text-xs text-gray-400">
+    « Dans la GED (hors circuit) » : un fichier de tracé existe dans la bibliothèque (nommé « … tracé tenue NNN - date … »),
+    mais il n'est pas passé par le circuit du portail (soumission, approbation, PDF signé).
+  </p>
+</div>
+{% endblock %}

@@ -83,3 +83,37 @@ async def annee_create(
 
     await db.commit()
     return RedirectResponse(url="/secretariat/annees", status_code=303)
+
+
+@router.get("/traces", response_class=HTMLResponse)
+async def traces_tracking(
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_secretariat_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: int = -1,
+):
+    """Suivi des tracés : état du tracé de chaque tenue passée, à relancer en tête."""
+    from app.services.trace_tracking import STATES, compute_trace_tracking
+    user, member = ctx
+
+    r = await db.execute(select(MasonicYear).order_by(MasonicYear.start_date.desc()))
+    years = r.scalars().all()
+    # Par défaut : l'année en cours ; 0 = toutes les années
+    if year_id == -1:
+        current = next((y for y in years if y.is_current), years[0] if years else None)
+        year_id = current.id if current else 0
+    selected_year = next((y for y in years if y.id == year_id), None)
+
+    rows = await compute_trace_tracking(db, selected_year.id if selected_year else None)
+    counts = {key: sum(1 for row in rows if row.state == key) for key in STATES}
+
+    return templates.TemplateResponse(request, "pages/secretariat/traces.html", {
+        "current_user": user,
+        "current_member": member,
+        "years": years,
+        "selected_year": selected_year,
+        "rows": rows,
+        "states": STATES,
+        "counts": counts,
+        "to_chase": sum(1 for row in rows if row.to_chase),
+    })

@@ -114,6 +114,26 @@
         </div>
         {% endif %}
 
+        <!-- Planches présentées -->
+        {% if meeting_planches %}
+        <div class="px-6 py-4 border-b border-gray-100">
+          <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-2">
+            <span>🪶</span> Planche{{ 's' if meeting_planches | length > 1 }} présentée{{ 's' if meeting_planches | length > 1 }}
+          </h2>
+          <ul class="space-y-1.5">
+            {% for p in meeting_planches %}
+            <li class="text-sm">
+              <a href="/planches/{{ p.id }}" class="text-loge-700 hover:underline font-medium">{{ p.title }}</a>
+              <span class="text-xs text-gray-400">
+                {% if p.author %}— {{ p.author.first_name }} {{ p.author.last_name | anon_nom | first }}∴
+                {% elif p.author_name %}{% set an = p.author_name.split(' ') %}— {{ an[0] }} {{ an[-1] | anon_nom | first }}∴{% endif %}
+              </span>
+            </li>
+            {% endfor %}
+          </ul>
+        </div>
+        {% endif %}
+
         <!-- Statistiques -->
         <div class="px-6 py-4 flex items-center gap-6 text-sm">
           <div class="text-center">

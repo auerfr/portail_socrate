@@ -10,6 +10,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_auth, has_fine_permission
 from app.models.content import NewsArticle
+from app.utils.html_sanitizer import text_to_html
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.identity import Member, MasonicGrade, LodgeFunction
 
@@ -168,9 +169,7 @@ async def news_create(
     if not _can_manage(user, member):
         raise HTTPException(status_code=403)
 
-    content_html = content.replace("\r\n", "\n").replace("\r", "\n")
-    if "<" not in content_html:
-        content_html = "<br>".join(content_html.split("\n"))
+    content_html = text_to_html(content)
 
     pu = None
     if publish_until.strip():
@@ -273,9 +272,7 @@ async def news_update(
     if not article:
         raise HTTPException(status_code=404)
 
-    content_html = content.replace("\r\n", "\n").replace("\r", "\n")
-    if "<" not in content_html:
-        content_html = "<br>".join(content_html.split("\n"))
+    content_html = text_to_html(content)
 
     pu = None
     if publish_until.strip():
