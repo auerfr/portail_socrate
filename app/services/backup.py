@@ -35,7 +35,14 @@ def _db_path() -> Path | None:
 
 def create_backup_zip() -> Path:
     """Crée un ZIP horodaté contenant la DB + le dossier uploads.
-    Retourne le chemin du fichier créé."""
+    Retourne le chemin du fichier créé.
+
+    Vérifie l'intégrité du ZIP une fois écrit (incident du 02/10/2026 :
+    une écriture interrompue en cours de route — probablement quota
+    disque dépassé — avait produit des ZIP tronqués qui avaient l'air
+    valides (taille plausible) mais étaient en fait illisibles). Un ZIP
+    cassé est supprimé immédiatement plutôt que gardé/envoyé par email,
+    et ne doit jamais pousser dehors un ancien backup qui, lui, est bon."""
     BACKUP_DIR.mkdir(exist_ok=True)
 
     stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -54,9 +61,22 @@ def create_backup_zip() -> Path:
                 if fpath.is_file():
                     zf.write(fpath, str(fpath))
 
+    try:
+        with zipfile.ZipFile(zip_path) as zf:
+            bad_entry = zf.testzip()
+            has_db = any(n.startswith("db/") for n in zf.namelist())
+        if bad_entry is not None or not has_db:
+            raise zipfile.BadZipFile(f"entrée corrompue ou db/ manquant (bad_entry={bad_entry})")
+    except zipfile.BadZipFile as exc:
+        zip_path.unlink(missing_ok=True)
+        logger.error("Backup corrompu (écriture interrompue ?), supprimé : %s — %s", zip_path, exc)
+        raise RuntimeError(f"Backup corrompu, abandonné : {exc}") from exc
+
     logger.info("Backup créé : %s (%.1f Mo)", zip_path, zip_path.stat().st_size / 1_048_576)
 
-    # Nettoyage : garder seulement les N derniers
+    # Nettoyage : garder seulement les N derniers (uniquement une fois le
+    # nouveau backup confirmé valide, pour ne jamais sacrifier un ancien
+    # backup sain au profit d'un nouveau cassé)
     existing = sorted(BACKUP_DIR.glob("backup_*.zip"), key=lambda p: p.stat().st_mtime)
     for old in existing[:-MAX_BACKUPS]:
         old.unlink(missing_ok=True)
