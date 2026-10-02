@@ -1269,6 +1269,7 @@ async def admin_create_space(
     min_grade: str = Form("ALL"),
     group_id: str = Form(""),
     order_position: int = Form(0),
+    icon: str = Form(""),
 ):
     user, member = ctx
     space = DocSpace(
@@ -1277,6 +1278,7 @@ async def admin_create_space(
         min_grade=MinGrade(min_grade),
         group_id=int(group_id) if group_id.strip().isdigit() else None,
         order_position=order_position,
+        icon=icon.strip() or None,
         created_by_id=member.id,
     )
     db.add(space)
@@ -1296,6 +1298,7 @@ async def admin_edit_space(
     min_grade: str = Form("ALL"),
     group_id: str = Form(""),
     order_position: int = Form(0),
+    icon: str = Form(""),
 ):
     space = await db.get(DocSpace, space_id)
     if not space:
@@ -1305,6 +1308,7 @@ async def admin_edit_space(
     space.min_grade = MinGrade(min_grade)
     space.group_id = int(group_id) if group_id.strip().isdigit() else None
     space.order_position = order_position
+    space.icon = icon.strip() or None
     await db.commit()
     return RedirectResponse(url=f"/documents/space/{space_id}?saved=1", status_code=303)
 

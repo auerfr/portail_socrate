@@ -44,6 +44,10 @@ class DocSpace(Base):
     )
     is_public: Mapped[bool]     = mapped_column(Boolean, default=False)
     order_position: Mapped[int] = mapped_column(Integer, default=0)
+    # Emoji affiché sur la carte de l'espace dans la bibliothèque — purement
+    # visuel, pour distinguer les espaces d'un coup d'œil sans toucher à leur
+    # contenu (cf. échange du 02/10/2026 sur la clarté de la bibliothèque).
+    icon: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())

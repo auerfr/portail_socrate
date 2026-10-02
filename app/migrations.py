@@ -188,6 +188,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE doc_spaces ADD COLUMN group_id INTEGER REFERENCES lodge_groups(id)"
             )
+        if "icon" not in cols_ds:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_spaces ADD COLUMN icon VARCHAR(10)"
+            )
 
         r_df = await conn.exec_driver_sql("PRAGMA table_info(doc_folders)")
         cols_df = [row[1] for row in r_df.fetchall()]

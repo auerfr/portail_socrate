@@ -22,6 +22,7 @@
   <div class="flex items-center justify-between gap-3 flex-wrap">
     <div>
       <div class="flex items-center gap-2">
+        {% if space.icon %}<span class="text-xl leading-none">{{ space.icon }}</span>{% endif %}
         <h1 class="text-xl font-bold text-gray-900">{{ space.name }}</h1>
         <!-- Badge accès espace -->
         {% set grp = groups_map.get(space.group_id) if space.group_id else None %}
@@ -319,6 +320,11 @@
         <label class="block text-sm font-medium text-gray-700 mb-1">Description</label>
         <textarea name="description" rows="2"
                   class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500 focus:border-transparent">{{ space.description or '' }}</textarea>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">Icône (emoji, optionnel)</label>
+        <input name="icon" maxlength="10" value="{{ space.icon or '' }}" placeholder="📁"
+               class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-lg text-center focus:ring-2 focus:ring-loge-500 focus:border-transparent">
       </div>
       <div>
         <label class="block text-sm font-medium text-gray-700 mb-1">Grade minimum</label>
