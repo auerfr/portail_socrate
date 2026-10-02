@@ -22,12 +22,20 @@ async def ensure_wal_mode(engine: AsyncEngine) -> None:
     repart d'un état de verrouillage NFS neuf) puis repassage en
     journal_mode=DELETE. Ne jamais réactiver WAL sur cet hébergement.
 
+    Auto-correctif : si le fichier est malgré tout trouvé en mode WAL (un
+    autre script qui le réactiverait par erreur, un suivi de tutoriel SQLite
+    générique, etc.), le repasse en DELETE immédiatement plutôt que de
+    laisser la situation s'aggraver silencieusement jusqu'au prochain crash.
+
     Reste défensif (try/except) : ce réglage ne doit jamais empêcher le
     démarrage de l'application, même si le PRAGMA échoue pour une autre
     raison transitoire."""
     try:
         async with engine.begin() as conn:
             await conn.exec_driver_sql("PRAGMA busy_timeout=30000")  # 30s
+            mode = (await conn.exec_driver_sql("PRAGMA journal_mode")).scalar()
+            if str(mode).lower() == "wal":
+                await conn.exec_driver_sql("PRAGMA journal_mode=DELETE")
     except Exception:
         pass
 

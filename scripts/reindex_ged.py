@@ -1,8 +1,14 @@
 """Ré-indexation full-text de la GED, en ligne de commande.
 
-Utilise sqlite3 directement (WAL + busy_timeout) pour cohabiter avec l'app
-web sans "database is locked". Affiche la progression document par document.
-Aucun timeout uWSGI (hors requête web) → adapté aux gros volumes.
+Utilise sqlite3 directement (busy_timeout généreux) pour cohabiter avec
+l'app web sans "database is locked". Affiche la progression document par
+document. Aucun timeout uWSGI (hors requête web) → adapté aux gros volumes.
+
+NE PAS activer PRAGMA journal_mode=WAL ici : le stockage PythonAnywhere
+(NFS) ne supporte pas son verrouillage par fichier partagé — incident du
+02/10/2026, base corrompue en production ("database disk image is
+malformed") après qu'un worker a planté en pleine écriture WAL sur NFS.
+Voir app/migrations.py::ensure_wal_mode pour le détail.
 
 Usage :
     python scripts/reindex_ged.py
@@ -34,12 +40,6 @@ def run() -> None:
 
     con = sqlite3.connect(db_path, timeout=60)   # busy_timeout = 60s
     con.execute("PRAGMA busy_timeout=60000")
-    # WAL est préférable (lecteurs + 1 écrivain) mais le passage en WAL exige un
-    # accès exclusif momentané : si l'app web tient le verrou, on continue sans.
-    try:
-        con.execute("PRAGMA journal_mode=WAL")
-    except sqlite3.OperationalError:
-        print("  (WAL indisponible — on continue avec le timeout de 60s)\n")
     cur = con.cursor()
 
     # Garantir la table FTS
