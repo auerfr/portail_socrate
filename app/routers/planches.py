@@ -127,12 +127,18 @@ _PLANCHE_GED_GRADE = {
 
 
 async def _get_or_create_planches_folder(db: AsyncSession, year_label: str, min_grade: MinGrade) -> DocFolder:
-    """Trouve ou crée DocSpace 'Bibliothèque' > DocFolder 'Planches {année}'."""
-    space_r = await db.execute(select(DocSpace).where(DocSpace.name == "Bibliothèque").limit(1))
+    """Trouve ou crée DocSpace 'Travaux Socrate' > DocFolder 'Planches {année}'.
+
+    Ciblait auparavant un espace nommé en dur 'Bibliothèque', distinct de
+    l'espace 'Travaux Socrate' où la loge organise réellement ses planches
+    — les planches soumises via l'app atterrissaient donc dans un espace
+    à part, invisible de l'organisation habituelle (constaté le 02/10/2026,
+    3 planches retrouvées dans ce mauvais espace)."""
+    space_r = await db.execute(select(DocSpace).where(DocSpace.name == "Travaux Socrate").limit(1))
     space = space_r.scalar_one_or_none()
     if not space:
         space = DocSpace(
-            name="Bibliothèque",
+            name="Travaux Socrate",
             description="Travaux et planches de la loge",
             access_mode=DocAccessMode.GRADE,
             min_grade=MinGrade.APPRENTI,
