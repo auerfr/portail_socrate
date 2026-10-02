@@ -2,7 +2,7 @@
 import enum
 from datetime import datetime
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, Integer, Text, ForeignKey, func
+from sqlalchemy import String, Boolean, DateTime, Enum, Integer, Text, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
 
@@ -34,11 +34,19 @@ class Planche(Base):
     mime_type: Mapped[Optional[str]] = mapped_column(String(100))
     file_size: Mapped[Optional[int]] = mapped_column(Integer)
 
+    # Déclarés en String(20) à l'origine au lieu de Enum(...) — SQLAlchemy
+    # renvoyait alors de simples chaînes Python au lieu d'instances
+    # PlancheStatus/PlancheGrade, et tout `.value` dans les templates
+    # échouait silencieusement (Jinja avale l'AttributeError), affichant
+    # systématiquement "Brouillon" même pour une planche publiée (constaté
+    # le 02/10/2026). Enum(...) ici est compatible avec les données déjà
+    # en base : PlancheStatus/PlancheGrade sont des str-enum dont le nom
+    # vaut déjà la chaîne stockée (ex: BROUILLON = "BROUILLON").
     status: Mapped[PlancheStatus] = mapped_column(
-        String(20), default=PlancheStatus.BROUILLON
+        Enum(PlancheStatus), default=PlancheStatus.BROUILLON
     )
     grade: Mapped[PlancheGrade] = mapped_column(
-        String(20), default=PlancheGrade.TOUS
+        Enum(PlancheGrade), default=PlancheGrade.TOUS
     )
 
     author_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
