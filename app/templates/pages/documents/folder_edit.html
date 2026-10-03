@@ -37,14 +37,19 @@
       <select name="move_to"
               class="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         <option value="" selected>— Ne pas déplacer —</option>
+        {% macro render_move_option(f, depth) %}
+          {% if f.id != folder.id %}
+          <option value="folder:{{ f.id }}">{{ '&nbsp;&nbsp;' * depth | safe }}{{ '↳ ' if depth > 0 else '' }}{{ f.name }}</option>
+          {% for child in all_folders_flat if child.parent_id == f.id %}
+            {{ render_move_option(child, depth + 1) }}
+          {% endfor %}
+          {% endif %}
+        {% endmacro %}
         {% for space in all_spaces %}
         <optgroup label="{{ space.name }}">
           <option value="space:{{ space.id }}">Racine — {{ space.name }}</option>
-          {% for f in all_folders_flat if f.space_id == space.id and f.parent_id == None and f.id != folder.id %}
-          <option value="folder:{{ f.id }}">{{ f.name }}</option>
-          {% for sf in all_folders_flat if sf.parent_id == f.id and sf.id != folder.id %}
-          <option value="folder:{{ sf.id }}">&nbsp;&nbsp;↳ {{ sf.name }}</option>
-          {% endfor %}
+          {% for f in all_folders_flat if f.space_id == space.id and f.parent_id == None %}
+            {{ render_move_option(f, 1) }}
           {% endfor %}
         </optgroup>
         {% endfor %}
