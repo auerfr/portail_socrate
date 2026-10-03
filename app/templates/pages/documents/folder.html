@@ -533,7 +533,8 @@
       {% set is_image = ext in ['jpg','jpeg','png','gif','webp'] %}
       {% set is_audio = (not is_link) and ext in ['mp3','wav','m4a','ogg'] %}
 
-      <li class="group" :class="sel.has({{ doc.id }}) ? 'bg-loge-50' : ''">
+      <li class="group" :class="sel.has({{ doc.id }}) ? 'bg-loge-50' : ''"
+          {% if is_admin or can_write %}draggable="true" data-doc-id="{{ doc.id }}" ondragstart="dfDocDragStart(this,event)"{% endif %}>
 
         <!-- Ligne principale -->
         <div class="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-3 px-4 py-3 hover:bg-gray-50 transition-colors">
@@ -788,7 +789,8 @@
       {% set is_audio = (not is_link) and ext in ['mp3','wav','m4a','ogg'] %}
 
       <div class="group relative bg-white border border-gray-200 rounded-xl overflow-hidden hover:border-loge-300 hover:shadow-sm transition-all flex flex-col"
-           :class="sel.has({{ doc.id }}) ? 'ring-2 ring-loge-500 border-loge-400' : ''">
+           :class="sel.has({{ doc.id }}) ? 'ring-2 ring-loge-500 border-loge-400' : ''"
+           {% if is_admin or can_write %}draggable="true" data-doc-id="{{ doc.id }}" ondragstart="dfDocDragStart(this,event)"{% endif %}>
 
         <!-- Checkbox sélection grille -->
         {% if is_admin or can_write %}
@@ -2112,15 +2114,37 @@ function populateShareTargets(data) {
   }
 }
 
-// ── Drag & drop dossiers ──────────────────────────────────────────────────────
+// ── Drag & drop dossiers + documents ───────────────────────────────────────────
 window.__dfId = null;
+window.__dfType = null;   // 'folder' ou 'docs'
+window.__dfDocIds = [];
 window.dfDragStart = function(el, e) {
   window.__dfId = el.dataset.dragId;
+  window.__dfType = 'folder';
   e.dataTransfer.effectAllowed = 'move';
   e.dataTransfer.setData('text/plain', window.__dfId);
 };
+window.dfDocDragStart = function(el, e) {
+  var docId = el.dataset.docId;
+  // Si ce document fait partie de la sélection en cours (mode sélection actif),
+  // on déplace toute la sélection — pas que le document sur lequel on clique.
+  var root = document.querySelector('[x-data]');
+  var alpineData = window.Alpine ? window.Alpine.$data(root) : null;
+  if (alpineData && alpineData.selMode && alpineData.sel && alpineData.sel.has(Number(docId))) {
+    window.__dfDocIds = [...alpineData.sel];
+  } else {
+    window.__dfDocIds = [docId];
+  }
+  window.__dfType = 'docs';
+  window.__dfId = docId;
+  e.dataTransfer.effectAllowed = 'move';
+  e.dataTransfer.setData('text/plain', docId);
+};
 window.dfOver = function(el, e) {
-  if (window.__dfId && window.__dfId !== el.dataset.dropId) {
+  if (window.__dfType === 'folder' && window.__dfId && window.__dfId !== el.dataset.dropId) {
+    e.preventDefault();
+    el.classList.add('ring-2', 'ring-inset', 'ring-loge-500');
+  } else if (window.__dfType === 'docs' && window.__dfDocIds.length) {
     e.preventDefault();
     el.classList.add('ring-2', 'ring-inset', 'ring-loge-500');
   }
@@ -2131,14 +2155,27 @@ window.dfLeave = function(el) {
 window.dfDrop = function(el, e) {
   e.preventDefault();
   el.classList.remove('ring-2', 'ring-inset', 'ring-loge-500');
-  if (window.__dfId && window.__dfId !== el.dataset.dropId) {
+  if (window.__dfType === 'folder' && window.__dfId && window.__dfId !== el.dataset.dropId) {
     var f = document.getElementById('folder-move-form');
     f.action = '/documents/folder/' + window.__dfId + '/move';
     f.querySelector('[name=target_type]').value = 'folder';
     f.querySelector('[name=target_id]').value = el.dataset.dropId;
     f.submit();
+  } else if (window.__dfType === 'docs' && window.__dfDocIds.length) {
+    var bf = document.getElementById('bulk-form');
+    bf.querySelector('[name=action]').value = 'move';
+    bf.querySelector('[name=target_folder_id]').value = el.dataset.dropId;
+    bf.querySelectorAll('[name=doc_ids]').forEach(function(n){ n.remove(); });
+    window.__dfDocIds.forEach(function(id){
+      var i = document.createElement('input');
+      i.type = 'hidden'; i.name = 'doc_ids'; i.value = id;
+      bf.appendChild(i);
+    });
+    bf.submit();
   }
   window.__dfId = null;
+  window.__dfType = null;
+  window.__dfDocIds = [];
 };
 </script>
 
