@@ -1427,3 +1427,15 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE about_sections ADD COLUMN min_grade VARCHAR(20) NOT NULL DEFAULT 'ALL'"
             )
+
+        # formation_resources — table du module Formation (lien PDF par volet)
+        await conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS formation_resources (
+                module VARCHAR(20) PRIMARY KEY,
+                pdf_document_id INTEGER REFERENCES documents(id),
+                updated_by_id INTEGER REFERENCES members(id),
+                updated_at DATETIME
+            )
+            """
+        )

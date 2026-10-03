@@ -1,0 +1,38 @@
+{% extends "base.html" %}
+{% block title %}Formation — Administration{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <nav class="text-sm text-gray-500 mb-1">
+    <a href="/formation" class="hover:text-loge-700">Formation</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Administration</span>
+  </nav>
+  <h1 class="text-xl font-bold text-gray-900 mb-6">Fiches PDF téléchargeables</h1>
+
+  {% if saved %}
+  <div class="mb-6 bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-xl">✓ Enregistré.</div>
+  {% endif %}
+
+  <p class="text-sm text-gray-500 mb-6">
+    Colle ici l'ID du document (visible dans son URL dans la bibliothèque, ex. <code>/documents/file/<b>977</b>/download</code>) une fois le PDF déposé dans un espace/dossier restreint au bon grade. Laisse vide pour retirer le lien de téléchargement.
+  </p>
+
+  <div class="space-y-4">
+    {% for m in modules %}
+    <form method="post" action="/admin/formation/{{ m.key }}/save" class="bg-white border border-gray-200 rounded-2xl p-5 flex items-center gap-4">
+      <div class="flex-1">
+        <div class="font-semibold text-gray-800">{{ m.title }}</div>
+      </div>
+      <input type="number" name="pdf_document_id" value="{{ m.pdf_document_id or '' }}" placeholder="ID document"
+             class="w-32 text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+        Enregistrer
+      </button>
+    </form>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}

@@ -270,6 +270,12 @@
         Pierre d'Angle
       </a>
 
+      <a href="/formation"
+         class="nav-item {% if '/formation' in request.url.path %}active{% endif %}">
+        <i class="ti ti-school"></i>
+        Formation
+      </a>
+
       <a href="/meetings"
          class="nav-item {% if '/meetings' in request.url.path %}active{% endif %}">
         <i class="ti ti-building-arch"></i>
@@ -612,6 +618,12 @@
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/a-propos' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-building-arch text-lg opacity-70"></i>
         Pierre d'Angle
+      </a>
+
+      <a href="/formation" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/formation' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-school text-lg opacity-70"></i>
+        Formation
       </a>
 
       <a href="/planches/" @click="moreOpen=false"

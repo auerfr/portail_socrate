@@ -199,3 +199,27 @@ class AboutSection(Base):
 
     def __repr__(self) -> str:
         return f"<AboutSection {self.title}>"
+
+
+# ── Formation (menu séparé de Pierre d'Angle) ─────────────────────────────
+
+class FormationResource(Base):
+    """Ressource téléchargeable (fiche PDF imprimable) d'un volet du module
+    Formation ("apprenti", "compagnon", "marque"). Le contenu de la page
+    elle-même est un template dédié (trop visuel/interactif pour une CMS de
+    blocs comme AboutSection) — seul le lien vers le PDF, rangé dans la
+    bibliothèque documentaire existante (droits par grade déjà gérés là-bas),
+    doit pouvoir être mis à jour sans redéploiement.
+    """
+    __tablename__ = "formation_resources"
+
+    module: Mapped[str] = mapped_column(String(20), primary_key=True)
+    pdf_document_id: Mapped[Optional[int]] = mapped_column(ForeignKey("documents.id"))
+
+    updated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<FormationResource {self.module}>"

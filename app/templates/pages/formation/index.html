@@ -1,0 +1,43 @@
+{% extends "base.html" %}
+{% block title %}Formation{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <div class="text-center mb-10">
+    <div class="text-amber-500 text-sm tracking-widest mb-2">★ ★ ★</div>
+    <h1 class="text-2xl font-bold text-gray-900">Formation</h1>
+    <p class="text-sm text-gray-400 mt-1">Guides de révision par grade</p>
+  </div>
+
+  {% if is_admin %}
+  <div class="mb-6 text-right">
+    <a href="/admin/formation" class="text-xs text-loge-700 hover:underline font-medium">✎ Gérer les fiches PDF</a>
+  </div>
+  {% endif %}
+
+  <div class="space-y-4">
+    {% for m in modules %}
+      {% if m.ready and m.accessible %}
+      <a href="/formation/{{ m.key }}" class="block bg-white border border-gray-200 rounded-2xl p-5 hover:border-loge-300 hover:shadow-sm transition-all">
+        <h2 class="font-semibold text-gray-900">{{ m.title }}</h2>
+        <p class="text-sm text-gray-500 mt-1">{{ m.subtitle }}</p>
+      </a>
+      {% elif not m.accessible %}
+      <div class="bg-gray-50 border border-gray-200 rounded-2xl p-5 opacity-60">
+        <h2 class="font-semibold text-gray-500">{{ m.title }}</h2>
+        <p class="text-sm text-gray-400 mt-1">Non disponible pour votre profil</p>
+      </div>
+      {% else %}
+      <div class="bg-gray-50 border border-dashed border-gray-200 rounded-2xl p-5 opacity-70">
+        <h2 class="font-semibold text-gray-500">{{ m.title }}</h2>
+        <p class="text-sm text-gray-400 mt-1">{{ m.subtitle }} — bientôt disponible</p>
+      </div>
+      {% endif %}
+    {% endfor %}
+  </div>
+
+  <div class="text-center mt-12 text-amber-500 text-sm tracking-widest">★ ★ ★</div>
+
+</div>
+{% endblock %}
