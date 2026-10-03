@@ -91,6 +91,32 @@
     </div>
     {% endif %}
 
+    {% if step.extra_map %}
+    {% set m = module_data[step.extra_map] %}
+    <div class="mb-6">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">{{ m.title }}</p>
+      <p class="text-xs text-gray-400 italic mb-3">{{ m.caption|safe }}</p>
+      <div class="formation-map-wrap">
+        <svg viewBox="0 0 613 585" class="formation-france-map" role="img" aria-label="{{ m.title }}">
+          <style>
+            {% for dept, color in m.departments.items() %}#{{ dept }} { fill: {{ color }}; }
+            {% endfor %}
+          </style>
+          {% include "pages/formation/_france_departments_paths.html" %}
+        </svg>
+      </div>
+      <div class="formation-map-legend">
+        {% for item in m.legend %}
+        <div class="formation-map-legend-item">
+          <span class="formation-map-swatch" style="background:{{ item.color or '#e5e7eb' }}"></span>
+          <span><b>{{ item.num }}.</b> {{ item.name }}</span>
+        </div>
+        {% endfor %}
+      </div>
+      <p class="text-[11px] text-gray-400 mt-2">{{ m.credit }}</p>
+    </div>
+    {% endif %}
+
     <div class="formation-quiz" data-fg-quiz-step="{{ step.id }}">
       <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Questions de révision</p>
       {% for q in step.quiz %}

@@ -42,19 +42,34 @@
       "quiz": [
         {
           "question": "Qui dirige la Loge au quotidien ?",
-          "options": ["Le Collège des Officiers", "Le Conseil de l'Ordre", "Le Congrès régional", "La CSJM"],
+          "options": [
+            "Le Collège des Officiers",
+            "Le Conseil de l'Ordre",
+            "Le Congrès régional",
+            "La CSJM"
+          ],
           "correct": 0,
           "explanation": "La Loge est dirigée par un Collège d'Officiers, régulièrement élu chaque année avant le Convent."
         },
         {
           "question": "Combien d'années consécutives maximum un Vénérable Maître peut-il, en principe, être réélu ?",
-          "options": ["1 an", "3 ans", "5 ans", "Sans limite"],
+          "options": [
+            "1 an",
+            "3 ans",
+            "5 ans",
+            "Sans limite"
+          ],
           "correct": 1,
           "explanation": "Le Vénérable Maître est élu pour un an, rééligible en principe 3 ans au maximum."
         },
         {
           "question": "Comment la Loge est-elle représentée au Congrès et au Convent ?",
-          "options": ["Par un titulaire seul", "Par 1 titulaire et 2 suppléants", "Par 3 titulaires", "Par le Vénérable Maître uniquement"],
+          "options": [
+            "Par un titulaire seul",
+            "Par 1 titulaire et 2 suppléants",
+            "Par 3 titulaires",
+            "Par le Vénérable Maître uniquement"
+          ],
           "correct": 1,
           "explanation": "La Loge élit un délégué (1 titulaire, 2 suppléants) pour le Congrès, et un autre pour le Convent."
         }
@@ -98,13 +113,23 @@
       "quiz": [
         {
           "question": "Combien de régions maçonniques compte le Grand Orient de France ?",
-          "options": ["13", "17", "20", "37"],
+          "options": [
+            "13",
+            "17",
+            "20",
+            "37"
+          ],
           "correct": 1,
           "explanation": "Les Loges sont réparties en 17 régions maçonniques."
         },
         {
           "question": "À quel grade et quel rite se tiennent les séances du Congrès régional ?",
-          "options": ["Grade d'Apprenti, RFiPhi", "Grade de Maître, Rite Français", "Grade de Compagnon, Rite Écossais", "Tous grades, rite libre"],
+          "options": [
+            "Grade d'Apprenti, RFiPhi",
+            "Grade de Maître, Rite Français",
+            "Grade de Compagnon, Rite Écossais",
+            "Tous grades, rite libre"
+          ],
           "correct": 1,
           "explanation": "Les séances du Congrès se tiennent en forme maçonnique au grade de Maître et au Rite Français."
         },
@@ -119,7 +144,8 @@
           "correct": 1,
           "explanation": "Le Congrès régional est l'interface indispensable entre la Loge et le Convent, le Conseil de l'Ordre et l'administration du GODF."
         }
-      ]
+      ],
+      "extra_map": "france_map"
     },
     {
       "id": "justice",
@@ -151,19 +177,34 @@
       "quiz": [
         {
           "question": "Combien d'échelons comporte la justice maçonnique au GODF ?",
-          "options": ["2", "3", "4", "5"],
+          "options": [
+            "2",
+            "3",
+            "4",
+            "5"
+          ],
           "correct": 1,
           "explanation": "Trois échelons : le Conseil de Famille, le Jury Fraternel Régional, la CSJM."
         },
         {
           "question": "Combien de types de recours la CSJM peut-elle connaître ?",
-          "options": ["2", "3", "4", "6"],
+          "options": [
+            "2",
+            "3",
+            "4",
+            "6"
+          ],
           "correct": 2,
           "explanation": "Quatre types : le différend, la plainte, la requête, et les plaintes/suspensions émanant du Conseil de l'Ordre."
         },
         {
           "question": "Quel principe la Justice maçonnique place-t-elle avant toute décision ?",
-          "options": ["La sanction immédiate", "La conciliation", "Le vote à la majorité simple", "L'arbitrage du Grand Maître"],
+          "options": [
+            "La sanction immédiate",
+            "La conciliation",
+            "Le vote à la majorité simple",
+            "L'arbitrage du Grand Maître"
+          ],
           "correct": 1,
           "explanation": "La conciliation est le but premier de la Justice Maçonnique : toute instance doit tenter de concilier avant de décider."
         }
@@ -218,13 +259,23 @@
         },
         {
           "question": "En quelle année la Fondation du Grand Orient de France a-t-elle été reconnue d'utilité publique ?",
-          "options": ["1986", "1987", "2001", "1924"],
+          "options": [
+            "1986",
+            "1987",
+            "2001",
+            "1924"
+          ],
           "correct": 1,
           "explanation": "Créée en 1986, la Fondation du GODF a été reconnue d'utilité publique en 1987."
         },
         {
           "question": "Qui valide et présente les demandes d'aide d'une loge en séance plénière de l'IOSM ?",
-          "options": ["Le Délégué régional", "Le Vénérable Maître seul", "Le Grand Trésorier", "La CSJM"],
+          "options": [
+            "Le Délégué régional",
+            "Le Vénérable Maître seul",
+            "Le Grand Trésorier",
+            "La CSJM"
+          ],
           "correct": 0,
           "explanation": "L'IOSM reçoit les demandes d'aide validées et présentées par le Délégué régional."
         }
@@ -269,19 +320,34 @@
       "quiz": [
         {
           "question": "Combien de titulaires et de suppléants compte chaque commission conventuelle ?",
-          "options": ["37 titulaires seuls", "17 titulaires et 17 suppléants", "9 titulaires et 3 suppléants", "5 titulaires"],
+          "options": [
+            "37 titulaires seuls",
+            "17 titulaires et 17 suppléants",
+            "9 titulaires et 3 suppléants",
+            "5 titulaires"
+          ],
           "correct": 1,
           "explanation": "Chaque commission conventuelle compte 17 titulaires et 17 suppléants, 1 de chaque par région."
         },
         {
           "question": "Depuis quel Convent la durée des commissions obédientielles est-elle limitée à 2 ou 3 ans ?",
-          "options": ["Le Convent 1987", "Le Convent 2022", "Le Convent 2024", "Aucune limite n'existe"],
+          "options": [
+            "Le Convent 1987",
+            "Le Convent 2022",
+            "Le Convent 2024",
+            "Aucune limite n'existe"
+          ],
           "correct": 2,
           "explanation": "Depuis le Convent 2024, le nombre et la durée de vie des commissions obédientielles sont limités."
         },
         {
           "question": "Quelle est la seule commission obédientielle sans limite de durée ?",
-          "options": ["La COPL", "La CODD", "La COSPB", "La CORN"],
+          "options": [
+            "La COPL",
+            "La CODD",
+            "La COSPB",
+            "La CORN"
+          ],
           "correct": 0,
           "explanation": "La Commission Obédientielle Permanente de la Laïcité (COPL) est la seule sans limite de durée depuis le Convent 2024."
         }
@@ -319,7 +385,12 @@
       "quiz": [
         {
           "question": "Combien de membres compose le Conseil de l'Ordre ?",
-          "options": ["17", "37", "7", "9"],
+          "options": [
+            "17",
+            "37",
+            "7",
+            "9"
+          ],
           "correct": 1,
           "explanation": "Le Conseil de l'Ordre est constitué de 37 membres, 1 par région."
         },
@@ -336,7 +407,12 @@
         },
         {
           "question": "Dans le circuit des Vœux et Règlements, par quelle instance une proposition de Loge doit-elle transiter avant d'arriver au Convent ?",
-          "options": ["Le Congrès Régional", "Le Conseil de l'Ordre directement", "La CSJM", "L'IOSM"],
+          "options": [
+            "Le Congrès Régional",
+            "Le Conseil de l'Ordre directement",
+            "La CSJM",
+            "L'IOSM"
+          ],
           "correct": 0,
           "explanation": "La proposition naît en Loge puis remonte au Congrès Régional avant d'atteindre le Convent."
         }
@@ -349,7 +425,10 @@
       {
         "id": "loge",
         "label": "LOGE",
-        "x": 400, "y": 460, "w": 160, "h": 70,
+        "x": 400,
+        "y": 460,
+        "w": 160,
+        "h": 70,
         "qui": "Le Collège des Officiers (les 5 Lumières : V∴M∴, les 2 Surveillants, l'Orateur, le Secrétaire — et les autres offices de Loge).",
         "elu": "Élu régulièrement chaque année avant le Convent. Le V∴M∴ est élu pour un an, rééligible en principe 3 ans au maximum.",
         "role": "Gouverne librement la Loge (Art. 25 du Règlement Général) et a droit de discipline sur ses membres et sur tous les Francs-Maçons assistant à ses travaux."
@@ -357,7 +436,10 @@
       {
         "id": "congres",
         "label": "CONGRÈS RÉGIONAL",
-        "x": 400, "y": 330, "w": 180, "h": 70,
+        "x": 400,
+        "y": 330,
+        "w": 180,
+        "h": 70,
         "qui": "Un Collège d'Officiers, assisté de droit par les élus de la région aux instances nationales (CO, CSJM, IOSM, JFR).",
         "elu": "Le délégué de Loge (1 titulaire, 2 suppléants) qui siège au Congrès est élu par sa Loge.",
         "role": "Interface indispensable entre la Loge et le Convent, le Conseil de l'Ordre et l'administration du GODF ; donne son avis sur la vie des Ateliers de la région et élit les représentants régionaux aux instances nationales."
@@ -365,7 +447,10 @@
       {
         "id": "convent",
         "label": "CONVENT",
-        "x": 400, "y": 200, "w": 160, "h": 70,
+        "x": 400,
+        "y": 200,
+        "w": 160,
+        "h": 70,
         "qui": "Tous les Délégués des Loges, ainsi que les membres du Conseil de l'Ordre, de la CSJM et de l'IOSM (ces derniers sans droit de vote).",
         "elu": "Le délégué de Loge (1 titulaire, 2 suppléants) qui siège au Convent est élu par sa Loge ; seuls les délégués votent, à raison d'une voix par Loge.",
         "role": "Exerce seul le pouvoir constituant et législatif de l'Obédience ; vote le budget, statue sur le compte-rendu du Conseil de l'Ordre et les quitus. Réunion annuelle, traditionnellement fin août, en Tenue au grade de Maître."
@@ -373,7 +458,10 @@
       {
         "id": "co",
         "label": "CONSEIL DE L'ORDRE",
-        "x": 400, "y": 70, "w": 180, "h": 70,
+        "x": 400,
+        "y": 70,
+        "w": 180,
+        "h": 70,
         "qui": "37 membres (1 par région), dont le Grand Maître, élu par ses pairs, qui le préside.",
         "elu": "Élu par le Congrès régional, pour un mandat de 3 ans renouvelable une fois après une année de rémission.",
         "role": "Pouvoir exécutif de l'Obédience : accomplit les décisions du Convent, administre la structure, représente le GODF dans le monde profane."
@@ -381,7 +469,10 @@
       {
         "id": "csjm",
         "label": "CSJM",
-        "x": 660, "y": 200, "w": 140, "h": 60,
+        "x": 660,
+        "y": 200,
+        "w": 140,
+        "h": 60,
         "qui": "1 représentant par région, soit 17 au total.",
         "elu": "Élu par les Congrès régionaux pour un mandat de 3 ans, renouvelable une fois après une année de rémission.",
         "role": "Justice maçonnique, totalement indépendante. Tranche en appel des décisions du Jury Fraternel Régional et connaît 4 types de recours."
@@ -389,18 +480,41 @@
       {
         "id": "iosm",
         "label": "IOSM",
-        "x": 140, "y": 200, "w": 140, "h": 60,
+        "x": 140,
+        "y": 200,
+        "w": 140,
+        "h": 60,
         "qui": "1 représentant par région, soit 17 au total.",
         "elu": "Élu par les Congrès régionaux pour un mandat de 3 ans, renouvelable une fois après une année de rémission.",
         "role": "Porte secours, assistance et conseils aux membres en difficulté et à leurs conjoints et orphelins ; gère notamment l'orphelinat du GODF."
       }
     ],
     "edges": [
-      {"from": "loge", "to": "congres", "label": "élit son délégué"},
-      {"from": "congres", "to": "convent", "label": "élit ses représentants"},
-      {"from": "convent", "to": "co", "label": "délégations"},
-      {"from": "congres", "to": "csjm", "label": "élit 1 représentant"},
-      {"from": "congres", "to": "iosm", "label": "élit 1 représentant"}
+      {
+        "from": "loge",
+        "to": "congres",
+        "label": "élit son délégué"
+      },
+      {
+        "from": "congres",
+        "to": "convent",
+        "label": "élit ses représentants"
+      },
+      {
+        "from": "convent",
+        "to": "co",
+        "label": "délégations"
+      },
+      {
+        "from": "congres",
+        "to": "csjm",
+        "label": "élit 1 représentant"
+      },
+      {
+        "from": "congres",
+        "to": "iosm",
+        "label": "élit 1 représentant"
+      }
     ]
   },
   "loge_diagram": {
@@ -410,19 +524,39 @@
     "branches": [
       {
         "label": "Délégués",
-        "items": ["Au Congrès (1 titulaire, 2 suppléants)", "Au Convent (1 titulaire, 2 suppléants)"]
+        "items": [
+          "Au Congrès (1 titulaire, 2 suppléants)",
+          "Au Convent (1 titulaire, 2 suppléants)"
+        ]
       },
       {
         "label": "Commissions",
-        "items": ["De solidarité", "Des finances", "Des questions à l'étude", "Diverses", "Conseil de Famille"]
+        "items": [
+          "De solidarité",
+          "Des finances",
+          "Des questions à l'étude",
+          "Diverses",
+          "Conseil de Famille"
+        ]
       },
       {
         "label": "Correspondants",
-        "items": ["COPL", "Solidarité-Emploi", "Commissions régionales", "Correspondant numérique"]
+        "items": [
+          "COPL",
+          "Solidarité-Emploi",
+          "Commissions régionales",
+          "Correspondant numérique"
+        ]
       },
       {
         "label": "Travaux propres à la Loge",
-        "items": ["Tenues d'obligations (initiations, augmentations de salaire)", "Tenues blanches fermées", "Tenues blanches ouvertes", "Réunions de comité", "Réunions publiques"]
+        "items": [
+          "Tenues d'obligations (initiations, augmentations de salaire)",
+          "Tenues blanches fermées",
+          "Tenues blanches ouvertes",
+          "Réunions de comité",
+          "Réunions publiques"
+        ]
       }
     ]
   },
@@ -433,19 +567,35 @@
     "branches": [
       {
         "label": "Commissions conventuelles",
-        "items": ["Culture", "Vœux et Règlements", "Sanctions, Grâces et Dégrèvements", "Finances", "Diverses"]
+        "items": [
+          "Culture",
+          "Vœux et Règlements",
+          "Sanctions, Grâces et Dégrèvements",
+          "Finances",
+          "Diverses"
+        ]
       },
       {
         "label": "Contrôle & Laïcité",
-        "items": ["Commission de Contrôle de l'IOSM", "Commission Obédientielle Permanente de la Laïcité (COPL)"]
+        "items": [
+          "Commission de Contrôle de l'IOSM",
+          "Commission Obédientielle Permanente de la Laïcité (COPL)"
+        ]
       },
       {
         "label": "Élections & serments",
-        "items": ["Prestation de serment des élus aux instances nationales (Conseil de l'Ordre, CSJM, IOSM)"]
+        "items": [
+          "Prestation de serment des élus aux instances nationales (Conseil de l'Ordre, CSJM, IOSM)"
+        ]
       },
       {
         "label": "Votes & débats",
-        "items": ["Vote du rapport d'activité du Conseil de l'Ordre", "Ratification des conventions", "Vote du budget et de la capitation", "Débat de prospective obédientielle"]
+        "items": [
+          "Vote du rapport d'activité du Conseil de l'Ordre",
+          "Ratification des conventions",
+          "Vote du budget et de la capitation",
+          "Débat de prospective obédientielle"
+        ]
       }
     ]
   },
@@ -453,10 +603,22 @@
     "type": "flow",
     "title": "Le circuit des Vœux et Règlements, pas à pas",
     "steps": [
-      {"label": "LOGE", "note": "1ère année — une proposition naît en Loge."},
-      {"label": "CONGRÈS RÉGIONAL", "note": "Retour aux loges possible, puis synthèse transmise."},
-      {"label": "CONVENT", "note": "Décide de la transmission ou non. 2e année : renvoie un vote indicatif via le Congrès Régional, puis reçoit les votes définitifs (Vœu ou Règlement)."},
-      {"label": "CONSEIL DE L'ORDRE", "note": "Aboutit à la modification de la Constitution ou du Règlement Général."}
+      {
+        "label": "LOGE",
+        "note": "1ère année — une proposition naît en Loge."
+      },
+      {
+        "label": "CONGRÈS RÉGIONAL",
+        "note": "Retour aux loges possible, puis synthèse transmise."
+      },
+      {
+        "label": "CONVENT",
+        "note": "Décide de la transmission ou non. 2e année : renvoie un vote indicatif via le Congrès Régional, puis reçoit les votes définitifs (Vœu ou Règlement)."
+      },
+      {
+        "label": "CONSEIL DE L'ORDRE",
+        "note": "Aboutit à la modification de la Constitution ou du Règlement Général."
+      }
     ]
   },
   "glossary": {
@@ -477,15 +639,280 @@
     "CAALA": "Notre région, la Région 4 — Champagne-Ardenne-Alsace-Lorraine, incluant les Loges d'Allemagne et de Suisse alémanique."
   },
   "final_quiz": [
-    {"question": "Combien de régions maçonniques compte le GODF ?", "options": ["13", "17", "20", "37"], "correct": 1},
-    {"question": "Quelle est notre région (Région 4) ?", "options": ["CAALA (Champagne-Ardenne-Alsace-Lorraine + LL d'Allemagne et Suisse alémanique)", "Région Ile-de-France", "Région Sud-Ouest", "Région Provence-Alpes-Corse"], "correct": 0},
-    {"question": "Pour combien d'années maximum, en principe, un Vénérable Maître peut-il être réélu consécutivement ?", "options": ["1 an", "3 ans", "5 ans", "Sans limite"], "correct": 1},
-    {"question": "Quel article du Règlement Général pose le principe de souveraineté des Loges ?", "options": ["Art. 1er", "Art. 25", "Art. 141", "Art. 149"], "correct": 1},
-    {"question": "Combien de membres composent le Conseil de l'Ordre ?", "options": ["17", "37", "7", "9"], "correct": 1},
-    {"question": "Combien d'échelons comporte la justice maçonnique ?", "options": ["2", "3", "4", "5"], "correct": 1},
-    {"question": "Combien de Maîtres-Jurés titulaires compte le Jury Fraternel Régional ?", "options": ["5", "9", "17", "37"], "correct": 1},
-    {"question": "Quels sont les trois échelons de la solidarité maçonnique ?", "options": ["Conseil de Famille, JFR, CSJM", "Tronc de la Veuve, Solidarité Régionale, Solidarité Obédientielle (IOSM)", "Loge, Région, Obédience", "CO, Congrès, Convent"], "correct": 1},
-    {"question": "En quelle année la Fondation du GODF a-t-elle été créée ?", "options": ["1901", "1924", "1986", "2001"], "correct": 2},
-    {"question": "Quelle est la seule commission obédientielle sans limite de durée depuis le Convent 2024 ?", "options": ["La COPL", "La CODD", "La COSPB", "La CORN"], "correct": 0}
-  ]
+    {
+      "question": "Combien de régions maçonniques compte le GODF ?",
+      "options": [
+        "13",
+        "17",
+        "20",
+        "37"
+      ],
+      "correct": 1
+    },
+    {
+      "question": "Quelle est notre région (Région 4) ?",
+      "options": [
+        "CAALA (Champagne-Ardenne-Alsace-Lorraine + LL d'Allemagne et Suisse alémanique)",
+        "Région Ile-de-France",
+        "Région Sud-Ouest",
+        "Région Provence-Alpes-Corse"
+      ],
+      "correct": 0
+    },
+    {
+      "question": "Pour combien d'années maximum, en principe, un Vénérable Maître peut-il être réélu consécutivement ?",
+      "options": [
+        "1 an",
+        "3 ans",
+        "5 ans",
+        "Sans limite"
+      ],
+      "correct": 1
+    },
+    {
+      "question": "Quel article du Règlement Général pose le principe de souveraineté des Loges ?",
+      "options": [
+        "Art. 1er",
+        "Art. 25",
+        "Art. 141",
+        "Art. 149"
+      ],
+      "correct": 1
+    },
+    {
+      "question": "Combien de membres composent le Conseil de l'Ordre ?",
+      "options": [
+        "17",
+        "37",
+        "7",
+        "9"
+      ],
+      "correct": 1
+    },
+    {
+      "question": "Combien d'échelons comporte la justice maçonnique ?",
+      "options": [
+        "2",
+        "3",
+        "4",
+        "5"
+      ],
+      "correct": 1
+    },
+    {
+      "question": "Combien de Maîtres-Jurés titulaires compte le Jury Fraternel Régional ?",
+      "options": [
+        "5",
+        "9",
+        "17",
+        "37"
+      ],
+      "correct": 1
+    },
+    {
+      "question": "Quels sont les trois échelons de la solidarité maçonnique ?",
+      "options": [
+        "Conseil de Famille, JFR, CSJM",
+        "Tronc de la Veuve, Solidarité Régionale, Solidarité Obédientielle (IOSM)",
+        "Loge, Région, Obédience",
+        "CO, Congrès, Convent"
+      ],
+      "correct": 1
+    },
+    {
+      "question": "En quelle année la Fondation du GODF a-t-elle été créée ?",
+      "options": [
+        "1901",
+        "1924",
+        "1986",
+        "2001"
+      ],
+      "correct": 2
+    },
+    {
+      "question": "Quelle est la seule commission obédientielle sans limite de durée depuis le Convent 2024 ?",
+      "options": [
+        "La COPL",
+        "La CODD",
+        "La COSPB",
+        "La CORN"
+      ],
+      "correct": 0
+    }
+  ],
+  "france_map": {
+    "title": "Les 17 régions du G∴O∴D∴F∴",
+    "caption": "Répartition par département reconstituée à partir de la carte du document source, en s'appuyant sur le regroupement des anciennes régions françaises nommées dans la légende — en cas de doute sur un département proche d'une frontière de région, vérifie auprès du Congrès régional.<!-- À VÉRIFIER : assignation département→région approximative sur certaines limites, notamment dans le secteur Provence-Alpes-Côte d'Azur/Corse (régions 2 et 15) et Midi-Pyrénées (régions 16 et 17) -->",
+    "credit": "Fond de carte des départements © Victor Cazanave, licence CC BY 4.0 (github.com/VictorCazanave/svg-maps)",
+    "legend": [
+      {
+        "num": "1",
+        "name": "Antilles - Guyane - Caraïbe",
+        "color": null
+      },
+      {
+        "num": "2",
+        "name": "Alpes - Côte d'Azur",
+        "color": "#dc2626"
+      },
+      {
+        "num": "3",
+        "name": "Afrique - Asie - Amériques - Pacifique - Océanie, dite « Le Monde »",
+        "color": null
+      },
+      {
+        "num": "4",
+        "name": "Champagne-Ardenne-Alsace-Lorraine et LL∴ d'Allemagne et Suisse alémanique",
+        "color": "#16a34a"
+      },
+      {
+        "num": "5",
+        "name": "Centre",
+        "color": "#ca8a04"
+      },
+      {
+        "num": "6",
+        "name": "Est et LL∴ de Suisse",
+        "color": "#2563eb"
+      },
+      {
+        "num": "7",
+        "name": "Ile de France",
+        "color": "#7c3aed"
+      },
+      {
+        "num": "8",
+        "name": "Languedoc Roussillon",
+        "color": "#0d9488"
+      },
+      {
+        "num": "9",
+        "name": "Ouest",
+        "color": "#db2777"
+      },
+      {
+        "num": "10",
+        "name": "Nord - Pas de Calais - Picardie et LL∴ d'Angleterre",
+        "color": "#ea580c"
+      },
+      {
+        "num": "11-14",
+        "name": "Paris 1, Paris 2, Paris 3, Paris 4 et LL∴ d'Europe de l'Est",
+        "color": null
+      },
+      {
+        "num": "15",
+        "name": "Provence - Alpes - Corse et LL∴ de Sardaigne et d'Italie",
+        "color": "#0891b2"
+      },
+      {
+        "num": "16",
+        "name": "Sud Ouest",
+        "color": "#65a30d"
+      },
+      {
+        "num": "17",
+        "name": "Sud et Loges d'Espagne",
+        "color": "#9333ea"
+      }
+    ],
+    "departments": {
+      "01": "#2563eb",
+      "02": "#ea580c",
+      "03": "#ca8a04",
+      "04": "#0891b2",
+      "05": "#0891b2",
+      "06": "#dc2626",
+      "07": "#2563eb",
+      "08": "#16a34a",
+      "09": "#9333ea",
+      "10": "#16a34a",
+      "11": "#0d9488",
+      "12": "#65a30d",
+      "13": "#0891b2",
+      "14": "#db2777",
+      "15": "#ca8a04",
+      "16": "#65a30d",
+      "17": "#65a30d",
+      "18": "#ca8a04",
+      "19": "#65a30d",
+      "2A": "#0891b2",
+      "2B": "#0891b2",
+      "21": "#2563eb",
+      "22": "#db2777",
+      "23": "#65a30d",
+      "24": "#65a30d",
+      "25": "#2563eb",
+      "26": "#2563eb",
+      "27": "#db2777",
+      "28": "#ca8a04",
+      "29": "#db2777",
+      "30": "#0d9488",
+      "31": "#9333ea",
+      "32": "#65a30d",
+      "33": "#65a30d",
+      "34": "#0d9488",
+      "35": "#db2777",
+      "36": "#ca8a04",
+      "37": "#ca8a04",
+      "38": "#2563eb",
+      "39": "#2563eb",
+      "40": "#65a30d",
+      "41": "#ca8a04",
+      "42": "#2563eb",
+      "43": "#ca8a04",
+      "44": "#db2777",
+      "45": "#ca8a04",
+      "46": "#65a30d",
+      "47": "#65a30d",
+      "48": "#0d9488",
+      "49": "#db2777",
+      "50": "#db2777",
+      "51": "#16a34a",
+      "52": "#16a34a",
+      "53": "#db2777",
+      "54": "#16a34a",
+      "55": "#16a34a",
+      "56": "#db2777",
+      "57": "#16a34a",
+      "58": "#2563eb",
+      "59": "#ea580c",
+      "60": "#ea580c",
+      "61": "#db2777",
+      "62": "#ea580c",
+      "63": "#ca8a04",
+      "64": "#65a30d",
+      "65": "#9333ea",
+      "66": "#0d9488",
+      "67": "#16a34a",
+      "68": "#16a34a",
+      "69": "#2563eb",
+      "70": "#2563eb",
+      "71": "#2563eb",
+      "72": "#db2777",
+      "73": "#2563eb",
+      "74": "#2563eb",
+      "75": "#7c3aed",
+      "76": "#db2777",
+      "77": "#7c3aed",
+      "78": "#7c3aed",
+      "79": "#65a30d",
+      "80": "#ea580c",
+      "81": "#65a30d",
+      "82": "#65a30d",
+      "83": "#0891b2",
+      "84": "#0891b2",
+      "85": "#db2777",
+      "86": "#65a30d",
+      "87": "#65a30d",
+      "88": "#16a34a",
+      "89": "#2563eb",
+      "90": "#2563eb",
+      "91": "#7c3aed",
+      "92": "#7c3aed",
+      "93": "#7c3aed",
+      "94": "#7c3aed",
+      "95": "#7c3aed"
+    }
+  }
 }

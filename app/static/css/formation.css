@@ -203,6 +203,30 @@
 .formation-flow-note { font-size: .78rem; color: #6b7280; margin-top: .4rem; max-width: 380px; line-height: 1.45; }
 .formation-flow-arrow { font-size: 1.1rem; color: var(--color-loge-400); text-align: center; margin: .3rem 0; }
 
+/* Carte de France — régions du GODF */
+.formation-map-wrap {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  padding: 1rem;
+}
+.formation-france-map { width: 100%; height: auto; max-height: 520px; display: block; margin: 0 auto; }
+.formation-france-map .formation-dept {
+  stroke: #fff;
+  stroke-width: 0.6;
+  transition: opacity .15s;
+}
+.formation-france-map .formation-dept:hover { opacity: .75; }
+.formation-map-legend {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(230px, 1fr));
+  gap: .4rem .9rem;
+  margin-top: .9rem;
+}
+.formation-map-legend-item { display: flex; align-items: flex-start; gap: .5rem; font-size: .76rem; color: #4b5563; line-height: 1.35; }
+.formation-map-swatch { width: .75rem; height: .75rem; border-radius: 3px; flex-shrink: 0; margin-top: .15rem; }
+.formation-map-legend-item b { color: #1f2937; }
+
 /* Glossaire */
 .formation-glossary-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
 .formation-glossary-term {
@@ -272,6 +296,10 @@
 [data-theme="dark"] .formation-branch-col { background: #1a202c; border-color: #364152; }
 [data-theme="dark"] .formation-branch-col li { color: #a0aec0; }
 [data-theme="dark"] .formation-flow-note { color: #a0aec0; }
+[data-theme="dark"] .formation-map-wrap { background: #1a202c; border-color: #364152; }
+[data-theme="dark"] .formation-france-map .formation-dept { stroke: #1a202c; }
+[data-theme="dark"] .formation-map-legend-item { color: #a0aec0; }
+[data-theme="dark"] .formation-map-legend-item b { color: #e2e8f0; }
 
 @media (max-width: 640px) {
   .formation-step-tab-label { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
