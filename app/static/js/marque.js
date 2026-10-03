@@ -89,9 +89,9 @@
   // ── Géométrie générale de la médaille ──
   var W = 360, H = 360, MX = W / 2, CY = H / 2;
   var R_OUTER = 168, R_BEAD = 158, R_TEXT_TOP = 142;
-  var EMB_CX = MX, EMB_CY = CY - 66, EMB_R = 58;  // emblème (forme + une seule lettre : la vertu) — doit dominer, c'est "la marque"
-  var NAME_Y0 = CY + 26, NAME_DY = 27;             // 3 lignes du nom complet, en calligraphie — discret, en légende
-  var YEAR_Y = CY + R_OUTER - 20;
+  var EMB_CX = MX, EMB_CY = CY - 40, EMB_R = 62;  // emblème : les 3 initiales (prénom/vertu/lieu), c'est "la marque" traditionnelle
+  var R_NAME_ARC = 128;                            // nom complet en arc, comme le nom de la loge en haut
+  var YEAR_Y = CY + R_OUTER - 18;
 
   var state = {
     formeActive: "triangle",
@@ -128,43 +128,62 @@
     }).catch(function (e) { console.warn("Polices non embarquées dans la marque (police de repli utilisée) :", e); });
   }
 
-  // Un seul emblème (forme + lettre unique de la vertu) à l'échelle (ex,ey,r)
-  function emblemSvg(forme, ex, ey, r, letter) {
+  // L'emblème — la marque traditionnelle à proprement parler : les 3
+  // initiales (prénom, vertu, lieu) inscrites dans la forme symbolique
+  // choisie. Les lettres sont placées par interpolation centre→sommet
+  // (même formule pour les 5 formes), pas au pixel près, pour un résultat
+  // cohérent et sans chevauchement quelle que soit la forme.
+  function emblemSvg(forme, ex, ey, r, iP, iV, iL) {
     var center = [ex, ey];
-    var letterSize = Math.round(r * 0.78);
-    var letterEl = '<text x="' + ex + '" y="' + ey + '" font-family="' + FONT_RIM + '" font-size="' + letterSize + '" font-weight="700" fill="' + INK + '" text-anchor="middle" dominant-baseline="central">' + esc(letter) + '</text>';
+    var t = 0.58;
+    var szMajor = Math.round(r * 0.46), szMinor = Math.round(r * 0.38);
+
+    function lettre(pt, ch, sz) {
+      return '<text x="' + pt[0] + '" y="' + pt[1] + '" font-family="' + FONT_RIM + '" font-size="' + sz + '" font-weight="700" fill="' + INK + '" text-anchor="middle" dominant-baseline="central">' + esc(ch) + '</text>';
+    }
 
     if (forme === "triangle" || forme === "cercle" || forme === "compas") {
-      var tri = regularPoints(ex, ey, r, 3);
+      var tri = regularPoints(ex, ey, r, 3); // [haut, bas-gauche, bas-droite]
       var top = tri[0], bl = tri[1], br = tri[2];
+      var letters = lettre(inset(center, top, t), iP, szMajor) + lettre(inset(center, bl, t), iV, szMinor) + lettre(inset(center, br, t), iL, szMinor);
+
       if (forme === "triangle") {
         return polyline(tri, 2.8)
           + seg(inset(bl, br, 0.2)[0], inset(bl, br, 0.2)[1], inset(br, bl, 0.2)[0], inset(br, bl, 0.2)[1], 1.2, INK2)
-          + letterEl;
+          + letters;
       } else if (forme === "cercle") {
         return '<circle cx="' + ex + '" cy="' + ey + '" r="' + r + '" fill="none" stroke="' + INK + '" stroke-width="2.4"/>'
           + polyline(tri, 1.3, INK2)
-          + letterEl;
+          + letters;
       } else { // compas : deux branches ouvertes + rivet
         return seg(top[0], top[1], bl[0], bl[1], 2.8)
           + seg(top[0], top[1], br[0], br[1], 2.8)
-          + '<circle cx="' + top[0] + '" cy="' + top[1] + '" r="5.5" fill="none" stroke="' + INK + '" stroke-width="2"/>'
-          + seg(inset(bl, br, 0.32)[0], inset(bl, br, 0.32)[1], inset(br, bl, 0.32)[0], inset(br, bl, 0.32)[1], 1.4, INK2)
-          + letterEl;
+          + '<circle cx="' + top[0] + '" cy="' + top[1] + '" r="6.5" fill="none" stroke="' + INK + '" stroke-width="2.2"/>'
+          + seg(inset(bl, br, 0.3)[0], inset(bl, br, 0.3)[1], inset(br, bl, 0.3)[0], inset(br, bl, 0.3)[1], 1.4, INK2)
+          + letters;
       }
     } else if (forme === "etoile") {
       var pts = starPoints(ex, ey, r, Math.round(r * 0.382));
-      return polyline(pts, 2.4) + letterEl;
+      // pts[0]=pointe haute ; pts[4]=pointe bas-gauche ; pts[6]=pointe bas-droite
+      return polyline(pts, 2.6)
+        + lettre(inset(center, pts[0], t), iP, szMajor)
+        + lettre(inset(center, pts[4], t), iV, szMinor)
+        + lettre(inset(center, pts[6], t), iL, szMinor);
 
     } else if (forme === "losange") {
       var qd = regularPoints(ex, ey, r, 4); // [haut, gauche, bas, droite]
       return polyline([qd[0], qd[3], qd[2], qd[1]], 2.8)
         + seg(qd[1][0], qd[1][1], qd[3][0], qd[3][1], 1, INK2)
         + seg(qd[0][0], qd[0][1], qd[2][0], qd[2][1], 1, INK2)
-        + letterEl;
+        + lettre(inset(center, qd[0], t), iP, szMajor)
+        + lettre(inset(center, qd[1], t), iV, szMinor)
+        + lettre(inset(center, qd[3], t), iL, szMinor);
 
     } else if (forme === "custom") {
       var clipId = "mqc" + Math.floor(Math.random() * 1e9);
+      var triC = regularPoints(ex, ey, r, 3);
+      var cP = inset(center, triC[0], 0.82), cV = inset(center, triC[1], 0.82), cL = inset(center, triC[2], 0.82);
+      var badgeR = Math.round(r * 0.18), custMajor = Math.round(r * 0.26), custMinor = Math.round(r * 0.22);
       var inner;
       if (state.customImageDataUrl) {
         inner = '<defs><clipPath id="' + clipId + '"><circle cx="' + ex + '" cy="' + ey + '" r="' + r + '"/></clipPath></defs>'
@@ -173,7 +192,10 @@
       } else {
         inner = '<circle cx="' + ex + '" cy="' + ey + '" r="' + r + '" fill="none" stroke="' + INK + '" stroke-width="1.4" stroke-dasharray="5,4"/>';
       }
-      return inner + badge(ex, ey, Math.round(r * 0.42)) + '<text x="' + ex + '" y="' + ey + '" font-family="' + FONT_RIM + '" font-size="' + Math.round(r * 0.5) + '" font-weight="700" fill="' + INK + '" text-anchor="middle" dominant-baseline="central">' + esc(letter) + '</text>';
+      return inner
+        + badge(cP[0], cP[1], badgeR) + lettre(cP, iP, custMajor)
+        + badge(cV[0], cV[1], badgeR) + lettre(cV, iV, custMinor)
+        + badge(cL[0], cL[1], badgeR) + lettre(cL, iL, custMinor);
     }
     return "";
   }
@@ -189,24 +211,31 @@
       '<circle cx="' + MX + '" cy="' + CY + '" r="' + R_OUTER + '" fill="none" stroke="' + INK + '" stroke-width="3"/>'
       + '<circle cx="' + MX + '" cy="' + CY + '" r="' + R_BEAD + '" fill="none" stroke="' + INK2 + '" stroke-width="1" stroke-dasharray="1.2,4.4" stroke-linecap="round"/>';
 
+    // Arc du haut : bulge vers le haut (sens horaire, gauche→droite).
+    // Arc du bas : même sens de parcours gauche→droite mais sweep=0, pour
+    // bulger vers le bas tout en gardant le texte à l'endroit — en sens
+    // inverse (droite→gauche) le texte ressort inversé et à l'envers
+    // (vérifié par un rendu réel, pas juste en théorie).
     var fontDefs = EMBEDDED_FONT_CSS ? "<style>" + EMBEDDED_FONT_CSS + "</style>" : "";
-    var defs = '<defs>' + fontDefs + '<path id="' + uid + 'top" d="M ' + (MX - R_TEXT_TOP) + ',' + CY + ' A ' + R_TEXT_TOP + ',' + R_TEXT_TOP + ' 0 0 1 ' + (MX + R_TEXT_TOP) + ',' + CY + '"/></defs>';
+    var defs = '<defs>' + fontDefs
+      + '<path id="' + uid + 'top" d="M ' + (MX - R_TEXT_TOP) + ',' + CY + ' A ' + R_TEXT_TOP + ',' + R_TEXT_TOP + ' 0 0 1 ' + (MX + R_TEXT_TOP) + ',' + CY + '"/>'
+      + '<path id="' + uid + 'bot" d="M ' + (MX - R_NAME_ARC) + ',' + CY + ' A ' + R_NAME_ARC + ',' + R_NAME_ARC + ' 0 0 0 ' + (MX + R_NAME_ARC) + ',' + CY + '"/>'
+      + '</defs>';
 
     var rimText =
       '<text font-family="' + FONT_RIM + '" font-size="13" font-weight="700" fill="' + INK2 + '" letter-spacing="2.5">'
       + '<textPath href="#' + uid + 'top" startOffset="50%" text-anchor="middle">SOCRATE · RAISON ET PROGRÈS</textPath></text>'
-      + '<text x="' + MX + '" y="' + YEAR_Y + '" font-family="' + FONT_RIM + '" font-size="13" font-weight="700" fill="' + INK + '" text-anchor="middle" letter-spacing="3">' + (new Date().getFullYear()) + '</text>';
+      + '<text x="' + MX + '" y="' + YEAR_Y + '" font-family="' + FONT_RIM + '" font-size="12" font-weight="700" fill="' + INK + '" text-anchor="middle" letter-spacing="3">' + (new Date().getFullYear()) + '</text>';
 
-    var emblem = emblemSvg(state.formeActive, EMB_CX, EMB_CY, EMB_R, entry.initiale);
+    var emblem = emblemSvg(state.formeActive, EMB_CX, EMB_CY, EMB_R, entry.iP, entry.iV, entry.iL);
 
-    var nameLines = [entry.prenom, entry.vertuMid, entry.villeTxt];
-    var nameSvg = "";
-    nameLines.forEach(function (line, i) {
-      // Évite tout débordement hors du cercle sur un prénom/vertu/ville long
-      // (ex. "de Pont-à-Mousson") : on réduit la taille au-delà de 13 caractères.
-      var fs = line.length > 13 ? Math.max(15, Math.round(22 * 13 / line.length)) : 22;
-      nameSvg += '<text x="' + MX + '" y="' + (NAME_Y0 + i * NAME_DY) + '" font-family="' + FONT_SCRIPT + '" font-size="' + fs + '" font-weight="700" fill="' + INK + '" text-anchor="middle">' + esc(line) + '</text>';
-    });
+    // Nom complet en arc, en calligraphie — réduit la taille si la
+    // combinaison prénom/vertu/ville est longue, pour ne jamais déborder.
+    var nameFull = entry.prenom + " · " + entry.vertuMid + " · " + entry.villeTxt;
+    var nameFs = nameFull.length > 26 ? Math.max(13, Math.round(21 * 26 / nameFull.length)) : 21;
+    var nameSvg =
+      '<text font-family="' + FONT_SCRIPT + '" font-size="' + nameFs + '" font-weight="700" fill="' + INK + '">'
+      + '<textPath href="#' + uid + 'bot" startOffset="50%" text-anchor="middle">' + esc(nameFull) + '</textPath></text>';
 
     svg.innerHTML = defs + rim + rimText + emblem + nameSvg;
   }
@@ -255,7 +284,9 @@
       vertuMid: vertu.charAt(0).toLowerCase() + vertu.slice(1),
       villeTxt: villeTxt,
       nom: prenomFmt + ", " + (vertu.charAt(0).toLowerCase() + vertu.slice(1)) + ", " + villeTxt,
-      initiale: initiale(vertu)
+      iP: prenomFmt.charAt(0),
+      iV: initiale(vertu),
+      iL: ville.charAt(0).toUpperCase()
     };
   }
 
