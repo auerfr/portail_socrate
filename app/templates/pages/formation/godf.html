@@ -99,7 +99,7 @@
       <div class="formation-map-wrap">
         <svg viewBox="0 0 613 585" class="formation-france-map" role="img" aria-label="{{ m.title }}">
           <style>
-            {% for dept, color in m.departments.items() %}#{{ dept }} { fill: {{ color }}; }
+            {% for dept, color in m.departments.items() %}[id="{{ dept }}"] { fill: {{ color }}; }
             {% endfor %}
           </style>
           {% include "pages/formation/_france_departments_paths.html" %}
