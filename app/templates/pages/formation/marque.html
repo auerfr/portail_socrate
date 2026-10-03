@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+{% block title %}Formation — Marque & nom compagnonnique{% endblock %}
+
+{% set vertus = ["L'Amitié","La Bonté","La Clairvoyance","La Clef des Cœurs","La Confiance","La Constance","La Discipline","La Droiture","L'Espérance","La Fermeté","La Fidélité","La Franchise","La Fraternité","La Gaieté","La Générosité","La Hardiesse","L'Honnêteté","L'Humilité","La Liberté","La Loyauté","La Modestie","La Patience","La Persévérance","La Pertinence","La Probité","La Prudence","La Sagesse","La Sérénité","La Sincérité","La Ténacité","La Tolérance","La Tranquillité","La Vaillance","La Vérité","La Volonté"] %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8" id="marque-tool">
+
+  <div class="flex items-center justify-between mb-6">
+    <a href="/formation" class="text-sm text-loge-700 hover:underline font-medium">← Formation</a>
+    {% if pdf_document_id %}
+    <a href="/documents/file/{{ pdf_document_id }}/download" class="inline-flex items-center gap-1.5 bg-loge-700 hover:bg-loge-800 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
+      ⬇ Télécharger la fiche PDF
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="text-center mb-8">
+    <div class="text-amber-500 text-sm tracking-widest mb-2">★ ★ ★</div>
+    <h1 class="text-2xl font-bold text-gray-900">Marque & nom compagnonnique</h1>
+    <p class="text-sm text-gray-400 mt-1 italic">Outil pour préparer ton nom compagnonnique et dessiner ta marque</p>
+  </div>
+
+  <div class="bg-loge-50 border border-loge-200 rounded-xl p-5 mb-4 text-sm text-gray-700 leading-relaxed">
+    Le nom compagnonnique se compose du <b>prénom</b>, d'une <b>vertu principale</b> et de la <b>ville ou région d'origine</b>. La marque reprend les trois initiales (prénom, vertu, lieu) inscrites dans une forme symbolique.
+  </div>
+
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mb-8 text-sm text-amber-900 leading-relaxed">
+    <p class="font-semibold mb-1">⚠️ À savoir</p>
+    Cet outil t'aide à préparer tes <b>3 vertus par ordre de préférence</b>. La vertu finalement retenue pour ton nom — l'une des trois proposées, ou une autre — reste décidée par les Maîtres en loge. Ce que tu génères ici est une proposition de travail, pas le nom officiel.
+  </div>
+
+  <!-- Formulaire -->
+  <div class="bg-white border border-gray-200 rounded-2xl p-5 mb-6">
+    <div class="grid sm:grid-cols-2 gap-4 mb-4">
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Prénom civil</label>
+        <input type="text" id="mq-prenom" value="{{ current_member.first_name if current_member else '' }}" placeholder="ex. Jean, Marie, Louis…"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-loge-300 focus:border-loge-400">
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">Ville / région d'origine</label>
+        <input type="text" id="mq-ville" placeholder="ex. Lyon, Metz, Pont-à-Mousson…"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-loge-300 focus:border-loge-400">
+      </div>
+    </div>
+
+    <p class="text-xs text-gray-400 italic mb-3">Choisis jusqu'à 3 vertus, par ordre décroissant de préférence — la première devient la clef du nom.</p>
+    <div class="grid sm:grid-cols-3 gap-4 mb-5">
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">1ère vertu (obligatoire)</label>
+        <select id="mq-vertu1" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-loge-300 focus:border-loge-400">
+          <option value="">— Choisir —</option>
+          {% for v in vertus %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">2ème vertu</label>
+        <select id="mq-vertu2" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-loge-300 focus:border-loge-400">
+          <option value="">—</option>
+          {% for v in vertus %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+      <div>
+        <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1.5">3ème vertu</label>
+        <select id="mq-vertu3" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-loge-300 focus:border-loge-400">
+          <option value="">—</option>
+          {% for v in vertus %}<option value="{{ v }}">{{ v }}</option>{% endfor %}
+        </select>
+      </div>
+    </div>
+
+    <label class="block text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Forme de la marque</label>
+    <div class="flex flex-wrap gap-2 mb-5" id="mq-forme-selector">
+      <button type="button" data-forme="triangle" class="mq-forme-btn flex-1 min-w-[90px] flex flex-col items-center gap-1 border border-loge-400 bg-loge-50 text-loge-700 rounded-lg px-2 py-2.5 text-xs font-medium transition-colors" aria-pressed="true">
+        <svg width="28" height="24" viewBox="0 0 36 32" aria-hidden="true"><polygon points="18,2 2,30 34,30" fill="none" stroke="currentColor" stroke-width="2"/><line x1="7" y1="17" x2="29" y2="17" stroke="currentColor" stroke-width="1.2"/></svg>
+        Triangle
+      </button>
+      <button type="button" data-forme="etoile" class="mq-forme-btn flex-1 min-w-[90px] flex flex-col items-center gap-1 border border-gray-200 text-gray-500 rounded-lg px-2 py-2.5 text-xs font-medium hover:border-loge-300 transition-colors" aria-pressed="false">
+        <svg width="28" height="28" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,2 21.4,12.3 32.4,12.3 23.8,18.8 27.2,29.1 18,22.6 8.8,29.1 12.2,18.8 3.6,12.3 14.6,12.3" fill="none" stroke="currentColor" stroke-width="1.8"/></svg>
+        Étoile
+      </button>
+      <button type="button" data-forme="cercle" class="mq-forme-btn flex-1 min-w-[90px] flex flex-col items-center gap-1 border border-gray-200 text-gray-500 rounded-lg px-2 py-2.5 text-xs font-medium hover:border-loge-300 transition-colors" aria-pressed="false">
+        <svg width="28" height="28" viewBox="0 0 36 36" aria-hidden="true"><circle cx="18" cy="18" r="15" fill="none" stroke="currentColor" stroke-width="1.8"/><polygon points="18,5 5,27 31,27" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        Cercle
+      </button>
+      <button type="button" data-forme="compas" class="mq-forme-btn flex-1 min-w-[90px] flex flex-col items-center gap-1 border border-gray-200 text-gray-500 rounded-lg px-2 py-2.5 text-xs font-medium hover:border-loge-300 transition-colors" aria-pressed="false">
+        <svg width="28" height="28" viewBox="0 0 36 36" aria-hidden="true"><line x1="18" y1="2" x2="6" y2="30" stroke="currentColor" stroke-width="1.8"/><line x1="18" y1="2" x2="30" y2="30" stroke="currentColor" stroke-width="1.8"/><line x1="8" y1="16" x2="28" y2="16" stroke="currentColor" stroke-width="1.2"/><rect x="5" y="16" width="26" height="16" fill="none" stroke="currentColor" stroke-width="1.2"/></svg>
+        Compas
+      </button>
+      <button type="button" data-forme="losange" class="mq-forme-btn flex-1 min-w-[90px] flex flex-col items-center gap-1 border border-gray-200 text-gray-500 rounded-lg px-2 py-2.5 text-xs font-medium hover:border-loge-300 transition-colors" aria-pressed="false">
+        <svg width="28" height="28" viewBox="0 0 36 36" aria-hidden="true"><polygon points="18,2 34,18 18,34 2,18" fill="none" stroke="currentColor" stroke-width="1.8"/><line x1="2" y1="18" x2="34" y2="18" stroke="currentColor" stroke-width="1"/><line x1="18" y1="2" x2="18" y2="34" stroke="currentColor" stroke-width="1"/></svg>
+        Losange
+      </button>
+      <button type="button" data-forme="custom" class="mq-forme-btn flex-1 min-w-[90px] flex flex-col items-center gap-1 border border-gray-200 text-gray-500 rounded-lg px-2 py-2.5 text-xs font-medium hover:border-loge-300 transition-colors" aria-pressed="false">
+        <svg width="28" height="28" viewBox="0 0 36 36" aria-hidden="true"><rect x="4" y="4" width="28" height="28" rx="3" fill="none" stroke="currentColor" stroke-width="1.8"/><path d="M9 25l6-8 5 6 4-5 7 7" fill="none" stroke="currentColor" stroke-width="1.4"/><circle cx="13" cy="12" r="2.4" fill="currentColor"/></svg>
+        Mon motif
+      </button>
+    </div>
+
+    <div id="mq-custom-upload" class="hidden mb-5 bg-gray-50 border border-dashed border-gray-300 rounded-lg p-4 text-center">
+      <input type="file" id="mq-file-input" accept="image/png,image/jpeg,image/svg+xml" class="hidden">
+      <label for="mq-file-input" class="inline-block cursor-pointer text-xs font-medium text-loge-700 bg-white border border-loge-300 rounded-full px-4 py-2 hover:bg-loge-50 transition-colors">
+        + Importer mon propre motif (PNG, JPG ou SVG, 2 Mo max)
+      </label>
+      <p class="text-xs text-gray-400 mt-2" id="mq-file-name">Aucun fichier choisi — un cadre temporaire s'affichera en attendant.</p>
+    </div>
+
+    <button type="button" id="mq-generate-btn" class="w-full bg-loge-700 hover:bg-loge-800 text-white font-semibold text-sm rounded-lg py-3 transition-colors">
+      ✦ Forger mon nom et ma marque ✦
+    </button>
+  </div>
+
+  <!-- Résultat -->
+  <div class="hidden grid sm:grid-cols-[1fr_260px] gap-4 mb-8" id="mq-result-wrap">
+    <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center">
+      <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Nom compagnonnique proposé</p>
+      <p class="text-lg font-bold text-gray-900 mb-3" id="mq-result-name">—</p>
+      <div class="flex gap-2 justify-center flex-wrap mb-3" id="mq-vertus-detail"></div>
+      <p class="text-xs text-gray-400 italic border-t border-gray-100 pt-3" id="mq-result-citation"></p>
+      <button type="button" id="mq-copy-btn" class="mt-3 text-xs font-medium text-loge-700 border border-loge-200 rounded-full px-3 py-1.5 hover:bg-loge-50 transition-colors">
+        ⎘ Copier le nom
+      </button>
+    </div>
+    <div class="bg-stone-50 border border-gray-200 rounded-2xl p-4 text-center">
+      <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Marque</p>
+      <svg id="mq-svg" xmlns="http://www.w3.org/2000/svg" class="mx-auto block"></svg>
+      <div class="flex gap-2 justify-center flex-wrap mt-3">
+        <button type="button" id="mq-download-png" class="text-xs font-medium text-white bg-loge-700 hover:bg-loge-800 rounded-full px-3 py-1.5 transition-colors">↓ PNG</button>
+        <button type="button" id="mq-download-svg" class="text-xs font-medium text-loge-700 border border-loge-300 rounded-full px-3 py-1.5 hover:bg-loge-50 transition-colors">↓ SVG</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="hidden mb-8" id="mq-history-section">
+    <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 text-center mb-2">Essais précédents (cette session)</p>
+    <div class="flex flex-wrap gap-2 justify-center" id="mq-history-list"></div>
+  </div>
+
+  <p class="text-center text-xs text-gray-400">R∴L∴ Socrate – Raison &amp; Progrès · Orient de Pont-à-Mousson · G∴O∴D∴F∴ · RFiPhi</p>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script src="/static/js/marque.js?v={{ asset_v }}" defer></script>
+{% endblock %}

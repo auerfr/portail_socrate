@@ -42,6 +42,7 @@ def _asset_version(*static_paths: str) -> int:
 
 
 _FORMATION_ASSET_VERSION = _asset_version("css/formation.css", "js/formation.js")
+_MARQUE_ASSET_VERSION = _asset_version("js/marque.js")
 
 
 def _load_module_data(filename: str) -> dict:
@@ -126,7 +127,7 @@ _MODULES = {
     "marque": {
         "title": "Marque & nom compagnonnique",
         "subtitle": "Fabrication de la marque et recherche du nom compagnonnique",
-        "ready": False,
+        "ready": True,
     },
 }
 
@@ -203,6 +204,29 @@ async def formation_compagnon(request: Request, ctx: Annotated[tuple, Depends(re
     return templates.TemplateResponse(request, "pages/formation/compagnon.html", {
         "is_admin": user.is_admin,
         "pdf_document_id": pdf_document_id,
+        "current_user": user,
+        "current_member": member,
+    })
+
+
+@router.get("/formation/marque", response_class=HTMLResponse)
+async def formation_marque(request: Request, ctx: Annotated[tuple, Depends(require_auth)], db: Annotated[AsyncSession, Depends(get_db)]):
+    user, member = ctx
+    lvl = _member_level(user, member)
+    if lvl < _MODULE_MIN_GRADE["marque"]:
+        return templates.TemplateResponse(request, "pages/formation/unavailable.html", {
+            "current_user": user, "current_member": member,
+        }, status_code=403)
+
+    res = (await db.execute(
+        select(FormationResource).where(FormationResource.module == "marque")
+    )).scalar_one_or_none()
+    pdf_document_id = res.pdf_document_id if res else None
+
+    return templates.TemplateResponse(request, "pages/formation/marque.html", {
+        "is_admin": user.is_admin,
+        "pdf_document_id": pdf_document_id,
+        "asset_v": _MARQUE_ASSET_VERSION,
         "current_user": user,
         "current_member": member,
     })
