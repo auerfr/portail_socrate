@@ -3,6 +3,23 @@
 
 {% set vertus = ["L'Amitié","La Bonté","La Clairvoyance","La Clef des Cœurs","La Confiance","La Constance","La Discipline","La Droiture","L'Espérance","La Fermeté","La Fidélité","La Franchise","La Fraternité","La Gaieté","La Générosité","La Hardiesse","L'Honnêteté","L'Humilité","La Liberté","La Loyauté","La Modestie","La Patience","La Persévérance","La Pertinence","La Probité","La Prudence","La Sagesse","La Sérénité","La Sincérité","La Ténacité","La Tolérance","La Tranquillité","La Vaillance","La Vérité","La Volonté"] %}
 
+{% block head %}
+<style>
+  @font-face {
+    font-family: 'Cinzel';
+    font-weight: 700;
+    font-display: swap;
+    src: url('/static/fonts/cinzel-700.woff2') format('woff2');
+  }
+  @font-face {
+    font-family: 'Dancing Script';
+    font-weight: 700;
+    font-display: swap;
+    src: url('/static/fonts/dancing-script-700.woff2') format('woff2');
+  }
+</style>
+{% endblock %}
+
 {% block content %}
 <div class="max-w-3xl mx-auto px-4 py-8" id="marque-tool">
 
@@ -111,25 +128,12 @@
     </button>
   </div>
 
-  <!-- Résultat -->
-  <div class="hidden grid sm:grid-cols-[1fr_260px] gap-4 mb-8" id="mq-result-wrap">
-    <div class="bg-white border border-gray-200 rounded-2xl p-6 text-center">
-      <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-4">Nom compagnonnique proposé</p>
-      <p class="text-lg font-bold text-gray-900 mb-3" id="mq-result-name">—</p>
-      <div class="flex gap-2 justify-center flex-wrap mb-3" id="mq-vertus-detail"></div>
-      <p class="text-xs text-gray-400 italic border-t border-gray-100 pt-3" id="mq-result-citation"></p>
-      <button type="button" id="mq-copy-btn" class="mt-3 text-xs font-medium text-loge-700 border border-loge-200 rounded-full px-3 py-1.5 hover:bg-loge-50 transition-colors">
-        ⎘ Copier le nom
-      </button>
-    </div>
-    <div class="bg-stone-50 border border-gray-200 rounded-2xl p-4 text-center">
-      <p class="text-xs font-semibold uppercase tracking-widest text-gray-400 mb-3">Marque</p>
-      <svg id="mq-svg" xmlns="http://www.w3.org/2000/svg" class="mx-auto block"></svg>
-      <div class="flex gap-2 justify-center flex-wrap mt-3">
-        <button type="button" id="mq-download-png" class="text-xs font-medium text-white bg-loge-700 hover:bg-loge-800 rounded-full px-3 py-1.5 transition-colors">↓ PNG</button>
-        <button type="button" id="mq-download-svg" class="text-xs font-medium text-loge-700 border border-loge-300 rounded-full px-3 py-1.5 hover:bg-loge-50 transition-colors">↓ SVG</button>
-      </div>
-    </div>
+  <!-- Résultat : une carte-médaille par vertu choisie (1 à 3), chacune avec
+       le nom complet en calligraphie et son propre téléchargement — plus
+       facile à comparer et à graver une fois la vertu finale retenue. -->
+  <div class="hidden mb-8" id="mq-result-wrap">
+    <p class="text-center text-xs text-gray-400 italic mb-5" id="mq-result-citation"></p>
+    <div class="flex flex-wrap gap-4 justify-center" id="mq-cards"></div>
   </div>
 
   <div class="hidden mb-8" id="mq-history-section">

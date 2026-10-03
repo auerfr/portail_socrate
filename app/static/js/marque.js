@@ -26,7 +26,8 @@
 
   var INK = "#2A2318";
   var INK2 = "#7A5C1E";
-  var FONT_TITLE = "Georgia, 'Times New Roman', serif";
+  var FONT_RIM = "'Cinzel', Georgia, serif";      // nom de loge, année — style "gravé"
+  var FONT_SCRIPT = "'Dancing Script', cursive";  // nom compagnonnique complet — calligraphie
 
   function villePart(v) {
     var k = v.toLowerCase().trim();
@@ -45,6 +46,7 @@
   }
 
   function rand(arr) { return arr[Math.floor(Math.random() * arr.length)]; }
+  function esc(s) { return String(s).replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;"); }
 
   function seg(x1, y1, x2, y2, w, c) {
     w = w || 2; c = c || INK;
@@ -54,13 +56,9 @@
     w = w || 2.2; c = c || INK;
     return '<polygon points="' + pts.map(function (p) { return p.join(","); }).join(" ") + '" fill="none" stroke="' + c + '" stroke-width="' + w + '" stroke-linejoin="miter"/>';
   }
-  function lettre(x, y, c, sz, col) {
-    sz = sz || 50; col = col || INK;
-    return '<text x="' + x + '" y="' + y + '" font-family="' + FONT_TITLE + '" font-size="' + sz + '" font-weight="700" fill="' + col + '" text-anchor="middle" dominant-baseline="central">' + c + '</text>';
-  }
   function badge(x, y, r) {
-    r = r || 16;
-    return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="#ffffff" opacity="0.8"/>';
+    r = r || 20;
+    return '<circle cx="' + x + '" cy="' + y + '" r="' + r + '" fill="#ffffff" opacity="0.85"/>';
   }
 
   function starPoints(cx, cy, R, r) {
@@ -84,130 +82,141 @@
     return pts;
   }
 
-  // Point entre le centre et un sommet, à une fraction t (0=centre, 1=sommet)
-  // — place une lettre "dans" la forme plutôt que pile sur son contour,
-  // de façon identique quelle que soit la forme choisie.
   function inset(center, vertex, t) {
     return [center[0] + (vertex[0] - center[0]) * t, center[1] + (vertex[1] - center[1]) * t];
   }
 
-  var FIELD_R = 102;    // rayon du champ intérieur où s'inscrit le symbole
-  var LETTER_T = 0.58;  // position des lettres entre le centre et les sommets
-  var SZ_MAJOR = 44;    // taille de la lettre du prénom (sommet "principal")
-  var SZ_MINOR = 36;    // taille des lettres vertu/lieu
+  // ── Géométrie générale de la médaille ──
+  var W = 360, H = 360, MX = W / 2, CY = H / 2;
+  var R_OUTER = 168, R_BEAD = 158, R_TEXT_TOP = 142;
+  var EMB_CX = MX, EMB_CY = CY - 64, EMB_R = 46; // emblème (forme + une seule lettre : la vertu)
+  var NAME_Y0 = CY + 10, NAME_DY = 35;            // 3 lignes du nom complet, en calligraphie
+  var YEAR_Y = CY + R_OUTER - 20;
 
   var state = {
     formeActive: "triangle",
     customImageDataUrl: null,
-    dernierNom: null,
-    historique: []
+    entries: [],       // {id, prenom, ville, vertu, vertuMid, villeTxt, nom, initiale}
+    historique: [],     // {prenom, ville, v1, v2, v3}
+    nextId: 0
   };
 
-  function dessinerMarque(iP, iV, iL, nomCourt) {
-    var svg = document.getElementById("mq-svg");
-    var W = 320, H = 320, MX = W / 2, CY = H / 2;
+  // Polices embarquées en base64 directement dans chaque SVG généré : sans
+  // ça, un <img> chargé depuis un SVG sérialisé (étape du téléchargement
+  // PNG) ne voit pas les @font-face déclarées au niveau de la page — la
+  // marque exportée retombait sur une police système. Pareil pour un .svg
+  // téléchargé et rouvert ailleurs (pas de connexion, police non installée) :
+  // seul un fichier autonome garantit le rendu voulu, y compris pour la
+  // gravure.
+  var EMBEDDED_FONT_CSS = "";
+  function bufferToBase64(buf) {
+    var bytes = new Uint8Array(buf), chunk = 0x8000, binary = "";
+    for (var i = 0; i < bytes.length; i += chunk) {
+      binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+    }
+    return btoa(binary);
+  }
+  function loadEmbeddedFonts() {
+    return Promise.all([
+      fetch("/static/fonts/cinzel-700.woff2").then(function (r) { return r.arrayBuffer(); }),
+      fetch("/static/fonts/dancing-script-700.woff2").then(function (r) { return r.arrayBuffer(); })
+    ]).then(function (bufs) {
+      EMBEDDED_FONT_CSS =
+        "@font-face{font-family:'Cinzel';font-weight:700;src:url(data:font/woff2;base64," + bufferToBase64(bufs[0]) + ") format('woff2');}"
+        + "@font-face{font-family:'Dancing Script';font-weight:700;src:url(data:font/woff2;base64," + bufferToBase64(bufs[1]) + ") format('woff2');}";
+      redessinerTout();
+    }).catch(function (e) { console.warn("Polices non embarquées dans la marque (police de repli utilisée) :", e); });
+  }
+
+  // Un seul emblème (forme + lettre unique de la vertu) à l'échelle (ex,ey,r)
+  function emblemSvg(forme, ex, ey, r, letter) {
+    var center = [ex, ey];
+    var letterSize = Math.round(r * 0.78);
+    var letterEl = '<text x="' + ex + '" y="' + ey + '" font-family="' + FONT_RIM + '" font-size="' + letterSize + '" font-weight="700" fill="' + INK + '" text-anchor="middle" dominant-baseline="central">' + esc(letter) + '</text>';
+
+    if (forme === "triangle" || forme === "cercle" || forme === "compas") {
+      var tri = regularPoints(ex, ey, r, 3);
+      var top = tri[0], bl = tri[1], br = tri[2];
+      if (forme === "triangle") {
+        return polyline(tri, 2.8)
+          + seg(inset(bl, br, 0.2)[0], inset(bl, br, 0.2)[1], inset(br, bl, 0.2)[0], inset(br, bl, 0.2)[1], 1.2, INK2)
+          + letterEl;
+      } else if (forme === "cercle") {
+        return '<circle cx="' + ex + '" cy="' + ey + '" r="' + r + '" fill="none" stroke="' + INK + '" stroke-width="2.4"/>'
+          + polyline(tri, 1.3, INK2)
+          + letterEl;
+      } else { // compas : deux branches ouvertes + rivet
+        return seg(top[0], top[1], bl[0], bl[1], 2.8)
+          + seg(top[0], top[1], br[0], br[1], 2.8)
+          + '<circle cx="' + top[0] + '" cy="' + top[1] + '" r="5.5" fill="none" stroke="' + INK + '" stroke-width="2"/>'
+          + seg(inset(bl, br, 0.32)[0], inset(bl, br, 0.32)[1], inset(br, bl, 0.32)[0], inset(br, bl, 0.32)[1], 1.4, INK2)
+          + letterEl;
+      }
+    } else if (forme === "etoile") {
+      var pts = starPoints(ex, ey, r, Math.round(r * 0.382));
+      return polyline(pts, 2.4) + letterEl;
+
+    } else if (forme === "losange") {
+      var qd = regularPoints(ex, ey, r, 4); // [haut, gauche, bas, droite]
+      return polyline([qd[0], qd[3], qd[2], qd[1]], 2.8)
+        + seg(qd[1][0], qd[1][1], qd[3][0], qd[3][1], 1, INK2)
+        + seg(qd[0][0], qd[0][1], qd[2][0], qd[2][1], 1, INK2)
+        + letterEl;
+
+    } else if (forme === "custom") {
+      var clipId = "mqc" + Math.floor(Math.random() * 1e9);
+      var inner;
+      if (state.customImageDataUrl) {
+        inner = '<defs><clipPath id="' + clipId + '"><circle cx="' + ex + '" cy="' + ey + '" r="' + r + '"/></clipPath></defs>'
+          + '<g clip-path="url(#' + clipId + ')"><image x="' + (ex - r) + '" y="' + (ey - r) + '" width="' + (r * 2) + '" height="' + (r * 2) + '" href="' + state.customImageDataUrl + '" preserveAspectRatio="xMidYMid slice"/></g>'
+          + '<circle cx="' + ex + '" cy="' + ey + '" r="' + r + '" fill="none" stroke="' + INK + '" stroke-width="1.8"/>';
+      } else {
+        inner = '<circle cx="' + ex + '" cy="' + ey + '" r="' + r + '" fill="none" stroke="' + INK + '" stroke-width="1.4" stroke-dasharray="5,4"/>';
+      }
+      return inner + badge(ex, ey, Math.round(r * 0.42)) + '<text x="' + ex + '" y="' + ey + '" font-family="' + FONT_RIM + '" font-size="' + Math.round(r * 0.5) + '" font-weight="700" fill="' + INK + '" text-anchor="middle" dominant-baseline="central">' + esc(letter) + '</text>';
+    }
+    return "";
+  }
+
+  function dessinerMarque(svg, entry) {
     svg.setAttribute("viewBox", "0 0 " + W + " " + H);
     svg.setAttribute("width", W);
     svg.setAttribute("height", H);
 
     var uid = "mq" + Math.floor(Math.random() * 1e9);
-    var R_OUTER = 150, R_BEAD = 142, R_TEXT_TOP = 128;
 
-    // Pourtour de médaille : double filet + liseré perlé (pointillé) pour
-    // évoquer la tranche striée d'une médaille en métal.
     var rim =
       '<circle cx="' + MX + '" cy="' + CY + '" r="' + R_OUTER + '" fill="none" stroke="' + INK + '" stroke-width="3"/>'
       + '<circle cx="' + MX + '" cy="' + CY + '" r="' + R_BEAD + '" fill="none" stroke="' + INK2 + '" stroke-width="1" stroke-dasharray="1.2,4.4" stroke-linecap="round"/>';
 
-    // Nom de la loge gravé en arc le long du haut de l'anneau — en ligne
-    // droite pour les initiales en bas (le texte courbe inversé y rendait
-    // mal : lettres à l'envers, cf. essai précédent).
-    var defs = '<defs>'
-      + '<path id="' + uid + 'top" d="M ' + (MX - R_TEXT_TOP) + ',' + CY + ' A ' + R_TEXT_TOP + ',' + R_TEXT_TOP + ' 0 0 1 ' + (MX + R_TEXT_TOP) + ',' + CY + '"/>'
-      + '</defs>';
+    var fontDefs = EMBEDDED_FONT_CSS ? "<style>" + EMBEDDED_FONT_CSS + "</style>" : "";
+    var defs = '<defs>' + fontDefs + '<path id="' + uid + 'top" d="M ' + (MX - R_TEXT_TOP) + ',' + CY + ' A ' + R_TEXT_TOP + ',' + R_TEXT_TOP + ' 0 0 1 ' + (MX + R_TEXT_TOP) + ',' + CY + '"/></defs>';
+
     var rimText =
-      '<text font-family="' + FONT_TITLE + '" font-size="13" font-weight="700" fill="' + INK2 + '" letter-spacing="2.5">'
+      '<text font-family="' + FONT_RIM + '" font-size="13" font-weight="700" fill="' + INK2 + '" letter-spacing="2.5">'
       + '<textPath href="#' + uid + 'top" startOffset="50%" text-anchor="middle">SOCRATE · RAISON ET PROGRÈS</textPath></text>'
-      + '<text x="' + MX + '" y="' + (CY + R_OUTER - 20) + '" font-family="' + FONT_TITLE + '" font-size="12" font-weight="700" fill="' + INK + '" text-anchor="middle" letter-spacing="4">' + nomCourt + '</text>';
+      + '<text x="' + MX + '" y="' + YEAR_Y + '" font-family="' + FONT_RIM + '" font-size="13" font-weight="700" fill="' + INK + '" text-anchor="middle" letter-spacing="3">' + (new Date().getFullYear()) + '</text>';
 
-    var center = [MX, CY];
-    var corps = "";
-    var f = state.formeActive;
+    var emblem = emblemSvg(state.formeActive, EMB_CX, EMB_CY, EMB_R, entry.initiale);
 
-    if (f === "triangle" || f === "cercle" || f === "compas") {
-      var tri = regularPoints(MX, CY, FIELD_R, 3); // [haut, bas-gauche, bas-droite]
-      var top = tri[0], bl = tri[1], br = tri[2];
-      var pP = inset(center, top, LETTER_T);
-      var pV = inset(center, bl, LETTER_T);
-      var pL = inset(center, br, LETTER_T);
-      var letters = lettre(pP[0], pP[1], iP, SZ_MAJOR) + lettre(pV[0], pV[1], iV, SZ_MINOR) + lettre(pL[0], pL[1], iL, SZ_MINOR);
+    var nameLines = [entry.prenom, entry.vertuMid, entry.villeTxt];
+    var nameSvg = "";
+    nameLines.forEach(function (line, i) {
+      // Évite tout débordement hors du cercle sur un prénom/vertu/ville long
+      // (ex. "de Pont-à-Mousson") : on réduit la taille au-delà de 13 caractères.
+      var fs = line.length > 13 ? Math.max(20, Math.round(30 * 13 / line.length)) : 30;
+      nameSvg += '<text x="' + MX + '" y="' + (NAME_Y0 + i * NAME_DY) + '" font-family="' + FONT_SCRIPT + '" font-size="' + fs + '" font-weight="700" fill="' + INK + '" text-anchor="middle">' + esc(line) + '</text>';
+    });
 
-      if (f === "triangle") {
-        corps = polyline(tri, 3)
-          + seg(inset(bl, br, 0.22)[0], inset(bl, br, 0.22)[1], inset(br, bl, 0.22)[0], inset(br, bl, 0.22)[1], 1.4, INK2)
-          + letters;
+    svg.innerHTML = defs + rim + rimText + emblem + nameSvg;
+  }
 
-      } else if (f === "cercle") {
-        corps = '<circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '" fill="none" stroke="' + INK + '" stroke-width="2.6"/>'
-          + polyline(tri, 1.6, INK2)
-          + letters;
-
-      } else { // compas : deux branches ouvertes + rivet, sans base fermée (à la différence du triangle)
-        var rivet = inset(center, top, 0.18);
-        corps = seg(top[0], top[1], bl[0], bl[1], 3)
-          + seg(top[0], top[1], br[0], br[1], 3)
-          + '<circle cx="' + top[0] + '" cy="' + top[1] + '" r="7" fill="none" stroke="' + INK + '" stroke-width="2.4"/>'
-          + seg(inset(bl, br, 0.3)[0], inset(bl, br, 0.3)[1], inset(br, bl, 0.3)[0], inset(br, bl, 0.3)[1], 1.6, INK2)
-          + letters;
-      }
-
-    } else if (f === "etoile") {
-      var R = FIELD_R, r = Math.round(R * 0.382);
-      var allPts = starPoints(MX, CY, R, r);
-      // allPts[0]=pointe haute ; allPts[4]=pointe bas-gauche ; allPts[6]=pointe bas-droite
-      var sP = inset(center, allPts[0], LETTER_T);
-      var sV = inset(center, allPts[4], LETTER_T);
-      var sL = inset(center, allPts[6], LETTER_T);
-      corps = polyline(allPts, 2.6)
-        + lettre(sP[0], sP[1], iP, SZ_MAJOR)
-        + lettre(sV[0], sV[1], iV, SZ_MINOR)
-        + lettre(sL[0], sL[1], iL, SZ_MINOR);
-
-    } else if (f === "losange") {
-      var qd = regularPoints(MX, CY, FIELD_R, 4); // [haut, gauche, bas, droite]
-      var qtop = qd[0], qleft = qd[1], qbot = qd[2], qright = qd[3];
-      var dP = inset(center, qtop, LETTER_T);
-      var dV = inset(center, qleft, LETTER_T);
-      var dL = inset(center, qright, LETTER_T);
-      corps = polyline([qtop, qright, qbot, qleft], 3)
-        + seg(qleft[0], qleft[1], qright[0], qright[1], 1.2, INK2)
-        + seg(qtop[0], qtop[1], qbot[0], qbot[1], 1.2, INK2)
-        + lettre(dP[0], dP[1], iP, SZ_MAJOR)
-        + lettre(dV[0], dV[1], iV, SZ_MINOR)
-        + lettre(dL[0], dL[1], iL, SZ_MINOR);
-
-    } else if (f === "custom") {
-      var clipId = uid + "clip";
-      var triC = regularPoints(MX, CY, FIELD_R, 3);
-      var cP = inset(center, triC[0], 0.82);
-      var cV = inset(center, triC[1], 0.82);
-      var cL = inset(center, triC[2], 0.82);
-      if (state.customImageDataUrl) {
-        corps = '<defs><clipPath id="' + clipId + '"><circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '"/></clipPath></defs>'
-          + '<g clip-path="url(#' + clipId + ')">'
-          + '<image x="' + (MX - FIELD_R) + '" y="' + (CY - FIELD_R) + '" width="' + (FIELD_R * 2) + '" height="' + (FIELD_R * 2) + '" href="' + state.customImageDataUrl + '" preserveAspectRatio="xMidYMid slice"/>'
-          + '</g>'
-          + '<circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '" fill="none" stroke="' + INK + '" stroke-width="2"/>';
-      } else {
-        corps = '<circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '" fill="none" stroke="' + INK + '" stroke-width="1.6" stroke-dasharray="6,5"/>'
-          + '<text x="' + MX + '" y="' + CY + '" font-family="' + FONT_TITLE + '" font-size="11" fill="#9a9284" text-anchor="middle">Importe un motif pour le voir ici</text>';
-      }
-      corps += badge(cP[0], cP[1], 15) + lettre(cP[0], cP[1], iP, 24)
-        + badge(cV[0], cV[1], 15) + lettre(cV[0], cV[1], iV, 20)
-        + badge(cL[0], cL[1], 15) + lettre(cL[0], cL[1], iL, 20);
-    }
-
-    svg.innerHTML = defs + rim + rimText + corps;
+  function redessinerTout() {
+    document.querySelectorAll("[data-mq-svg]").forEach(function (svg) {
+      var id = svg.getAttribute("data-mq-svg");
+      var entry = state.entries.find(function (e) { return String(e.id) === id; });
+      if (entry) dessinerMarque(svg, entry);
+    });
   }
 
   function selectForme(btn) {
@@ -225,9 +234,7 @@
     var uploadBox = document.getElementById("mq-custom-upload");
     uploadBox.classList.toggle("hidden", state.formeActive !== "custom");
 
-    if (state.dernierNom) {
-      dessinerMarque(state.dernierNom.iP, state.dernierNom.iV, state.dernierNom.iL, state.dernierNom.nomCourt);
-    }
+    redessinerTout();
   }
 
   function flash(id) {
@@ -236,6 +243,28 @@
     el.classList.add("ring-2", "ring-red-400", "border-red-400");
     setTimeout(function () { el.classList.remove("ring-2", "ring-red-400", "border-red-400"); }, 1300);
     el.focus();
+  }
+
+  function buildEntry(prenomFmt, ville, villeTxt, vertu) {
+    state.nextId += 1;
+    return {
+      id: state.nextId,
+      prenom: prenomFmt,
+      ville: ville,
+      vertu: vertu,
+      vertuMid: vertu.charAt(0).toLowerCase() + vertu.slice(1),
+      villeTxt: villeTxt,
+      nom: prenomFmt + ", " + (vertu.charAt(0).toLowerCase() + vertu.slice(1)) + ", " + villeTxt,
+      initiale: initiale(vertu)
+    };
+  }
+
+  function genererDepuisInputs(prenom, ville, v1, v2, v3) {
+    var vp = villePart(ville);
+    var pFmt = prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase();
+    var vertus = [v1, v2, v3].filter(Boolean);
+    var entries = vertus.map(function (v) { return buildEntry(pFmt, ville, vp, v); });
+    afficherResultat(entries, { prenom: prenom, ville: ville, v1: v1, v2: v2, v3: v3 });
   }
 
   function genererNom() {
@@ -248,42 +277,56 @@
     if (!ville) { flash("mq-ville"); return; }
     if (!v1) { flash("mq-vertu1"); return; }
 
-    var vp = villePart(ville);
-    var pFmt = prenom.charAt(0).toUpperCase() + prenom.slice(1).toLowerCase();
-    var vMid = v1.charAt(0).toLowerCase() + v1.slice(1);
-    var iP = pFmt.charAt(0), iV = initiale(v1), iL = ville.charAt(0).toUpperCase();
+    genererDepuisInputs(prenom, ville, v1, v2, v3);
 
-    state.dernierNom = {
-      nom: pFmt + ", " + vMid + ", " + vp,
-      prenom: pFmt, ville: ville, v1: v1, v2: v2, v3: v3,
-      iP: iP, iV: iV, iL: iL,
-      nomCourt: iP + " · " + iV + " · " + iL
-    };
-    afficherResultat(state.dernierNom);
-  }
-
-  function afficherResultat(d) {
-    document.getElementById("mq-result-name").textContent = d.nom;
-    var det = document.getElementById("mq-vertus-detail");
-    det.innerHTML = "";
-    [d.v1, d.v2, d.v3].filter(Boolean).forEach(function (v, i) {
-      var span = document.createElement("span");
-      span.className = "text-xs italic border rounded-full px-3 py-1 " + (i === 0 ? "border-loge-400 text-loge-700" : "border-gray-200 text-gray-500");
-      span.textContent = v;
-      det.appendChild(span);
-    });
-    document.getElementById("mq-result-citation").textContent = rand(CITATIONS);
-    dessinerMarque(d.iP, d.iV, d.iL, d.nomCourt);
-
-    var wrap = document.getElementById("mq-result-wrap");
-    wrap.classList.remove("hidden");
-    wrap.classList.add("grid");
-
-    if (!state.historique.find(function (h) { return h.nom === d.nom; })) {
-      state.historique.unshift(Object.assign({}, d));
-      if (state.historique.length > 6) state.historique.pop();
+    var key = prenom + "|" + ville + "|" + v1 + "|" + v2 + "|" + v3;
+    if (!state.historique.find(function (h) { return h.key === key; })) {
+      state.historique.unshift({ key: key, prenom: prenom, ville: ville, v1: v1, v2: v2, v3: v3 });
+      if (state.historique.length > 5) state.historique.pop();
       majHistorique();
     }
+  }
+
+  function cardHtml(entry) {
+    return '' +
+      '<div class="bg-white border border-gray-200 rounded-2xl p-4 text-center w-[300px]" data-mq-card="' + entry.id + '">' +
+      '  <p class="text-xs font-semibold uppercase tracking-wide text-loge-700 mb-2">' + esc(entry.vertu) + '</p>' +
+      '  <p class="text-sm font-bold text-gray-900 mb-3">' + esc(entry.nom) + '</p>' +
+      '  <svg data-mq-svg="' + entry.id + '" xmlns="http://www.w3.org/2000/svg" class="mx-auto block"></svg>' +
+      '  <div class="flex gap-2 justify-center flex-wrap mt-3">' +
+      '    <button type="button" data-mq-action="png" data-mq-target="' + entry.id + '" class="text-xs font-medium text-white bg-loge-700 hover:bg-loge-800 rounded-full px-3 py-1.5 transition-colors">↓ PNG</button>' +
+      '    <button type="button" data-mq-action="svg" data-mq-target="' + entry.id + '" class="text-xs font-medium text-loge-700 border border-loge-300 rounded-full px-3 py-1.5 hover:bg-loge-50 transition-colors">↓ SVG</button>' +
+      '    <button type="button" data-mq-action="copy" data-mq-target="' + entry.id + '" class="text-xs font-medium text-gray-500 border border-gray-200 rounded-full px-3 py-1.5 hover:bg-gray-50 transition-colors">⎘ Copier</button>' +
+      '  </div>' +
+      '</div>';
+  }
+
+  function afficherResultat(entries, rawInputs) {
+    state.entries = entries;
+    var container = document.getElementById("mq-cards");
+    container.innerHTML = entries.map(cardHtml).join("");
+
+    container.querySelectorAll("[data-mq-svg]").forEach(function (svg) {
+      var entry = entries.find(function (e) { return String(e.id) === svg.getAttribute("data-mq-svg"); });
+      dessinerMarque(svg, entry);
+    });
+
+    container.querySelectorAll("[data-mq-action]").forEach(function (btn) {
+      btn.addEventListener("click", function () {
+        var id = btn.getAttribute("data-mq-target");
+        var action = btn.getAttribute("data-mq-action");
+        var entry = entries.find(function (e) { return String(e.id) === id; });
+        var svg = container.querySelector('[data-mq-svg="' + id + '"]');
+        if (!entry || !svg) return;
+        if (action === "png") telechargerPng(svg, entry);
+        else if (action === "svg") telechargerSvg(svg, entry);
+        else if (action === "copy") copierNom(entry, btn);
+      });
+    });
+
+    document.getElementById("mq-result-citation").textContent = rand(CITATIONS);
+    var wrap = document.getElementById("mq-result-wrap");
+    wrap.classList.remove("hidden");
     wrap.scrollIntoView({ behavior: "smooth", block: "nearest" });
   }
 
@@ -294,56 +337,47 @@
     sec.classList.remove("hidden");
     lst.innerHTML = "";
     state.historique.slice(1).forEach(function (h) {
+      var vertusLabel = [h.v1, h.v2, h.v3].filter(Boolean).join(" / ");
       var el = document.createElement("button");
       el.type = "button";
       el.className = "text-xs italic text-loge-700 border border-loge-200 rounded-full px-3 py-1 hover:bg-loge-50 transition-colors";
-      el.textContent = h.nom;
-      el.addEventListener("click", function () { state.dernierNom = h; afficherResultat(h); });
+      el.textContent = h.prenom + " (" + vertusLabel + ")";
+      el.addEventListener("click", function () { genererDepuisInputs(h.prenom, h.ville, h.v1, h.v2, h.v3); });
       lst.appendChild(el);
     });
   }
 
-  function copierNom() {
-    if (!state.dernierNom) return;
-    navigator.clipboard.writeText(state.dernierNom.nom).then(function () {
-      var btn = document.getElementById("mq-copy-btn");
+  function copierNom(entry, btn) {
+    navigator.clipboard.writeText(entry.nom).then(function () {
       var o = btn.textContent;
       btn.textContent = "✓ Copié";
       setTimeout(function () { btn.textContent = o; }, 1800);
     }).catch(function () {});
   }
 
-  function serializeSvg() {
-    var s = document.getElementById("mq-svg");
-    return new XMLSerializer().serializeToString(s);
-  }
-
-  function telechargerPng() {
-    if (!state.dernierNom) return;
-    var s = document.getElementById("mq-svg");
-    var src = serializeSvg();
+  function telechargerPng(svg, entry) {
+    var src = new XMLSerializer().serializeToString(svg);
     var b64 = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(src)));
     var scale = 4;
-    var W = +s.getAttribute("width") * scale, H = +s.getAttribute("height") * scale;
+    var pxW = W * scale, pxH = H * scale;
     var canvas = document.createElement("canvas");
-    canvas.width = W; canvas.height = H;
+    canvas.width = pxW; canvas.height = pxH;
     var ctx = canvas.getContext("2d");
     var img = new Image();
     img.onload = function () {
-      ctx.drawImage(img, 0, 0, W, H);
+      ctx.drawImage(img, 0, 0, pxW, pxH);
       var png = canvas.toDataURL("image/png");
       var a = document.createElement("a");
       a.href = png;
-      a.download = "marque_" + state.dernierNom.prenom.toLowerCase() + "_" + state.formeActive + ".png";
+      a.download = "marque_" + entry.prenom.toLowerCase() + "_" + initiale(entry.vertu).toLowerCase() + "_" + state.formeActive + ".png";
       document.body.appendChild(a); a.click(); document.body.removeChild(a);
     };
     img.onerror = function () { alert("Erreur lors de l'export PNG."); };
     img.src = b64;
   }
 
-  function telechargerSvg() {
-    if (!state.dernierNom) return;
-    var src = serializeSvg();
+  function telechargerSvg(svg, entry) {
+    var src = new XMLSerializer().serializeToString(svg);
     if (src.indexOf("xmlns=") === -1) {
       src = src.replace("<svg", '<svg xmlns="http://www.w3.org/2000/svg"');
     }
@@ -351,7 +385,7 @@
     var url = URL.createObjectURL(blob);
     var a = document.createElement("a");
     a.href = url;
-    a.download = "marque_" + state.dernierNom.prenom.toLowerCase() + "_" + state.formeActive + ".svg";
+    a.download = "marque_" + entry.prenom.toLowerCase() + "_" + initiale(entry.vertu).toLowerCase() + "_" + state.formeActive + ".svg";
     document.body.appendChild(a); a.click(); document.body.removeChild(a);
     setTimeout(function () { URL.revokeObjectURL(url); }, 1000);
   }
@@ -370,9 +404,7 @@
       state.customImageDataUrl = ev.target.result;
       nameLabel.textContent = "✓ " + file.name;
       nameLabel.classList.remove("text-red-500");
-      if (state.dernierNom) {
-        dessinerMarque(state.dernierNom.iP, state.dernierNom.iV, state.dernierNom.iL, state.dernierNom.nomCourt);
-      }
+      redessinerTout();
     };
     reader.onerror = function () {
       nameLabel.textContent = "Impossible de lire ce fichier.";
@@ -389,9 +421,6 @@
       btn.addEventListener("click", function () { selectForme(btn); });
     });
     document.getElementById("mq-generate-btn").addEventListener("click", genererNom);
-    document.getElementById("mq-copy-btn").addEventListener("click", copierNom);
-    document.getElementById("mq-download-png").addEventListener("click", telechargerPng);
-    document.getElementById("mq-download-svg").addEventListener("click", telechargerSvg);
     document.getElementById("mq-file-input").addEventListener("change", handleFileUpload);
 
     ["mq-prenom", "mq-ville"].forEach(function (id) {
@@ -399,5 +428,7 @@
         if (e.key === "Enter") genererNom();
       });
     });
+
+    loadEmbeddedFonts();
   });
 })();
