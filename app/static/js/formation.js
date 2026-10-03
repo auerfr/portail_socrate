@@ -151,7 +151,12 @@
   // ── Quiz (par étape + quiz final) ──────────────────────────────────────
   function wireQuiz(container, onAllAnswered) {
     var questions = Array.prototype.slice.call(container.querySelectorAll("[data-fg-quiz-q]"));
-    var answered = {};
+    // Map (et non un objet littéral) : une clé d'objet littéral est
+    // convertie en chaîne ("[object HTMLDivElement]"), donc toutes les
+    // questions partageaient la même clé et se bloquaient mutuellement dès
+    // qu'une réponse non nulle était choisie ailleurs — bug à l'origine des
+    // clics sans effet signalés sur le quiz.
+    var answered = new Map();
 
     questions.forEach(function (qEl) {
       var correctIdx = parseInt(qEl.getAttribute("data-fg-correct"), 10);
@@ -160,9 +165,9 @@
 
       options.forEach(function (opt) {
         opt.addEventListener("click", function () {
-          if (answered[qEl]) return;
+          if (answered.has(qEl)) return;
           var chosenIdx = parseInt(opt.getAttribute("data-fg-quiz-option"), 10);
-          answered[qEl] = chosenIdx;
+          answered.set(qEl, chosenIdx);
           options.forEach(function (o) {
             o.disabled = true;
             o.setAttribute("aria-checked", o === opt ? "true" : "false");
@@ -174,11 +179,11 @@
           }
           if (explanation) explanation.hidden = false;
 
-          if (Object.keys(answered).length === questions.length && onAllAnswered) {
+          if (answered.size === questions.length && onAllAnswered) {
             var score = 0;
             questions.forEach(function (q) {
               var c = parseInt(q.getAttribute("data-fg-correct"), 10);
-              if (answered[q] === c) score += 1;
+              if (answered.get(q) === c) score += 1;
             });
             onAllAnswered(score, questions.length);
           }

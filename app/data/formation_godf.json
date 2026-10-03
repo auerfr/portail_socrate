@@ -8,6 +8,7 @@
       "num": 1,
       "title": "La Loge souveraine",
       "duration": "",
+      "extra_diagram": "loge_diagram",
       "sections": [
         {
           "label": "Le Collège des Officiers",
@@ -234,6 +235,7 @@
       "num": 5,
       "title": "Le Convent et les commissions",
       "duration": "",
+      "extra_diagram": "convent_diagram",
       "sections": [
         {
           "label": "Composition et vote",
@@ -290,6 +292,7 @@
       "num": 6,
       "title": "Le Conseil de l'Ordre et le circuit des Vœux et Règlements",
       "duration": "",
+      "extra_diagram": "voeux_reglements_diagram",
       "sections": [
         {
           "label": "Composition",
@@ -398,6 +401,62 @@
       {"from": "convent", "to": "co", "label": "délégations"},
       {"from": "congres", "to": "csjm", "label": "élit 1 représentant"},
       {"from": "congres", "to": "iosm", "label": "élit 1 représentant"}
+    ]
+  },
+  "loge_diagram": {
+    "type": "branches",
+    "title": "Ce que la Loge organise autour du Collège des Officiers",
+    "center": "LOGE\n(Collège des Officiers)",
+    "branches": [
+      {
+        "label": "Délégués",
+        "items": ["Au Congrès (1 titulaire, 2 suppléants)", "Au Convent (1 titulaire, 2 suppléants)"]
+      },
+      {
+        "label": "Commissions",
+        "items": ["De solidarité", "Des finances", "Des questions à l'étude", "Diverses", "Conseil de Famille"]
+      },
+      {
+        "label": "Correspondants",
+        "items": ["COPL", "Solidarité-Emploi", "Commissions régionales", "Correspondant numérique"]
+      },
+      {
+        "label": "Travaux propres à la Loge",
+        "items": ["Tenues d'obligations (initiations, augmentations de salaire)", "Tenues blanches fermées", "Tenues blanches ouvertes", "Réunions de comité", "Réunions publiques"]
+      }
+    ]
+  },
+  "convent_diagram": {
+    "type": "branches",
+    "title": "Ce que pilote le Convent",
+    "center": "CONVENT\n(1 délégué par Loge, Collège des Officiers)",
+    "branches": [
+      {
+        "label": "Commissions conventuelles",
+        "items": ["Culture", "Vœux et Règlements", "Sanctions, Grâces et Dégrèvements", "Finances", "Diverses"]
+      },
+      {
+        "label": "Contrôle & Laïcité",
+        "items": ["Commission de Contrôle de l'IOSM", "Commission Obédientielle Permanente de la Laïcité (COPL)"]
+      },
+      {
+        "label": "Élections & serments",
+        "items": ["Prestation de serment des élus aux instances nationales (Conseil de l'Ordre, CSJM, IOSM)"]
+      },
+      {
+        "label": "Votes & débats",
+        "items": ["Vote du rapport d'activité du Conseil de l'Ordre", "Ratification des conventions", "Vote du budget et de la capitation", "Débat de prospective obédientielle"]
+      }
+    ]
+  },
+  "voeux_reglements_diagram": {
+    "type": "flow",
+    "title": "Le circuit des Vœux et Règlements, pas à pas",
+    "steps": [
+      {"label": "LOGE", "note": "1ère année — une proposition naît en Loge."},
+      {"label": "CONGRÈS RÉGIONAL", "note": "Retour aux loges possible, puis synthèse transmise."},
+      {"label": "CONVENT", "note": "Décide de la transmission ou non. 2e année : renvoie un vote indicatif via le Congrès Régional, puis reçoit les votes définitifs (Vœu ou Règlement)."},
+      {"label": "CONSEIL DE L'ORDRE", "note": "Aboutit à la modification de la Constitution ou du Règlement Général."}
     ]
   },
   "glossary": {

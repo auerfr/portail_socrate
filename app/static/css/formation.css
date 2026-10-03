@@ -151,6 +151,58 @@
 .formation-diagram-card dt { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-loge-700); }
 .formation-diagram-card dd { font-size: .85rem; color: #374151; line-height: 1.5; }
 
+/* Schéma "branches" (ex. Loge → Délégués/Commissions/Correspondants/Travaux) */
+.formation-branch-diagram { display: flex; flex-direction: column; align-items: center; }
+.formation-branch-center {
+  background: var(--color-loge-900);
+  color: #fff;
+  font-weight: 700;
+  font-size: .85rem;
+  text-align: center;
+  white-space: pre-line;
+  border-radius: .75rem;
+  padding: .85rem 1.3rem;
+  margin-bottom: 1rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,.1);
+}
+.formation-branch-diagram::after { content: none; }
+.formation-branch-grid {
+  width: 100%;
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+  gap: .75rem;
+  position: relative;
+  padding-top: 1rem;
+  border-top: 2px solid var(--color-loge-200);
+}
+.formation-branch-col {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-top: 3px solid var(--color-loge-500);
+  border-radius: .6rem;
+  padding: .75rem .9rem;
+}
+.formation-branch-col-label { font-size: .78rem; font-weight: 700; color: var(--color-loge-800); margin-bottom: .4rem; }
+.formation-branch-col ul { list-style: none; display: flex; flex-direction: column; gap: .3rem; }
+.formation-branch-col li { font-size: .76rem; color: #4b5563; line-height: 1.4; padding-left: .75rem; position: relative; }
+.formation-branch-col li::before { content: "–"; position: absolute; left: 0; color: var(--color-loge-400); }
+
+/* Schéma "flow" (ex. circuit Vœux et Règlements) */
+.formation-flow-diagram { display: flex; flex-direction: column; align-items: stretch; max-width: 460px; margin: 0 auto; }
+.formation-flow-step { display: flex; flex-direction: column; align-items: center; text-align: center; }
+.formation-flow-box {
+  background: var(--color-loge-700);
+  color: #fff;
+  font-weight: 700;
+  font-size: .82rem;
+  letter-spacing: .02em;
+  border-radius: .6rem;
+  padding: .7rem 1.1rem;
+  min-width: 220px;
+}
+.formation-flow-note { font-size: .78rem; color: #6b7280; margin-top: .4rem; max-width: 380px; line-height: 1.45; }
+.formation-flow-arrow { font-size: 1.1rem; color: var(--color-loge-400); text-align: center; margin: .3rem 0; }
+
 /* Glossaire */
 .formation-glossary-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
 .formation-glossary-term {
@@ -216,6 +268,10 @@
 [data-theme="dark"] .formation-diagram-card dd { color: #cbd5e1; }
 [data-theme="dark"] .formation-glossary-term { background: #163333; border-color: #235050; }
 [data-theme="dark"] .formation-glossary-tooltip { background: #0f172a; }
+[data-theme="dark"] .formation-branch-grid { border-color: #235050; }
+[data-theme="dark"] .formation-branch-col { background: #1a202c; border-color: #364152; }
+[data-theme="dark"] .formation-branch-col li { color: #a0aec0; }
+[data-theme="dark"] .formation-flow-note { color: #a0aec0; }
 
 @media (max-width: 640px) {
   .formation-step-tab-label { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }

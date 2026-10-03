@@ -59,6 +59,38 @@
       {% endfor %}
     </div>
 
+    {% if step.extra_diagram %}
+    {% set d = module_data[step.extra_diagram] %}
+    <div class="mb-6">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">{{ d.title }}</p>
+      {% if d.type == 'branches' %}
+      <div class="formation-branch-diagram">
+        <div class="formation-branch-center">{{ d.center }}</div>
+        <div class="formation-branch-grid">
+          {% for b in d.branches %}
+          <div class="formation-branch-col">
+            <p class="formation-branch-col-label">{{ b.label }}</p>
+            <ul>
+              {% for item in b['items'] %}<li>{{ item }}</li>{% endfor %}
+            </ul>
+          </div>
+          {% endfor %}
+        </div>
+      </div>
+      {% elif d.type == 'flow' %}
+      <div class="formation-flow-diagram">
+        {% for fstep in d.steps %}
+        <div class="formation-flow-step">
+          <div class="formation-flow-box">{{ fstep.label }}</div>
+          <p class="formation-flow-note">{{ fstep.note }}</p>
+        </div>
+        {% if not loop.last %}<div class="formation-flow-arrow" aria-hidden="true">↓</div>{% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+    {% endif %}
+
     <div class="formation-quiz" data-fg-quiz-step="{{ step.id }}">
       <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Questions de révision</p>
       {% for q in step.quiz %}
