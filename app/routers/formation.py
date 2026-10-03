@@ -159,6 +159,8 @@ async def formation_index(request: Request, ctx: Annotated[tuple, Depends(requir
     return templates.TemplateResponse(request, "pages/formation/index.html", {
         "modules": modules,
         "is_admin": user.is_admin,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -167,7 +169,9 @@ async def formation_apprenti(request: Request, ctx: Annotated[tuple, Depends(req
     user, member = ctx
     lvl = _member_level(user, member)
     if lvl < _MODULE_MIN_GRADE["apprenti"]:
-        return templates.TemplateResponse(request, "pages/formation/unavailable.html", {}, status_code=403)
+        return templates.TemplateResponse(request, "pages/formation/unavailable.html", {
+            "current_user": user, "current_member": member,
+        }, status_code=403)
 
     res = (await db.execute(
         select(FormationResource).where(FormationResource.module == "apprenti")
@@ -177,6 +181,8 @@ async def formation_apprenti(request: Request, ctx: Annotated[tuple, Depends(req
     return templates.TemplateResponse(request, "pages/formation/apprenti.html", {
         "is_admin": user.is_admin,
         "pdf_document_id": pdf_document_id,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -185,7 +191,9 @@ async def formation_godf(request: Request, ctx: Annotated[tuple, Depends(require
     user, member = ctx
     lvl = _member_level(user, member)
     if lvl < _MODULE_MIN_GRADE["godf"]:
-        return templates.TemplateResponse(request, "pages/formation/unavailable.html", {}, status_code=403)
+        return templates.TemplateResponse(request, "pages/formation/unavailable.html", {
+            "current_user": user, "current_member": member,
+        }, status_code=403)
 
     data = await _get_effective_data(db, "godf")
 
@@ -203,6 +211,8 @@ async def formation_godf(request: Request, ctx: Annotated[tuple, Depends(require
         "module_data_json": json.dumps(data, ensure_ascii=False),
         "progress_json": json.dumps(progress_state, ensure_ascii=False),
         "asset_v": _FORMATION_ASSET_VERSION,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -234,6 +244,7 @@ async def formation_godf_save_progress(
 
 @router.get("/admin/formation", response_class=HTMLResponse)
 async def formation_admin(request: Request, ctx: Annotated[tuple, Depends(require_admin)], db: Annotated[AsyncSession, Depends(get_db)], saved: int = 0):
+    user, member = ctx
     rows = (await db.execute(select(FormationResource))).scalars().all()
     by_module = {r.module: r for r in rows}
     modules = []
@@ -247,6 +258,8 @@ async def formation_admin(request: Request, ctx: Annotated[tuple, Depends(requir
     return templates.TemplateResponse(request, "pages/formation/admin.html", {
         "modules": modules,
         "saved": saved,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -285,6 +298,7 @@ _EXTRA_BLANK_ROWS = 2
 
 @router.get("/admin/formation/godf", response_class=HTMLResponse)
 async def formation_admin_godf_index(request: Request, ctx: Annotated[tuple, Depends(require_admin)], db: Annotated[AsyncSession, Depends(get_db)], saved: int = 0):
+    user, member = ctx
     data = await _get_effective_data(db, "godf")
     is_customized = (await db.execute(
         select(FormationContent).where(FormationContent.module == "godf")
@@ -293,6 +307,8 @@ async def formation_admin_godf_index(request: Request, ctx: Annotated[tuple, Dep
         "module_data": data,
         "is_customized": is_customized,
         "saved": saved,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -309,6 +325,7 @@ async def formation_admin_godf_reset(ctx: Annotated[tuple, Depends(require_admin
 
 @router.get("/admin/formation/godf/step/{step_id}", response_class=HTMLResponse)
 async def formation_admin_godf_step(request: Request, step_id: str, ctx: Annotated[tuple, Depends(require_admin)], db: Annotated[AsyncSession, Depends(get_db)], saved: int = 0):
+    user, member = ctx
     data = await _get_effective_data(db, "godf")
     step = next((s for s in data["steps"] if s["id"] == step_id), None)
     if step is None:
@@ -317,6 +334,8 @@ async def formation_admin_godf_step(request: Request, step_id: str, ctx: Annotat
         "step": step,
         "extra_rows": _EXTRA_BLANK_ROWS,
         "saved": saved,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -365,11 +384,14 @@ async def formation_admin_godf_step_save(request: Request, step_id: str, ctx: An
 
 @router.get("/admin/formation/godf/glossary", response_class=HTMLResponse)
 async def formation_admin_godf_glossary(request: Request, ctx: Annotated[tuple, Depends(require_admin)], db: Annotated[AsyncSession, Depends(get_db)], saved: int = 0):
+    user, member = ctx
     data = await _get_effective_data(db, "godf")
     return templates.TemplateResponse(request, "pages/formation/admin_godf_glossary.html", {
         "glossary": data["glossary"],
         "extra_rows": _EXTRA_BLANK_ROWS,
         "saved": saved,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -396,11 +418,14 @@ async def formation_admin_godf_glossary_save(request: Request, ctx: Annotated[tu
 
 @router.get("/admin/formation/godf/final-quiz", response_class=HTMLResponse)
 async def formation_admin_godf_final_quiz(request: Request, ctx: Annotated[tuple, Depends(require_admin)], db: Annotated[AsyncSession, Depends(get_db)], saved: int = 0):
+    user, member = ctx
     data = await _get_effective_data(db, "godf")
     return templates.TemplateResponse(request, "pages/formation/admin_godf_final_quiz.html", {
         "questions": data["final_quiz"],
         "extra_rows": _EXTRA_BLANK_ROWS,
         "saved": saved,
+        "current_user": user,
+        "current_member": member,
     })
 
 
@@ -428,10 +453,13 @@ async def formation_admin_godf_final_quiz_save(request: Request, ctx: Annotated[
 
 @router.get("/admin/formation/godf/diagram", response_class=HTMLResponse)
 async def formation_admin_godf_diagram(request: Request, ctx: Annotated[tuple, Depends(require_admin)], db: Annotated[AsyncSession, Depends(get_db)], saved: int = 0):
+    user, member = ctx
     data = await _get_effective_data(db, "godf")
     return templates.TemplateResponse(request, "pages/formation/admin_godf_diagram.html", {
         "diagram": data["diagram"],
         "saved": saved,
+        "current_user": user,
+        "current_member": member,
     })
 
 
