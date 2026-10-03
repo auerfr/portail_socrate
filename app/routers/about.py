@@ -1,4 +1,4 @@
-"""Router — À propos de la loge (charte Pierre d'Angle, diffusion générale)"""
+"""Router — Pierre d'Angle (charte de la loge + contenu Compagnon/Maître)"""
 from types import SimpleNamespace
 from typing import Annotated
 
@@ -41,21 +41,22 @@ async def about_index(
     )
     all_sections = sections_r.scalars().all()
 
-    # Visibilité par grade appliquée ici, côté serveur : pour une section
-    # réservée, le contenu réel n'est jamais inclus dans la réponse envoyée
-    # au navigateur d'un membre de grade insuffisant (donc pas de fuite
-    # possible par "voir le code source", contrairement à un flou CSS seul).
+    # Visibilité par grade appliquée ici, côté serveur : une section
+    # réservée pour laquelle le membre n'a pas le grade requis est
+    # entièrement absente de la réponse — ni titre ni encart "verrouillé"
+    # (pas de divulgation, même partielle, du contenu Compagnon/Maître à
+    # un Apprenti — cf. échange du 03/10/2026 sur la Pierre Taillée).
     member_lvl = 99 if user.is_admin else _GRADE_ORDER.get(member.masonic_grade, 0)
     sections = []
     for s in all_sections:
         required = _MIN_GRADE_ORDER.get(s.min_grade, 0)
-        visible = member_lvl >= required
+        if member_lvl < required:
+            continue
         sections.append(SimpleNamespace(
             id=s.id,
             title=s.title,
-            content_html=s.content_html if visible else None,
+            content_html=s.content_html,
             min_grade=s.min_grade,
-            visible=visible,
         ))
 
     return templates.TemplateResponse(request, "pages/about/index.html", {
