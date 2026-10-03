@@ -28,6 +28,8 @@
   transition: border-color .15s, background .15s, color .15s;
 }
 .formation-step-tab:hover { border-color: var(--color-loge-300); }
+.formation-step-tab-bilan { position: relative; margin-left: 1rem; }
+.formation-step-tab-bilan::before { content: ""; position: absolute; left: -.55rem; top: 20%; bottom: 20%; width: 1px; background: #d1d5db; }
 .formation-step-tab:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: 2px; }
 .formation-step-tab[aria-selected="true"] {
   background: var(--color-loge-700);
@@ -302,6 +304,9 @@
   color: var(--color-loge-900);
   text-align: center;
 }
+.formation-quiz-score:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: 2px; }
+.formation-quiz-score.formation-score-success { background: #ecfdf5; border-color: #6ee7b7; color: #065f46; font-size: 1rem; }
+.formation-quiz-score.formation-score-good { background: #eff6ff; border-color: #93c5fd; color: #1e40af; }
 
 /* Mode sombre — surcouche ciblée, cf. tailwind/input.css pour le même
    principe appliqué aux classes Tailwind standard. */
@@ -309,6 +314,7 @@
 [data-theme="dark"] .formation-quiz-toggle { color: #99f6e4; }
 [data-theme="dark"] .formation-quiz-toggle:hover { background: #1c3d3d; }
 [data-theme="dark"] .formation-step-tab { background: #1a202c; border-color: #364152; color: #cbd5e1; }
+[data-theme="dark"] .formation-step-tab-bilan::before { background: #364152; }
 [data-theme="dark"] .formation-step-tab[aria-selected="true"] { background: var(--color-loge-700); border-color: var(--color-loge-700); }
 [data-theme="dark"] .formation-quiz-option { background: #1a202c; border-color: #364152; color: #cbd5e1; }
 [data-theme="dark"] .formation-quiz-option.formation-correct { background: #10261b; border-color: #166534; color: #6ee7b7; }
@@ -319,6 +325,8 @@
 [data-theme="dark"] .formation-diagram-node text { fill: #99f6e4; }
 [data-theme="dark"] .formation-diagram-card,
 [data-theme="dark"] .formation-quiz-score { background: #163333; border-color: #235050; }
+[data-theme="dark"] .formation-quiz-score.formation-score-success { background: #10261b; border-color: #166534; color: #6ee7b7; }
+[data-theme="dark"] .formation-quiz-score.formation-score-good { background: #0f2138; border-color: #1d4ed8; color: #93c5fd; }
 [data-theme="dark"] .formation-diagram-card dd { color: #cbd5e1; }
 [data-theme="dark"] .formation-glossary-term { background: #163333; border-color: #235050; }
 [data-theme="dark"] .formation-glossary-tooltip { background: #0f172a; }

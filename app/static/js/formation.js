@@ -75,7 +75,13 @@
   // ── Navigation entre étapes ────────────────────────────────────────────
   var tabs = Array.prototype.slice.call(root.querySelectorAll("[data-fg-step-tab]"));
   var panels = Array.prototype.slice.call(root.querySelectorAll("[data-fg-step-panel]"));
+  // stepIds : les 6 étapes de contenu réelles, pour le calcul de progression.
   var stepIds = moduleData.steps.map(function (s) { return s.id; });
+  // navIds : l'ordre de navigation complet, étapes + onglet "Bilan" final
+  // (schéma d'ensemble, glossaire, quiz final — volontairement tenus hors
+  // de la page initiale, cf. retour du 03/10/2026 : "ne le laisse pas sur
+  // la page initiale, propose-le en fin de présentation").
+  var navIds = tabs.map(function (t) { return t.getAttribute("data-fg-step-tab"); });
 
   function showStep(stepId) {
     panels.forEach(function (panel) {
@@ -126,13 +132,11 @@
     btn.addEventListener("click", function () {
       var panel = btn.closest("[data-fg-step-panel]");
       var id = panel.getAttribute("data-fg-step-panel");
-      var idx = stepIds.indexOf(id);
-      if (idx > -1 && idx < stepIds.length - 1) {
-        showStep(stepIds[idx + 1]);
+      var idx = navIds.indexOf(id);
+      if (idx > -1 && idx < navIds.length - 1) {
+        showStep(navIds[idx + 1]);
         tabs[idx + 1].focus();
-      } else {
-        var diagram = document.getElementById("fg-diagram");
-        if (diagram) diagram.scrollIntoView({ behavior: "smooth", block: "start" });
+        root.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
   });
@@ -140,10 +144,11 @@
     btn.addEventListener("click", function () {
       var panel = btn.closest("[data-fg-step-panel]");
       var id = panel.getAttribute("data-fg-step-panel");
-      var idx = stepIds.indexOf(id);
+      var idx = navIds.indexOf(id);
       if (idx > 0) {
-        showStep(stepIds[idx - 1]);
+        showStep(navIds[idx - 1]);
         tabs[idx - 1].focus();
+        root.scrollIntoView({ behavior: "smooth", block: "start" });
       }
     });
   });
@@ -226,7 +231,19 @@
       var resultEl = root.querySelector("[data-fg-final-score]");
       if (resultEl) {
         resultEl.hidden = false;
-        resultEl.textContent = "Ton score : " + score + " / " + total;
+        resultEl.classList.remove("formation-score-success", "formation-score-good");
+        var message;
+        if (score === total) {
+          message = "🎉 Parfait ! " + score + " / " + total + " — tu maîtrises l'organisation du G∴O∴D∴F∴ !";
+          resultEl.classList.add("formation-score-success");
+        } else if (score >= total * 0.7) {
+          message = "👍 Bien joué — " + score + " / " + total + ". Tu connais bien le sujet.";
+          resultEl.classList.add("formation-score-good");
+        } else {
+          message = "Ton score : " + score + " / " + total + " — n'hésite pas à relire les étapes qui te manquent encore.";
+        }
+        resultEl.textContent = message;
+        resultEl.focus({ preventScroll: false });
       }
       persistProgress();
     });
@@ -279,8 +296,10 @@
 
   root.querySelectorAll("[data-fg-open-diagram]").forEach(function (btn) {
     btn.addEventListener("click", function () {
-      var diagram = document.getElementById("fg-diagram");
-      if (diagram) diagram.scrollIntoView({ behavior: "smooth", block: "start" });
+      showStep("bilan");
+      var bilanTab = root.querySelector('[data-fg-step-tab="bilan"]');
+      if (bilanTab) bilanTab.focus();
+      root.scrollIntoView({ behavior: "smooth", block: "start" });
     });
   });
 
