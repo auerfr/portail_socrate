@@ -204,6 +204,21 @@
     });
   });
 
+  // Le quiz de chaque étape est replié par défaut, dans sa propre case,
+  // bien séparé du cours et des boutons de progression — ni la lecture du
+  // contenu ni le passage à l'étape suivante ne dépendent du quiz.
+  root.querySelectorAll("[data-fg-quiz-toggle]").forEach(function (btn) {
+    btn.addEventListener("click", function () {
+      var body = document.getElementById(btn.getAttribute("aria-controls"));
+      if (!body) return;
+      var open = btn.getAttribute("aria-expanded") === "true";
+      btn.setAttribute("aria-expanded", open ? "false" : "true");
+      body.hidden = open;
+      var icon = btn.querySelector(".formation-quiz-toggle-icon");
+      if (icon) icon.textContent = open ? "▸" : "▾";
+    });
+  });
+
   var finalQuizEl = root.querySelector("[data-fg-final-quiz]");
   if (finalQuizEl) {
     wireQuiz(finalQuizEl, function (score, total) {

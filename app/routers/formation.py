@@ -23,6 +23,27 @@ _DATA_DIR = Path(__file__).resolve().parent.parent / "data"
 _data_cache: dict[str, dict] = {}
 
 
+def _asset_version(*static_paths: str) -> int:
+    """Horodatage (mtime) le plus récent parmi les fichiers statiques donnés,
+    utilisé en paramètre ?v= pour casser le cache navigateur à chaque
+    modification de formation.css/formation.js — sans ça, un membre qui a
+    déjà chargé la page une fois garde l'ancienne feuille de style/script en
+    cache et ne voit jamais les correctifs tant qu'il ne force pas un
+    rechargement complet."""
+    static_dir = Path(__file__).resolve().parent.parent / "static"
+    mtimes = []
+    for rel in static_paths:
+        p = static_dir / rel
+        try:
+            mtimes.append(int(p.stat().st_mtime))
+        except OSError:
+            pass
+    return max(mtimes) if mtimes else 0
+
+
+_FORMATION_ASSET_VERSION = _asset_version("css/formation.css", "js/formation.js")
+
+
 def _load_module_data(filename: str) -> dict:
     """Charge le contenu JSON *d'origine* d'un module de formation (fichier
     versionné dans le dépôt), mis en cache en mémoire pour la durée du
@@ -181,6 +202,7 @@ async def formation_godf(request: Request, ctx: Annotated[tuple, Depends(require
         "module_data": data,
         "module_data_json": json.dumps(data, ensure_ascii=False),
         "progress_json": json.dumps(progress_state, ensure_ascii=False),
+        "asset_v": _FORMATION_ASSET_VERSION,
     })
 
 

@@ -117,26 +117,32 @@
     </div>
     {% endif %}
 
-    <div class="formation-quiz" data-fg-quiz-step="{{ step.id }}">
-      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Questions de révision</p>
-      {% for q in step.quiz %}
-      <div class="formation-quiz-q" data-fg-quiz-q="{{ loop.index0 }}" data-fg-correct="{{ q.correct }}">
-        <p class="formation-quiz-question">{{ loop.index }}. {{ q.question }}</p>
-        <div class="formation-quiz-options" role="radiogroup" aria-label="{{ q.question }}">
-          {% for opt in q.options %}
-          <button type="button" class="formation-quiz-option" role="radio" aria-checked="false" data-fg-quiz-option="{{ loop.index0 }}">{{ opt }}</button>
-          {% endfor %}
-        </div>
-        <p class="formation-quiz-explanation" data-fg-quiz-explanation hidden>{{ q.explanation }}</p>
-      </div>
-      {% endfor %}
-    </div>
-
-    <div class="flex justify-between mt-6">
+    <div class="flex justify-between mb-6">
       <button type="button" class="formation-btn-ghost" data-fg-prev-step {% if loop.first %}disabled{% endif %}>← Étape précédente</button>
       <button type="button" class="formation-btn-primary" data-fg-next-step>
         {% if loop.last %}Voir le schéma d'ensemble →{% else %}Étape suivante →{% endif %}
       </button>
+    </div>
+
+    <div class="formation-quiz-box">
+      <button type="button" class="formation-quiz-toggle" data-fg-quiz-toggle aria-expanded="false" aria-controls="fg-quizbody-{{ step.id }}">
+        <span class="formation-quiz-toggle-icon" aria-hidden="true">▸</span>
+        Faire le quiz de cette étape
+        <span class="formation-quiz-toggle-count">({{ step.quiz|length }} questions)</span>
+      </button>
+      <div class="formation-quiz" id="fg-quizbody-{{ step.id }}" data-fg-quiz-step="{{ step.id }}" hidden>
+        {% for q in step.quiz %}
+        <div class="formation-quiz-q" data-fg-quiz-q="{{ loop.index0 }}" data-fg-correct="{{ q.correct }}">
+          <p class="formation-quiz-question">{{ loop.index }}. {{ q.question }}</p>
+          <div class="formation-quiz-options" role="radiogroup" aria-label="{{ q.question }}">
+            {% for opt in q.options %}
+            <button type="button" class="formation-quiz-option" role="radio" aria-checked="false" data-fg-quiz-option="{{ loop.index0 }}">{{ opt }}</button>
+            {% endfor %}
+          </div>
+          <p class="formation-quiz-explanation" data-fg-quiz-explanation hidden>{{ q.explanation }}</p>
+        </div>
+        {% endfor %}
+      </div>
     </div>
   </section>
   {% endfor %}
@@ -203,6 +209,6 @@
 {% endblock %}
 
 {% block scripts %}
-<link rel="stylesheet" href="/static/css/formation.css">
-<script src="/static/js/formation.js" defer></script>
+<link rel="stylesheet" href="/static/css/formation.css?v={{ asset_v }}">
+<script src="/static/js/formation.js?v={{ asset_v }}" defer></script>
 {% endblock %}

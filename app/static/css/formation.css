@@ -73,6 +73,33 @@
 .formation-btn-primary:focus-visible,
 .formation-btn-ghost:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: 2px; }
 
+/* Case dédiée au quiz d'étape — repliée par défaut, séparée du cours et des
+   boutons de progression (cf. retour du 03/10/2026 : le quiz ne doit jamais
+   bloquer la lecture ni le passage à l'étape suivante). */
+.formation-quiz-box {
+  background: var(--color-loge-50);
+  border: 1px solid var(--color-loge-200);
+  border-radius: 1rem;
+  overflow: hidden;
+}
+.formation-quiz-toggle {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: .5rem;
+  padding: .9rem 1.1rem;
+  font-size: .85rem;
+  font-weight: 600;
+  color: var(--color-loge-800);
+  text-align: left;
+  cursor: pointer;
+}
+.formation-quiz-toggle:hover { background: var(--color-loge-100); }
+.formation-quiz-toggle:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: -2px; }
+.formation-quiz-toggle-icon { font-size: .75rem; color: var(--color-loge-500); }
+.formation-quiz-toggle-count { font-weight: 400; color: #6b7280; font-size: .78rem; margin-left: auto; }
+.formation-quiz-box .formation-quiz { margin-top: 0; padding: 0 1.1rem 1.1rem; }
+
 /* Quiz */
 .formation-quiz { margin-top: 1.5rem; }
 .formation-quiz-q { margin-bottom: 1.25rem; }
@@ -278,6 +305,9 @@
 
 /* Mode sombre — surcouche ciblée, cf. tailwind/input.css pour le même
    principe appliqué aux classes Tailwind standard. */
+[data-theme="dark"] .formation-quiz-box { background: #163333; border-color: #235050; }
+[data-theme="dark"] .formation-quiz-toggle { color: #99f6e4; }
+[data-theme="dark"] .formation-quiz-toggle:hover { background: #1c3d3d; }
 [data-theme="dark"] .formation-step-tab { background: #1a202c; border-color: #364152; color: #cbd5e1; }
 [data-theme="dark"] .formation-step-tab[aria-selected="true"] { background: var(--color-loge-700); border-color: var(--color-loge-700); }
 [data-theme="dark"] .formation-quiz-option { background: #1a202c; border-color: #364152; color: #cbd5e1; }
