@@ -26,7 +26,7 @@ from app.models.associative import (
 from app.models.content import (
     NewsArticle, Poll, PollOption, PollVote,
     Contact, ContactFolder, SharedLink, LinkFolder, AboutSection,
-    FormationResource
+    FormationResource, FormationProgress, FormationContent
 )
 from app.models.system import (
     AuditLog, Notification, PushSubscription,
@@ -52,7 +52,7 @@ __all__ = [
     "Candidate", "Enquiry", "OfficerAssignment", "MoralReport", "LodgeVisit",
     "NewsArticle", "Poll", "PollOption", "PollVote",
     "Contact", "ContactFolder", "SharedLink", "LinkFolder",
-    "FormationResource",
+    "FormationResource", "FormationProgress", "FormationContent",
     "AuditLog", "Notification", "PushSubscription",
     "Attachment", "InvitationToken", "ReminderLog", "UserPreference",
     "ExportArchive", "TracingSection",

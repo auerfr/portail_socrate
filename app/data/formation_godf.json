@@ -1,0 +1,432 @@
+{
+  "title": "L'organisation du G∴O∴D∴F∴",
+  "subtitle": "Du Convent à la Loge : comprendre les instances qui nous gouvernent",
+  "intro": "Ce module reprend, loge après instance, l'organisation générale du Grand Orient de France : la Loge souveraine, la Région, la Justice maçonnique, la Solidarité, le Convent et ses commissions, puis le Conseil de l'Ordre. Il est destiné aux Apprentis ainsi qu'à tout F∴ ou S∴ souhaitant se remémorer ces éléments.",
+  "steps": [
+    {
+      "id": "loge",
+      "num": 1,
+      "title": "La Loge souveraine",
+      "duration": "",
+      "sections": [
+        {
+          "label": "Le Collège des Officiers",
+          "text": "La Loge est dirigée par un Collège d'Officiers, régulièrement élu chaque année avant le Convent."
+        },
+        {
+          "label": "Le mandat du Vénérable Maître",
+          "text": "Le Vénérable Maître est élu pour un an, rééligible en principe 3 ans au maximum."
+        },
+        {
+          "label": "Article 25 du Règlement Général — Souveraineté",
+          "text": "« Les Loges maçonniques du Grand Orient de France se gouvernent librement. Elles ont droit de discipline sur leurs membres et sur tous les Francs-Maçons assistant à leurs travaux. Elles doivent toujours être consultées sur les mesures d'intérêt général maçonnique. »"
+        },
+        {
+          "label": "Les 17 régions",
+          "text": "Les Loges sont réparties en 17 régions — des entités géographiques d'un seul tenant, comportant au maximum 3 secteurs. Notre région est la Région 4 (CAALA)."
+        },
+        {
+          "label": "Les élections de la Loge",
+          "text": "La Loge élit un délégué (1 titulaire et 2 suppléants) pour la représenter au Congrès régional, et un délégué (1 titulaire et 2 suppléants) pour la représenter au Convent."
+        },
+        {
+          "label": "Les commissions de Loge",
+          "text": "Commission des Finances : V∴M∴, les 2 Surveillants, le Secrétaire, le Trésorier, et 3 Maîtres vérificateurs. Commission Solidarité : V∴M∴, l'Orateur, le Grand Expert, l'Hospitalier, et 3 Maîtres vérificateurs."
+        },
+        {
+          "label": "Ce que la Loge organise elle-même",
+          "text": "Autour du Collège des Officiers s'articulent les délégués (Congrès, Convent), les commissions (solidarité, finances, questions à l'étude, diverses, Conseil de Famille), les correspondants (COPL, Solidarité-Emploi, commissions régionales, correspondant numérique…) et les travaux propres à la Loge (tenues d'obligations — initiations, augmentations de salaire —, tenues blanches fermées et ouvertes, réunions de comité, réunions publiques)."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Qui dirige la Loge au quotidien ?",
+          "options": ["Le Collège des Officiers", "Le Conseil de l'Ordre", "Le Congrès régional", "La CSJM"],
+          "correct": 0,
+          "explanation": "La Loge est dirigée par un Collège d'Officiers, régulièrement élu chaque année avant le Convent."
+        },
+        {
+          "question": "Combien d'années consécutives maximum un Vénérable Maître peut-il, en principe, être réélu ?",
+          "options": ["1 an", "3 ans", "5 ans", "Sans limite"],
+          "correct": 1,
+          "explanation": "Le Vénérable Maître est élu pour un an, rééligible en principe 3 ans au maximum."
+        },
+        {
+          "question": "Comment la Loge est-elle représentée au Congrès et au Convent ?",
+          "options": ["Par un titulaire seul", "Par 1 titulaire et 2 suppléants", "Par 3 titulaires", "Par le Vénérable Maître uniquement"],
+          "correct": 1,
+          "explanation": "La Loge élit un délégué (1 titulaire, 2 suppléants) pour le Congrès, et un autre pour le Convent."
+        }
+      ]
+    },
+    {
+      "id": "region",
+      "num": 2,
+      "title": "La Région",
+      "duration": "",
+      "sections": [
+        {
+          "label": "17 régions",
+          "text": "Les Loges du Grand Orient de France sont réparties en 17 régions maçonniques, entités géographiques d'un seul tenant comportant au maximum 3 secteurs chacune."
+        },
+        {
+          "label": "Notre région : la Région 4 (CAALA)",
+          "text": "<!-- À VÉRIFIER : la diapositive source donne « 04 CAALA de Château Thierry à Berlin et de Charleville Mézières à Bâle, constituée de 88 Loges (2021 + 3) » — l'annotation « (2021 + 3) » n'est pas explicitée dans le document et le nombre de loges est susceptible d'avoir évolué depuis. -->Champagne-Ardenne-Alsace-Lorraine, incluant les Loges d'Allemagne et de Suisse alémanique."
+        },
+        {
+          "label": "Le Congrès régional CAALA",
+          "text": "Les séances du Congrès se tiennent en forme maçonnique, au grade de Maître et au Rite Français. Il se réunit au moins une fois par an, habituellement en 3 sessions au moins, et est dirigé par un Collège d'Officiers."
+        },
+        {
+          "label": "Qui siège au Congrès",
+          "text": "Assistent de droit aux sessions les élus de la région aux instances nationales : Conseil de l'Ordre (CO), Chambre Suprême de Justice Maçonnique (CSJM), Instance Obédientielle de Solidarité Maçonnique (IOSM), Président et Vice-Président du Jury Fraternel Régional (JFR)."
+        },
+        {
+          "label": "L'interface indispensable",
+          "text": "Le Congrès régional est l'interface entre la Loge et l'organe législatif du GODF (le Convent), entre la Loge et l'organe exécutif (le Conseil de l'Ordre), et entre la Loge et l'administration du GODF (le Secrétariat aux loges). Il assure la continuité de la vie de l'Obédience tout au long de l'année, anime la vie de la Région et contribue à la réflexion prospective."
+        },
+        {
+          "label": "Les travaux du Congrès",
+          "text": "Il donne son avis sur le réveil, la création ou l'affiliation d'un Atelier, ainsi que sur les sanctions, grâces et dégrèvements de ses Loges. Il élit les représentants nationaux de la région (Conseillers de l'Ordre, représentants à la CSJM et à l'IOSM, Officier au Convent, présidents et rapporteurs des questions conventuelles, Commissaires des commissions conventuelles, délégués aux commissions obédientielles, Maîtres-Jurés du JFR). Il fait également l'éloge funèbre des Frères et Sœurs de la région partis pour l'Orient Éternel."
+        },
+        {
+          "label": "Compte rendu et transmission",
+          "text": "Le Collège des Officiers transmet au Grand Secrétariat le compte-rendu du Congrès (élections, votes, vœux…) en préparation du Convent. Le délégué de la Loge au Congrès (ou l'un des deux suppléants) fait, après chaque session, un compte-rendu à son Atelier."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Combien de régions maçonniques compte le Grand Orient de France ?",
+          "options": ["13", "17", "20", "37"],
+          "correct": 1,
+          "explanation": "Les Loges sont réparties en 17 régions maçonniques."
+        },
+        {
+          "question": "À quel grade et quel rite se tiennent les séances du Congrès régional ?",
+          "options": ["Grade d'Apprenti, RFiPhi", "Grade de Maître, Rite Français", "Grade de Compagnon, Rite Écossais", "Tous grades, rite libre"],
+          "correct": 1,
+          "explanation": "Les séances du Congrès se tiennent en forme maçonnique au grade de Maître et au Rite Français."
+        },
+        {
+          "question": "Quel rôle joue le Congrès régional pour la Loge ?",
+          "options": [
+            "Aucun lien direct avec le Convent ou le Conseil de l'Ordre",
+            "L'interface indispensable entre la Loge et le Convent, le Conseil de l'Ordre et l'administration du GODF",
+            "Un simple organe de sanction",
+            "Une réunion festive annuelle sans rôle institutionnel"
+          ],
+          "correct": 1,
+          "explanation": "Le Congrès régional est l'interface indispensable entre la Loge et le Convent, le Conseil de l'Ordre et l'administration du GODF."
+        }
+      ]
+    },
+    {
+      "id": "justice",
+      "num": 3,
+      "title": "La Justice maçonnique",
+      "duration": "",
+      "sections": [
+        {
+          "label": "Les principes fondamentaux (Art. 141 du Règlement Général)",
+          "text": "La Justice Maçonnique est totalement indépendante des instances législatives et exécutives. Elle obéit à quatre principes : la concorde (principe de base), la conciliation (but premier — toute instance saisie doit d'abord tenter de concilier avant de décider), la primauté du Règlement Général et de la Constitution, et l'indépendance de la Justice Maçonnique."
+        },
+        {
+          "label": "Trois échelons",
+          "text": "Conseil de Famille — les 5 Lumières de la Loge. Jury Fraternel Régional (JFR) — 9 Maîtres-Jurés titulaires et 3 suppléants. Chambre Suprême de Justice Maçonnique (CSJM) — 1 représentant par région, soit 17 au total."
+        },
+        {
+          "label": "La CSJM : composition et mandat",
+          "text": "Elle est composée d'un représentant par région (17 au total), élu par les Congrès régionaux pour un mandat de 3 ans, renouvelable une fois après une année de rémission."
+        },
+        {
+          "label": "Quatre types de recours",
+          "text": "Le différend (contentieux entre Frères ou Sœurs d'une même loge ; en cas d'échec des juridictions régionales, la CSJM tranche en appel des décisions du JFR). La plainte (recours entre Frères ou Sœurs de loges différentes, ou entre une loge et des Frères ou Sœurs extérieurs à celle-ci). La requête (demande d'annulation d'une décision d'une loge, d'un Congrès régional ou du Convent — en premier et dernier ressort). Les plaintes ou demandes de suspension de Frères, de Sœurs ou de loges émanant du Conseil de l'Ordre."
+        },
+        {
+          "label": "Le déroulement et les sanctions",
+          "text": "La CSJM assure un débat contradictoire, dans le respect des deux parties et des droits de la défense ; ses décisions sont prises en collégialité. Les sanctions possibles sont : l'avertissement, le blâme, l'inéligibilité temporaire à un office, la suspension des droits maçonniques, l'exclusion."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Combien d'échelons comporte la justice maçonnique au GODF ?",
+          "options": ["2", "3", "4", "5"],
+          "correct": 1,
+          "explanation": "Trois échelons : le Conseil de Famille, le Jury Fraternel Régional, la CSJM."
+        },
+        {
+          "question": "Combien de types de recours la CSJM peut-elle connaître ?",
+          "options": ["2", "3", "4", "6"],
+          "correct": 2,
+          "explanation": "Quatre types : le différend, la plainte, la requête, et les plaintes/suspensions émanant du Conseil de l'Ordre."
+        },
+        {
+          "question": "Quel principe la Justice maçonnique place-t-elle avant toute décision ?",
+          "options": ["La sanction immédiate", "La conciliation", "Le vote à la majorité simple", "L'arbitrage du Grand Maître"],
+          "correct": 1,
+          "explanation": "La conciliation est le but premier de la Justice Maçonnique : toute instance doit tenter de concilier avant de décider."
+        }
+      ]
+    },
+    {
+      "id": "solidarite",
+      "num": 4,
+      "title": "La Solidarité",
+      "duration": "",
+      "sections": [
+        {
+          "label": "Trois échelons (Livre VII du Règlement Général)",
+          "text": "Le Tronc de la Veuve, la Solidarité Régionale, et la Solidarité Obédientielle portée par l'Instance Obédientielle de Solidarité Maçonnique (IOSM)."
+        },
+        {
+          "label": "L'IOSM : objet",
+          "text": "L'œuvre de Solidarité Maçonnique embrasse tout ce qui concerne la pratique de la Solidarité, à triple objet : matériel, intellectuel et moral. En cas d'infortune, elle porte assistance aux Francs-Maçons, à leurs veuves et à leurs orphelins, par prêts d'honneur ou aide définitive, en nature ou en espèces ; par information et assistance pour les formalités administratives ; et plus généralement par la création de fondations maçonniques."
+        },
+        {
+          "label": "Composition et mandat",
+          "text": "L'IOSM se compose d'un représentant par région (17 au total), élu par les Congrès régionaux pour un mandat de 3 ans, renouvelable une fois après une année de rémission. Chaque année, pendant le Convent, l'Instance élit un Président, deux Vice-Présidents (un pour Paris, un pour la Province), un Secrétaire et un Secrétaire adjoint."
+        },
+        {
+          "label": "Comment une demande d'aide est traitée",
+          "text": "L'IOSM reçoit et examine les demandes d'aide provenant des Loges, validées et présentées par le Délégué régional en séance plénière. Pour un secours occasionnel ou périodique, une exonération de capitation ou un prêt d'honneur, la caution solidaire de la Loge est requise. Il existe une obligation de secours auprès des membres sollicitant hospitalité ou assistance (Art. 149 du Règlement Général)."
+        },
+        {
+          "label": "Les moyens de l'IOSM",
+          "text": "Ils sont constitués essentiellement par une contribution dont le montant est déterminé chaque année par le Convent, à qui l'IOSM rend compte. Elle gère également l'orphelinat et l'aide aux enfants de Sœurs ou de Frères décédés."
+        },
+        {
+          "label": "La Fondation du Grand Orient de France",
+          "text": "Créée en 1986, reconnue d'utilité publique en 1987. Elle participe à des actions de solidarité en France et sur les cinq continents : aide humanitaire inscrite dans la durée avec les autorités locales, aide aux victimes de catastrophes naturelles, aide à l'enfance (orphelinat, dispensaires, écoles, formation), aide aux œuvres socioculturelles, éducatives, scientifiques et artistiques, mécénat et protection du patrimoine."
+        },
+        {
+          "label": "Qui instruit les demandes de subvention",
+          "text": "Les demandes de subventions à des associations humanitaires sont étudiées par la Commission Solidarité du Conseil de l'Ordre ; celles concernant les domaines culturels sont examinées par la Commission Culture. Ces décisions sont entérinées par le Conseil d'administration de la Fondation. La Fondation participe aussi au financement de l'Orphelinat du Grand Orient de France, géré par l'IOSM ; des subventions Solidarité-Emploi sont versées sous l'égide du Comité des Grands Hospitaliers."
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Quels sont les trois échelons de la solidarité maçonnique ?",
+          "options": [
+            "Conseil de Famille, JFR, CSJM",
+            "Tronc de la Veuve, Solidarité Régionale, Solidarité Obédientielle (IOSM)",
+            "Conseil de l'Ordre, Congrès, Convent",
+            "Loge, Région, Obédience uniquement"
+          ],
+          "correct": 1,
+          "explanation": "Les trois échelons sont le Tronc de la Veuve, la Solidarité Régionale et la Solidarité Obédientielle (IOSM)."
+        },
+        {
+          "question": "En quelle année la Fondation du Grand Orient de France a-t-elle été reconnue d'utilité publique ?",
+          "options": ["1986", "1987", "2001", "1924"],
+          "correct": 1,
+          "explanation": "Créée en 1986, la Fondation du GODF a été reconnue d'utilité publique en 1987."
+        },
+        {
+          "question": "Qui valide et présente les demandes d'aide d'une loge en séance plénière de l'IOSM ?",
+          "options": ["Le Délégué régional", "Le Vénérable Maître seul", "Le Grand Trésorier", "La CSJM"],
+          "correct": 0,
+          "explanation": "L'IOSM reçoit les demandes d'aide validées et présentées par le Délégué régional."
+        }
+      ]
+    },
+    {
+      "id": "convent",
+      "num": 5,
+      "title": "Le Convent et les commissions",
+      "duration": "",
+      "sections": [
+        {
+          "label": "Composition et vote",
+          "text": "Le Convent est composé de tous les Délégués des Loges, des membres du Conseil de l'Ordre, de la CSJM et de l'IOSM ; seuls les Délégués des Loges prennent part aux débats et aux votes — 1 Loge, 1 voix."
+        },
+        {
+          "label": "Une session annuelle",
+          "text": "Il se réunit une fois par an en session ordinaire, traditionnellement fin août, sous la forme d'une Tenue au grade de Maître. Il exerce seul le pouvoir constituant et législatif de l'Obédience."
+        },
+        {
+          "label": "Ses prérogatives",
+          "text": "Il statue, après discussion, sur le compte rendu de l'administration présenté par le Conseil de l'Ordre, apure les comptes de l'exercice écoulé et fixe les budgets de recettes et de dépenses de l'exercice suivant. Il ratifie, sur rapport du Bureau du Convent, les résultats du vote des Loges sur les quitus. Lui seul peut donner au Conseil de l'Ordre les délégations nécessaires pour décider toute acquisition ou tout acte de disposition d'immeubles. Il ratifie les conventions passées par le Grand Orient de France avec d'autres Puissances maçonniques."
+        },
+        {
+          "label": "Les commissions conventuelles",
+          "text": "Émanations du Convent, elles travaillent à la préparation de ses travaux (avis, rapports, synthèses). Chacune est composée de 17 représentants titulaires et 17 suppléants (1 titulaire et 1 suppléant par région), tous délégués au Convent."
+        },
+        {
+          "label": "Les 4 commissions conventuelles",
+          "text": "Commission Conventuelle du Budget (Co.Co.Bu) — analyse et audite les comptes du GODF. Commission Conventuelle Vœux et Règlement (C.C.V.R) — analyse et filtre les vœux et demandes de modification du Règlement Général ou de la Constitution. Commission Conventuelle Culture (C.C.C) — analyse et filtre les propositions de questions à l'étude des loges. Commission Conventuelle Sanctions, Grâces et Dégrèvements (C.C.S.G.D) — analyse les demandes de sanctions, grâces et dégrèvements des loges qui doivent de l'argent au Grand Orient. Chacune est présidée par 1 délégué régional titulaire, élu pour 1 an renouvelable sans limite."
+        },
+        {
+          "label": "Les commissions obédientielles",
+          "text": "Depuis le Convent 2024, leur nombre est limité et leur durée de vie fixée à 2 ou 3 ans (Livre VI du Règlement Général). Seule la Commission Obédientielle Permanente de la Laïcité (COPL) demeure sans limite de durée. Leurs délégués informent les correspondants élus par chaque Loge de la Région, les accompagnent, animent leur réseau et fédèrent leurs travaux ; à la demande des Loges, ils peuvent intervenir pour présenter les travaux de leur commission."
+        },
+        {
+          "label": "Les commissions obédientielles existantes",
+          "text": "COPL — Commission Obédientielle Permanente de la Laïcité, l'un des piliers du GODF. COSPB — Santé Publique et Bioéthique, qui sensibilise aux enjeux éthiques de santé publique et travaille notamment sur les droits et devoirs fondamentaux de l'être humain (revenu d'existence, logement, éducation, protection sociale, libre circulation, activité, mort dans la dignité). CODD — Développement Durable, qui sensibilise aux enjeux environnementaux et émet des alertes sur les sujets préoccupants. CORUI — Revenu Universel Inconditionnel, qui étudie philosophie, faisabilité et conditions de mise en œuvre d'un tel revenu. CORN — Réflexion sur le Numérique, qui travaille sur les enjeux du passage de la société industrielle à la société de l'information.<!-- À VÉRIFIER : la diapositive source situe la création de la CORN « depuis le Convent 6016 » (calendrier maçonnique), une date en rupture avec les autres repères de ce document donnés en calendrier civil — à confirmer avant publication. -->"
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Combien de titulaires et de suppléants compte chaque commission conventuelle ?",
+          "options": ["37 titulaires seuls", "17 titulaires et 17 suppléants", "9 titulaires et 3 suppléants", "5 titulaires"],
+          "correct": 1,
+          "explanation": "Chaque commission conventuelle compte 17 titulaires et 17 suppléants, 1 de chaque par région."
+        },
+        {
+          "question": "Depuis quel Convent la durée des commissions obédientielles est-elle limitée à 2 ou 3 ans ?",
+          "options": ["Le Convent 1987", "Le Convent 2022", "Le Convent 2024", "Aucune limite n'existe"],
+          "correct": 2,
+          "explanation": "Depuis le Convent 2024, le nombre et la durée de vie des commissions obédientielles sont limités."
+        },
+        {
+          "question": "Quelle est la seule commission obédientielle sans limite de durée ?",
+          "options": ["La COPL", "La CODD", "La COSPB", "La CORN"],
+          "correct": 0,
+          "explanation": "La Commission Obédientielle Permanente de la Laïcité (COPL) est la seule sans limite de durée depuis le Convent 2024."
+        }
+      ]
+    },
+    {
+      "id": "ordre",
+      "num": 6,
+      "title": "Le Conseil de l'Ordre et le circuit des Vœux et Règlements",
+      "duration": "",
+      "sections": [
+        {
+          "label": "Composition",
+          "text": "Le Conseil de l'Ordre est constitué de 37 membres, chacun élu par son Congrès régional pour un mandat de 3 ans, renouvelable une fois après une année de rémission. Ceux-ci élisent en leur sein le Grand Maître, Président du Conseil."
+        },
+        {
+          "label": "Sa mission",
+          "text": "Accomplir les décisions du Convent, administrer la structure, superviser les organismes associés, communiquer à l'extérieur nos réflexions et nos engagements — il est notre organe représentatif dans le monde profane — et convoquer une session extraordinaire du Convent en cas de motifs graves et urgents."
+        },
+        {
+          "label": "Les commissions du Conseil de l'Ordre",
+          "text": "Composées d'un président, un rapporteur, des membres de droit et des membres : Finances et Immobilier, Culture et Animation, Politique Internationale, Affaires Humanitaires et Sociales, Maçonnique et Juridiction, Évolution et organisation obédientielle."
+        },
+        {
+          "label": "Les postes du Conseil de l'Ordre",
+          "text": "Grand Maître (Président), Grand Maître Adjoint République-Laïcité-École, Grand Maître Adjoint Relations Interobédientielles et avec les Juridictions, Grand Maître Adjoint Culture-Animation-Jeunesse-Communication, Grand Orateur, Grand Secrétaire aux Affaires Intérieures (et Adjoint), Grand Secrétaire aux Affaires Extérieures (et Adjoint), Grand Trésorier (et Adjoint), Garde des Sceaux et du Timbre, Grand Hospitalier — ainsi que de nombreux Grands Officiers délégués thématiques et géographiques."
+        },
+        {
+          "label": "Le circuit des Vœux et Règlements, pas à pas",
+          "text": "1ère année : une proposition naît en Loge, remonte au Congrès Régional (avec un éventuel retour aux loges), puis au Convent après synthèse, qui décide de sa transmission ou non. 2e année : le Convent fait remonter un vote indicatif via le Congrès Régional. Les votes définitifs sont exprimés au Convent (Règlement ou Vœu), puis transmis au Conseil de l'Ordre, aboutissant à la modification de la Constitution ou du Règlement Général.",
+          "diagram_ref": "voeux_reglements"
+        }
+      ],
+      "quiz": [
+        {
+          "question": "Combien de membres compose le Conseil de l'Ordre ?",
+          "options": ["17", "37", "7", "9"],
+          "correct": 1,
+          "explanation": "Le Conseil de l'Ordre est constitué de 37 membres, 1 par région."
+        },
+        {
+          "question": "Qui préside le Conseil de l'Ordre ?",
+          "options": [
+            "Le Grand Maître, élu en son sein",
+            "Le Vénérable Maître le plus ancien",
+            "Le Président de la CSJM",
+            "Un Grand Officier tournant"
+          ],
+          "correct": 0,
+          "explanation": "Les 37 membres du Conseil de l'Ordre élisent en leur sein le Grand Maître, Président du Conseil."
+        },
+        {
+          "question": "Dans le circuit des Vœux et Règlements, par quelle instance une proposition de Loge doit-elle transiter avant d'arriver au Convent ?",
+          "options": ["Le Congrès Régional", "Le Conseil de l'Ordre directement", "La CSJM", "L'IOSM"],
+          "correct": 0,
+          "explanation": "La proposition naît en Loge puis remonte au Congrès Régional avant d'atteindre le Convent."
+        }
+      ]
+    }
+  ],
+  "diagram": {
+    "title": "Le circuit institutionnel, de la Loge au Conseil de l'Ordre",
+    "nodes": [
+      {
+        "id": "loge",
+        "label": "LOGE",
+        "x": 400, "y": 460, "w": 160, "h": 70,
+        "qui": "Le Collège des Officiers (les 5 Lumières : V∴M∴, les 2 Surveillants, l'Orateur, le Secrétaire — et les autres offices de Loge).",
+        "elu": "Élu régulièrement chaque année avant le Convent. Le V∴M∴ est élu pour un an, rééligible en principe 3 ans au maximum.",
+        "role": "Gouverne librement la Loge (Art. 25 du Règlement Général) et a droit de discipline sur ses membres et sur tous les Francs-Maçons assistant à ses travaux."
+      },
+      {
+        "id": "congres",
+        "label": "CONGRÈS RÉGIONAL",
+        "x": 400, "y": 330, "w": 180, "h": 70,
+        "qui": "Un Collège d'Officiers, assisté de droit par les élus de la région aux instances nationales (CO, CSJM, IOSM, JFR).",
+        "elu": "Le délégué de Loge (1 titulaire, 2 suppléants) qui siège au Congrès est élu par sa Loge.",
+        "role": "Interface indispensable entre la Loge et le Convent, le Conseil de l'Ordre et l'administration du GODF ; donne son avis sur la vie des Ateliers de la région et élit les représentants régionaux aux instances nationales."
+      },
+      {
+        "id": "convent",
+        "label": "CONVENT",
+        "x": 400, "y": 200, "w": 160, "h": 70,
+        "qui": "Tous les Délégués des Loges, ainsi que les membres du Conseil de l'Ordre, de la CSJM et de l'IOSM (ces derniers sans droit de vote).",
+        "elu": "Le délégué de Loge (1 titulaire, 2 suppléants) qui siège au Convent est élu par sa Loge ; seuls les délégués votent, à raison d'une voix par Loge.",
+        "role": "Exerce seul le pouvoir constituant et législatif de l'Obédience ; vote le budget, statue sur le compte-rendu du Conseil de l'Ordre et les quitus. Réunion annuelle, traditionnellement fin août, en Tenue au grade de Maître."
+      },
+      {
+        "id": "co",
+        "label": "CONSEIL DE L'ORDRE",
+        "x": 400, "y": 70, "w": 180, "h": 70,
+        "qui": "37 membres (1 par région), dont le Grand Maître, élu par ses pairs, qui le préside.",
+        "elu": "Élu par le Congrès régional, pour un mandat de 3 ans renouvelable une fois après une année de rémission.",
+        "role": "Pouvoir exécutif de l'Obédience : accomplit les décisions du Convent, administre la structure, représente le GODF dans le monde profane."
+      },
+      {
+        "id": "csjm",
+        "label": "CSJM",
+        "x": 660, "y": 200, "w": 140, "h": 60,
+        "qui": "1 représentant par région, soit 17 au total.",
+        "elu": "Élu par les Congrès régionaux pour un mandat de 3 ans, renouvelable une fois après une année de rémission.",
+        "role": "Justice maçonnique, totalement indépendante. Tranche en appel des décisions du Jury Fraternel Régional et connaît 4 types de recours."
+      },
+      {
+        "id": "iosm",
+        "label": "IOSM",
+        "x": 140, "y": 200, "w": 140, "h": 60,
+        "qui": "1 représentant par région, soit 17 au total.",
+        "elu": "Élu par les Congrès régionaux pour un mandat de 3 ans, renouvelable une fois après une année de rémission.",
+        "role": "Porte secours, assistance et conseils aux membres en difficulté et à leurs conjoints et orphelins ; gère notamment l'orphelinat du GODF."
+      }
+    ],
+    "edges": [
+      {"from": "loge", "to": "congres", "label": "élit son délégué"},
+      {"from": "congres", "to": "convent", "label": "élit ses représentants"},
+      {"from": "convent", "to": "co", "label": "délégations"},
+      {"from": "congres", "to": "csjm", "label": "élit 1 représentant"},
+      {"from": "congres", "to": "iosm", "label": "élit 1 représentant"}
+    ]
+  },
+  "glossary": {
+    "G∴O∴D∴F∴": "Grand Orient de France — la 1ère Obédience maçonnique française en nombre d'adhérents, Puissance Symbolique Régulière Souveraine, fonctionnant selon la loi de 1901. Siège : 16, rue Cadet, Paris IX.",
+    "V∴M∴": "Vénérable Maître — préside le Collège des Officiers de la Loge. Élu pour un an, rééligible en principe 3 ans au maximum.",
+    "LL∴": "Loges (pluriel de Loge).",
+    "Trav∴": "Travaux — les séances rituelles d'une Loge ou d'une instance maçonnique.",
+    "CO": "Conseil de l'Ordre — pouvoir exécutif de l'Obédience, 37 membres, présidé par le Grand Maître.",
+    "CSJM": "Chambre Suprême de Justice Maçonnique — justice maçonnique indépendante, 1 représentant par région (17), 4 types de recours.",
+    "JFR": "Jury Fraternel Régional — 9 Maîtres-Jurés titulaires et 3 suppléants, 2e échelon de la justice maçonnique.",
+    "IOSM": "Instance Obédientielle de Solidarité Maçonnique — secours, assistance et conseils aux membres en difficulté et à leurs conjoints et orphelins.",
+    "RG": "Règlement Général — avec la Constitution, le texte qui fixe les règles de fonctionnement de l'Obédience.",
+    "COPL": "Commission Obédientielle Permanente de la Laïcité — seule commission obédientielle sans limite de durée depuis le Convent 2024.",
+    "COSPB": "Commission Obédientielle de la Santé Publique et de Bioéthique.",
+    "CODD": "Commission Obédientielle du Développement Durable.",
+    "CORUI": "Commission Obédientielle sur le Revenu Universel Inconditionnel.",
+    "CORN": "Commission Obédientielle de Réflexion sur le Numérique.",
+    "CAALA": "Notre région, la Région 4 — Champagne-Ardenne-Alsace-Lorraine, incluant les Loges d'Allemagne et de Suisse alémanique."
+  },
+  "final_quiz": [
+    {"question": "Combien de régions maçonniques compte le GODF ?", "options": ["13", "17", "20", "37"], "correct": 1},
+    {"question": "Quelle est notre région (Région 4) ?", "options": ["CAALA (Champagne-Ardenne-Alsace-Lorraine + LL d'Allemagne et Suisse alémanique)", "Région Ile-de-France", "Région Sud-Ouest", "Région Provence-Alpes-Corse"], "correct": 0},
+    {"question": "Pour combien d'années maximum, en principe, un Vénérable Maître peut-il être réélu consécutivement ?", "options": ["1 an", "3 ans", "5 ans", "Sans limite"], "correct": 1},
+    {"question": "Quel article du Règlement Général pose le principe de souveraineté des Loges ?", "options": ["Art. 1er", "Art. 25", "Art. 141", "Art. 149"], "correct": 1},
+    {"question": "Combien de membres composent le Conseil de l'Ordre ?", "options": ["17", "37", "7", "9"], "correct": 1},
+    {"question": "Combien d'échelons comporte la justice maçonnique ?", "options": ["2", "3", "4", "5"], "correct": 1},
+    {"question": "Combien de Maîtres-Jurés titulaires compte le Jury Fraternel Régional ?", "options": ["5", "9", "17", "37"], "correct": 1},
+    {"question": "Quels sont les trois échelons de la solidarité maçonnique ?", "options": ["Conseil de Famille, JFR, CSJM", "Tronc de la Veuve, Solidarité Régionale, Solidarité Obédientielle (IOSM)", "Loge, Région, Obédience", "CO, Congrès, Convent"], "correct": 1},
+    {"question": "En quelle année la Fondation du GODF a-t-elle été créée ?", "options": ["1901", "1924", "1986", "2001"], "correct": 2},
+    {"question": "Quelle est la seule commission obédientielle sans limite de durée depuis le Convent 2024 ?", "options": ["La COPL", "La CODD", "La COSPB", "La CORN"], "correct": 0}
+  ]
+}

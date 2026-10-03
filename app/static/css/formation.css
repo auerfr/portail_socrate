@@ -1,0 +1,222 @@
+/* Module Formation — styles additionnels, strictement scopés au module
+   (préfixe .formation-) et construits uniquement sur les variables CSS déjà
+   définies par le thème principal (tailwind/input.css → --color-loge-*,
+   --font-sans). Rien ici ne modifie ou ne redéfinit de règle globale. */
+
+.formation-steps-nav {
+  display: flex;
+  gap: .4rem;
+  overflow-x: auto;
+  padding-bottom: .5rem;
+  margin-bottom: 1.5rem;
+  -webkit-overflow-scrolling: touch;
+}
+
+.formation-step-tab {
+  display: flex;
+  align-items: center;
+  gap: .4rem;
+  flex-shrink: 0;
+  padding: .45rem .8rem;
+  border-radius: 9999px;
+  border: 1px solid #e5e7eb; /* gray-200 */
+  background: #fff;
+  font-size: .78rem;
+  font-weight: 500;
+  color: #4b5563; /* gray-600 */
+  cursor: pointer;
+  transition: border-color .15s, background .15s, color .15s;
+}
+.formation-step-tab:hover { border-color: var(--color-loge-300); }
+.formation-step-tab:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: 2px; }
+.formation-step-tab[aria-selected="true"] {
+  background: var(--color-loge-700);
+  border-color: var(--color-loge-700);
+  color: #fff;
+}
+.formation-step-tab-num {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 1.3rem;
+  height: 1.3rem;
+  border-radius: 9999px;
+  background: rgba(0,0,0,.08);
+  font-size: .68rem;
+  font-weight: 700;
+  flex-shrink: 0;
+}
+.formation-step-tab[aria-selected="true"] .formation-step-tab-num { background: rgba(255,255,255,.25); }
+.formation-step-tab-check { display: none; color: #10b981; font-weight: 700; }
+.formation-step-tab.formation-step-done .formation-step-tab-check { display: inline; }
+.formation-step-tab[aria-selected="true"].formation-step-done .formation-step-tab-check { color: #a7f3d0; }
+
+.formation-btn-primary {
+  background: var(--color-loge-700);
+  color: #fff;
+  font-size: .85rem;
+  font-weight: 500;
+  padding: .55rem 1.1rem;
+  border-radius: .5rem;
+  transition: background .15s;
+}
+.formation-btn-primary:hover { background: var(--color-loge-800); }
+.formation-btn-primary:disabled { opacity: .4; cursor: not-allowed; }
+.formation-btn-ghost {
+  font-size: .85rem;
+  font-weight: 500;
+  color: #6b7280; /* gray-500 */
+  padding: .55rem .8rem;
+}
+.formation-btn-ghost:hover { color: #374151; }
+.formation-btn-ghost:disabled { opacity: .3; cursor: not-allowed; }
+.formation-btn-primary:focus-visible,
+.formation-btn-ghost:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: 2px; }
+
+/* Quiz */
+.formation-quiz { margin-top: 1.5rem; }
+.formation-quiz-q { margin-bottom: 1.25rem; }
+.formation-quiz-question { font-size: .88rem; font-weight: 600; color: #1f2937; margin-bottom: .6rem; }
+.formation-quiz-options { display: flex; flex-direction: column; gap: .4rem; }
+.formation-quiz-option {
+  text-align: left;
+  font-size: .85rem;
+  color: #374151;
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: .55rem;
+  padding: .6rem .85rem;
+  cursor: pointer;
+  transition: border-color .15s, background .15s;
+}
+.formation-quiz-option:hover:not(:disabled) { border-color: var(--color-loge-300); }
+.formation-quiz-option:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: 1px; }
+.formation-quiz-option:disabled { cursor: default; }
+.formation-quiz-option.formation-correct {
+  background: #ecfdf5; border-color: #6ee7b7; color: #065f46; font-weight: 600;
+}
+.formation-quiz-option.formation-incorrect {
+  background: #fef2f2; border-color: #fca5a5; color: #991b1b;
+}
+.formation-quiz-explanation {
+  font-size: .8rem;
+  color: #4b5563;
+  background: #f9fafb;
+  border-left: 3px solid var(--color-loge-300);
+  padding: .5rem .75rem;
+  margin-top: .5rem;
+  border-radius: 0 .4rem .4rem 0;
+}
+
+/* Diagramme SVG */
+.formation-diagram-wrap {
+  background: #fff;
+  border: 1px solid #e5e7eb;
+  border-radius: 1rem;
+  padding: .75rem;
+  overflow-x: auto;
+}
+.formation-diagram-svg { width: 100%; height: auto; min-width: 560px; display: block; }
+.formation-diagram-edge { stroke: #cbd5e1; stroke-width: 2; }
+.formation-diagram-edge-label { font-size: 11px; fill: #9ca3af; }
+.formation-diagram-node { cursor: pointer; }
+.formation-diagram-node rect {
+  fill: var(--color-loge-50);
+  stroke: var(--color-loge-300);
+  stroke-width: 1.5;
+  transition: fill .15s, stroke .15s;
+}
+.formation-diagram-node:hover rect,
+.formation-diagram-node:focus-visible rect { fill: var(--color-loge-100); stroke: var(--color-loge-500); }
+.formation-diagram-node.formation-active rect { fill: var(--color-loge-700); stroke: var(--color-loge-800); }
+.formation-diagram-node text {
+  font-size: 13px;
+  font-weight: 700;
+  fill: var(--color-loge-900);
+  pointer-events: none;
+}
+.formation-diagram-node.formation-active text { fill: #fff; }
+.formation-diagram-node:focus-visible { outline: none; }
+.formation-diagram-node:focus-visible rect { stroke-width: 3; }
+
+.formation-diagram-card {
+  margin-top: 1rem;
+  background: var(--color-loge-50);
+  border: 1px solid var(--color-loge-200);
+  border-radius: .85rem;
+  padding: 1rem 1.2rem;
+}
+.formation-diagram-card h3 { font-size: .95rem; font-weight: 700; color: var(--color-loge-900); margin-bottom: .6rem; }
+.formation-diagram-card dl { display: grid; gap: .55rem; }
+.formation-diagram-card dt { font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; color: var(--color-loge-700); }
+.formation-diagram-card dd { font-size: .85rem; color: #374151; line-height: 1.5; }
+
+/* Glossaire */
+.formation-glossary-grid { display: flex; flex-wrap: wrap; gap: .5rem; }
+.formation-glossary-term {
+  position: relative;
+  font-size: .78rem;
+  font-weight: 600;
+  color: var(--color-loge-700);
+  background: var(--color-loge-50);
+  border: 1px solid var(--color-loge-200);
+  border-radius: 9999px;
+  padding: .4rem .85rem;
+  cursor: pointer;
+}
+.formation-glossary-term:hover { background: var(--color-loge-100); }
+.formation-glossary-term:focus-visible { outline: 2px solid var(--color-loge-500); outline-offset: 2px; }
+.formation-glossary-tooltip {
+  position: absolute;
+  left: 0;
+  top: calc(100% + 6px);
+  z-index: 20;
+  width: max-content;
+  max-width: 260px;
+  background: #1f2937;
+  color: #f3f4f6;
+  font-size: .76rem;
+  font-weight: 400;
+  line-height: 1.45;
+  padding: .55rem .75rem;
+  border-radius: .5rem;
+  box-shadow: 0 6px 16px rgba(0,0,0,.18);
+  display: none;
+  text-align: left;
+  white-space: normal;
+}
+.formation-glossary-term.formation-open .formation-glossary-tooltip { display: block; }
+
+/* Quiz final */
+.formation-quiz-score {
+  margin-top: 1.25rem;
+  padding: 1rem 1.2rem;
+  border-radius: .85rem;
+  background: var(--color-loge-50);
+  border: 1px solid var(--color-loge-200);
+  font-size: .95rem;
+  font-weight: 600;
+  color: var(--color-loge-900);
+  text-align: center;
+}
+
+/* Mode sombre — surcouche ciblée, cf. tailwind/input.css pour le même
+   principe appliqué aux classes Tailwind standard. */
+[data-theme="dark"] .formation-step-tab { background: #1a202c; border-color: #364152; color: #cbd5e1; }
+[data-theme="dark"] .formation-step-tab[aria-selected="true"] { background: var(--color-loge-700); border-color: var(--color-loge-700); }
+[data-theme="dark"] .formation-quiz-option { background: #1a202c; border-color: #364152; color: #cbd5e1; }
+[data-theme="dark"] .formation-quiz-option.formation-correct { background: #10261b; border-color: #166534; color: #6ee7b7; }
+[data-theme="dark"] .formation-quiz-option.formation-incorrect { background: #2e1215; border-color: #7f1d1d; color: #fca5a5; }
+[data-theme="dark"] .formation-quiz-explanation { background: #161d29; color: #a0aec0; }
+[data-theme="dark"] .formation-diagram-wrap { background: #1a202c; border-color: #364152; }
+[data-theme="dark"] .formation-diagram-node rect { fill: #163333; stroke: #235050; }
+[data-theme="dark"] .formation-diagram-node text { fill: #99f6e4; }
+[data-theme="dark"] .formation-diagram-card,
+[data-theme="dark"] .formation-quiz-score { background: #163333; border-color: #235050; }
+[data-theme="dark"] .formation-diagram-card dd { color: #cbd5e1; }
+[data-theme="dark"] .formation-glossary-term { background: #163333; border-color: #235050; }
+[data-theme="dark"] .formation-glossary-tooltip { background: #0f172a; }
+
+@media (max-width: 640px) {
+  .formation-step-tab-label { max-width: 7rem; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}

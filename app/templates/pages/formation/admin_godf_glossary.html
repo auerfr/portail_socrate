@@ -1,0 +1,50 @@
+{% extends "base.html" %}
+{% block title %}Formation — Glossaire — Administration{% endblock %}
+
+{% block content %}
+<div class="max-w-2xl mx-auto px-4 py-8">
+
+  <nav class="text-sm text-gray-500 mb-1">
+    <a href="/admin/formation/godf" class="hover:text-loge-700">L'organisation du GODF</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Glossaire</span>
+  </nav>
+  <h1 class="text-xl font-bold text-gray-900 mb-6">Glossaire</h1>
+
+  {% if saved %}
+  <div class="mb-6 bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-xl">✓ Enregistré.</div>
+  {% endif %}
+
+  <form method="post" action="/admin/formation/godf/glossary/save">
+    <div class="space-y-3 mb-6">
+      {% set terms = glossary.keys()|list %}
+      {% set total = terms|length + extra_rows %}
+      {% for i in range(total) %}
+      {% set term = terms[i] if i < terms|length else None %}
+      <div class="bg-white border border-gray-200 rounded-xl p-4 flex gap-3">
+        <input type="text" name="g_term_{{ i }}" value="{{ term or '' }}" placeholder="Abréviation"
+               class="w-40 flex-shrink-0 text-sm font-semibold text-gray-800 border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <div class="flex-1">
+          <textarea name="g_def_{{ i }}" rows="2" placeholder="Définition"
+                    class="w-full text-sm text-gray-600 border border-gray-200 rounded-lg p-2 focus:outline-none focus:ring-2 focus:ring-loge-500">{{ glossary[term] if term else '' }}</textarea>
+          {% if term %}
+          <label class="flex items-center gap-2 mt-1.5 text-xs text-red-600">
+            <input type="checkbox" name="g_delete_{{ i }}" value="1">
+            Supprimer ce terme
+          </label>
+          {% endif %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="flex justify-between">
+      <a href="/admin/formation/godf" class="text-sm text-gray-500 hover:text-gray-700 py-2">← Retour</a>
+      <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors">
+        Enregistrer
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

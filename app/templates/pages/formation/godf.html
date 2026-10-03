@@ -1,0 +1,150 @@
+{% extends "base.html" %}
+{% block title %}Formation — L'organisation du G∴O∴D∴F∴{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8 formation-godf" id="formation-godf">
+
+  <div class="flex items-center justify-between mb-6">
+    <a href="/formation" class="text-sm text-loge-700 hover:underline font-medium">← Formation</a>
+  </div>
+
+  <div class="text-center mb-8">
+    <div class="text-amber-500 text-sm tracking-widest mb-2">★ ★ ★</div>
+    <h1 class="text-2xl font-bold text-gray-900">{{ module_data.title }}</h1>
+    <p class="text-sm text-gray-400 mt-1 italic">{{ module_data.subtitle }}</p>
+  </div>
+
+  <div class="bg-loge-50 border border-loge-200 rounded-xl p-5 mb-8 text-sm text-gray-700 leading-relaxed">
+    {{ module_data.intro }}
+  </div>
+
+  <div class="mb-6">
+    <div class="flex items-center justify-between mb-1.5">
+      <span class="text-xs font-semibold uppercase tracking-wide text-gray-400">Progression</span>
+      <span class="text-xs font-medium text-gray-500" data-fg-progress-label>0 / {{ module_data.steps|length }} étapes</span>
+    </div>
+    <div class="h-2 bg-gray-100 rounded-full overflow-hidden">
+      <div class="h-full bg-loge-700 rounded-full transition-all" data-fg-progress-bar style="width:0%"></div>
+    </div>
+  </div>
+
+  <div class="formation-steps-nav" role="tablist" aria-label="Étapes du module">
+    {% for step in module_data.steps %}
+    <button type="button" class="formation-step-tab" role="tab"
+            id="fg-tab-{{ step.id }}" aria-controls="fg-step-{{ step.id }}"
+            data-fg-step-tab="{{ step.id }}" aria-selected="false" tabindex="-1">
+      <span class="formation-step-tab-num">{{ step.num }}</span>
+      <span class="formation-step-tab-label">{{ step.title }}</span>
+      <span class="formation-step-tab-check" aria-hidden="true">✓</span>
+    </button>
+    {% endfor %}
+  </div>
+
+  {% for step in module_data.steps %}
+  <section class="formation-step-panel" id="fg-step-{{ step.id }}" data-fg-step-panel="{{ step.id }}"
+            role="tabpanel" aria-labelledby="fg-tab-{{ step.id }}" hidden>
+    <h2 class="text-lg font-bold text-gray-900 mb-4">{{ step.num }}. {{ step.title }}</h2>
+
+    <div class="space-y-3 mb-6">
+      {% for sec in step.sections %}
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <p class="text-sm font-semibold text-loge-800 mb-1">{{ sec.label }}</p>
+        <p class="text-sm text-gray-600 leading-relaxed">{{ sec.text|safe }}</p>
+        {% if sec.diagram_ref %}
+        <button type="button" class="text-xs font-medium text-loge-700 hover:underline mt-2" data-fg-open-diagram>
+          Voir le schéma du circuit institutionnel →
+        </button>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="formation-quiz" data-fg-quiz-step="{{ step.id }}">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Questions de révision</p>
+      {% for q in step.quiz %}
+      <div class="formation-quiz-q" data-fg-quiz-q="{{ loop.index0 }}" data-fg-correct="{{ q.correct }}">
+        <p class="formation-quiz-question">{{ loop.index }}. {{ q.question }}</p>
+        <div class="formation-quiz-options" role="radiogroup" aria-label="{{ q.question }}">
+          {% for opt in q.options %}
+          <button type="button" class="formation-quiz-option" role="radio" aria-checked="false" data-fg-quiz-option="{{ loop.index0 }}">{{ opt }}</button>
+          {% endfor %}
+        </div>
+        <p class="formation-quiz-explanation" data-fg-quiz-explanation hidden>{{ q.explanation }}</p>
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="flex justify-between mt-6">
+      <button type="button" class="formation-btn-ghost" data-fg-prev-step {% if loop.first %}disabled{% endif %}>← Étape précédente</button>
+      <button type="button" class="formation-btn-primary" data-fg-next-step>
+        {% if loop.last %}Voir le schéma d'ensemble →{% else %}Étape suivante →{% endif %}
+      </button>
+    </div>
+  </section>
+  {% endfor %}
+
+  <section id="fg-diagram" class="mt-10 mb-10 scroll-mt-4">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">{{ module_data.diagram.title }}</p>
+    <p class="text-xs text-gray-400 italic mb-3">Touche une instance pour afficher sa fiche : qui la compose, comment elle est élue, à quoi elle sert.</p>
+    <div class="formation-diagram-wrap">
+      <svg viewBox="0 0 800 560" class="formation-diagram-svg" role="img" aria-label="{{ module_data.diagram.title }}">
+        {% for edge in module_data.diagram.edges %}
+        {% set n1 = module_data.diagram.nodes | selectattr('id', 'equalto', edge.from) | first %}
+        {% set n2 = module_data.diagram.nodes | selectattr('id', 'equalto', edge.to) | first %}
+        <line x1="{{ n1.x }}" y1="{{ n1.y }}" x2="{{ n2.x }}" y2="{{ n2.y }}" class="formation-diagram-edge"></line>
+        <text x="{{ (n1.x + n2.x) / 2 + 8 }}" y="{{ (n1.y + n2.y) / 2 }}" class="formation-diagram-edge-label">{{ edge.label }}</text>
+        {% endfor %}
+        {% for node in module_data.diagram.nodes %}
+        <g class="formation-diagram-node" tabindex="0" role="button"
+           aria-label="{{ node.label }} — voir la fiche"
+           data-fg-node="{{ node.id }}"
+           transform="translate({{ node.x - node.w / 2 }}, {{ node.y - node.h / 2 }})">
+          <rect width="{{ node.w }}" height="{{ node.h }}" rx="10"></rect>
+          <text x="{{ node.w / 2 }}" y="{{ node.h / 2 }}" text-anchor="middle" dominant-baseline="middle">{{ node.label }}</text>
+        </g>
+        {% endfor %}
+      </svg>
+    </div>
+    <div class="formation-diagram-card" data-fg-diagram-card hidden></div>
+  </section>
+
+  <section id="fg-glossary" class="mb-10">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Glossaire</p>
+    <div class="formation-glossary-grid">
+      {% for term, definition in module_data.glossary.items() %}
+      <button type="button" class="formation-glossary-term" data-fg-glossary-term aria-expanded="false">
+        {{ term }}
+        <span class="formation-glossary-tooltip" role="tooltip">{{ definition }}</span>
+      </button>
+      {% endfor %}
+    </div>
+  </section>
+
+  <section id="fg-final-quiz" class="mb-10">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Quiz final</p>
+    <p class="text-xs text-gray-400 italic mb-4">10 questions, pour vérifier que tout est bien retenu.</p>
+    <div data-fg-final-quiz>
+      {% for q in module_data.final_quiz %}
+      <div class="formation-quiz-q" data-fg-quiz-q="{{ loop.index0 }}" data-fg-correct="{{ q.correct }}">
+        <p class="formation-quiz-question">{{ loop.index }}. {{ q.question }}</p>
+        <div class="formation-quiz-options" role="radiogroup" aria-label="{{ q.question }}">
+          {% for opt in q.options %}
+          <button type="button" class="formation-quiz-option" role="radio" aria-checked="false" data-fg-quiz-option="{{ loop.index0 }}">{{ opt }}</button>
+          {% endfor %}
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+    <div class="formation-quiz-score" data-fg-final-score hidden></div>
+  </section>
+
+</div>
+
+<script type="application/json" id="formation-godf-data">{{ module_data_json|safe }}</script>
+<script type="application/json" id="formation-godf-progress">{{ progress_json|safe }}</script>
+{% endblock %}
+
+{% block scripts %}
+<link rel="stylesheet" href="/static/css/formation.css">
+<script src="/static/js/formation.js" defer></script>
+{% endblock %}

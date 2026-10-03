@@ -223,3 +223,48 @@ class FormationResource(Base):
 
     def __repr__(self) -> str:
         return f"<FormationResource {self.module}>"
+
+
+class FormationProgress(Base):
+    """Progression d'un membre dans un module Formation (étapes validées,
+    scores de quiz) — un state JSON libre plutôt que des colonnes figées,
+    pour rester réutilisable tel quel par les prochains modules (Compagnon,
+    marque et nom compagnonnique…) sans nouvelle migration."""
+    __tablename__ = "formation_progress"
+
+    member_id: Mapped[int] = mapped_column(
+        ForeignKey("members.id", ondelete="CASCADE"), primary_key=True
+    )
+    module: Mapped[str] = mapped_column(String(30), primary_key=True)
+    state: Mapped[dict] = mapped_column(JSON, default=dict)
+
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<FormationProgress member={self.member_id} module={self.module}>"
+
+
+class FormationContent(Base):
+    """Surcouche éditable du contenu d'un module Formation initialement
+    fourni par un fichier JSON embarqué (app/data/formation_*.json).
+
+    Tant qu'aucune ligne n'existe pour un module, le fichier JSON fait foi
+    (c'est le contenu d'origine, fidèle à la source). Dès qu'un admin modifie
+    ou supprime un élément depuis /admin/formation/<module>, une ligne est
+    créée ici avec le JSON complet mis à jour — elle prime alors sur le
+    fichier, et survit aux redéploiements (le fichier, lui, est versionné et
+    serait écrasé par un git pull)."""
+    __tablename__ = "formation_content"
+
+    module: Mapped[str] = mapped_column(String(30), primary_key=True)
+    data: Mapped[dict] = mapped_column(JSON)
+
+    updated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<FormationContent {self.module}>"

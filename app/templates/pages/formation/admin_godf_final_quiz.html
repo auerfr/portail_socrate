@@ -1,0 +1,58 @@
+{% extends "base.html" %}
+{% block title %}Formation — Quiz final — Administration{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <nav class="text-sm text-gray-500 mb-1">
+    <a href="/admin/formation/godf" class="hover:text-loge-700">L'organisation du GODF</a>
+    <span class="mx-2">›</span>
+    <span class="text-gray-800">Quiz final</span>
+  </nav>
+  <h1 class="text-xl font-bold text-gray-900 mb-6">Quiz final</h1>
+
+  {% if saved %}
+  <div class="mb-6 bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-xl">✓ Enregistré.</div>
+  {% endif %}
+
+  <form method="post" action="/admin/formation/godf/final-quiz/save">
+    <div class="space-y-5 mb-8">
+      {% set total = questions|length + extra_rows %}
+      {% for i in range(total) %}
+      {% set q = questions[i] if i < questions|length else None %}
+      <div class="bg-white border border-gray-200 rounded-xl p-4">
+        <input type="text" name="fq_question_{{ i }}" value="{{ q.question if q else '' }}"
+               placeholder="{{ 'Question (nouvelle — laisser vide si inutile)' if not q }}"
+               class="w-full font-semibold text-sm text-gray-800 border-0 border-b border-gray-100 pb-2 mb-3 focus:outline-none focus:border-loge-400">
+        <div class="grid sm:grid-cols-2 gap-2">
+          {% for j in range(4) %}
+          <label class="flex items-center gap-2 text-sm">
+            <input type="radio" name="fq_correct_{{ i }}" value="{{ j }}" {% if q and q.correct == j %}checked{% endif %}>
+            <input type="text" name="fq_opt_{{ i }}_{{ j }}" value="{{ q.options[j] if q else '' }}" placeholder="Réponse {{ j + 1 }}"
+                   class="flex-1 text-sm border border-gray-200 rounded-lg px-2 py-1.5 focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </label>
+          {% endfor %}
+        </div>
+        <p class="text-xs text-gray-400 mt-1">Coche la case devant la bonne réponse.</p>
+        {% if q %}
+        <label class="flex items-center gap-2 mt-2 text-xs text-red-600">
+          <input type="checkbox" name="fq_delete_{{ i }}" value="1">
+          Supprimer cette question
+        </label>
+        {% else %}
+        <p class="text-xs text-gray-400 mt-2">Ligne vierge — remplis la question et les 4 réponses pour en ajouter une.</p>
+        {% endif %}
+      </div>
+      {% endfor %}
+    </div>
+
+    <div class="flex justify-between">
+      <a href="/admin/formation/godf" class="text-sm text-gray-500 hover:text-gray-700 py-2">← Retour</a>
+      <button type="submit" class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-5 py-2.5 rounded-lg transition-colors">
+        Enregistrer
+      </button>
+    </div>
+  </form>
+
+</div>
+{% endblock %}

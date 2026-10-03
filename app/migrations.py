@@ -1439,3 +1439,32 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             )
             """
         )
+
+        # formation_progress — progression (étapes/quiz) d'un membre dans un
+        # module Formation, réutilisable tel quel par tout futur module.
+        await conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS formation_progress (
+                member_id INTEGER NOT NULL REFERENCES members(id) ON DELETE CASCADE,
+                module VARCHAR(30) NOT NULL,
+                state JSON,
+                updated_at DATETIME,
+                PRIMARY KEY (member_id, module)
+            )
+            """
+        )
+
+        # formation_content — surcouche éditable d'un module Formation dont
+        # le contenu d'origine vient d'un fichier JSON embarqué (cf. échange
+        # du 03/10/2026 : pouvoir corriger/supprimer un élément en cas
+        # d'évolution du GODF, sans redéploiement).
+        await conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS formation_content (
+                module VARCHAR(30) PRIMARY KEY,
+                data JSON,
+                updated_by_id INTEGER REFERENCES members(id),
+                updated_at DATETIME
+            )
+            """
+        )
