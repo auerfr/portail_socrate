@@ -89,8 +89,8 @@
   // ── Géométrie générale de la médaille ──
   var W = 360, H = 360, MX = W / 2, CY = H / 2;
   var R_OUTER = 168, R_BEAD = 158, R_TEXT_TOP = 142;
-  var EMB_CX = MX, EMB_CY = CY - 64, EMB_R = 46; // emblème (forme + une seule lettre : la vertu)
-  var NAME_Y0 = CY + 10, NAME_DY = 35;            // 3 lignes du nom complet, en calligraphie
+  var EMB_CX = MX, EMB_CY = CY - 66, EMB_R = 58;  // emblème (forme + une seule lettre : la vertu) — doit dominer, c'est "la marque"
+  var NAME_Y0 = CY + 26, NAME_DY = 27;             // 3 lignes du nom complet, en calligraphie — discret, en légende
   var YEAR_Y = CY + R_OUTER - 20;
 
   var state = {
@@ -204,7 +204,7 @@
     nameLines.forEach(function (line, i) {
       // Évite tout débordement hors du cercle sur un prénom/vertu/ville long
       // (ex. "de Pont-à-Mousson") : on réduit la taille au-delà de 13 caractères.
-      var fs = line.length > 13 ? Math.max(20, Math.round(30 * 13 / line.length)) : 30;
+      var fs = line.length > 13 ? Math.max(15, Math.round(22 * 13 / line.length)) : 22;
       nameSvg += '<text x="' + MX + '" y="' + (NAME_Y0 + i * NAME_DY) + '" font-family="' + FONT_SCRIPT + '" font-size="' + fs + '" font-weight="700" fill="' + INK + '" text-anchor="middle">' + esc(line) + '</text>';
     });
 
