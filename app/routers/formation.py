@@ -121,7 +121,7 @@ _MODULES = {
     "compagnon": {
         "title": "Pierre Taillée — Compagnon",
         "subtitle": "Guide de révision pour l'examen de Compagnon-Accompli",
-        "ready": False,
+        "ready": True,
     },
     "marque": {
         "title": "Marque & nom compagnonnique",
@@ -179,6 +179,28 @@ async def formation_apprenti(request: Request, ctx: Annotated[tuple, Depends(req
     pdf_document_id = res.pdf_document_id if res else None
 
     return templates.TemplateResponse(request, "pages/formation/apprenti.html", {
+        "is_admin": user.is_admin,
+        "pdf_document_id": pdf_document_id,
+        "current_user": user,
+        "current_member": member,
+    })
+
+
+@router.get("/formation/compagnon", response_class=HTMLResponse)
+async def formation_compagnon(request: Request, ctx: Annotated[tuple, Depends(require_auth)], db: Annotated[AsyncSession, Depends(get_db)]):
+    user, member = ctx
+    lvl = _member_level(user, member)
+    if lvl < _MODULE_MIN_GRADE["compagnon"]:
+        return templates.TemplateResponse(request, "pages/formation/unavailable.html", {
+            "current_user": user, "current_member": member,
+        }, status_code=403)
+
+    res = (await db.execute(
+        select(FormationResource).where(FormationResource.module == "compagnon")
+    )).scalar_one_or_none()
+    pdf_document_id = res.pdf_document_id if res else None
+
+    return templates.TemplateResponse(request, "pages/formation/compagnon.html", {
         "is_admin": user.is_admin,
         "pdf_document_id": pdf_document_id,
         "current_user": user,

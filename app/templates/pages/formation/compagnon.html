@@ -1,0 +1,406 @@
+{% extends "base.html" %}
+{% block title %}Formation — Pierre Taillée (Compagnon){% endblock %}
+
+{% macro section_header(num, title, subtitle, duration='') %}
+<div class="flex items-stretch">
+  <div class="w-12 flex-shrink-0 flex items-center justify-center bg-loge-900 text-white font-bold">{{ num }}</div>
+  <div class="flex-1 bg-loge-700 text-white px-4 py-3 min-w-0">
+    <h2 class="font-semibold text-sm">{{ title }}</h2>
+    <p class="text-xs text-loge-100 italic mt-0.5">{{ subtitle }}</p>
+  </div>
+  {% if duration %}
+  <div class="flex-shrink-0 flex items-center px-3 bg-loge-800 text-white text-xs font-medium whitespace-nowrap">{{ duration }}</div>
+  {% endif %}
+</div>
+{% endmacro %}
+
+{% macro retenir(items, title='✦ À retenir absolument') %}
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
+  <p class="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">{{ title }}</p>
+  <ul class="space-y-1.5">
+    {% for it in items %}
+    <li class="text-sm text-amber-800 flex gap-2"><span class="text-amber-500 flex-shrink-0">→</span><span>{{ it|safe }}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endmacro %}
+
+{% macro qa(question, answer) %}
+<div class="py-3 border-b border-gray-100 last:border-0">
+  <p class="text-sm font-semibold text-gray-800 mb-1">{{ question }}</p>
+  <p class="text-sm text-gray-600 leading-relaxed">{{ answer|safe }}</p>
+</div>
+{% endmacro %}
+
+{% macro triade(nom, couleur_bg, couleur_text, voyage, items, resume) %}
+<div class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-4">
+  <div class="px-4 py-3 {{ couleur_bg }}">
+    <p class="font-semibold text-sm {{ couleur_text }}">Triade {{ nom }}</p>
+    <p class="text-xs {{ couleur_text }} opacity-80 italic mt-0.5">{{ voyage }}</p>
+  </div>
+  <div class="p-4">
+    <table class="w-full text-sm mb-3">
+      <thead>
+        <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+          <th class="py-1.5 pr-3 font-medium w-28">Outil</th>
+          <th class="py-1.5 pr-3 font-medium">Usage opératif</th>
+          <th class="py-1.5 font-medium">Sens symbolique</th>
+        </tr>
+      </thead>
+      <tbody class="divide-y divide-gray-50">
+        {% for outil, usage, sens in items %}
+        <tr>
+          <td class="py-2 pr-3 font-semibold text-gray-800 align-top whitespace-nowrap">{{ outil }}</td>
+          <td class="py-2 pr-3 text-gray-500 align-top">{{ usage }}</td>
+          <td class="py-2 text-gray-700 align-top">{{ sens|safe }}</td>
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+    <div class="bg-gray-50 rounded-lg p-3">
+      <p class="text-xs font-semibold text-gray-500 mb-1">Résumé {{ nom }}</p>
+      <p class="text-sm text-gray-700">{{ resume|safe }}</p>
+    </div>
+  </div>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <a href="/formation" class="text-sm text-loge-700 hover:underline font-medium">← Formation</a>
+    {% if pdf_document_id %}
+    <a href="/documents/file/{{ pdf_document_id }}/download" class="inline-flex items-center gap-1.5 bg-loge-700 hover:bg-loge-800 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
+      ⬇ Télécharger la fiche PDF
+    </a>
+    {% endif %}
+  </div>
+
+  <div class="text-center mb-8">
+    <div class="text-amber-500 text-sm tracking-widest mb-2">★ ★ ★</div>
+    <h1 class="text-2xl font-bold text-gray-900">Pierre Taillée — Compagnon</h1>
+    <p class="text-sm text-gray-400 mt-1 italic">Guide de révision — examen de passage Compagnon à Compagnon-Accompli</p>
+  </div>
+
+  <!-- Navigation rapide -->
+  <div class="flex flex-wrap gap-1.5 justify-center mb-8">
+    <a href="#prerequis" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Prérequis</a>
+    <a href="#secrets" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Secrets du grade</a>
+    <a href="#outils" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Triades d'outils</a>
+    <a href="#voyages" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">5 voyages</a>
+    <a href="#tapis" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Tapis &amp; Étoile</a>
+    <a href="#livre-voyage" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Livre du Voyage</a>
+    <a href="#chef-doeuvre" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Chef-d'œuvre</a>
+    <a href="#nom" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Nom compagnonnique</a>
+    <a href="#memo" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Mémo</a>
+  </div>
+
+  <!-- Intro -->
+  <div class="bg-amber-50 border border-amber-200 rounded-xl p-5 mb-10 text-sm text-amber-900 leading-relaxed">
+    <p class="font-semibold mb-1">⚠️ Esprit de ce document</p>
+    Ce guide est une aide à la réflexion, <b>non un script à mémoriser</b>. L'examen est un échange sincère avec le Vénérable Maître : aucun document préparé ne sera accepté en loge. L'enjeu est de montrer que tu as vécu et intériorisé ton parcours.
+  </div>
+
+  <!-- I. Checklist des prérequis -->
+  <div id="prerequis" class="mb-10 scroll-mt-4" x-data="{
+    items: [
+      'Chef-d\'œuvre réalisé — présenté sous forme de planche en tenue.',
+      '7 tenues minimum au 2e degré — sur une durée d\'au moins un an.',
+      '9 loges visitées sur 6 orients différents — dont plusieurs loges fondatrices.',
+      '3 hauts lieux de bâtisseurs visités — dont Metz, Toul et Verdun.',
+      'Lecture et réflexion sur les outils et symboles du grade.',
+      'Choix de 3 vertus par ordre de préférence — pour le nom compagnonnique.',
+      'Article XII d\'Euclide su et compris — pas récité mécaniquement.',
+    ],
+    checked: [],
+    toggle(i) { this.checked.includes(i) ? this.checked = this.checked.filter(x => x !== i) : this.checked.push(i) },
+  }">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">✦ I. Checklist des prérequis</p>
+    <p class="text-xs text-gray-400 italic mb-3">Avant de te présenter devant le Vénérable Maître, vérifie que tu remplis l'ensemble des conditions suivantes. Touche chaque ligne pour la cocher.</p>
+    <p class="text-xs font-medium text-gray-500 mb-1.5" x-text="checked.length + ' / ' + items.length + ' conditions remplies'"></p>
+    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
+      <div class="h-full bg-loge-700 rounded-full transition-all" :style="`width: ${checked.length / items.length * 100}%`"></div>
+    </div>
+    <ul class="space-y-1.5">
+      <template x-for="(item, i) in items" :key="i">
+        <li @click="toggle(i)"
+            class="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer border transition-colors"
+            :class="checked.includes(i) ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'">
+          <span class="w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                :class="checked.includes(i) ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-gray-300'"
+                x-text="checked.includes(i) ? '✓' : ''"></span>
+          <span class="text-sm" :class="checked.includes(i) ? 'line-through opacity-75' : ''" x-text="item"></span>
+        </li>
+      </template>
+    </ul>
+  </div>
+
+  <!-- II. Les secrets du grade -->
+  <div id="secrets" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('◈', "Les secrets du grade à maîtriser", "2.1 — Signes et reconnaissance") }}
+    <div class="p-5">
+      {{ qa("Signe d'ordre", "Dit aussi « <b>signe pectoral</b> ». De la position d'ordre, décrire une équerre en passant devant la poitrine. Donné 3 fois en entrant : au 2d Surv∴, au 1er Surv∴, au V∴M∴") }}
+      {{ qa("Position d'ordre", "Main droite à plat sur le cœur, pouce à l'équerre. Pieds en équerre, pied droit en avant.") }}
+      {{ qa("Attouchement (marque)", "Pouce droit plié en équerre : <b>1 fois</b> sur la 1ère jointure de l'index, <b>2 fois</b> sur la 1ère jointure du médius. Toujours redonner la marque.") }}
+      {{ qa("Âge symbolique", "Cinq ans.") }}
+      {{ qa("Mot Sacré", "<b>BOAZ</b> — donné en épelant lettre par lettre avec son partenaire.") }}
+      {{ qa("Mot de passe", "<b>Schibboleth</b> — « nombreux comme les épis de blé »") }}
+      {{ qa("Batterie", "oo o o o (2 frappés, puis 3 frappés séparés)") }}
+      {{ qa("Acclamation", "Liberté ! Égalité ! Fraternité !") }}
+      {{ qa("Tablier", "Tablier d'Apprenti dont la bavette est abaissée.") }}
+      {{ qa("Maxime du grade", "<i>Sapere Aude</i> — « Ose connaître »") }}
+      {{ qa("Fleur du grade", "La rose d'or.") }}
+      {{ qa("Se reconnaître Compagnon", "Réponse rituelle : « Je connais l'Étoile et la lettre G. »") }}
+      {{ retenir([
+        "BOAZ = Mot Sacré, épelé lettre par lettre. Schibboleth = Mot de passe.",
+        "Signe d'ordre = signe pectoral, donné 3 fois en entrant (2d Surv∴, 1er Surv∴, V∴M∴).",
+        "Marque : 1 pression sur l'index, 2 pressions sur le médius — toujours la redonner.",
+        "Maxime : Sapere Aude. Fleur : la rose d'or. Âge symbolique : 5 ans.",
+      ]) }}
+    </div>
+  </div>
+
+  <!-- III. Triades d'outils -->
+  <div id="outils" class="mb-6 scroll-mt-4">
+    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-4">
+      {{ section_header('⚒', "Les trois triades d'outils symboliques", "C'est le cœur de l'examen. Présente physiquement les outils et explique leur sens — en pratique puis en théorie.") }}
+    </div>
+
+    {{ triade("FORCE", "bg-loge-700", "text-white", "1er voyage — Apprenti", [
+      ("Levier", "Arracher la pierre de son gisement, la déplacer, l'orienter.", "Savoir se mettre en mouvement, rompre avec l'inertie."),
+      ("Maillet", "Dégrossir la pierre brute.", "Discipliner sa volonté, frapper juste sans brutalité."),
+      ("Ciseau", "Tailler, sculpter.", "Affiner sa pensée, ôter ce qui est superflu en soi."),
+    ], "Se vaincre et se rendre libre. Dégrossir sa Pierre, c'est rompre avec des habitudes de pensée et ouvrir son esprit.") }}
+
+    {{ triade("SAGESSE", "bg-loge-800", "text-white", "2e voyage — Étoile", [
+      ("Équerre", "Rectifier et ordonner la pierre.", "Rectitude d'esprit, respect des lois et règlements de la maçonnerie."),
+      ("Règle", "Mesurer et tracer.", "Le savoir, le perfectionnement, la loi maçonnique."),
+      ("Compas", "Tracer des cercles, mesurer des distances.", "L'esprit qui s'ouvre à la réflexion et conduit à la connaissance."),
+    ], "Enrichir sa pensée, développer sa conscience, gagner en dignité. L'Étoile Flamboyante est tracée à la Règle et au Compas.") }}
+
+    {{ triade("BEAUTÉ", "bg-amber-600", "text-white", "3e, 4e voyages — Œuvre commune", [
+      ("Niveau", "Vérifier l'horizontale.", "Égalité : les hommes et femmes sont égaux en droit et en devoir."),
+      ("Perpendiculaire (fil à plomb)", "Vérifier l'aplomb.", "Connaissance et rigueur, prévenir les erreurs de la construction humaine."),
+      ("Truelle", "Répandre le ciment, lier les pierres, lisser les surfaces.", "Amour fraternel qui unit tous les maçons. Symbole de la perfection."),
+    ], "L'œuvre individuelle devient œuvre commune. FORCE pour entreprendre et inventer ; SAGESSE pour réaliser avec mesure ; BEAUTÉ pour élever l'esprit.") }}
+
+    <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 text-sm text-loge-800">
+      💡 Les trois secrets d'un bon Compagnon : la <b>Taille</b>, le <b>Trait</b>, la <b>Pose</b>.
+    </div>
+  </div>
+
+  <!-- IV. Les cinq voyages -->
+  <div id="voyages" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('↻', "Les cinq voyages symboliques", "Tu devras décrire l'un des cinq voyages et en interpréter la signification.") }}
+    <div class="p-5">
+      <div class="overflow-x-auto mb-4">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+              <th class="py-2 pr-3 font-medium">Voyage</th>
+              <th class="py-2 pr-3 font-medium">Outil</th>
+              <th class="py-2 font-medium">Ce qu'il faut savoir</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% set voyages = [
+              ("1er", "Équerre", "4e marche — Arithmétique (1ère Science Libérale). Un tour de loge accompagné par le Maître des Cérémonies. Apprentissage de la rectitude : rectifier sa pierre, rectifier sa vie."),
+              ("2e", "Règle + Compas", "5e marche — Géométrie (2e Science Libérale). Voyage interrompu pour assister au Tracé de l'Étoile. Découverte du Trait et de l'harmonie universelle."),
+              ("3e", "Niveau + Perpendiculaire", "6e marche — Musique (3e Science Libérale). Premier voyage sans accompagnateur : l'Étoile seule guide. Autonomie, responsabilité de son cheminement."),
+              ("4e", "Truelle", "7e marche — Astronomie (4e Science Libérale). Avec la Truelle s'achève l'enseignement des trois triades. La Pose : poser et sceller sa pierre aux autres."),
+              ("5e", "Méditation (sans outils)", "Transmission de la lettre G. La qualité de l'esprit qui ne jette pas d'ombre sur l'ouvrage. L'Étoile est allumée. Le candidat peut franchir le Porche."),
+            ] %}
+            {% for num, outil, texte in voyages %}
+            <tr>
+              <td class="py-2.5 pr-3 font-bold text-loge-700 align-top whitespace-nowrap">{{ num }}</td>
+              <td class="py-2.5 pr-3 font-semibold text-gray-800 align-top whitespace-nowrap">{{ outil }}</td>
+              <td class="py-2.5 text-gray-600 align-top">{{ texte }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+      <div class="bg-gray-50 rounded-lg p-3">
+        <p class="text-xs font-semibold text-gray-500 mb-1.5">Les 4 Sciences Libérales (Quadrivium)</p>
+        <p class="text-sm text-gray-700">4e marche → Arithmétique · 5e marche → Géométrie · 6e marche → Musique · 7e marche → Astronomie.</p>
+        <p class="text-xs text-gray-500 mt-1.5">Ces marches s'ajoutent aux 3 premières (Trivium : Grammaire, Rhétorique, Logique) déjà gravies à la réception en Loge d'Apprenti.</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- V. Tapis & Étoile -->
+  <div id="tapis" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('★', "Le Tapis de Loge & l'Étoile Flamboyante", "") }}
+    <div class="p-5">
+      <p class="text-xs font-semibold uppercase tracking-wide text-loge-700 mb-2">5.1 — Le Tapis de Loge du Compagnon</p>
+      {{ qa("Carré-long jaune bordé de bleu", "Représente le Monde, dans lequel le Compagnon a trois devoirs.") }}
+      {{ qa("Le carré-long", "Symbolise la Terre.") }}
+      {{ qa("La bordure bleue", "Symbolise les eaux qui délimitent la Terre.") }}
+      {{ qa("Ce qui figure sur le Tapis", "Un porche grand ouvert entre deux colonnes ; trois fenêtres en équerre ; le Soleil d'or, la Lune et les étoiles d'argent ; sous le Fil à Plomb, l'Étoile Flamboyante avec la lettre G en son centre ; la corde nouée.") }}
+
+      <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 text-sm text-loge-800 my-4">
+        <p class="font-semibold mb-1">Les 3 devoirs du Compagnon</p>
+        Voyager pour découvrir · Étudier pour savoir · Travailler pour connaître.
+      </div>
+
+      <p class="text-xs font-semibold uppercase tracking-wide text-loge-700 mt-5 mb-2">5.2 — L'Étoile Flamboyante et la lettre G</p>
+      {{ qa("L'Étoile Flamboyante (pentagramme)", "Symbole universel de l'harmonie : présent dans toutes les grandes civilisations, héritage pythagoricien, armature secrète des cathédrales.") }}
+      {{ qa("La lettre G en son centre", "<b>Géométrie</b> — fondement de l'Art Royal. Par extension : G∴A∴D∴L∴U∴. « Elle règne sur les Règles de l'Art et de la Proportion. Toutes les Sciences sont ordonnées par elle. »") }}
+      {{ qa("Le nombre Cinq", "La divine proportion (nombre d'or, Phi). L'homme inscrit dans l'étoile (Agrippa). L'harmonie entre matière et esprit. Âge symbolique du Compagnon.") }}
+      {{ qa("Tracée à la Règle et au Compas", "Deux Compagnons tracent l'Étoile lors du 2e voyage. Symbole de la pensée libre et de la clarté intérieure.") }}
+    </div>
+  </div>
+
+  <!-- VI. Livre du Voyage -->
+  <div id="livre-voyage" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('✈', "Le Livre du Voyage — comment le présenter", "Un compte-rendu personnel de tes visites en Loge, précédant l'interrogation sur la Pierre Taillée.") }}
+    <div class="p-5">
+      <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 text-sm text-loge-800 mb-4">
+        <p class="font-semibold mb-1">📍 Ce n'est pas un rapport formel</p>
+        Le Livre du Voyage est le récit de ton expérience. Parle de ce que tu as vécu, ressenti, découvert. Évoque 2 ou 3 loges de manière précise plutôt que de lister toutes les visites superficiellement.
+      </div>
+
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">Structure suggérée (3 minutes)</p>
+      <div class="bg-gray-50 rounded-lg p-4 mb-4">
+        <ol class="list-decimal list-inside space-y-1.5 text-sm text-gray-700">
+          <li>Contextualiser : combien de loges, sur quels orients, pendant combien de temps.</li>
+          <li>Partager 1 ou 2 moments marquants : une tenue, une rencontre, un symbole découvert ailleurs.</li>
+          <li>Tirer une leçon sur ce que ces voyages t'ont apporté pour ton propre cheminement.</li>
+          <li>Faire le lien avec les hauts lieux visités (Metz, Toul, Verdun) et ce qu'ils évoquent pour un bâtisseur.</li>
+        </ol>
+      </div>
+
+      <div class="bg-amber-50 border border-amber-200 rounded-xl p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">Questions que le V∴M∴ pourrait poser</p>
+        <ul class="space-y-1 text-sm text-amber-800">
+          <li>Quelle loge t'a le plus marqué et pourquoi ?</li>
+          <li>Qu'as-tu découvert en visitant d'autres orients que tu n'avais pas vu dans ta propre loge ?</li>
+          <li>Qu'est-ce que ces visites t'ont appris sur toi-même ?</li>
+        </ul>
+      </div>
+    </div>
+  </div>
+
+  <!-- VII. Pierre Taillée / Chef-d'œuvre -->
+  <div id="chef-doeuvre" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('⛏', "La Pierre Taillée — présenter ton chef-d'œuvre", "Le Chef-d'Œuvre est la manifestation concrète de ton parcours.") }}
+    <div class="p-5">
+      <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">4 dimensions à couvrir (4 minutes)</p>
+      <div class="bg-gray-50 rounded-lg p-4 mb-4">
+        <ul class="space-y-1.5 text-sm text-gray-700">
+          <li><b>1.</b> Quel était le sujet et pourquoi tu l'as choisi ?</li>
+          <li><b>2.</b> Comment tu l'as réalisé — les obstacles, les ajustements, ce que la pratique a changé à ta vision de départ.</li>
+          <li><b>3.</b> Quelle symbolique maçonnique tu y as inscrite — en quoi ce chef-d'œuvre est l'expression de ton grade.</li>
+          <li><b>4.</b> Ce que tu transmets à la loge grâce à cet ouvrage.</li>
+        </ul>
+      </div>
+
+      {{ retenir([
+        "Pierre brute (Apprenti) : dégrossir, rompre avec ce qu'on était.",
+        "Pierre taillée (Compagnon) : tailler avec précision, polir, rendre la pierre apte à s'inscrire dans l'édifice commun.",
+        "Le Chef-d'Œuvre n'est pas une œuvre parfaite. C'est un chantier vrai, qui fait de toi un bâtisseur de sens.",
+      ], title="Distinction importante") }}
+    </div>
+  </div>
+
+  <!-- VIII. Cérémonie du nom compagnonnique -->
+  <div id="nom" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('✦', "La cérémonie du nom compagnonnique", "8.1 — L'Article XII de l'Art de géométrie selon Euclide") }}
+    <div class="p-5">
+      <div class="bg-gray-50 border-l-4 border-l-loge-500 rounded-r-lg p-4 mb-2">
+        <p class="text-sm text-gray-700 italic leading-relaxed">« Un maçon doit être probe, où qu'il se trouve. Il ne blâmera pas l'œuvre d'autrui s'il tient à garder son propre honneur. Qu'il fasse un éloge équitable de l'œuvre, grâce au savoir donné par le G∴A∴D∴L∴U∴ et la rende encore meilleure en y collaborant parfaitement. »</p>
+      </div>
+      <p class="text-xs text-gray-500 mb-6">Ce texte n'est pas à réciter mécaniquement. Tu dois pouvoir en expliquer le sens : probité, humilité, collaboration, amélioration collective de l'œuvre commune.</p>
+
+      <p class="text-xs font-semibold uppercase tracking-wide text-loge-700 mb-2">8.2 — Le symbole du grade qui t'a le plus marqué</p>
+      <p class="text-xs text-gray-400 italic mb-3">Prépare une réponse authentique. Touche un symbole pour voir sa signification :</p>
+      <div class="grid sm:grid-cols-2 gap-3 mb-6">
+        {% set symbols = [
+          ("L'Étoile Flamboyante", "Symbole de la pensée libre, de la clarté intérieure, de l'harmonie universelle."),
+          ("La Pierre Taillée", "Le travail sur soi, le passage de la matière brute à l'ouvrage précis."),
+          ("Le Porche entre les deux colonnes", "Le seuil : nul ne peut le franchir sans posséder le Savoir requis."),
+          ("Les trois triades d'outils", "La progression : Force → Sagesse → Beauté, du travail individuel à l'œuvre commune."),
+          ("La lettre G", "L'art, la proportion, la géométrie — et par extension, le G∴A∴D∴L∴U∴"),
+          ("La Corde nouée", "Le lien entre tous les compagnons, la fraternité qui parcourt la loge."),
+        ] %}
+        {% for name, prompt in symbols %}
+        <div x-data="{open:false}" @click="open = !open"
+             class="bg-white border rounded-xl p-4 cursor-pointer transition-colors"
+             :class="open ? 'border-loge-400 shadow-sm' : 'border-gray-200 hover:border-loge-200'">
+          <p class="font-semibold text-gray-800 text-sm">{{ name }}</p>
+          <p x-show="open" x-cloak class="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100 leading-relaxed">{{ prompt }}</p>
+        </div>
+        {% endfor %}
+      </div>
+
+      <p class="text-xs font-semibold uppercase tracking-wide text-loge-700 mb-2">8.3 — Les 35 vertus : choisis-en 3</p>
+      <p class="text-sm text-gray-600 mb-3">Choisis 3 vertus par ordre décroissant de préférence. La vertu principale deviendra la clef de ton nom : <b>[Prénom], la [Vertu], de [Ville ou Région]</b>. Pense aussi à indiquer ta ville d'origine.</p>
+      <div class="bg-gray-50 rounded-lg p-4 mb-4">
+        <p class="text-sm text-gray-700 leading-relaxed">
+          {% set vertus = ["l'Amitié","la Bonté","la Clairvoyance","la Clef des Cœurs","la Confiance","la Constance","la Discipline","la Droiture","l'Espérance","la Fermeté","la Fidélité","la Franchise","la Fraternité","la Gaieté","la Générosité","la Hardiesse","l'Honnêteté","l'Humilité","la Liberté","la Loyauté","la Modestie","la Patience","la Persévérance","la Pertinence","la Probité","la Prudence","la Sagesse","la Sérénité","la Sincérité","la Ténacité","la Tolérance","la Tranquillité","la Vaillance","la Vérité","la Volonté"] %}
+          {{ vertus|join(" — ") }}
+        </p>
+      </div>
+      <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 text-sm text-loge-800">
+        💡 Prépare mentalement tes 3 vertus et ta ville d'origine avant l'examen — tu n'as pas besoin de les écrire, juste d'y avoir réfléchi.
+      </div>
+    </div>
+  </div>
+
+  <!-- IX. Mémo rapide -->
+  <div id="memo" class="mb-10 scroll-mt-4">
+    <p class="text-xs font-semibold uppercase tracking-widest text-amber-500 text-center">Fiche mémo</p>
+    <h2 class="text-lg font-bold text-gray-900 mt-1 mb-4 text-center">⚡ En un coup d'œil</h2>
+    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+              <th class="px-4 py-2 font-medium">Question clef</th>
+              <th class="px-4 py-2 font-medium">Réponse courte</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% set memo = [
+              ("Âge symbolique ?", "5 ans"),
+              ("Mot Sacré ?", "BOAZ (épelé)"),
+              ("Mot de passe ?", "Schibboleth = épis de blé"),
+              ("Maxime du grade ?", "Sapere Aude"),
+              ("Fleur du grade ?", "La rose d'or"),
+              ("Tapis de Loge ?", "Carré-long jaune bordé de bleu = le Monde"),
+              ("3 devoirs du Compagnon ?", "Voyager / Étudier / Travailler"),
+              ("Triade FORCE ?", "Levier, Maillet, Ciseau"),
+              ("Triade SAGESSE ?", "Équerre, Règle, Compas"),
+              ("Triade BEAUTÉ ?", "Niveau, Perpendiculaire, Truelle"),
+              ("3 secrets du Compagnon ?", "La Taille, le Trait, la Pose"),
+              ("Lettre G ?", "Géométrie + G∴A∴D∴L∴U∴"),
+              ("5 voyages = ?", "Équerre / Règle+Compas / Niveau+Perp. / Truelle / Méditation"),
+              ("Reconnaître un Compagnon ?", "« Je connais l'Étoile et la lettre G »"),
+              ("Article XII d'Euclide ?", "Probité, éloge équitable, collaboration parfaite"),
+            ] %}
+            {% for q, r in memo %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2.5 font-medium text-gray-800">{{ q }}</td>
+              <td class="px-4 py-2.5 text-loge-800 bg-loge-50/50 font-medium">{{ r }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Mot de fin -->
+  <div class="bg-loge-900 text-white rounded-2xl p-8 text-center mb-6">
+    <div class="w-16 h-0.5 bg-amber-400 mx-auto mb-4"></div>
+    <h3 class="font-semibold text-amber-200 mb-3">🔑 Dernier rappel avant l'examen</h3>
+    <p class="text-sm text-loge-100 leading-relaxed max-w-md mx-auto mb-2">L'examen dure 10 minutes maximum. Ce n'est pas un interrogatoire mais une conversation. Sois sincère, parle de ce que tu as vécu.</p>
+    <p class="text-sm text-loge-100 leading-relaxed max-w-md mx-auto">Le Vénérable Maître cherche à voir un Frère ou une Sœur qui a vraiment cheminé — pas quelqu'un qui a appris des réponses par cœur.</p>
+    <p class="text-xs tracking-widest uppercase text-amber-300 mt-5">Sapere Aude — Ose connaître</p>
+  </div>
+
+  <p class="text-center text-xs text-gray-400">R∴L∴ Socrate – Raison &amp; Progrès · Orient de Pont-à-Mousson · G∴O∴D∴F∴ · RFiPhi</p>
+
+</div>
+{% endblock %}

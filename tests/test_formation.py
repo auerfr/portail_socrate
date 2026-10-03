@@ -28,3 +28,9 @@ async def test_formation_godf_requires_auth(client: AsyncClient):
 async def test_formation_admin_requires_auth(client: AsyncClient):
     resp = await client.get("/admin/formation/godf", follow_redirects=False)
     assert resp.status_code in (302, 303, 401)
+
+
+@pytest.mark.asyncio
+async def test_formation_compagnon_requires_auth(client: AsyncClient):
+    resp = await client.get("/formation/compagnon", follow_redirects=False)
+    assert resp.status_code in (302, 303, 401)
