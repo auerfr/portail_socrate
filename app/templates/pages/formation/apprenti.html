@@ -1,456 +1,398 @@
 {% extends "base.html" %}
 {% block title %}Formation — Pierre Dégrossie (Apprenti){% endblock %}
 
-{% block content %}
-<div class="fa-guide">
+{% macro section_header(num, title, subtitle, duration='') %}
+<div class="flex items-stretch">
+  <div class="w-12 flex-shrink-0 flex items-center justify-center bg-loge-900 text-white font-bold">{{ num }}</div>
+  <div class="flex-1 bg-loge-700 text-white px-4 py-3 min-w-0">
+    <h2 class="font-semibold text-sm">{{ title }}</h2>
+    <p class="text-xs text-loge-100 italic mt-0.5">{{ subtitle }}</p>
+  </div>
+  {% if duration %}
+  <div class="flex-shrink-0 flex items-center px-3 bg-loge-800 text-white text-xs font-medium whitespace-nowrap">{{ duration }}</div>
+  {% endif %}
+</div>
+{% endmacro %}
 
-  <div class="fa-topbar">
-    <a href="/formation" class="fa-back">← Formation</a>
+{% macro retenir(items) %}
+<div class="bg-amber-50 border border-amber-200 rounded-xl p-4 mt-4">
+  <p class="text-xs font-semibold uppercase tracking-wide text-amber-700 mb-2">✦ À retenir absolument</p>
+  <ul class="space-y-1.5">
+    {% for it in items %}
+    <li class="text-sm text-amber-800 flex gap-2"><span class="text-amber-500 flex-shrink-0">→</span><span>{{ it|safe }}</span></li>
+    {% endfor %}
+  </ul>
+</div>
+{% endmacro %}
+
+{% macro qa(question, answer) %}
+<div class="py-3 border-b border-gray-100 last:border-0">
+  <p class="text-sm font-semibold text-gray-800 mb-1">{{ question }}</p>
+  <p class="text-sm text-gray-600 leading-relaxed">{{ answer|safe }}</p>
+</div>
+{% endmacro %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <a href="/formation" class="text-sm text-loge-700 hover:underline font-medium">← Formation</a>
     {% if pdf_document_id %}
-    <a href="/documents/file/{{ pdf_document_id }}/download" class="fa-dl">⬇ Télécharger la fiche PDF</a>
+    <a href="/documents/file/{{ pdf_document_id }}/download" class="inline-flex items-center gap-1.5 bg-loge-700 hover:bg-loge-800 text-white text-xs font-medium px-3 py-2 rounded-lg transition-colors">
+      ⬇ Télécharger la fiche PDF
+    </a>
     {% endif %}
   </div>
 
-  <div class="fa-header">
-    <div class="hob">G∴O∴D∴F∴ · Rite Français Philosophique · Édition 6025</div>
-    <div class="orline"></div>
-    <div class="htit">Guide de Révision</div>
-    <div class="hsous">Examen de passage — Apprenti à Apprenti Accompli</div>
-    <div class="hloge">R∴L∴ Socrate – Raison &amp; Progrès · Orient de Pont-à-Mousson</div>
+  <div class="text-center mb-8">
+    <div class="text-amber-500 text-sm tracking-widest mb-2">★ ★ ★</div>
+    <h1 class="text-2xl font-bold text-gray-900">Pierre Dégrossie — Apprenti</h1>
+    <p class="text-sm text-gray-400 mt-1 italic">Guide de révision — examen de passage Apprenti à Apprenti Accompli</p>
   </div>
 
-  <div class="fa-subnav" id="fa-subnav">
-    <a href="#fa-intro">Intro</a>
-    <a href="#fa-seq1">① Outils</a>
-    <a href="#fa-seq2">② Organisation</a>
-    <a href="#fa-seq3">③ Symbole</a>
-    <a href="#fa-seq4">④ Rituel</a>
-    <a href="#fa-seq5">⑤ Parcours</a>
-    <a href="#fa-chiffres">Chiffres</a>
-    <a href="#fa-comparatif">RF/RFiPhi</a>
-    <a href="#fa-checklist">Checklist</a>
+  <!-- Navigation rapide -->
+  <div class="flex flex-wrap gap-1.5 justify-center mb-8">
+    <a href="#seq1" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">① Outils</a>
+    <a href="#seq2" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">② Organisation</a>
+    <a href="#seq3" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">③ Symbole</a>
+    <a href="#seq4" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">④ Rituel</a>
+    <a href="#seq5" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">⑤ Parcours</a>
+    <a href="#fiches" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Fiches mémo</a>
+    <a href="#checklist" class="text-xs font-medium text-loge-700 bg-loge-50 hover:bg-loge-100 rounded-full px-3 py-1.5 transition-colors">Checklist</a>
   </div>
 
-  <div class="wrap">
+  <!-- Intro -->
+  <div class="bg-loge-50 border border-loge-200 rounded-xl p-5 mb-6 text-sm text-gray-700 leading-relaxed">
+    Ce guide est fait <b>pour toi</b>. Tu vas présenter ta Pierre Dégrossie, puis répondre à quelques questions posées par le Vénérable Maître et les Surveillants. <b>L'examen dure 15 minutes au maximum.</b> Il est bienveillant — il s'agit de partager ce que tu as appris et vécu, pas de réciter parfaitement.
+    <br><br>
+    Ce guide reprend exactement les cinq séquences dans l'ordre où elles se dérouleront.
+  </div>
 
-  <!-- INTRO -->
-  <div id="fa-intro" class="sec" style="padding-top:1.5rem">
-    <div class="ibox">
-      Ce guide est fait <strong>pour toi</strong>. Tu vas présenter ta Pierre Dégrossie, puis répondre à quelques questions posées par le Vénérable Maître et les Surveillants. <strong>L'examen dure 15 minutes au maximum.</strong> Il est bienveillant — il s'agit de partager ce que tu as appris et vécu, pas de réciter parfaitement.<br><br>
-      Ce guide reprend exactement les cinq séquences dans l'ordre où elles se dérouleront.
+  <!-- Coup d'œil -->
+  <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-2">L'examen en un coup d'œil</p>
+  <div class="bg-white border border-gray-200 rounded-2xl divide-y divide-gray-50 mb-10">
+    <div class="flex items-center gap-3 px-4 py-2.5">
+      <span class="w-7 h-7 rounded-full bg-amber-500 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">◉</span>
+      <span class="flex-1 text-sm font-medium text-gray-800">Préambule — Ta Pierre Dégrossie</span>
+      <span class="text-xs text-gray-400 italic flex-shrink-0">hors chrono</span>
     </div>
-    <div class="pano-tit">L'examen en un coup d'œil</div>
-    <div class="pano">
-      <div class="pnum pre">◉</div><div class="plab">Préambule — Ta Pierre Dégrossie</div><div class="pdur">hors chrono</div>
-      <div class="pnum">①</div><div class="plab">Les outils du grade</div><div class="pdur">≈ 3 min</div>
-      <div class="pnum">②</div><div class="plab">L'organisation de l'Obédience et de la Loge</div><div class="pdur">≈ 4 min</div>
-      <div class="pnum">③</div><div class="plab">Interprétation personnelle d'un symbole</div><div class="pdur">≈ 3 min</div>
-      <div class="pnum">④</div><div class="plab">Les éléments rituels du RFiPhi</div><div class="pdur">≈ 3 min</div>
-      <div class="pnum">⑤</div><div class="plab">Ton parcours et ton engagement</div><div class="pdur">≈ 2 min</div>
+    <div class="flex items-center gap-3 px-4 py-2.5">
+      <span class="w-7 h-7 rounded-full bg-loge-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">①</span>
+      <span class="flex-1 text-sm font-medium text-gray-800">Les outils du grade</span>
+      <span class="text-xs text-gray-400 italic flex-shrink-0">≈ 3 min</span>
     </div>
-  </div>
-
-  <!-- PRÉAMBULE -->
-  <div class="sec">
-    <div class="sh"><div class="snum or">◉</div><div class="sinf"><h2>Préambule — Ta Pierre Dégrossie</h2><div class="sit">Le 2nd Surveillant propose au VM de t'autoriser à présenter ton travail. Le M des Cérémonies t'accompagne à l'Orient.</div></div></div>
-    <div class="enc"><div class="elb">Formule d'ouverture</div><div class="ebo">« VM et vous tous mes FF/SS, en vos grades et qualités… »
-(suivi de ta planche)</div></div>
-    <div class="enc"><div class="elb">Formule de clôture</div><div class="ebo">« VM et vous tous mes FF/SS, j'ai dit. »</div></div>
-    <div class="aor"><span class="emoji">💡</span>Ta planche n'a pas besoin d'être parfaite ni longue. Ce qui compte : que tu aies réfléchi, que tu parles de toi et de ton cheminement depuis ton initiation. L'examen s'ouvre juste après.</div>
-  </div>
-
-  <!-- SEQ 1 -->
-  <div id="fa-seq1" class="sec">
-    <div class="sh"><div class="snum">①</div><div class="sinf"><h2>Les outils du grade</h2><div class="sit">Trois questions liées. Pense à l'ordre des voyages — c'est le fil directeur.</div></div><div class="sdur">≈ 3 min</div></div>
-    <table class="qrtable">
-      <thead><tr><th style="width:38%">La question qui te sera posée</th><th>Ce que tu dois répondre</th></tr></thead>
-      <tbody>
-        <tr><td class="cq">Quels sont les trois outils de l'Apprenti — dans quel ordre ?</td><td class="cr">Le <strong>Levier</strong> (1er voyage), le <strong>Maillet</strong> (2e voyage), le <strong>Ciseau</strong> (3e voyage).
-Ils t'ont été remis progressivement lors de ta réception.</td></tr>
-        <tr><td class="cq">Quel est le sens symbolique de chacun ?</td><td class="cr"><strong>Levier :</strong> l'entraide, mouvoir ce qui semble inamovible.
-<strong>Maillet :</strong> la volonté, la force d'agir.
-<strong>Ciseau :</strong> le discernement, qui trace et grave dans la pierre.</td></tr>
-        <tr><td class="cq">Sur quoi l'Apprenti travaille-t-il ?</td><td class="cr">Sur la <strong>Pierre Brute</strong> — image de son propre être imparfait à dégrossir.
-Ses dimensions doivent contenir la Pierre Cubique à Pointe.
-C'est un travail intérieur avant d'être manuel.</td></tr>
-        <tr><td class="cq">Que viens-tu faire en Loge en tant que Franc-Maçon ?</td><td class="cr">« <strong>Dégrossir ma pierre.</strong> »
-— De quelle pierre s'agit-il ?
-« De celle du <strong>libre choix, du libre ouvrage et du libre examen.</strong> »</td></tr>
-      </tbody>
-    </table>
-    <div class="ret">
-      <div class="reth">✦ À retenir absolument</div>
-      <div class="reti">Ordre impératif : Levier → Maillet → Ciseau (ordre des voyages au RFiPhi).</div>
-      <div class="reti">Trois pierres en Loge : Brute (App) / Cubique à Pointe (Comp) / Gravée avec l'alphabet maçonnique (M).</div>
-      <div class="reti">La Pierre Brute a la forme grossière d'un cube et doit pouvoir contenir la Cubique à Pointe.</div>
+    <div class="flex items-center gap-3 px-4 py-2.5">
+      <span class="w-7 h-7 rounded-full bg-loge-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">②</span>
+      <span class="flex-1 text-sm font-medium text-gray-800">L'organisation de l'Obédience et de la Loge</span>
+      <span class="text-xs text-gray-400 italic flex-shrink-0">≈ 4 min</span>
+    </div>
+    <div class="flex items-center gap-3 px-4 py-2.5">
+      <span class="w-7 h-7 rounded-full bg-loge-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">③</span>
+      <span class="flex-1 text-sm font-medium text-gray-800">Interprétation personnelle d'un symbole</span>
+      <span class="text-xs text-gray-400 italic flex-shrink-0">≈ 3 min</span>
+    </div>
+    <div class="flex items-center gap-3 px-4 py-2.5">
+      <span class="w-7 h-7 rounded-full bg-loge-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">④</span>
+      <span class="flex-1 text-sm font-medium text-gray-800">Les éléments rituels du RFiPhi</span>
+      <span class="text-xs text-gray-400 italic flex-shrink-0">≈ 3 min</span>
+    </div>
+    <div class="flex items-center gap-3 px-4 py-2.5">
+      <span class="w-7 h-7 rounded-full bg-loge-700 text-white flex items-center justify-center text-xs font-bold flex-shrink-0">⑤</span>
+      <span class="flex-1 text-sm font-medium text-gray-800">Ton parcours et ton engagement</span>
+      <span class="text-xs text-gray-400 italic flex-shrink-0">≈ 2 min</span>
     </div>
   </div>
 
-  <!-- SEQ 2 -->
-  <div id="fa-seq2" class="sec">
-    <div class="sh"><div class="snum">②</div><div class="sinf"><h2>L'organisation de l'Obédience et de la Loge</h2><div class="sit">C'est la séquence la plus dense. Deux temps : ta Loge d'abord, la structure du GODF ensuite.</div></div><div class="sdur">≈ 4 min</div></div>
-    <p class="st2">2A — Ta Loge</p>
-    <table class="qrtable">
-      <thead><tr><th style="width:38%">La question</th><th>La réponse</th></tr></thead>
-      <tbody>
-        <tr><td class="cq">Comment s'appelle ta Loge ?</td><td class="cr"><strong>R∴L∴ Socrate – Raison &amp; Progrès</strong>, fondée en <strong>2022</strong>, Orient de <strong>Pont-à-Mousson</strong>, Grand Orient de France, <strong>Rite Français Philosophique</strong>.</td></tr>
-        <tr><td class="cq">Où se tient symboliquement la Loge au RFiPhi ?</td><td class="cr">Devant le <strong>Porche du Temple de Salomon</strong> — et non à l'intérieur.
-On dit « entrée de la <em>Loge</em> » et non « entrée du Temple ».</td></tr>
-        <tr><td class="cq">Combien faut-il de membres pour travailler régulièrement ? Qui sont les Cinq Lumières ?</td><td class="cr"><strong>Sept membres</strong> minimum.
-Trois dirigent (VM + 2 Surv), cinq éclairent avec l'Orateur et le Secrétaire — ce sont les <strong>Cinq Lumières</strong>.
-Sept pour travailler régulièrement.</td></tr>
-        <tr><td class="cq">Quels sont les premiers et seconds devoirs d'un FM en Loge ?</td><td class="cr"><strong>Premier :</strong> respecter la Loi du Silence pour garder le Secret qui nous unit.
-<strong>Second :</strong> participer avec zèle et dévouement à l'œuvre émancipatrice de la Franc-Maçonnerie.</td></tr>
-      </tbody>
-    </table>
-    <p class="st2" style="margin-top:1rem">2B — La structure du GODF</p>
-    <table class="qrtable">
-      <thead><tr><th style="width:38%">La question</th><th>La réponse</th></tr></thead>
-      <tbody>
-        <tr><td class="cq">Qu'est-ce que le Grand Orient de France ?</td><td class="cr">La <strong>1ère Obédience maçonnique française</strong> en nombre d'adhérents. Puissance Symbolique Régulière Souveraine. Fonctionne selon la loi de 1901. Siège : <strong>16, rue Cadet, Paris IX.</strong></td></tr>
-        <tr><td class="cq">Quels sont les trois pouvoirs du GODF ?</td><td class="cr"><strong>Législatif</strong> = Convent (1 Loge = 1 délégué = 1 voix, session annuelle fin août).
-<strong>Exécutif</strong> = Conseil de l'Ordre (37 membres, élit le Grand Maître).
-<strong>Judiciaire</strong> = CSJM (17 membres, 1/région, totalement indépendante).</td></tr>
-        <tr><td class="cq">Comment les Loges sont-elles organisées à l'échelle nationale ?</td><td class="cr">En <strong>17 régions</strong> maçonniques (max. 3 secteurs). Chaque région a un Congrès Régional (au moins 1 fois/an, Tenue au grade de Maître).</td></tr>
-        <tr><td class="cq">Qu'est-ce que la CSJM et quel est son principe fondamental ?</td><td class="cr">Le <strong>pouvoir judiciaire</strong> maçonnique, totalement indépendant.
-Principe : <strong>primauté à la conciliation</strong>.
-3 niveaux : Conseil de famille → Jury Fraternel Rég. (9 jurés) → CSJM (appel).</td></tr>
-        <tr><td class="cq">Qu'est-ce que l'IOSM ?</td><td class="cr"><strong>Instance Obédientielle de Solidarité Maçonnique</strong> : secours, assistance et conseils aux membres en difficulté ; aide aux conjoints et orphelins. <strong>17 membres</strong>. Aides : secours, exonération de capitation, prêt d'honneur.</td></tr>
-        <tr><td class="cq">Quel est l'art. 1er de la Constitution du GODF ?</td><td class="cr">Institution <strong>philanthropique, philosophique et progressive</strong>. Objet : recherche de la Vérité, étude de la Morale, pratique de la Solidarité. Principes : tolérance mutuelle, respect des autres et de soi-même, <strong>liberté absolue de conscience</strong>. Importance fondamentale à la <strong>Laïcité</strong>. Devise : <strong>Liberté, Égalité, Fraternité.</strong></td></tr>
-      </tbody>
-    </table>
-    <div class="ret">
-      <div class="reth">✦ À retenir absolument</div>
-      <div class="reti">3 pouvoirs : Convent (loi) · Conseil de l'Ordre (exécutif, 37 membres) · CSJM (justice, 17 membres).</div>
-      <div class="reti">1 Loge = 1 délégué = 1 voix au Convent. Le GM est élu parmi les 37 membres du CO.</div>
-      <div class="reti">CSJM : 3 niveaux. Principe fondamental : la primauté à la conciliation.</div>
-      <div class="reti">L'art. 1er est lu à chaque ouverture des travaux à Socrate — connais-le par cœur.</div>
+  <!-- Préambule -->
+  <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6">
+    {{ section_header('◉', "Préambule — Ta Pierre Dégrossie", "Le 2nd Surveillant propose au VM de t'autoriser à présenter ton travail. Le M des Cérémonies t'accompagne à l'Orient.") }}
+    <div class="p-5">
+      <div class="grid sm:grid-cols-2 gap-3 mb-4">
+        <div class="bg-gray-50 rounded-lg p-3">
+          <p class="text-xs font-semibold text-gray-500 mb-1">Formule d'ouverture</p>
+          <p class="text-sm text-gray-700 italic">« VM et vous tous mes FF/SS, en vos grades et qualités… » (suivi de ta planche)</p>
+        </div>
+        <div class="bg-gray-50 rounded-lg p-3">
+          <p class="text-xs font-semibold text-gray-500 mb-1">Formule de clôture</p>
+          <p class="text-sm text-gray-700 italic">« VM et vous tous mes FF/SS, j'ai dit. »</p>
+        </div>
+      </div>
+      <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 text-sm text-loge-800">
+        💡 Ta planche n'a pas besoin d'être parfaite ni longue. Ce qui compte : que tu aies réfléchi, que tu parles de toi et de ton cheminement depuis ton initiation. L'examen s'ouvre juste après.
+      </div>
     </div>
   </div>
 
-  <!-- SEQ 3 -->
-  <div id="fa-seq3" class="sec">
-    <div class="sh"><div class="snum">③</div><div class="sinf"><h2>Interprétation personnelle d'un symbole</h2><div class="sit">C'est la séquence la plus libre. Pas de bonne ou mauvaise réponse — ce qui compte, c'est que tu aies vraiment réfléchi.</div></div><div class="sdur">≈ 3 min</div></div>
-    <div class="enc"><div class="elb">Ce qu'on te demandera</div><div class="ebo">Choisis un symbole du grade d'Apprenti et donne-en une interprétation personnelle, basée sur ton vécu et les enseignements reçus.</div></div>
-    <p style="font-size:.85rem;color:var(--tx2);margin-bottom:.8rem;font-style:italic">Clique sur un symbole pour voir la piste de réflexion associée :</p>
-    <div class="symgrid">
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">La Pierre Brute</div><div class="symp">En quoi es-tu, toi, une pierre brute ? Qu'as-tu commencé à dégrossir depuis ton initiation ?</div></div>
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">Les trois outils</div><div class="symp">Lequel t'a le plus parlé ? Pourquoi ce symbole-là et pas un autre ?</div></div>
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">Les colonnes J et B</div><div class="symp">Pourquoi deux colonnes ? Que symbolise leur dualité Nord/Sud, bronze/argent ?</div></div>
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">Le tablier blanc</div><div class="symp">Emblème du travail. Que signifie le porter, la bavette relevée ? Qu'y a-t-il dans ce geste ?</div></div>
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">La Chaîne d'Union</div><div class="symp">Ce que tu ressens en la formant. Ce que ce cercle humain représente pour toi.</div></div>
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">Les trois bougies <span style="font-size:.7rem;color:var(--or)">(propre à Socrate)</span></div><div class="symp">Jaune = Soleil/levant · Rouge = lumière de la Loge · Bleu = journée entière. Qu'est-ce que la lumière maçonnique pour toi ?</div></div>
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">V.I.T.R.I.O.L.</div><div class="symp">« Visite l'intérieur de la Terre, en rectifiant tu trouveras la Pierre Cachée. » Qu'as-tu découvert de toi depuis ton initiation ?</div></div>
-      <div class="symc" onclick="faToggleSym(this)"><div class="symn">Le Tapis de Loge</div><div class="symp">Deux carrés — blanc (Soleil, Est) et noir (Lune, Ouest). Le porche à 7 marches. Que représente cette progression pour toi ?</div></div>
-    </div>
-    <div class="aor"><span class="emoji">💡</span>Prépare 2 ou 3 symboles à l'avance. Choisis celui qui te parle vraiment — pas celui que tu crois « correct ».</div>
-    <div class="grep">
-      <h4>Comment construire ta réponse en 4 temps</h4>
-      <ol><li>Nomme le symbole.</li><li>Décris ce qu'il représente rituellement (en une phrase).</li><li>Dis ce qu'il évoque pour toi personnellement — une expérience, une question, un changement.</li><li>Conclus en le reliant à ton chemin maçonnique.</li></ol>
+  <!-- Séquence 1 -->
+  <div id="seq1" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('①', "Les outils du grade", "Trois questions liées. Pense à l'ordre des voyages — c'est le fil directeur.", '≈ 3 min') }}
+    <div class="p-5">
+      {{ qa("Quels sont les trois outils de l'Apprenti — dans quel ordre ?", "Le <b>Levier</b> (1er voyage), le <b>Maillet</b> (2e voyage), le <b>Ciseau</b> (3e voyage). Ils t'ont été remis progressivement lors de ta réception.") }}
+      {{ qa("Quel est le sens symbolique de chacun ?", "<b>Levier :</b> l'entraide, mouvoir ce qui semble inamovible. <b>Maillet :</b> la volonté, la force d'agir. <b>Ciseau :</b> le discernement, qui trace et grave dans la pierre.") }}
+      {{ qa("Sur quoi l'Apprenti travaille-t-il ?", "Sur la <b>Pierre Brute</b> — image de son propre être imparfait à dégrossir. Ses dimensions doivent contenir la Pierre Cubique à Pointe. C'est un travail intérieur avant d'être manuel.") }}
+      {{ qa("Que viens-tu faire en Loge en tant que Franc-Maçon ?", "« <b>Dégrossir ma pierre.</b> » — De quelle pierre s'agit-il ? « De celle du <b>libre choix, du libre ouvrage et du libre examen.</b> »") }}
+      {{ retenir([
+        "Ordre impératif : Levier → Maillet → Ciseau (ordre des voyages au RFiPhi).",
+        "Trois pierres en Loge : Brute (App) / Cubique à Pointe (Comp) / Gravée avec l'alphabet maçonnique (M).",
+        "La Pierre Brute a la forme grossière d'un cube et doit pouvoir contenir la Cubique à Pointe.",
+      ]) }}
     </div>
   </div>
 
-  <!-- SEQ 4 -->
-  <div id="fa-seq4" class="sec">
-    <div class="sh"><div class="snum">④</div><div class="sinf"><h2>Les éléments rituels du RFiPhi</h2><div class="sit">Ces éléments sont propres à notre Rite. Certains diffèrent du RF standard. Il faut les connaître avec précision.</div></div><div class="sdur">≈ 3 min</div></div>
-    <div class="ard"><span class="emoji">⚠️</span>Le Mot de Passe n'est PAS le même qu'au RF. Au RFiPhi il est <strong>EMETH</strong> (= Vérité). C'est la question la plus discriminante de l'examen.</div>
-    <table class="qrtable">
-      <thead><tr><th style="width:38%">La question</th><th>La réponse</th></tr></thead>
-      <tbody>
-        <tr><td class="cq">Décris la position d'ordre.</td><td class="cr">Main droite sous la gorge, doigts serrés, pouce à l'équerre, coude baissé.
-Pieds en équerre, pied droit en avant, talon gauche derrière le talon droit.</td></tr>
-        <tr><td class="cq">Comment se nomme le signe d'ordre et que signifie-t-il ?</td><td class="cr">Le <strong>signe guttural</strong>.
-On trace une équerre : main horizontalement jusqu'à l'épaule droite, puis elle redescend.
-Sens : « Je préférerais avoir la gorge coupée plutôt que de manquer à mon serment. »</td></tr>
-        <tr><td class="cq">Comment se nomme la poignée de main et comment se donne-t-elle ?</td><td class="cr">La <strong>Marque</strong> — ou <strong>signe manuel</strong>.
-Pouce plié en équerre, 3 pressions sur la 1ère jointure de l'index (2 rapprochées, 1 espacée).
-Discrète. Se couvre de la main gauche à l'extérieur. On la redonne toujours.</td></tr>
-        <tr><td class="cq">Quel est le Mot Sacré et comment se donne-t-il ?</td><td class="cr"><strong>JAKHIN</strong> — nom de la colonne de bronze devant le Porche du Temple de Salomon (Livre des Rois).
-Formule : « Je ne sais ni lire ni écrire, je ne sais qu'épeler. Qu'il me soit donné la première, je donnerai la seconde. »
-S'épèle : J-A-K-H-I-N, puis par syllabes, puis le mot entier.</td></tr>
-        <tr><td class="cq">Quel est le Mot de Passe et que signifie-t-il ?</td><td class="cr"><strong>EMETH</strong> — il signifie « <strong>Vérité</strong> ».
-(Au RF : T… = Tubalcaïn — ce n'est <em>pas</em> le nôtre.)</td></tr>
-        <tr><td class="cq">Quelle est la fleur symbolique de l'Apprenti ?</td><td class="cr">L'<strong>églantine</strong>.</td></tr>
-        <tr><td class="cq">Quel est le salaire symbolique de l'Apprenti au RFiPhi ?</td><td class="cr">Le <strong>repas pris en Loge</strong> (Loge de Table, agapes) ou chez son Maître Bienveillant.
-(Pas le pied de la colonne, comme dans d'autres rites.)</td></tr>
-        <tr><td class="cq">Qu'est-ce que l'Apprenti Accompli ?</td><td class="cr">Ce n'est <strong>pas un grade</strong> — c'est une <strong>prise en considération</strong>.
-Elle est accordée à l'App qui, après sa Pierre Dégrossie, est proposé pour une augmentation de salaire.
-L'App-Accompli siège au <strong>Nord-Ouest</strong>, près du 2nd Surveillant.</td></tr>
-      </tbody>
-    </table>
-    <div class="ret">
-      <div class="reth">✦ À retenir absolument</div>
-      <div class="reti">EMETH = Vérité = Mot de Passe RFiPhi. Pas T… du RF.</div>
-      <div class="reti">JAKHIN = Mot Sacré = colonne Nord devant le Porche du Temple de Salomon.</div>
-      <div class="reti">Signe d'ordre = signe guttural. Marque = signe manuel.</div>
-      <div class="reti">Fleur = l'églantine. Salaire = repas en Loge ou chez le Maître Bienveillant.</div>
-      <div class="reti">App-Accompli = prise en considération, pas un grade. Place : Nord-Ouest, près du 2nd Surv.</div>
+  <!-- Séquence 2 -->
+  <div id="seq2" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('②', "L'organisation de l'Obédience et de la Loge", "C'est la séquence la plus dense. Deux temps : ta Loge d'abord, la structure du GODF ensuite.", '≈ 4 min') }}
+    <div class="p-5">
+      <p class="text-xs font-semibold uppercase tracking-wide text-loge-700 mb-2">2A — Ta Loge</p>
+      {{ qa("Comment s'appelle ta Loge ?", "<b>R∴L∴ Socrate – Raison &amp; Progrès</b>, fondée en <b>2022</b>, Orient de <b>Pont-à-Mousson</b>, Grand Orient de France, <b>Rite Français Philosophique</b>.") }}
+      {{ qa("Où se tient symboliquement la Loge au RFiPhi ?", "Devant le <b>Porche du Temple de Salomon</b> — et non à l'intérieur. On dit « entrée de la <i>Loge</i> » et non « entrée du Temple ».") }}
+      {{ qa("Combien faut-il de membres pour travailler régulièrement ? Qui sont les Cinq Lumières ?", "<b>Sept membres</b> minimum. Trois dirigent (VM + 2 Surv), cinq éclairent avec l'Orateur et le Secrétaire — ce sont les <b>Cinq Lumières</b>. Sept pour travailler régulièrement.") }}
+      {{ qa("Quels sont les premiers et seconds devoirs d'un FM en Loge ?", "<b>Premier :</b> respecter la Loi du Silence pour garder le Secret qui nous unit. <b>Second :</b> participer avec zèle et dévouement à l'œuvre émancipatrice de la Franc-Maçonnerie.") }}
+
+      <p class="text-xs font-semibold uppercase tracking-wide text-loge-700 mt-5 mb-2">2B — La structure du GODF</p>
+      {{ qa("Qu'est-ce que le Grand Orient de France ?", "La <b>1ère Obédience maçonnique française</b> en nombre d'adhérents. Puissance Symbolique Régulière Souveraine. Fonctionne selon la loi de 1901. Siège : <b>16, rue Cadet, Paris IX.</b>") }}
+      {{ qa("Quels sont les trois pouvoirs du GODF ?", "<b>Législatif</b> = Convent (1 Loge = 1 délégué = 1 voix, session annuelle fin août). <b>Exécutif</b> = Conseil de l'Ordre (37 membres, élit le Grand Maître). <b>Judiciaire</b> = CSJM (17 membres, 1/région, totalement indépendante).") }}
+      {{ qa("Comment les Loges sont-elles organisées à l'échelle nationale ?", "En <b>17 régions</b> maçonniques (max. 3 secteurs). Chaque région a un Congrès Régional (au moins 1 fois/an, Tenue au grade de Maître).") }}
+      {{ qa("Qu'est-ce que la CSJM et quel est son principe fondamental ?", "Le <b>pouvoir judiciaire</b> maçonnique, totalement indépendant. Principe : <b>primauté à la conciliation</b>. 3 niveaux : Conseil de famille → Jury Fraternel Rég. (9 jurés) → CSJM (appel).") }}
+      {{ qa("Qu'est-ce que l'IOSM ?", "<b>Instance Obédientielle de Solidarité Maçonnique</b> : secours, assistance et conseils aux membres en difficulté ; aide aux conjoints et orphelins. <b>17 membres</b>. Aides : secours, exonération de capitation, prêt d'honneur.") }}
+      {{ qa("Quel est l'art. 1er de la Constitution du GODF ?", "Institution <b>philanthropique, philosophique et progressive</b>. Objet : recherche de la Vérité, étude de la Morale, pratique de la Solidarité. Principes : tolérance mutuelle, respect des autres et de soi-même, <b>liberté absolue de conscience</b>. Importance fondamentale à la <b>Laïcité</b>. Devise : <b>Liberté, Égalité, Fraternité.</b>") }}
+
+      {{ retenir([
+        "3 pouvoirs : Convent (loi) · Conseil de l'Ordre (exécutif, 37 membres) · CSJM (justice, 17 membres).",
+        "1 Loge = 1 délégué = 1 voix au Convent. Le GM est élu parmi les 37 membres du CO.",
+        "CSJM : 3 niveaux. Principe fondamental : la primauté à la conciliation.",
+        "L'art. 1er est lu à chaque ouverture des travaux à Socrate — connais-le par cœur.",
+      ]) }}
     </div>
   </div>
 
-  <!-- SEQ 5 -->
-  <div id="fa-seq5" class="sec">
-    <div class="sh"><div class="snum">⑤</div><div class="sinf"><h2>Ton parcours et ton engagement</h2><div class="sit">C'est la séquence la plus personnelle. Rien à apprendre par cœur — juste à y penser à l'avance.</div></div><div class="sdur">≈ 2 min</div></div>
-    <div class="enc"><div class="elb">Ce qu'on te demandera</div><div class="ebo">« En quelques mots — qu'est-ce que ces années passées parmi nous vous ont apporté ? Qu'attendez-vous de la suite de votre chemin maçonnique ? »</div></div>
-    <div class="parcgrid">
-      <div class="parcc"><div class="parcl">Ce que la Loge t'a apporté</div><div class="parcp">Une rencontre ? Une façon différente de penser ? Un questionnement sur toi-même ? Une fraternité nouvelle ?</div></div>
-      <div class="parcc"><div class="parcl">Ce qui t'a surpris</div><div class="parcp">Le rituel ? Le silence imposé à l'App ? La richesse des planches ? Un symbole qui t'a marqué ?</div></div>
-      <div class="parcc"><div class="parcl">Ce que tu as appris sur toi</div><div class="parcp">Une limite touchée ? Une qualité identifiée ? Un doute devenu certitude ?</div></div>
-      <div class="parcc"><div class="parcl">Ce que tu attends de la suite</div><div class="parcp">Le grade de Compagnon ? Prendre la parole ? Approfondir un domaine particulier ?</div></div>
+  <!-- Séquence 3 -->
+  <div id="seq3" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('③', "Interprétation personnelle d'un symbole", "C'est la séquence la plus libre. Pas de bonne ou mauvaise réponse — ce qui compte, c'est que tu aies vraiment réfléchi.", '≈ 3 min') }}
+    <div class="p-5">
+      <div class="bg-gray-50 rounded-lg p-3 mb-4">
+        <p class="text-xs font-semibold text-gray-500 mb-1">Ce qu'on te demandera</p>
+        <p class="text-sm text-gray-700">Choisis un symbole du grade d'Apprenti et donne-en une interprétation personnelle, basée sur ton vécu et les enseignements reçus.</p>
+      </div>
+      <p class="text-xs text-gray-400 italic mb-3">Touche un symbole pour voir la piste de réflexion associée :</p>
+      <div class="grid sm:grid-cols-2 gap-3 mb-4">
+        {% set symbols = [
+          ("La Pierre Brute", "En quoi es-tu, toi, une pierre brute ? Qu'as-tu commencé à dégrossir depuis ton initiation ?"),
+          ("Les trois outils", "Lequel t'a le plus parlé ? Pourquoi ce symbole-là et pas un autre ?"),
+          ("Les colonnes J et B", "Pourquoi deux colonnes ? Que symbolise leur dualité Nord/Sud, bronze/argent ?"),
+          ("Le tablier blanc", "Emblème du travail. Que signifie le porter, la bavette relevée ? Qu'y a-t-il dans ce geste ?"),
+          ("La Chaîne d'Union", "Ce que tu ressens en la formant. Ce que ce cercle humain représente pour toi."),
+          ("Les trois bougies <span class='text-amber-600 text-xs font-normal'>(propre à Socrate)</span>", "Jaune = Soleil/levant · Rouge = lumière de la Loge · Bleu = journée entière. Qu'est-ce que la lumière maçonnique pour toi ?"),
+          ("V.I.T.R.I.O.L.", "« Visite l'intérieur de la Terre, en rectifiant tu trouveras la Pierre Cachée. » Qu'as-tu découvert de toi depuis ton initiation ?"),
+          ("Le Tapis de Loge", "Deux carrés — blanc (Soleil, Est) et noir (Lune, Ouest). Le porche à 7 marches. Que représente cette progression pour toi ?"),
+        ] %}
+        {% for name, prompt in symbols %}
+        <div x-data="{open:false}" @click="open = !open"
+             class="bg-white border rounded-xl p-4 cursor-pointer transition-colors"
+             :class="open ? 'border-loge-400 shadow-sm' : 'border-gray-200 hover:border-loge-200'">
+          <p class="font-semibold text-gray-800 text-sm">{{ name|safe }}</p>
+          <p x-show="open" x-cloak class="text-xs text-gray-500 mt-2 pt-2 border-t border-gray-100 leading-relaxed">{{ prompt }}</p>
+        </div>
+        {% endfor %}
+      </div>
+      <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 text-sm text-loge-800 mb-4">
+        💡 Prépare 2 ou 3 symboles à l'avance. Choisis celui qui te parle vraiment — pas celui que tu crois « correct ».
+      </div>
+      <div class="bg-emerald-50 border border-emerald-200 rounded-xl p-4">
+        <p class="text-xs font-semibold uppercase tracking-wide text-emerald-700 mb-2">Comment construire ta réponse en 4 temps</p>
+        <ol class="list-decimal list-inside space-y-1 text-sm text-emerald-800 font-medium">
+          <li>Nomme le symbole.</li>
+          <li>Décris ce qu'il représente rituellement (en une phrase).</li>
+          <li>Dis ce qu'il évoque pour toi personnellement — une expérience, une question, un changement.</li>
+          <li>Conclus en le reliant à ton chemin maçonnique.</li>
+        </ol>
+      </div>
     </div>
-    <div class="aor"><span class="emoji">💡</span>Prépare 4 à 5 phrases à l'avance. Parle à la première personne, en ton nom propre. Sois sincère plutôt qu'éloquent(e).</div>
   </div>
 
-  <!-- SÉPARATEUR FICHES MÉMO -->
-  <div class="sec" style="margin-top:2.5rem">
-    <div class="sepdiv">Fiches mémo</div>
-    <div class="sepdiv2">Ce qu'il faut savoir par cœur</div>
-  </div>
-
-  <!-- CHIFFRES -->
-  <div id="fa-chiffres" class="sec">
-    <div class="memo-h">Fiche A — Les chiffres clés du GODF</div>
-    <div class="cgrid">
-      <div class="ccard"><div class="cnum">3</div><div class="cinf"><div class="clib">Pouvoirs du GODF</div><div class="cdet">Législatif (Convent) · Exécutif (CO) · Judiciaire (CSJM)</div></div></div>
-      <div class="ccard"><div class="cnum">5</div><div class="cinf"><div class="clib">Cinq Lumières</div><div class="cdet">VM · 1er Surv · 2nd Surv · Orateur · Secrétaire</div></div></div>
-      <div class="ccard"><div class="cnum">7</div><div class="cinf"><div class="clib">Membres minimum en Loge</div><div class="cdet">3 dirigent · 5 éclairent · 7 pour travailler régulièrement</div></div></div>
-      <div class="ccard"><div class="cnum">17</div><div class="cinf"><div class="clib">Régions GODF</div><div class="cdet">Max. 3 secteurs / région · 1 délégué / Loge au Convent</div></div></div>
-      <div class="ccard"><div class="cnum">17</div><div class="cinf"><div class="clib">Membres CSJM</div><div class="cdet">1 représentant / région — totalement indépendante</div></div></div>
-      <div class="ccard"><div class="cnum">17</div><div class="cinf"><div class="clib">Membres IOSM</div><div class="cdet">1 représentant / région — solidarité obédientielle</div></div></div>
-      <div class="ccard"><div class="cnum">37</div><div class="cinf"><div class="clib">Membres du Conseil de l'Ordre</div><div class="cdet">Élus par les Congrès régionaux · Élisent le Grand Maître</div></div></div>
-      <div class="ccard"><div class="cnum">3</div><div class="cinf"><div class="clib">Niveaux CSJM</div><div class="cdet">Conseil de famille → Jury Fraternel Rég. (9 jurés) → CSJM</div></div></div>
+  <!-- Séquence 4 -->
+  <div id="seq4" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-6 scroll-mt-4">
+    {{ section_header('④', "Les éléments rituels du RFiPhi", "Ces éléments sont propres à notre Rite. Certains diffèrent du RF standard. Il faut les connaître avec précision.", '≈ 3 min') }}
+    <div class="p-5">
+      <div class="bg-red-50 border border-red-200 rounded-xl p-4 text-sm text-red-700 font-semibold mb-4">
+        ⚠️ Le Mot de Passe n'est PAS le même qu'au RF. Au RFiPhi il est <b>EMETH</b> (= Vérité). C'est la question la plus discriminante de l'examen.
+      </div>
+      {{ qa("Décris la position d'ordre.", "Main droite sous la gorge, doigts serrés, pouce à l'équerre, coude baissé. Pieds en équerre, pied droit en avant, talon gauche derrière le talon droit.") }}
+      {{ qa("Comment se nomme le signe d'ordre et que signifie-t-il ?", "Le <b>signe guttural</b>. On trace une équerre : main horizontalement jusqu'à l'épaule droite, puis elle redescend. Sens : « Je préférerais avoir la gorge coupée plutôt que de manquer à mon serment. »") }}
+      {{ qa("Comment se nomme la poignée de main et comment se donne-t-elle ?", "La <b>Marque</b> — ou <b>signe manuel</b>. Pouce plié en équerre, 3 pressions sur la 1ère jointure de l'index (2 rapprochées, 1 espacée). Discrète. Se couvre de la main gauche à l'extérieur. On la redonne toujours.") }}
+      {{ qa("Quel est le Mot Sacré et comment se donne-t-il ?", "<b>JAKHIN</b> — nom de la colonne de bronze devant le Porche du Temple de Salomon (Livre des Rois). Formule : « Je ne sais ni lire ni écrire, je ne sais qu'épeler. Qu'il me soit donné la première, je donnerai la seconde. » S'épèle : J-A-K-H-I-N, puis par syllabes, puis le mot entier.") }}
+      {{ qa("Quel est le Mot de Passe et que signifie-t-il ?", "<b>EMETH</b> — il signifie « <b>Vérité</b> ». (Au RF : T… = Tubalcaïn — ce n'est <i>pas</i> le nôtre.)") }}
+      {{ qa("Quelle est la fleur symbolique de l'Apprenti ?", "L'<b>églantine</b>.") }}
+      {{ qa("Quel est le salaire symbolique de l'Apprenti au RFiPhi ?", "Le <b>repas pris en Loge</b> (Loge de Table, agapes) ou chez son Maître Bienveillant. (Pas le pied de la colonne, comme dans d'autres rites.)") }}
+      {{ qa("Qu'est-ce que l'Apprenti Accompli ?", "Ce n'est <b>pas un grade</b> — c'est une <b>prise en considération</b>. Elle est accordée à l'App qui, après sa Pierre Dégrossie, est proposé pour une augmentation de salaire. L'App-Accompli siège au <b>Nord-Ouest</b>, près du 2nd Surveillant.") }}
+      {{ retenir([
+        "EMETH = Vérité = Mot de Passe RFiPhi. Pas T… du RF.",
+        "JAKHIN = Mot Sacré = colonne Nord devant le Porche du Temple de Salomon.",
+        "Signe d'ordre = signe guttural. Marque = signe manuel.",
+        "Fleur = l'églantine. Salaire = repas en Loge ou chez le Maître Bienveillant.",
+        "App-Accompli = prise en considération, pas un grade. Place : Nord-Ouest, près du 2nd Surv.",
+      ]) }}
     </div>
   </div>
 
-  <!-- COMPARATIF -->
-  <div id="fa-comparatif" class="sec">
-    <div class="memo-h">Fiche B — RF vs RFiPhi : les différences à connaître</div>
-    <table class="ctable">
-      <thead><tr><th style="width:22%">Élément</th><th style="width:34%">Rite Français (standard GODF)</th><th>RFiPhi — Notre Rite (Socrate)</th></tr></thead>
-      <tbody>
-        <tr><td class="cel">Mot de Passe<span class="badge">⚠️</span></td><td class="crf">T… (Tubalcaïn)</td><td class="crfp">EMETH — « Vérité »</td></tr>
-        <tr><td class="cel">Lieu symbolique</td><td class="crf">Parvis du Temple de Salomon</td><td class="crfp">Devant le Porche — pas à l'intérieur. « entrée de la Loge ».</td></tr>
-        <tr><td class="cel">Signe d'ordre</td><td class="crf">Signe guttural</td><td class="crfp">Signe guttural — coude baissé, pied droit en avant</td></tr>
-        <tr><td class="cel">Marque<span class="badge">NOM</span></td><td class="crf">Attouchement</td><td class="crfp">Marque = signe manuel. Toujours redonner. Couvrir à l'extérieur.</td></tr>
-        <tr><td class="cel">Sol de la Loge</td><td class="crf">Non précisé</td><td class="crfp">Terre battue au premier grade</td></tr>
-        <tr><td class="cel">Fleur symbolique</td><td class="crf">Non mentionnée</td><td class="crfp">L'églantine</td></tr>
-        <tr><td class="cel">Salaire symbolique</td><td class="crf">Pied de la colonne B ou J</td><td class="crfp">Repas en Loge ou chez le Maître Bienveillant</td></tr>
-        <tr><td class="cel">Bougies<span class="badge">Socrate</span></td><td class="crf">Trois bougies</td><td class="crfp">Jaune (NE) · Rouge (SO) · Bleu (SE). J→R→B allumage · B→R→J extinction.</td></tr>
-      </tbody>
-    </table>
+  <!-- Séquence 5 -->
+  <div id="seq5" class="bg-white border border-gray-200 rounded-2xl overflow-hidden mb-10 scroll-mt-4">
+    {{ section_header('⑤', "Ton parcours et ton engagement", "C'est la séquence la plus personnelle. Rien à apprendre par cœur — juste à y penser à l'avance.", '≈ 2 min') }}
+    <div class="p-5">
+      <div class="bg-gray-50 rounded-lg p-3 mb-4">
+        <p class="text-xs font-semibold text-gray-500 mb-1">Ce qu'on te demandera</p>
+        <p class="text-sm text-gray-700 italic">« En quelques mots — qu'est-ce que ces années passées parmi nous vous ont apporté ? Qu'attendez-vous de la suite de votre chemin maçonnique ? »</p>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-3 mb-4">
+        <div class="bg-white border border-gray-200 rounded-xl p-4 border-l-4 border-l-loge-500">
+          <p class="font-semibold text-gray-800 text-sm mb-1">Ce que la Loge t'a apporté</p>
+          <p class="text-xs text-gray-500">Une rencontre ? Une façon différente de penser ? Un questionnement sur toi-même ? Une fraternité nouvelle ?</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 border-l-4 border-l-loge-500">
+          <p class="font-semibold text-gray-800 text-sm mb-1">Ce qui t'a surpris</p>
+          <p class="text-xs text-gray-500">Le rituel ? Le silence imposé à l'App ? La richesse des planches ? Un symbole qui t'a marqué ?</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 border-l-4 border-l-loge-500">
+          <p class="font-semibold text-gray-800 text-sm mb-1">Ce que tu as appris sur toi</p>
+          <p class="text-xs text-gray-500">Une limite touchée ? Une qualité identifiée ? Un doute devenu certitude ?</p>
+        </div>
+        <div class="bg-white border border-gray-200 rounded-xl p-4 border-l-4 border-l-loge-500">
+          <p class="font-semibold text-gray-800 text-sm mb-1">Ce que tu attends de la suite</p>
+          <p class="text-xs text-gray-500">Le grade de Compagnon ? Prendre la parole ? Approfondir un domaine particulier ?</p>
+        </div>
+      </div>
+      <div class="bg-loge-50 border border-loge-200 rounded-xl p-4 text-sm text-loge-800">
+        💡 Prépare 4 à 5 phrases à l'avance. Parle à la première personne, en ton nom propre. Sois sincère plutôt qu'éloquent(e).
+      </div>
+    </div>
   </div>
 
-  <!-- CHECKLIST -->
-  <div id="fa-checklist" class="sec">
-    <div class="memo-h">Fiche C — Checklist de révision</div>
-    <p style="font-size:.87rem;color:var(--tx2);font-style:italic;margin-bottom:.8rem">Clique sur chaque ligne pour la cocher. Quand tout est coché, tu es prêt(e).</p>
-    <div class="clprog" id="fa-prog">0 / 20 points cochés</div>
-    <div class="pbar"><div class="pfill" id="fa-pfill"></div></div>
-    <ul class="clist" id="fa-clist">
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais les trois outils dans l'ordre des voyages : Levier → Maillet → Ciseau.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je peux expliquer le sens symbolique de chacun des trois outils.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je sais ce qu'est la Pierre Brute et pourquoi elle symbolise le grade d'Apprenti.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais le nom complet de ma Loge, son Orient, son rite et son année de fondation (2022).</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je sais où se tient symboliquement la Loge au RFiPhi (devant le Porche — pas à l'intérieur).</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais les Cinq Lumières et le nombre minimum pour travailler régulièrement (7).</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je peux citer les trois pouvoirs du GODF et qui les exerce.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je sais que le CO compte 37 membres et que le Grand Maître est élu parmi eux.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais les trois niveaux de juridiction de la CSJM et son principe (conciliation).</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je sais ce qu'est l'IOSM et quelles formes prennent ses aides.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je peux réciter l'art. 1er de la Constitution du GODF (principes, laïcité, devise).</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais la position d'ordre exacte au RFiPhi (pieds, main, coude).</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je sais que le signe d'ordre s'appelle « signe guttural » et ce qu'il signifie.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je sais que la Marque s'appelle « signe manuel » et comment elle se donne.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais le Mot Sacré JAKHIN et la formule pour le donner lettre par lettre.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais le Mot de Passe EMETH et sa signification (Vérité) — différent du RF.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>Je connais la fleur symbolique (l'églantine) et le salaire symbolique (repas en Loge).</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>J'ai choisi 2 ou 3 symboles et préparé une interprétation personnelle sincère pour chacun.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>J'ai réfléchi à 4-5 phrases sur ce que la Loge m'a apporté et ce que j'en attends.</li>
-      <li onclick="faChk(this)"><span class="cbox">☐</span>J'ai répété ma planche à voix haute, avec les formules d'ouverture et de clôture.</li>
+  <!-- Fiches mémo -->
+  <div id="fiches" class="text-center mb-6 scroll-mt-4">
+    <p class="text-xs font-semibold uppercase tracking-widest text-amber-500">Fiches mémo</p>
+    <h2 class="text-lg font-bold text-gray-900 mt-1">Ce qu'il faut savoir par cœur</h2>
+  </div>
+
+  <!-- Fiche A -->
+  <div class="mb-8">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Fiche A — Les chiffres clés du GODF</p>
+    <div class="grid sm:grid-cols-2 gap-3">
+      {% set chiffres = [
+        ("3", "Pouvoirs du GODF", "Législatif (Convent) · Exécutif (CO) · Judiciaire (CSJM)"),
+        ("5", "Cinq Lumières", "VM · 1er Surv · 2nd Surv · Orateur · Secrétaire"),
+        ("7", "Membres minimum en Loge", "3 dirigent · 5 éclairent · 7 pour travailler régulièrement"),
+        ("17", "Régions GODF", "Max. 3 secteurs / région · 1 délégué / Loge au Convent"),
+        ("17", "Membres CSJM", "1 représentant / région — totalement indépendante"),
+        ("17", "Membres IOSM", "1 représentant / région — solidarité obédientielle"),
+        ("37", "Membres du Conseil de l'Ordre", "Élus par les Congrès régionaux · Élisent le Grand Maître"),
+        ("3", "Niveaux CSJM", "Conseil de famille → Jury Fraternel Rég. (9 jurés) → CSJM"),
+      ] %}
+      {% for num, label, detail in chiffres %}
+      <div class="bg-white border border-gray-200 rounded-xl overflow-hidden flex">
+        <div class="w-14 flex-shrink-0 flex items-center justify-center bg-loge-700 text-white font-bold text-xl">{{ num }}</div>
+        <div class="px-3 py-2 min-w-0">
+          <p class="font-semibold text-sm text-gray-800">{{ label }}</p>
+          <p class="text-xs text-gray-500">{{ detail }}</p>
+        </div>
+      </div>
+      {% endfor %}
+    </div>
+  </div>
+
+  <!-- Fiche B -->
+  <div class="mb-8">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-3">Fiche B — RF vs RFiPhi : les différences à connaître</p>
+    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden">
+      <div class="overflow-x-auto">
+        <table class="w-full text-sm">
+          <thead>
+            <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
+              <th class="px-4 py-2 font-medium">Élément</th>
+              <th class="px-4 py-2 font-medium">Rite Français (standard GODF)</th>
+              <th class="px-4 py-2 font-medium">RFiPhi — Notre Rite (Socrate)</th>
+            </tr>
+          </thead>
+          <tbody class="divide-y divide-gray-50">
+            {% set comparatif = [
+              ("Mot de Passe ⚠️", "T… (Tubalcaïn)", "EMETH — « Vérité »"),
+              ("Lieu symbolique", "Parvis du Temple de Salomon", "Devant le Porche — pas à l'intérieur. « entrée de la Loge »."),
+              ("Signe d'ordre", "Signe guttural", "Signe guttural — coude baissé, pied droit en avant"),
+              ("Marque", "Attouchement", "Marque = signe manuel. Toujours redonner. Couvrir à l'extérieur."),
+              ("Sol de la Loge", "Non précisé", "Terre battue au premier grade"),
+              ("Fleur symbolique", "Non mentionnée", "L'églantine"),
+              ("Salaire symbolique", "Pied de la colonne B ou J", "Repas en Loge ou chez le Maître Bienveillant"),
+              ("Bougies (Socrate)", "Trois bougies", "Jaune (NE) · Rouge (SO) · Bleu (SE). J→R→B allumage · B→R→J extinction."),
+            ] %}
+            {% for elem, rf, rfiphi in comparatif %}
+            <tr class="hover:bg-gray-50">
+              <td class="px-4 py-2.5 font-medium text-gray-800 whitespace-nowrap">{{ elem }}</td>
+              <td class="px-4 py-2.5 text-gray-500">{{ rf }}</td>
+              <td class="px-4 py-2.5 text-loge-800 bg-loge-50/50 font-medium">{{ rfiphi }}</td>
+            </tr>
+            {% endfor %}
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+  <!-- Fiche C — Checklist -->
+  <div id="checklist" class="mb-10 scroll-mt-4" x-data="{
+    items: [
+      'Je connais les trois outils dans l\'ordre des voyages : Levier → Maillet → Ciseau.',
+      'Je peux expliquer le sens symbolique de chacun des trois outils.',
+      'Je sais ce qu\'est la Pierre Brute et pourquoi elle symbolise le grade d\'Apprenti.',
+      'Je connais le nom complet de ma Loge, son Orient, son rite et son année de fondation (2022).',
+      'Je sais où se tient symboliquement la Loge au RFiPhi (devant le Porche — pas à l\'intérieur).',
+      'Je connais les Cinq Lumières et le nombre minimum pour travailler régulièrement (7).',
+      'Je peux citer les trois pouvoirs du GODF et qui les exerce.',
+      'Je sais que le CO compte 37 membres et que le Grand Maître est élu parmi eux.',
+      'Je connais les trois niveaux de juridiction de la CSJM et son principe (conciliation).',
+      'Je sais ce qu\'est l\'IOSM et quelles formes prennent ses aides.',
+      'Je peux réciter l\'art. 1er de la Constitution du GODF (principes, laïcité, devise).',
+      'Je connais la position d\'ordre exacte au RFiPhi (pieds, main, coude).',
+      'Je sais que le signe d\'ordre s\'appelle « signe guttural » et ce qu\'il signifie.',
+      'Je sais que la Marque s\'appelle « signe manuel » et comment elle se donne.',
+      'Je connais le Mot Sacré JAKHIN et la formule pour le donner lettre par lettre.',
+      'Je connais le Mot de Passe EMETH et sa signification (Vérité) — différent du RF.',
+      'Je connais la fleur symbolique (l\'églantine) et le salaire symbolique (repas en Loge).',
+      'J\'ai choisi 2 ou 3 symboles et préparé une interprétation personnelle sincère pour chacun.',
+      'J\'ai réfléchi à 4-5 phrases sur ce que la Loge m\'a apporté et ce que j\'en attends.',
+      'J\'ai répété ma planche à voix haute, avec les formules d\'ouverture et de clôture.',
+    ],
+    checked: [],
+    toggle(i) { this.checked.includes(i) ? this.checked = this.checked.filter(x => x !== i) : this.checked.push(i) },
+  }">
+    <p class="text-xs font-semibold uppercase tracking-wide text-gray-400 mb-1">Fiche C — Checklist de révision</p>
+    <p class="text-xs text-gray-400 italic mb-3">Touche chaque ligne pour la cocher. Quand tout est coché, tu es prêt(e).</p>
+    <p class="text-xs font-medium text-gray-500 mb-1.5" x-text="checked.length + ' / ' + items.length + ' points cochés'"></p>
+    <div class="h-1.5 bg-gray-100 rounded-full overflow-hidden mb-4">
+      <div class="h-full bg-loge-700 rounded-full transition-all" :style="`width: ${checked.length / items.length * 100}%`"></div>
+    </div>
+    <ul class="space-y-1.5">
+      <template x-for="(item, i) in items" :key="i">
+        <li @click="toggle(i)"
+            class="flex items-start gap-3 px-3 py-2.5 rounded-lg cursor-pointer border transition-colors"
+            :class="checked.includes(i) ? 'bg-emerald-50 border-emerald-200 text-emerald-800' : 'bg-white border-gray-200 hover:bg-gray-50 text-gray-700'">
+          <span class="w-5 h-5 rounded border flex items-center justify-center flex-shrink-0 text-xs font-bold"
+                :class="checked.includes(i) ? 'bg-emerald-600 border-emerald-600 text-white' : 'border-gray-300'"
+                x-text="checked.includes(i) ? '✓' : ''"></span>
+          <span class="text-sm" :class="checked.includes(i) ? 'line-through opacity-75' : ''" x-text="item"></span>
+        </li>
+      </template>
     </ul>
   </div>
 
-  <!-- MOT DE FIN -->
-  <div class="fin sec">
-    <div class="orline"></div>
-    <h3>Pour finir</h3>
-    <p>L'examen n'est pas une épreuve à réussir ou à rater — c'est une conversation entre Maçons. Ce qu'on cherche à voir, c'est que tu as travaillé, que tu as réfléchi, et que tu es engagé(e) dans ton chemin.</p>
-    <p>Prépare-toi sérieusement, relis ce guide plusieurs fois — puis le jour J, laisse les mots venir naturellement. C'est ta pierre à toi.</p>
-    <div class="dev">Liberté · Égalité · Fraternité</div>
-    <div class="orline" style="margin-top:1.2rem"></div>
+  <!-- Mot de fin -->
+  <div class="bg-loge-900 text-white rounded-2xl p-8 text-center mb-6">
+    <div class="w-16 h-0.5 bg-amber-400 mx-auto mb-4"></div>
+    <h3 class="font-semibold text-amber-200 mb-3">Pour finir</h3>
+    <p class="text-sm text-loge-100 leading-relaxed max-w-md mx-auto mb-2">L'examen n'est pas une épreuve à réussir ou à rater — c'est une conversation entre Maçons. Ce qu'on cherche à voir, c'est que tu as travaillé, que tu as réfléchi, et que tu es engagé(e) dans ton chemin.</p>
+    <p class="text-sm text-loge-100 leading-relaxed max-w-md mx-auto">Prépare-toi sérieusement, relis ce guide plusieurs fois — puis le jour J, laisse les mots venir naturellement. C'est ta pierre à toi.</p>
+    <p class="text-xs tracking-widest uppercase text-amber-300 mt-5">Liberté · Égalité · Fraternité</p>
   </div>
 
-  </div>
-
-  <div class="fa-footer">R∴L∴ Socrate – Raison &amp; Progrès · Orient de Pont-à-Mousson · G∴O∴D∴F∴ · RFiPhi · Édition 6025</div>
+  <p class="text-center text-xs text-gray-400">R∴L∴ Socrate – Raison &amp; Progrès · Orient de Pont-à-Mousson · G∴O∴D∴F∴ · RFiPhi · Édition 6025</p>
 
 </div>
-
-<style>
-.fa-guide, .fa-guide *{margin:0;padding:0;box-sizing:border-box}
-.fa-guide{
-  --bn:#1a2744;--br:#2a4a8f;--bc:#c8d8f0;
-  --or:#a07820;--orc:#f5e9c8;--orv:#c9922a;
-  --iv:#f7f3eb;--iv2:#ede8dc;
-  --vd:#1e4d35;--vl:#dff0e8;
-  --rd:#6e1c1c;--rl:#fae8e8;
-  --gr:#e8edf5;--gr2:#f2f5fa;--bl:#fff;
-  --tx:#1a1a2e;--tx2:#4a4a6a;
-  font-family:'Source Sans 3',sans-serif;background:var(--iv);color:var(--tx);font-size:16px;line-height:1.65;
-  margin:-1.5rem -1rem;
-}
-@media(min-width:1024px){.fa-guide{margin:-2rem -1.5rem}}
-
-.fa-guide .fa-topbar{display:flex;align-items:center;justify-content:space-between;gap:1rem;padding:.8rem 1.2rem;background:#fff;border-bottom:1px solid var(--iv2);flex-wrap:wrap}
-.fa-guide .fa-back{font-family:'Source Sans 3',sans-serif;font-size:.85rem;color:var(--br);text-decoration:none;font-weight:600}
-.fa-guide .fa-back:hover{text-decoration:underline}
-.fa-guide .fa-dl{font-family:'Source Sans 3',sans-serif;font-size:.8rem;color:#fff;background:var(--or);padding:.45rem .9rem;border-radius:6px;text-decoration:none;font-weight:600}
-.fa-guide .fa-dl:hover{background:var(--orv)}
-
-.fa-guide .fa-header{background:var(--bn);color:#fff;text-align:center;padding:2.5rem 2rem 2rem;position:relative;overflow:hidden}
-.fa-guide .fa-header::before{content:'';position:absolute;inset:0;background:repeating-linear-gradient(45deg,transparent,transparent 40px,rgba(255,255,255,.018) 40px,rgba(255,255,255,.018) 80px)}
-.fa-guide .hob{font-family:'Cinzel',serif;font-size:.7rem;letter-spacing:.22em;color:var(--bc);text-transform:uppercase;margin-bottom:.8rem}
-.fa-guide .htit{font-family:'Cinzel',serif;font-size:clamp(1.5rem,4vw,2.6rem);font-weight:700;line-height:1.15;margin-bottom:.4rem}
-.fa-guide .hsous{font-family:'Cormorant Garamond',serif;font-size:1.15rem;color:var(--orc);font-style:italic;margin-bottom:1rem}
-.fa-guide .hloge{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.15em;color:var(--bc);opacity:.8}
-.fa-guide .orline{width:80px;height:2px;background:linear-gradient(90deg,transparent,var(--orv),transparent);margin:1rem auto .8rem}
-
-.fa-guide .fa-subnav{position:sticky;top:48px;z-index:30;background:rgba(26,39,68,.97);backdrop-filter:blur(8px);padding:.5rem 1rem;display:flex;gap:.3rem;justify-content:center;flex-wrap:wrap;box-shadow:0 2px 12px rgba(0,0,0,.3)}
-.fa-guide .fa-subnav a{color:var(--bc);text-decoration:none;font-family:'Cinzel',serif;font-size:.68rem;letter-spacing:.08em;padding:.35rem .7rem;border-radius:3px;transition:all .2s;white-space:nowrap}
-.fa-guide .fa-subnav a:hover,.fa-guide .fa-subnav a.active{background:var(--or);color:#fff}
-
-.fa-guide .wrap{max-width:860px;margin:0 auto;padding:0 1.2rem 3rem}
-
-.fa-guide .sec{margin-bottom:2.5rem;opacity:0;transform:translateY(16px);animation:fa-fu .45s ease forwards}
-@keyframes fa-fu{to{opacity:1;transform:translateY(0)}}
-.fa-guide .sec:nth-child(1){animation-delay:.05s}
-
-.fa-guide .ibox{background:#fff;border-left:5px solid var(--orv);padding:1.4rem 1.8rem;margin:2rem 0;border-radius:0 6px 6px 0;font-family:'Cormorant Garamond',serif;font-size:1.12rem;color:var(--bn);line-height:1.7}
-.fa-guide .ibox strong{color:var(--br)}
-
-.fa-guide .pano-tit{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.2em;text-transform:uppercase;color:var(--or);margin-bottom:1rem;padding-bottom:.5rem;border-bottom:1px solid var(--iv2)}
-.fa-guide .pano{display:grid;grid-template-columns:50px 1fr auto;gap:2px}
-.fa-guide .pnum{background:var(--br);color:#fff;font-family:'Cinzel',serif;font-size:1.1rem;display:flex;align-items:center;justify-content:center;font-weight:700;border-radius:4px 0 0 4px}
-.fa-guide .pnum.pre{background:var(--orv)}
-.fa-guide .plab{background:var(--gr);padding:.6rem 1rem;font-weight:600;font-size:.9rem;color:var(--bn);display:flex;align-items:center}
-.fa-guide .pdur{background:var(--iv2);padding:.6rem 1rem;font-size:.82rem;color:var(--tx2);display:flex;align-items:center;border-radius:0 4px 4px 0;white-space:nowrap;font-style:italic}
-
-.fa-guide .sh{display:flex;align-items:stretch;margin-bottom:1.2rem;border-radius:6px;overflow:hidden;box-shadow:0 2px 8px rgba(0,0,0,.08)}
-.fa-guide .snum{background:var(--bn);color:#fff;font-family:'Cinzel',serif;font-size:1.6rem;font-weight:700;width:60px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.fa-guide .snum.or{background:var(--orv)}
-.fa-guide .sinf{background:var(--br);color:#fff;padding:.9rem 1.2rem;flex:1}
-.fa-guide .sinf h2{font-family:'Cinzel',serif;font-size:1.05rem;font-weight:600;letter-spacing:.04em;margin-bottom:.15rem}
-.fa-guide .sinf .sit{font-size:.82rem;color:var(--bc);font-style:italic}
-.fa-guide .sdur{background:var(--or);color:#fff;padding:.9rem 1rem;display:flex;align-items:center;font-family:'Cinzel',serif;font-size:.78rem;text-align:center;flex-shrink:0;letter-spacing:.05em}
-
-.fa-guide .enc{display:grid;grid-template-columns:150px 1fr;margin-bottom:.8rem;border-radius:4px;overflow:hidden;font-size:.9rem}
-.fa-guide .elb{background:var(--vd);color:#fff;padding:.7rem .9rem;font-weight:600;font-size:.82rem;display:flex;align-items:center}
-.fa-guide .ebo{background:var(--vl);padding:.7rem 1rem;white-space:pre-line}
-
-.fa-guide .aor{display:flex;gap:.8rem;align-items:flex-start;background:var(--orc);border-left:4px solid var(--orv);padding:.9rem 1rem;border-radius:0 4px 4px 0;font-size:.88rem;color:var(--or);font-weight:600;margin-bottom:.8rem}
-.fa-guide .ard{display:flex;gap:.8rem;align-items:flex-start;background:var(--rl);border-left:4px solid var(--rd);padding:.9rem 1rem;border-radius:0 4px 4px 0;font-size:.88rem;color:var(--rd);font-weight:700;margin-bottom:.8rem}
-.fa-guide .emoji{font-size:1.1rem;flex-shrink:0}
-
-.fa-guide .qrtable{width:100%;border-collapse:collapse;font-size:.88rem;margin-bottom:1rem}
-.fa-guide .qrtable thead th{background:var(--bn);color:#fff;font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.1em;padding:.6rem .8rem;text-align:left;font-weight:400}
-.fa-guide .qrtable tbody tr{border-bottom:1px solid var(--iv2)}
-.fa-guide .qrtable tbody tr:hover{background:#f0f4ff}
-.fa-guide .cq{background:var(--bc);color:var(--bn);font-weight:700;padding:.7rem .8rem;vertical-align:top;width:38%}
-.fa-guide .cr{padding:.7rem .9rem;vertical-align:top;background:#fff;white-space:pre-line;line-height:1.55}
-
-.fa-guide .ret{background:var(--orc);border:1px solid #d4aa60;border-radius:6px;overflow:hidden;margin-bottom:1rem}
-.fa-guide .reth{background:var(--or);color:#fff;font-family:'Cinzel',serif;font-size:.78rem;letter-spacing:.15em;padding:.5rem 1rem;display:flex;align-items:center;gap:.5rem}
-.fa-guide .reti{display:flex;gap:.8rem;align-items:flex-start;padding:.55rem 1rem;border-top:1px solid rgba(160,120,32,.2);font-size:.88rem;color:#5a3c00}
-.fa-guide .reti::before{content:'→';color:var(--orv);font-weight:700;flex-shrink:0}
-
-.fa-guide .symgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(210px,1fr));gap:.7rem;margin-bottom:1rem}
-.fa-guide .symc{background:#fff;border:1px solid var(--iv2);border-radius:6px;padding:.85rem 1rem;cursor:pointer;transition:all .2s;border-top:3px solid var(--br)}
-.fa-guide .symc:hover{border-top-color:var(--orv);box-shadow:0 4px 12px rgba(0,0,0,.1);transform:translateY(-2px)}
-.fa-guide .symn{font-family:'Cormorant Garamond',serif;font-size:1.05rem;font-weight:700;color:var(--bn);margin-bottom:.3rem}
-.fa-guide .symp{font-size:.82rem;color:var(--tx2);line-height:1.5;display:none;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--iv2)}
-
-.fa-guide .grep{background:var(--vl);border-left:4px solid var(--vd);padding:1rem 1.2rem;border-radius:0 6px 6px 0;font-size:.88rem;margin-bottom:1rem}
-.fa-guide .grep h4{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.12em;color:var(--vd);margin-bottom:.6rem;text-transform:uppercase}
-.fa-guide .grep ol{list-style:decimal;padding-left:1.2rem;color:var(--vd);font-weight:600}
-.fa-guide .grep ol li{margin-bottom:.3rem}
-
-.fa-guide .parcgrid{display:grid;grid-template-columns:1fr 1fr;gap:.7rem;margin-bottom:1rem}
-.fa-guide .parcc{background:#fff;border:1px solid var(--iv2);border-radius:6px;padding:.9rem 1rem;border-left:4px solid var(--br)}
-.fa-guide .parcl{font-family:'Cormorant Garamond',serif;font-weight:700;font-size:1rem;color:var(--bn);margin-bottom:.4rem}
-.fa-guide .parcp{font-size:.83rem;color:var(--tx2)}
-
-.fa-guide .memo-h{font-family:'Cinzel',serif;font-size:.78rem;letter-spacing:.18em;text-transform:uppercase;color:var(--br);margin-bottom:1rem;padding-bottom:.4rem;border-bottom:2px solid var(--bc)}
-
-.fa-guide .cgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(260px,1fr));gap:.6rem;margin-bottom:1rem}
-.fa-guide .ccard{background:#fff;border-radius:6px;overflow:hidden;display:flex;border:1px solid var(--iv2)}
-.fa-guide .cnum{background:var(--br);color:#fff;font-family:'Cinzel',serif;font-size:2rem;font-weight:700;width:64px;display:flex;align-items:center;justify-content:center;flex-shrink:0}
-.fa-guide .cinf{padding:.6rem .8rem}
-.fa-guide .clib{font-weight:700;font-size:.85rem;color:var(--bn)}
-.fa-guide .cdet{font-size:.78rem;color:var(--tx2)}
-
-.fa-guide .ctable{width:100%;border-collapse:collapse;font-size:.86rem;margin-bottom:1rem}
-.fa-guide .ctable thead th{background:var(--bn);color:#fff;font-family:'Cinzel',serif;font-size:.68rem;letter-spacing:.1em;padding:.55rem .8rem;text-align:left;font-weight:400}
-.fa-guide .ctable tbody tr{border-bottom:1px solid var(--iv2)}
-.fa-guide .cel{background:var(--gr);font-weight:700;padding:.6rem .8rem;color:var(--bn)}
-.fa-guide .crf{background:#fff;padding:.6rem .8rem;color:#555}
-.fa-guide .crfp{background:var(--vl);padding:.6rem .8rem;color:var(--vd);font-weight:600}
-.fa-guide .badge{display:inline-block;background:var(--rd);color:#fff;font-size:.65rem;padding:.1rem .4rem;border-radius:3px;margin-left:.3rem;vertical-align:middle;font-weight:700}
-
-.fa-guide .clprog{font-family:'Cinzel',serif;font-size:.75rem;color:var(--tx2);margin-bottom:.6rem;letter-spacing:.08em}
-.fa-guide .pbar{height:6px;background:var(--iv2);border-radius:3px;margin-bottom:1rem;overflow:hidden}
-.fa-guide .pfill{height:100%;background:linear-gradient(90deg,var(--br),var(--orv));border-radius:3px;transition:width .4s ease;width:0}
-.fa-guide .clist{list-style:none}
-.fa-guide .clist li{display:flex;gap:.8rem;align-items:flex-start;padding:.55rem .8rem;border-bottom:1px solid var(--iv2);background:#fff;font-size:.88rem;cursor:pointer;transition:background .15s;border-radius:3px;margin-bottom:2px}
-.fa-guide .clist li:hover{background:#f0f4ff}
-.fa-guide .clist li.done{background:var(--vl);color:var(--vd);text-decoration:line-through;opacity:.75}
-.fa-guide .cbox{width:22px;height:22px;border:2px solid var(--br);border-radius:4px;flex-shrink:0;display:flex;align-items:center;justify-content:center;font-size:.9rem;transition:all .2s}
-.fa-guide .clist li.done .cbox{background:var(--vd);border-color:var(--vd);color:#fff}
-
-.fa-guide .fin{background:var(--bn);color:#fff;padding:2rem 2rem 1.5rem;border-radius:8px;text-align:center;margin-bottom:2rem}
-.fa-guide .fin h3{font-family:'Cinzel',serif;font-size:1rem;color:var(--orc);margin-bottom:.8rem}
-.fa-guide .fin p{font-family:'Cormorant Garamond',serif;font-size:1.08rem;line-height:1.75;color:var(--bc);max-width:600px;margin:0 auto .6rem}
-.fa-guide .fin .dev{font-family:'Cinzel',serif;font-size:.8rem;letter-spacing:.2em;color:var(--orv);margin-top:1.2rem}
-
-.fa-guide .fa-footer{text-align:center;font-family:'Cinzel',serif;font-size:.62rem;letter-spacing:.18em;color:var(--tx2);padding:1.5rem 1rem;border-top:1px solid var(--iv2)}
-
-.fa-guide .st2{font-weight:700;color:var(--br);margin:.8rem 0 .6rem;font-size:.92rem}
-.fa-guide .sepdiv{font-family:'Cinzel',serif;font-size:.72rem;letter-spacing:.22em;text-transform:uppercase;color:var(--or);margin-bottom:.5rem}
-.fa-guide .sepdiv2{font-family:'Cinzel',serif;font-size:1.6rem;color:var(--bn);font-weight:700;border-bottom:3px solid var(--bc);padding-bottom:.5rem;margin-bottom:1.5rem}
-
-@media(max-width:600px){
-  .fa-guide .enc{grid-template-columns:1fr}
-  .fa-guide .parcgrid{grid-template-columns:1fr}
-  .fa-guide .qrtable,.fa-guide .qrtable tbody,.fa-guide .qrtable tr,.fa-guide .qrtable td,.fa-guide .qrtable th{display:block}
-  .fa-guide .cq{width:100%}
-  .fa-guide .ctable,.fa-guide .ctable tbody,.fa-guide .ctable tr,.fa-guide .ctable td,.fa-guide .ctable th{display:block}
-}
-</style>
-{% endblock %}
-
-{% block scripts %}
-<link rel="preconnect" href="https://fonts.googleapis.com">
-<link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,300;0,400;0,600;0,700;1,300;1,400&family=Cinzel:wght@400;600;700&family=Source+Sans+3:wght@300;400;600&display=swap" rel="stylesheet">
-<script>
-window.addEventListener('scroll',()=>{
-  let cur='';
-  document.querySelectorAll('.fa-guide [id]').forEach(s=>{if(window.scrollY>=s.offsetTop-80)cur=s.id});
-  document.querySelectorAll('.fa-subnav a').forEach(a=>a.classList.toggle('active',a.getAttribute('href')==='#'+cur));
-});
-
-function faToggleSym(c){
-  const p=c.querySelector('.symp'),open=p.style.display==='block';
-  document.querySelectorAll('.fa-guide .symp').forEach(x=>x.style.display='none');
-  document.querySelectorAll('.fa-guide .symc').forEach(x=>x.style.borderTopColor='var(--br)');
-  if(!open){p.style.display='block';c.style.borderTopColor='var(--orv)';}
-}
-
-function faChk(li){
-  li.classList.toggle('done');
-  li.querySelector('.cbox').textContent=li.classList.contains('done')?'✓':'☐';
-  const tot=document.querySelectorAll('#fa-clist li').length;
-  const done=document.querySelectorAll('#fa-clist li.done').length;
-  document.getElementById('fa-prog').textContent=done+' / '+tot+' points cochés';
-  document.getElementById('fa-pfill').style.width=((done/tot)*100)+'%';
-}
-</script>
 {% endblock %}
