@@ -463,7 +463,7 @@
 
       <!-- Gauche : titre + tri -->
       <div class="flex items-center gap-3 flex-wrap">
-        {% if is_admin %}
+        {% if is_admin or can_write %}
         <label x-show="selMode" x-cloak class="flex items-center gap-2 text-sm text-gray-600 cursor-pointer select-none">
           <input type="checkbox" class="rounded border-gray-300 text-loge-600"
                  @change="toggleAll({{ documents | map(attribute='id') | list | tojson }})">
@@ -540,7 +540,7 @@
           <div class="flex items-center gap-3 flex-1 min-w-0">
 
           <!-- Checkbox sélection (visible en selMode) -->
-          {% if is_admin %}
+          {% if is_admin or can_write %}
           <input x-show="selMode" x-cloak type="checkbox"
                  :checked="sel.has({{ doc.id }})"
                  @change="toggleSel({{ doc.id }})"
@@ -700,8 +700,7 @@
               </svg>
             </button>
 
-            {% if is_admin %}
-            {% if is_planches_space %}
+            {% if is_admin and is_planches_space %}
             <!-- Bouton Infos tenue (planches reçues) -->
             <button type="button"
                     data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name | e }}"
@@ -714,6 +713,7 @@
               </svg>
             </button>
             {% endif %}
+            {% if is_admin or can_write %}
             <!-- Bouton Renommer -->
             <button type="button"
                     onclick="openRename({{ doc.id }})"
@@ -791,7 +791,7 @@
            :class="sel.has({{ doc.id }}) ? 'ring-2 ring-loge-500 border-loge-400' : ''">
 
         <!-- Checkbox sélection grille -->
-        {% if is_admin %}
+        {% if is_admin or can_write %}
         <div x-show="selMode" x-cloak class="absolute top-2 left-2 z-10">
           <input type="checkbox"
                  :checked="sel.has({{ doc.id }})"
@@ -924,8 +924,7 @@
               <i class="ti ti-lock"></i> Lecture seule
             </span>
             {% endif %}
-            {% if is_admin %}
-            {% if is_planches_space %}
+            {% if is_admin and is_planches_space %}
             <button type="button"
                     data-doc-id="{{ doc.id }}" data-doc-name="{{ doc.name | e }}"
                     data-doc-type="{{ 'pdf' if ext == 'pdf' else ('image' if is_image else 'other') }}"
@@ -934,6 +933,7 @@
               Infos tenue
             </button>
             {% endif %}
+            {% if is_admin or can_write %}
             <form method="post" action="/documents/file/{{ doc.id }}/trash">
               <button type="submit" class="block w-full text-center text-xs text-red-400 hover:text-red-600 py-0.5 transition-colors">
                 Corbeille
