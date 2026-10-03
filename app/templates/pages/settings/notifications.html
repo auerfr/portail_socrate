@@ -32,6 +32,14 @@
       sur votre téléphone ou ordinateur, même quand le navigateur est fermé.
     </p>
 
+    <template x-if="isIOS && !isStandalone">
+      <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
+        ⚠ Sur iPhone/iPad, les notifications ne fonctionnent <strong>que depuis l'app installée sur l'écran d'accueil</strong> —
+        jamais depuis un onglet Safari classique, même si vous les avez déjà activées une fois.
+        Si ce n'est pas encore fait : Safari → Partager → "Sur l'écran d'accueil", puis rouvrez l'app depuis cette icône (pas depuis Safari).
+      </div>
+    </template>
+
     <template x-if="!supported">
       <div class="text-sm text-amber-700 bg-amber-50 border border-amber-200 rounded-lg p-3">
         ⚠ Votre navigateur ne supporte pas les notifications push.
@@ -109,9 +117,17 @@
     function pushPrefs() {
       return {
         supported: false, configured: false, enabled: false, busy: false,
-        permissionDenied: false,
+        permissionDenied: false, isIOS: false, isStandalone: false,
         message: '', messageType: 'info',
         async init() {
+          // iOS/iPadOS n'expose le Push API QUE dans le contexte "app installée sur
+          // l'écran d'accueil" (display-mode: standalone) — un abonnement créé depuis
+          // un onglet Safari classique n'existe tout simplement pas là-bas, et un
+          // abonnement déjà créé (via l'app installée) ne reçoit plus rien si on
+          // revisite la page depuis Safari plus tard. D'où ce repère permanent, pas
+          // seulement un message qui disparaît une fois "supported" devenu true.
+          this.isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+          this.isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone === true;
           this.supported = ('serviceWorker' in navigator) && ('PushManager' in window) && ('Notification' in window);
           if (!this.supported) return;
           try {
