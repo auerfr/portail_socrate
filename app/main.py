@@ -31,6 +31,7 @@ from app.routers import documents as documents_router
 from app.routers import chat as chat_router
 from app.routers import sharing as sharing_router
 from app.routers import news as news_router
+from app.routers import about as about_router
 from app.routers import polls as polls_router
 from app.routers import planches as planches_router
 from app.routers import anniversaires as anniv_router
@@ -588,6 +589,7 @@ app.include_router(chat_router.router)
 app.include_router(sharing_router.router)          # /documents/file/{id}/share/…
 app.include_router(sharing_router.public_router)   # /share/{token} — accès public sans auth
 app.include_router(news_router.router)
+app.include_router(about_router.router)
 app.include_router(polls_router.router)
 app.include_router(planches_router.router)
 app.include_router(anniv_router.router)

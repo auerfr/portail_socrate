@@ -1,0 +1,93 @@
+{% extends "base.html" %}
+{% block title %}Modifier — À propos de la loge{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <div class="flex items-center justify-between mb-6">
+    <div>
+      <nav class="text-sm text-gray-500 mb-1">
+        <a href="/a-propos" class="hover:text-loge-700">À propos de la loge</a>
+        <span class="mx-2">›</span>
+        <span class="text-gray-800">Modifier</span>
+      </nav>
+      <h1 class="text-xl font-bold text-gray-900">Modifier la page "À propos de la loge"</h1>
+    </div>
+  </div>
+
+  {% if saved %}
+  <div class="mb-6 bg-green-50 border border-green-200 text-green-800 text-sm px-4 py-3 rounded-xl">✓ Section enregistrée.</div>
+  {% endif %}
+
+  {% if not sections %}
+  <div class="text-center py-16 text-gray-400">
+    <p>Aucune section — elles doivent être créées une première fois en base (script de seed).</p>
+  </div>
+  {% endif %}
+
+  <div class="space-y-6">
+    {% for s in sections %}
+    <div class="bg-white border border-gray-200 rounded-2xl overflow-hidden"
+         x-data="aboutEditor({{ s.content_html | tojson }})">
+      <form method="post" action="/admin/a-propos/{{ s.id }}/save">
+        <div class="px-5 py-3 border-b border-gray-100 bg-gray-50">
+          <input type="text" name="title" value="{{ s.title }}"
+                 class="w-full font-semibold text-gray-800 bg-transparent border-0 focus:outline-none focus:ring-0 p-0">
+        </div>
+
+        <div class="border-b border-gray-100 px-4 py-2.5 flex flex-wrap gap-1.5 bg-gray-50">
+          <button type="button" class="toolbar-btn font-bold" @click="exec('bold')"><b>G</b></button>
+          <button type="button" class="toolbar-btn italic" @click="exec('italic')"><i>I</i></button>
+          <button type="button" class="toolbar-btn underline" @click="exec('underline')"><u>S</u></button>
+          <div class="w-px bg-gray-200 mx-0.5"></div>
+          <button type="button" class="toolbar-btn" @click="execBlock('h3')">Titre</button>
+          <button type="button" class="toolbar-btn" @click="execBlock('p')">¶ Texte</button>
+          <button type="button" class="toolbar-btn" @click="exec('insertUnorderedList')">• Liste</button>
+          <div class="w-px bg-gray-200 mx-0.5"></div>
+          <button type="button" class="toolbar-btn" title="Insérer le caractère ∴" @click="insertMasonic('∴')">∴</button>
+        </div>
+
+        <div contenteditable="true"
+             class="p-5 min-h-[120px] prose prose-sm max-w-none focus:outline-none"
+             x-ref="editor"
+             @input="syncContent()"
+             x-html="editorContent">
+        </div>
+
+        <input type="hidden" name="content" x-bind:value="editorContent">
+
+        <div class="px-5 py-3 border-t border-gray-100 bg-gray-50 flex justify-end">
+          <button type="submit"
+                  class="bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors">
+            Enregistrer cette section
+          </button>
+        </div>
+      </form>
+    </div>
+    {% endfor %}
+  </div>
+
+</div>
+{% endblock %}
+
+{% block scripts %}
+<style>
+  .toolbar-btn { padding: 0.25rem 0.6rem; border-radius: 0.375rem; font-size: 0.8rem; color: #4b5563; }
+  .toolbar-btn:hover { background: #f3f4f6; }
+</style>
+<script>
+function aboutEditor(initialContent) {
+  return {
+    editorContent: initialContent,
+    exec(cmd) { document.execCommand(cmd, false, null); this.syncContent(); },
+    execBlock(tag) { document.execCommand('formatBlock', false, tag); this.syncContent(); },
+    insertMasonic(token) {
+      this.$refs.editor.focus();
+      document.execCommand('insertText', false, token);
+      this.syncContent();
+    },
+    syncContent() { this.editorContent = this.$refs.editor.innerHTML; },
+  }
+}
+</script>
+{% endblock %}

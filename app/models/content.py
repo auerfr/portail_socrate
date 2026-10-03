@@ -170,3 +170,26 @@ class SharedLink(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     folder: Mapped[Optional["LinkFolder"]] = relationship(back_populates="links")
+
+
+# ── À propos de la loge (Pierre d'Angle) ──────────────────────────────────────
+
+class AboutSection(Base):
+    """Section de la page "À propos de la loge" (charte Pierre d'Angle — diffusion
+    générale uniquement, cf. échange du 03/10/2026 : la Pierre Taillée réservée
+    aux Compagnons/Maîtres ne passe jamais par ce modèle, elle reste un module à
+    part entière)."""
+    __tablename__ = "about_sections"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    order_position: Mapped[int] = mapped_column(Integer, default=0)
+    title: Mapped[str]          = mapped_column(String(300))
+    content_html: Mapped[str]   = mapped_column(Text)
+
+    updated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime, server_default=func.now(), onupdate=func.now()
+    )
+
+    def __repr__(self) -> str:
+        return f"<AboutSection {self.title}>"

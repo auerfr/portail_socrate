@@ -602,6 +602,12 @@
       <!-- ── Loge ── -->
       <p class="text-[10px] font-semibold uppercase tracking-widest text-gray-500 px-3 pt-4 pb-1">Loge</p>
 
+      <a href="/a-propos" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/a-propos' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-building-arch text-lg opacity-70"></i>
+        À propos de la loge
+      </a>
+
       <a href="/planches/" @click="moreOpen=false"
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/planches' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-feather text-lg opacity-70"></i>

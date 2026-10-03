@@ -1,0 +1,39 @@
+{% extends "base.html" %}
+{% block title %}À propos de la loge{% endblock %}
+
+{% block content %}
+<div class="max-w-3xl mx-auto px-4 py-8">
+
+  <div class="text-center mb-10">
+    <div class="text-amber-500 text-sm tracking-widest mb-2">★ ★ ★</div>
+    <h1 class="text-2xl font-bold text-gray-900">À propos de la loge</h1>
+    <p class="text-sm text-gray-400 mt-1">Pierre d'Angle — Socrate, Raison et Progrès</p>
+  </div>
+
+  {% if is_admin %}
+  <div class="mb-6 text-right">
+    <a href="/admin/a-propos" class="text-xs text-loge-700 hover:underline font-medium">✎ Modifier cette page</a>
+  </div>
+  {% endif %}
+
+  {% if not sections %}
+  <div class="text-center py-16 text-gray-400">
+    <p>Cette page n'a pas encore été renseignée.</p>
+  </div>
+  {% else %}
+  <div class="space-y-10">
+    {% for s in sections %}
+    <section>
+      <h2 class="text-lg font-bold text-loge-800 border-b border-loge-100 pb-2 mb-3">{{ s.title }}</h2>
+      <div class="prose prose-sm max-w-none text-gray-700 leading-relaxed">
+        {{ s.content_html | safe }}
+      </div>
+    </section>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  <div class="text-center mt-12 text-amber-500 text-sm tracking-widest">★ ★ ★</div>
+
+</div>
+{% endblock %}

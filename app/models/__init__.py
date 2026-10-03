@@ -25,7 +25,7 @@ from app.models.associative import (
 )
 from app.models.content import (
     NewsArticle, Poll, PollOption, PollVote,
-    Contact, ContactFolder, SharedLink, LinkFolder
+    Contact, ContactFolder, SharedLink, LinkFolder, AboutSection
 )
 from app.models.system import (
     AuditLog, Notification, PushSubscription,
