@@ -264,6 +264,12 @@
 
       <div class="nav-section">Loge</div>
 
+      <a href="/a-propos"
+         class="nav-item {% if '/a-propos' in request.url.path %}active{% endif %}">
+        <i class="ti ti-info-circle"></i>
+        À propos de la loge
+      </a>
+
       <a href="/meetings"
          class="nav-item {% if '/meetings' in request.url.path %}active{% endif %}">
         <i class="ti ti-building-arch"></i>
