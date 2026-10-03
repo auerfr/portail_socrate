@@ -3,9 +3,10 @@ Actualités, Sondages, Contacts, Liens
 """
 from datetime import datetime, date
 from typing import Optional
-from sqlalchemy import String, Boolean, DateTime, Date, Integer, ForeignKey, Text, JSON, func
+from sqlalchemy import String, Boolean, DateTime, Date, Enum, Integer, ForeignKey, Text, JSON, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
+from app.models.documents import MinGrade
 
 
 # ── Actualités ─────────────────────────────────────────────────────────────
@@ -175,16 +176,21 @@ class SharedLink(Base):
 # ── À propos de la loge (Pierre d'Angle) ──────────────────────────────────────
 
 class AboutSection(Base):
-    """Section de la page "À propos de la loge" (charte Pierre d'Angle — diffusion
-    générale uniquement, cf. échange du 03/10/2026 : la Pierre Taillée réservée
-    aux Compagnons/Maîtres ne passe jamais par ce modèle, elle reste un module à
-    part entière)."""
+    """Section de la page "À propos de la loge" (charte Pierre d'Angle).
+
+    min_grade permet de réserver une section à partir d'un grade donné — le
+    contenu réel n'est alors jamais envoyé aux membres d'un grade inférieur
+    (cf. échange du 03/10/2026 : affichage "verrouillé" sans fuite possible
+    par le code source, contrairement à un simple flou CSS). La Pierre
+    Taillée elle-même (secrets rituels Compagnon) ne passe jamais par ce
+    modèle quel que soit le réglage — elle reste un module à part entière."""
     __tablename__ = "about_sections"
 
     id: Mapped[int] = mapped_column(primary_key=True)
     order_position: Mapped[int] = mapped_column(Integer, default=0)
     title: Mapped[str]          = mapped_column(String(300))
     content_html: Mapped[str]   = mapped_column(Text)
+    min_grade: Mapped[MinGrade] = mapped_column(Enum(MinGrade), default=MinGrade.ALL)
 
     updated_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     updated_at: Mapped[datetime] = mapped_column(

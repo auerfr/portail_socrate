@@ -21,13 +21,24 @@
     <p>Cette page n'a pas encore été renseignée.</p>
   </div>
   {% else %}
+  {% set GRADE_LABELS = {'APPRENTI': 'Compagnons et +', 'COMPAGNON': 'Compagnons et +', 'MAITRE': 'Maîtres'} %}
   <div class="space-y-10">
     {% for s in sections %}
     <section>
       <h2 class="text-lg font-bold text-loge-800 border-b border-loge-100 pb-2 mb-3">{{ s.title }}</h2>
+      {% if s.visible %}
       <div class="about-content text-gray-700 leading-relaxed">
         {{ s.content_html | safe }}
       </div>
+      {% else %}
+      <div class="flex items-center gap-3 bg-gray-50 border border-gray-200 rounded-xl px-5 py-6 text-gray-400">
+        <i class="ti ti-lock text-xl"></i>
+        <div>
+          <p class="text-sm font-medium text-gray-500">Section réservée</p>
+          <p class="text-xs text-gray-400 mt-0.5">Accessible aux {{ GRADE_LABELS.get(s.min_grade.value, 'grades supérieurs') }} — disponible après votre passage.</p>
+        </div>
+      </div>
+      {% endif %}
     </section>
     {% endfor %}
   </div>

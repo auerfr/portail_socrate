@@ -1,4 +1,5 @@
 """Router — À propos de la loge (charte Pierre d'Angle, diffusion générale)"""
+from types import SimpleNamespace
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -9,9 +10,23 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_admin, require_auth
 from app.models.content import AboutSection
+from app.models.documents import MinGrade
+from app.models.identity import MasonicGrade
 
 router = APIRouter(tags=["about"])
 from app.template_engine import templates
+
+_GRADE_ORDER = {
+    MasonicGrade.APPRENTI:  1,
+    MasonicGrade.COMPAGNON: 2,
+    MasonicGrade.MAITRE:    3,
+}
+_MIN_GRADE_ORDER = {
+    MinGrade.ALL:       0,
+    MinGrade.APPRENTI:  1,
+    MinGrade.COMPAGNON: 2,
+    MinGrade.MAITRE:    3,
+}
 
 
 @router.get("/a-propos", response_class=HTMLResponse)
@@ -24,7 +39,25 @@ async def about_index(
     sections_r = await db.execute(
         select(AboutSection).order_by(AboutSection.order_position)
     )
-    sections = sections_r.scalars().all()
+    all_sections = sections_r.scalars().all()
+
+    # Visibilité par grade appliquée ici, côté serveur : pour une section
+    # réservée, le contenu réel n'est jamais inclus dans la réponse envoyée
+    # au navigateur d'un membre de grade insuffisant (donc pas de fuite
+    # possible par "voir le code source", contrairement à un flou CSS seul).
+    member_lvl = 99 if user.is_admin else _GRADE_ORDER.get(member.masonic_grade, 0)
+    sections = []
+    for s in all_sections:
+        required = _MIN_GRADE_ORDER.get(s.min_grade, 0)
+        visible = member_lvl >= required
+        sections.append(SimpleNamespace(
+            id=s.id,
+            title=s.title,
+            content_html=s.content_html if visible else None,
+            min_grade=s.min_grade,
+            visible=visible,
+        ))
+
     return templates.TemplateResponse(request, "pages/about/index.html", {
         "current_user": user,
         "current_member": member,
@@ -49,6 +82,7 @@ async def about_admin_edit(
         "current_user": user,
         "current_member": member,
         "sections": sections,
+        "min_grades": list(MinGrade),
         "saved": saved,
     })
 
@@ -60,6 +94,7 @@ async def about_admin_save(
     db: Annotated[AsyncSession, Depends(get_db)],
     title: str = Form(...),
     content: str = Form(""),
+    min_grade: str = Form("ALL"),
 ):
     user, member = ctx
     section = await db.get(AboutSection, section_id)
@@ -67,6 +102,7 @@ async def about_admin_save(
         raise HTTPException(status_code=404)
     section.title = title.strip()
     section.content_html = content
+    section.min_grade = MinGrade(min_grade)
     section.updated_by_id = member.id
     await db.commit()
     return RedirectResponse(url="/admin/a-propos?saved=1", status_code=303)

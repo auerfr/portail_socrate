@@ -1418,3 +1418,12 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE planches ADD COLUMN created_by_id INTEGER REFERENCES members(id)"
             )
+
+        # about_sections.min_grade — réserver une section de la page "À
+        # propos" à partir d'un grade donné (ajouté après le premier seed)
+        r_ab = await conn.exec_driver_sql("PRAGMA table_info(about_sections)")
+        cols_ab = [row[1] for row in r_ab.fetchall()]
+        if cols_ab and "min_grade" not in cols_ab:
+            await conn.exec_driver_sql(
+                "ALTER TABLE about_sections ADD COLUMN min_grade VARCHAR(20) NOT NULL DEFAULT 'ALL'"
+            )
