@@ -118,6 +118,7 @@
       return {
         supported: false, configured: false, enabled: false, busy: false,
         permissionDenied: false, isIOS: false, isStandalone: false,
+        serverSubscriptions: null,
         message: '', messageType: 'info',
         async init() {
           // iOS/iPadOS n'expose le Push API QUE dans le contexte "app installée sur
@@ -135,6 +136,7 @@
             if (r.ok) {
               const data = await r.json();
               this.configured = data.configured;
+              this.serverSubscriptions = data.subscriptions;
             }
           } catch(e) {}
           // Permission refusée = ni le bouton ni requestPermission() ne peuvent la
@@ -146,7 +148,23 @@
             try {
               const reg = await this.withTimeout(navigator.serviceWorker.ready, 8000, 'Service worker');
               const sub = await reg.pushManager.getSubscription();
-              this.enabled = !!sub && Notification.permission === 'granted';
+              const locallySubscribed = !!sub && Notification.permission === 'granted';
+              // Désynchronisation possible : le navigateur croit être abonné,
+              // mais le serveur n'a plus cet abonnement en base (ex. supprimé
+              // après un rejet du service de push côté Apple/Google — endpoint
+              // mort). Dans ce cas "activé" localement ne veut rien dire : rien
+              // n'arrivera jamais tant que l'abonnement n'est pas recréé. On
+              // désabonne localement pour forcer un réabonnement propre au
+              // prochain clic sur "Activer", plutôt que de laisser croire que
+              // tout fonctionne.
+              if (locallySubscribed && this.serverSubscriptions === 0) {
+                await sub.unsubscribe();
+                this.enabled = false;
+                this.message = 'Votre abonnement précédent a expiré côté serveur — cliquez sur "Activer" pour vous réabonner.';
+                this.messageType = 'error';
+              } else {
+                this.enabled = locallySubscribed;
+              }
             } catch (e) {
               console.warn('[push] service worker pas prêt au chargement :', e);
             }
