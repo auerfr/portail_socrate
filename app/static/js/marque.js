@@ -56,7 +56,7 @@
   }
   function lettre(x, y, c, sz, col) {
     sz = sz || 50; col = col || INK;
-    return '<text x="' + x + '" y="' + y + '" font-family="' + FONT_TITLE + '" font-size="' + sz + '" font-weight="700" fill="' + col + '" text-anchor="middle" dominant-baseline="middle">' + c + '</text>';
+    return '<text x="' + x + '" y="' + y + '" font-family="' + FONT_TITLE + '" font-size="' + sz + '" font-weight="700" fill="' + col + '" text-anchor="middle" dominant-baseline="central">' + c + '</text>';
   }
   function badge(x, y, r) {
     r = r || 16;
@@ -74,6 +74,28 @@
     return pts;
   }
 
+  // Sommets d'un polygone régulier à n côtés, premier sommet en haut.
+  function regularPoints(cx, cy, R, n) {
+    var pts = [];
+    for (var i = 0; i < n; i++) {
+      var a = Math.PI / 2 + i * 2 * Math.PI / n;
+      pts.push([cx + R * Math.cos(a), cy - R * Math.sin(a)]);
+    }
+    return pts;
+  }
+
+  // Point entre le centre et un sommet, à une fraction t (0=centre, 1=sommet)
+  // — place une lettre "dans" la forme plutôt que pile sur son contour,
+  // de façon identique quelle que soit la forme choisie.
+  function inset(center, vertex, t) {
+    return [center[0] + (vertex[0] - center[0]) * t, center[1] + (vertex[1] - center[1]) * t];
+  }
+
+  var FIELD_R = 102;    // rayon du champ intérieur où s'inscrit le symbole
+  var LETTER_T = 0.58;  // position des lettres entre le centre et les sommets
+  var SZ_MAJOR = 44;    // taille de la lettre du prénom (sommet "principal")
+  var SZ_MINOR = 36;    // taille des lettres vertu/lieu
+
   var state = {
     formeActive: "triangle",
     customImageDataUrl: null,
@@ -83,89 +105,109 @@
 
   function dessinerMarque(iP, iV, iL, nomCourt) {
     var svg = document.getElementById("mq-svg");
-    var W = 240, H = 320;
+    var W = 320, H = 320, MX = W / 2, CY = H / 2;
     svg.setAttribute("viewBox", "0 0 " + W + " " + H);
     svg.setAttribute("width", W);
     svg.setAttribute("height", H);
 
-    var header =
-      '<text x="' + (W / 2) + '" y="22" font-family="' + FONT_TITLE + '" font-size="14" font-weight="700" fill="' + INK2 + '" text-anchor="middle" letter-spacing="2">SOCRATE</text>' +
-      '<text x="' + (W / 2) + '" y="38" font-family="' + FONT_TITLE + '" font-size="11.5" fill="' + INK + '" text-anchor="middle" font-style="italic">Raison &amp; Progrès</text>' +
-      '<text x="' + (W / 2) + '" y="52" font-family="' + FONT_TITLE + '" font-size="8" fill="#5A4E3A" text-anchor="middle" letter-spacing="1">Orient de Pont-à-Mousson</text>' +
-      seg(18, 60, W - 18, 60, 0.8, INK2);
+    var uid = "mq" + Math.floor(Math.random() * 1e9);
+    var R_OUTER = 150, R_BEAD = 142, R_TEXT_TOP = 128;
 
-    var footer =
-      seg(18, 296, W - 18, 296, 0.8, INK2) +
-      '<text x="' + (W / 2) + '" y="312" font-family="' + FONT_TITLE + '" font-size="8.5" fill="#5A4E3A" text-anchor="middle" letter-spacing="3">' + nomCourt + '</text>';
+    // Pourtour de médaille : double filet + liseré perlé (pointillé) pour
+    // évoquer la tranche striée d'une médaille en métal.
+    var rim =
+      '<circle cx="' + MX + '" cy="' + CY + '" r="' + R_OUTER + '" fill="none" stroke="' + INK + '" stroke-width="3"/>'
+      + '<circle cx="' + MX + '" cy="' + CY + '" r="' + R_BEAD + '" fill="none" stroke="' + INK2 + '" stroke-width="1" stroke-dasharray="1.2,4.4" stroke-linecap="round"/>';
 
-    var OY = 68, ZH = 227, MX = W / 2, CY = OY + ZH / 2;
+    // Nom de la loge gravé en arc le long du haut de l'anneau — en ligne
+    // droite pour les initiales en bas (le texte courbe inversé y rendait
+    // mal : lettres à l'envers, cf. essai précédent).
+    var defs = '<defs>'
+      + '<path id="' + uid + 'top" d="M ' + (MX - R_TEXT_TOP) + ',' + CY + ' A ' + R_TEXT_TOP + ',' + R_TEXT_TOP + ' 0 0 1 ' + (MX + R_TEXT_TOP) + ',' + CY + '"/>'
+      + '</defs>';
+    var rimText =
+      '<text font-family="' + FONT_TITLE + '" font-size="13" font-weight="700" fill="' + INK2 + '" letter-spacing="2.5">'
+      + '<textPath href="#' + uid + 'top" startOffset="50%" text-anchor="middle">SOCRATE · RAISON ET PROGRÈS</textPath></text>'
+      + '<text x="' + MX + '" y="' + (CY + R_OUTER - 20) + '" font-family="' + FONT_TITLE + '" font-size="12" font-weight="700" fill="' + INK + '" text-anchor="middle" letter-spacing="4">' + nomCourt + '</text>';
+
+    var center = [MX, CY];
     var corps = "";
     var f = state.formeActive;
 
-    if (f === "triangle") {
-      var top = [MX, OY + 12], bl = [20, OY + ZH - 10], br = [W - 20, OY + ZH - 10];
-      var lineY = OY + ZH * 0.38;
-      corps = polyline([top, bl, br], 2.4)
-        + seg(bl[0] + 30, lineY, br[0] - 30, lineY, 1.4)
-        + lettre(MX, lineY - 30, iP, 52)
-        + lettre(bl[0] + 38, OY + ZH - 28, iV, 44)
-        + lettre(br[0] - 38, OY + ZH - 28, iL, 44);
+    if (f === "triangle" || f === "cercle" || f === "compas") {
+      var tri = regularPoints(MX, CY, FIELD_R, 3); // [haut, bas-gauche, bas-droite]
+      var top = tri[0], bl = tri[1], br = tri[2];
+      var pP = inset(center, top, LETTER_T);
+      var pV = inset(center, bl, LETTER_T);
+      var pL = inset(center, br, LETTER_T);
+      var letters = lettre(pP[0], pP[1], iP, SZ_MAJOR) + lettre(pV[0], pV[1], iV, SZ_MINOR) + lettre(pL[0], pL[1], iL, SZ_MINOR);
+
+      if (f === "triangle") {
+        corps = polyline(tri, 3)
+          + seg(inset(bl, br, 0.22)[0], inset(bl, br, 0.22)[1], inset(br, bl, 0.22)[0], inset(br, bl, 0.22)[1], 1.4, INK2)
+          + letters;
+
+      } else if (f === "cercle") {
+        corps = '<circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '" fill="none" stroke="' + INK + '" stroke-width="2.6"/>'
+          + polyline(tri, 1.6, INK2)
+          + letters;
+
+      } else { // compas : deux branches ouvertes + rivet, sans base fermée (à la différence du triangle)
+        var rivet = inset(center, top, 0.18);
+        corps = seg(top[0], top[1], bl[0], bl[1], 3)
+          + seg(top[0], top[1], br[0], br[1], 3)
+          + '<circle cx="' + top[0] + '" cy="' + top[1] + '" r="7" fill="none" stroke="' + INK + '" stroke-width="2.4"/>'
+          + seg(inset(bl, br, 0.3)[0], inset(bl, br, 0.3)[1], inset(br, bl, 0.3)[0], inset(br, bl, 0.3)[1], 1.6, INK2)
+          + letters;
+      }
 
     } else if (f === "etoile") {
-      var R = 100, r = Math.round(R * 0.382);
+      var R = FIELD_R, r = Math.round(R * 0.382);
       var allPts = starPoints(MX, CY, R, r);
-      corps = polyline(allPts, 2.4)
-        + lettre(allPts[0][0], allPts[0][1] - 2, iP, 46)
-        + lettre(allPts[6][0] + 2, allPts[6][1] + 4, iV, 40)
-        + lettre(allPts[4][0] - 2, allPts[4][1] + 4, iL, 40);
-
-    } else if (f === "cercle") {
-      var Rc = 100;
-      var triTop = [MX, CY - Rc + 20], triBL = [MX - Rc * 0.86, CY + Rc * 0.5 - 6], triBR = [MX + Rc * 0.86, CY + Rc * 0.5 - 6];
-      var lineYc = CY - 18;
-      corps = '<circle cx="' + MX + '" cy="' + CY + '" r="' + Rc + '" fill="none" stroke="' + INK + '" stroke-width="2.4"/>'
-        + polyline([triTop, triBL, triBR], 1.8)
-        + seg(triBL[0] + 24, lineYc, triBR[0] - 24, lineYc, 1.2)
-        + lettre(MX, lineYc - 26, iP, 50)
-        + lettre(triBL[0] + 30, triBL[1] - 4, iV, 40)
-        + lettre(triBR[0] - 30, triBR[1] - 4, iL, 40);
-
-    } else if (f === "compas") {
-      var apex = [MX, OY + 16], fL = [24, OY + ZH - 14], fR = [W - 24, OY + ZH - 14];
-      var eqY = OY + ZH - 14, vertTop = OY + ZH * 0.45, lineYd = OY + ZH * 0.42;
-      corps = seg(apex[0], apex[1], fL[0], fL[1], 2.4)
-        + seg(apex[0], apex[1], fR[0], fR[1], 2.4)
-        + seg(fL[0], eqY, fR[0], eqY, 2.4)
-        + seg(fL[0], eqY, fL[0], vertTop, 2.4)
-        + seg(fL[0], lineYd, fL[0] + 36, lineYd, 1.4)
-        + '<circle cx="' + MX + '" cy="' + (OY + ZH * 0.36) + '" r="6" fill="none" stroke="' + INK + '" stroke-width="2"/>'
-        + lettre(MX, OY + ZH * 0.36, iP, 44)
-        + lettre(fL[0] + 44, OY + ZH - 22, iV, 40)
-        + lettre(fR[0] - 44, OY + ZH - 22, iL, 40);
+      // allPts[0]=pointe haute ; allPts[4]=pointe bas-gauche ; allPts[6]=pointe bas-droite
+      var sP = inset(center, allPts[0], LETTER_T);
+      var sV = inset(center, allPts[4], LETTER_T);
+      var sL = inset(center, allPts[6], LETTER_T);
+      corps = polyline(allPts, 2.6)
+        + lettre(sP[0], sP[1], iP, SZ_MAJOR)
+        + lettre(sV[0], sV[1], iV, SZ_MINOR)
+        + lettre(sL[0], sL[1], iL, SZ_MINOR);
 
     } else if (f === "losange") {
-      var lt = [MX, OY + 10], lrt = [W - 16, CY], lb = [MX, OY + ZH - 10], ll = [16, CY];
-      corps = polyline([lt, lrt, lb, ll], 2.4)
-        + seg(ll[0], CY, lrt[0], CY, 1.2)
-        + seg(MX, lt[1], MX, lb[1], 1.2)
-        + lettre(MX, CY - 6, iP, 48)
-        + lettre(ll[0] + 36, CY + 6, iV, 36)
-        + lettre(lrt[0] - 36, CY + 6, iL, 36);
+      var qd = regularPoints(MX, CY, FIELD_R, 4); // [haut, gauche, bas, droite]
+      var qtop = qd[0], qleft = qd[1], qbot = qd[2], qright = qd[3];
+      var dP = inset(center, qtop, LETTER_T);
+      var dV = inset(center, qleft, LETTER_T);
+      var dL = inset(center, qright, LETTER_T);
+      corps = polyline([qtop, qright, qbot, qleft], 3)
+        + seg(qleft[0], qleft[1], qright[0], qright[1], 1.2, INK2)
+        + seg(qtop[0], qtop[1], qbot[0], qbot[1], 1.2, INK2)
+        + lettre(dP[0], dP[1], iP, SZ_MAJOR)
+        + lettre(dV[0], dV[1], iV, SZ_MINOR)
+        + lettre(dL[0], dL[1], iL, SZ_MINOR);
 
     } else if (f === "custom") {
-      var zoneX = 20, zoneW = W - 40;
+      var clipId = uid + "clip";
+      var triC = regularPoints(MX, CY, FIELD_R, 3);
+      var cP = inset(center, triC[0], 0.82);
+      var cV = inset(center, triC[1], 0.82);
+      var cL = inset(center, triC[2], 0.82);
       if (state.customImageDataUrl) {
-        corps = '<image x="' + zoneX + '" y="' + OY + '" width="' + zoneW + '" height="' + ZH + '" href="' + state.customImageDataUrl + '" preserveAspectRatio="xMidYMid meet"/>';
+        corps = '<defs><clipPath id="' + clipId + '"><circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '"/></clipPath></defs>'
+          + '<g clip-path="url(#' + clipId + ')">'
+          + '<image x="' + (MX - FIELD_R) + '" y="' + (CY - FIELD_R) + '" width="' + (FIELD_R * 2) + '" height="' + (FIELD_R * 2) + '" href="' + state.customImageDataUrl + '" preserveAspectRatio="xMidYMid slice"/>'
+          + '</g>'
+          + '<circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '" fill="none" stroke="' + INK + '" stroke-width="2"/>';
       } else {
-        corps = '<rect x="' + zoneX + '" y="' + OY + '" width="' + zoneW + '" height="' + ZH + '" fill="none" stroke="' + INK + '" stroke-width="1.6" stroke-dasharray="6,5"/>'
-          + '<text x="' + MX + '" y="' + CY + '" font-family="' + FONT_TITLE + '" font-size="10" fill="#9a9284" text-anchor="middle">Importe un motif pour le voir ici</text>';
+        corps = '<circle cx="' + MX + '" cy="' + CY + '" r="' + FIELD_R + '" fill="none" stroke="' + INK + '" stroke-width="1.6" stroke-dasharray="6,5"/>'
+          + '<text x="' + MX + '" y="' + CY + '" font-family="' + FONT_TITLE + '" font-size="11" fill="#9a9284" text-anchor="middle">Importe un motif pour le voir ici</text>';
       }
-      corps += badge(MX, OY + 26, 16) + lettre(MX, OY + 26, iP, 26)
-        + badge(zoneX + 26, OY + ZH - 26, 16) + lettre(zoneX + 26, OY + ZH - 26, iV, 22)
-        + badge(zoneX + zoneW - 26, OY + ZH - 26, 16) + lettre(zoneX + zoneW - 26, OY + ZH - 26, iL, 22);
+      corps += badge(cP[0], cP[1], 15) + lettre(cP[0], cP[1], iP, 24)
+        + badge(cV[0], cV[1], 15) + lettre(cV[0], cV[1], iV, 20)
+        + badge(cL[0], cL[1], 15) + lettre(cL[0], cL[1], iL, 20);
     }
 
-    svg.innerHTML = header + corps + footer;
+    svg.innerHTML = defs + rim + rimText + corps;
   }
 
   function selectForme(btn) {
