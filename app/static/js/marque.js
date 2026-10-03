@@ -89,7 +89,7 @@
   // ── Géométrie générale de la médaille ──
   var W = 360, H = 360, MX = W / 2, CY = H / 2;
   var R_OUTER = 168, R_BEAD = 158, R_TEXT_TOP = 142;
-  var EMB_CX = MX, EMB_CY = CY - 40, EMB_R = 62;  // emblème : les 3 initiales (prénom/vertu/lieu), c'est "la marque" traditionnelle
+  var EMB_CX = MX, EMB_CY = CY - 22, EMB_R = 88;  // emblème : les 3 initiales (prénom/vertu/lieu), c'est "la marque" traditionnelle
   var R_NAME_ARC = 128;                            // nom complet en arc, comme le nom de la loge en haut
   var YEAR_Y = CY + R_OUTER - 18;
 
