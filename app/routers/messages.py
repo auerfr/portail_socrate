@@ -102,7 +102,7 @@ ALLOWED_MIME_TYPES = {
     "image/jpeg", "image/png", "image/gif", "image/webp",
     "text/plain",
 }
-ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".txt"}
+ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".xls", ".xlsx", ".jpg", ".jpeg", ".png", ".gif", ".webp", ".txt", ".heic", ".heif"}
 
 router = APIRouter(prefix="/messages", tags=["messages"])
 from app.template_engine import templates
@@ -591,6 +591,28 @@ async def send_message(
     else:
         attachment_list = [attachments]
 
+    # Valider les pièces jointes AVANT toute écriture en base : auparavant un
+    # fichier refusé (extension non autorisée, > 10 Mo) était ignoré en
+    # silence et le message partait quand même sans lui — l'expéditeur ne le
+    # découvrait qu'après coup, côté destinataire. On lit le contenu ici (une
+    # seule fois, réutilisé plus bas) pour pouvoir vérifier la taille réelle.
+    rejected_attachments: List[str] = []
+    valid_attachments: List[tuple] = []
+    for upload in attachment_list:
+        if not upload.filename:
+            continue
+        ext = Path(upload.filename).suffix.lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            rejected_attachments.append(f"{upload.filename} (format non accepté)")
+            continue
+        content = await upload.read()
+        if len(content) > MAX_FILE_SIZE:
+            rejected_attachments.append(f"{upload.filename} (plus de {MAX_FILE_SIZE // (1024 * 1024)} Mo)")
+            continue
+        valid_attachments.append((upload, content))
+    if rejected_attachments:
+        raise HTTPException(400, "Pièce(s) jointe(s) refusée(s) : " + " ; ".join(rejected_attachments))
+
     # "target_functions" est lu directement depuis le form brut plutôt que
     # comme paramètre FastAPI typé List[str] : quel que soit le nombre de
     # cases cochées (0, 1 ou plusieurs), FormData.getlist() renvoie toujours
@@ -682,16 +704,9 @@ async def send_message(
             delivered_at=now,
         ))
 
-    # ── Pièces jointes ────────────────────────────────────────────────────
-    for upload in attachment_list:
-        if not upload.filename:
-            continue
+    # ── Pièces jointes (déjà validées et lues plus haut) ────────────────────
+    for upload, content in valid_attachments:
         ext = Path(upload.filename).suffix.lower()
-        if ext not in ALLOWED_EXTENSIONS:
-            continue  # extension non autorisée — on ignore silencieusement
-        content = await upload.read()
-        if len(content) > MAX_FILE_SIZE:
-            continue  # trop lourd — on ignore
         stored_name = f"{msg.id}_{uuid.uuid4().hex}{ext}"
         (UPLOAD_DIR / stored_name).write_bytes(content)
         db.add(MessageAttachment(
