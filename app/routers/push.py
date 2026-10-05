@@ -10,7 +10,7 @@ from app.config import get_settings
 from app.database import get_db
 from app.dependencies import require_auth
 from app.models.system import PushSubscription
-from app.services.push import send_push_to_member
+from app.services.push import send_push_to_member, send_push_to_member_diagnostic
 
 router = APIRouter(prefix="/push", tags=["push"])
 
@@ -83,17 +83,20 @@ async def test_push(
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    """Envoie une notification de test au membre courant."""
+    """Envoie une notification de test au membre courant. Renvoie le détail par
+    abonnement (pas juste un compteur) pour que la vraie raison d'un échec
+    s'affiche directement sur la page, sans avoir à consulter les logs serveur."""
     user, member = ctx
     if not member:
         raise HTTPException(status_code=403, detail="Compte sans membre lié")
-    sent = await send_push_to_member(
+    details = await send_push_to_member_diagnostic(
         db, member.id,
         title="🔔 Test de notification",
         body=f"Bonjour {member.first_name}, vos notifications push fonctionnent !",
         url="/",
     )
-    return {"ok": True, "sent": sent}
+    sent = sum(1 for d in details if d["result"] == "sent")
+    return {"ok": True, "sent": sent, "details": details}
 
 
 @router.get("/status")

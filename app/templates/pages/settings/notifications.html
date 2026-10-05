@@ -269,10 +269,24 @@
           try {
             const r = await fetch('/push/test', { method: 'POST' });
             const data = await r.json();
-            this.message = data.sent > 0
-              ? `✓ Notification envoyée (${data.sent} appareil${data.sent > 1 ? 's' : ''}).`
-              : '⚠ Aucun envoi (abonnement non trouvé).';
-            this.messageType = data.sent > 0 ? 'info' : 'error';
+            if (data.sent > 0) {
+              this.message = `✓ Notification envoyée (${data.sent} appareil${data.sent > 1 ? 's' : ''}).`;
+              this.messageType = 'info';
+            } else if (data.details && data.details.length > 0) {
+              // Un ou plusieurs abonnements existaient côté serveur mais aucun
+              // envoi n'a abouti — on affiche la vraie raison (ex. rejet du
+              // service de push) plutôt qu'un message générique.
+              this.message = '⚠ Échec : ' + data.details.map((d) => d.reason).join(' / ');
+              this.messageType = 'error';
+              // Si l'abonnement vient d'être supprimé côté serveur (expiré),
+              // l'état "activé" local ne veut plus rien dire — on le corrige
+              // tout de suite plutôt que d'attendre un rechargement de page.
+              if (data.details.some((d) => d.result === 'expired')) this.enabled = false;
+            } else {
+              this.message = '⚠ Aucun abonnement enregistré côté serveur — cliquez sur "Activer" pour vous réabonner.';
+              this.messageType = 'error';
+              this.enabled = false;
+            }
           } catch(e) {
             this.message = 'Erreur : ' + e.message;
             this.messageType = 'error';

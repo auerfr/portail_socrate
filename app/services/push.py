@@ -30,17 +30,20 @@ def _normalize_private_key(key: str) -> str:
     return key.replace("\\n", "\n").strip()
 
 
-async def send_push_to_subscription(sub: PushSubscription, title: str, body: str, url: str = "/") -> PushResult:
-    """Envoie une notification à un abonnement précis."""
+async def send_push_to_subscription(sub: PushSubscription, title: str, body: str, url: str = "/") -> tuple[PushResult, str]:
+    """Envoie une notification à un abonnement précis. Renvoie aussi un message
+    diagnostique lisible (raison de l'échec le cas échéant) — utile pour
+    l'afficher directement à l'utilisateur plutôt que de le renvoyer fouiller
+    les logs serveur."""
     s = get_settings()
     if not s.vapid_private_key or not s.vapid_claim_email:
-        return PushResult.FAILED
+        return PushResult.FAILED, "Clés VAPID non configurées côté serveur."
 
     try:
         from pywebpush import WebPushException, webpush
     except ImportError:
         logger.error("pywebpush non installé")
-        return PushResult.FAILED
+        return PushResult.FAILED, "Module pywebpush non installé côté serveur."
 
     subscription_info = {
         "endpoint": sub.endpoint,
@@ -58,18 +61,27 @@ async def send_push_to_subscription(sub: PushSubscription, title: str, body: str
             vapid_claims=claims,
             ttl=86400,
         )
-        return PushResult.SENT
+        return PushResult.SENT, "OK"
     except WebPushException as exc:
-        # 404 / 410 : abonnement expiré ou révoqué → demander la suppression
         status = getattr(exc.response, "status_code", None) if exc.response else None
+        body_text = ""
+        if exc.response is not None:
+            try:
+                body_text = exc.response.text[:200]
+            except Exception:
+                pass
+        # 404 / 410 : abonnement expiré ou révoqué → demander la suppression
         if status in (404, 410):
             logger.info("Abonnement push expiré (%s), suppression : %s", status, sub.endpoint[:60])
-            return PushResult.EXPIRED
+            return PushResult.EXPIRED, f"Abonnement expiré/révoqué (HTTP {status})."
         logger.warning("Échec push %s : %s", sub.endpoint[:60], exc)
-        return PushResult.FAILED  # garder l'abonnement, c'est peut-être temporaire
+        reason = f"Refusé par le service de push (HTTP {status or '?'})"
+        if body_text:
+            reason += f" : {body_text}"
+        return PushResult.FAILED, reason  # garder l'abonnement, c'est peut-être temporaire
     except Exception as exc:
         logger.error("Erreur push inattendue : %s", exc)
-        return PushResult.FAILED
+        return PushResult.FAILED, f"Erreur inattendue : {exc}"
 
 
 async def send_push_to_member(db: AsyncSession, member_id: int, title: str, body: str, url: str = "/") -> int:
@@ -80,7 +92,7 @@ async def send_push_to_member(db: AsyncSession, member_id: int, title: str, body
     sent = 0
     dead_ids = []
     for sub in subs:
-        result = await send_push_to_subscription(sub, title, body, url)
+        result, _reason = await send_push_to_subscription(sub, title, body, url)
         if result is PushResult.SENT:
             sent += 1
         elif result is PushResult.EXPIRED:
@@ -89,6 +101,26 @@ async def send_push_to_member(db: AsyncSession, member_id: int, title: str, body
         await db.execute(delete(PushSubscription).where(PushSubscription.id.in_(dead_ids)))
         await db.commit()
     return sent
+
+
+async def send_push_to_member_diagnostic(db: AsyncSession, member_id: int, title: str, body: str, url: str = "/") -> list[dict]:
+    """Comme send_push_to_member, mais renvoie le détail par abonnement
+    (résultat + raison lisible) au lieu d'un simple compteur — pour le
+    bouton "Envoyer un test", où l'utilisateur doit voir la vraie cause
+    d'un échec sans avoir à consulter les logs serveur."""
+    r = await db.execute(select(PushSubscription).where(PushSubscription.member_id == member_id))
+    subs = list(r.scalars().all())
+    details = []
+    dead_ids = []
+    for sub in subs:
+        result, reason = await send_push_to_subscription(sub, title, body, url)
+        details.append({"result": result.value, "reason": reason})
+        if result is PushResult.EXPIRED:
+            dead_ids.append(sub.id)
+    if dead_ids:
+        await db.execute(delete(PushSubscription).where(PushSubscription.id.in_(dead_ids)))
+        await db.commit()
+    return details
 
 
 async def send_push_broadcast(db: AsyncSession, member_ids: list[int], title: str, body: str, url: str = "/") -> int:
@@ -100,7 +132,7 @@ async def send_push_broadcast(db: AsyncSession, member_ids: list[int], title: st
     sent = 0
     dead_ids = []
     for sub in subs:
-        result = await send_push_to_subscription(sub, title, body, url)
+        result, _reason = await send_push_to_subscription(sub, title, body, url)
         if result is PushResult.SENT:
             sent += 1
         elif result is PushResult.EXPIRED:
