@@ -1,0 +1,11 @@
+/* Quill (thème snow) fixe par défaut height:100% + overflow-y:auto sur
+   .ql-editor — pensé pour un éditeur à hauteur fixe avec défilement interne
+   (ex. une fenêtre de composition modale). Dans ce site, l'éditeur occupe
+   une zone de page normale : il doit grandir avec son contenu et laisser la
+   page défiler normalement, pas ouvrir sa propre zone de défilement interne
+   (perçue comme "une fenêtre interne" qui capture le défilement à la souris
+   dès que le curseur la survole, cachant le bouton d'envoi plus bas). */
+.ql-editor {
+  height: auto;
+  overflow-y: visible;
+}
