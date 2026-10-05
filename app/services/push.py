@@ -24,10 +24,23 @@ class PushResult(Enum):
 
 
 def _normalize_private_key(key: str) -> str:
-    """Le PEM en .env est sur une ligne avec \\n littéraux → reconstruire les sauts de ligne."""
+    """Prépare la clé privée VAPID stockée en .env pour pywebpush.
+
+    pywebpush.webpush() route une clé passée en simple chaîne vers
+    Vapid.from_string(), qui attend le corps base64url BRUT de la clé DER —
+    PAS un bloc PEM avec ses en-têtes "-----BEGIN/END EC PRIVATE KEY-----".
+    from_string() tente de base64-décoder la chaîne telle quelle (en-têtes
+    PEM inclus s'ils sont présents), ce qui produit un DER invalide et
+    l'erreur cryptography "ASN.1 parsing error: invalid length" — reproduit
+    et confirmé avec une vraie clé générée localement. On retire donc
+    systématiquement l'enveloppe PEM et les retours à la ligne, après avoir
+    reconstruit ces derniers (le .env stocke la clé sur une seule ligne avec
+    des \\n littéraux)."""
     if not key:
         return ""
-    return key.replace("\\n", "\n").strip()
+    key = key.replace("\\n", "\n").strip()
+    body_lines = [line.strip() for line in key.splitlines() if line.strip() and "-----" not in line]
+    return "".join(body_lines) if body_lines else key
 
 
 async def send_push_to_subscription(sub: PushSubscription, title: str, body: str, url: str = "/") -> tuple[PushResult, str]:
