@@ -410,8 +410,12 @@
     </div>
     {% endif %}{# end if not reply_msg #}
 
-    <!-- Actions -->
-    <div class="flex gap-3">
+    <!-- Actions — fixées au-dessus de la barre de navigation mobile (comme
+         dans beaucoup d'apps) pour éviter d'avoir à défiler jusqu'en bas du
+         formulaire pour trouver "Envoyer" ; redevient une simple rangée dans
+         le flux normal de la page à partir du bureau (lg:). -->
+    <div class="fixed bottom-20 inset-x-0 z-40 bg-white border-t border-gray-200 shadow-[0_-4px_12px_rgba(0,0,0,0.06)] px-4 py-3 flex gap-3
+                lg:static lg:inset-auto lg:z-auto lg:bg-transparent lg:border-0 lg:shadow-none lg:px-0 lg:py-0">
       <button type="submit" :disabled="sending"
               class="flex-1 bg-loge-700 text-white py-3 rounded-xl font-semibold hover:bg-loge-800 transition-colors flex items-center justify-center gap-2 disabled:opacity-60 disabled:cursor-not-allowed">
         <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
@@ -424,6 +428,11 @@
         Annuler
       </a>
     </div>
+
+    <!-- Réserve l'espace occupé par la barre d'actions fixe sur mobile, pour
+         que le dernier bloc du formulaire (Destinataires) ne se retrouve pas
+         caché derrière elle une fois tout en bas de page. -->
+    <div class="h-20 lg:hidden" aria-hidden="true"></div>
 
   </form>
 </div>
