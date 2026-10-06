@@ -786,6 +786,13 @@ async def toggle_user_account(
     user_result = await db.execute(select(User).where(User.member_id == member_id))
     target_user = user_result.scalar_one_or_none()
     if target_user:
+        # Même garde-fou que /admin/users/{id}/toggle-active : sans lui, un
+        # admin peut se désactiver lui-même depuis sa propre fiche membre (pas
+        # seulement depuis la liste des comptes) et se retrouver bloqué hors
+        # de l'application, is_active étant revérifié à chaque requête — un
+        # verrouillage dont il ne peut plus se sortir seul.
+        if target_user.id == user.id:
+            raise HTTPException(status_code=400, detail="Vous ne pouvez pas désactiver votre propre compte")
         target_user.is_active = not target_user.is_active
         await db.commit()
 
