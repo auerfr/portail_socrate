@@ -27,7 +27,7 @@ from sqlalchemy import func
 logger = logging.getLogger(__name__)
 
 EXTENSIONS_ACCEPTEES = {".pdf", ".doc", ".docx", ".odt", ".rtf", ".jpg", ".jpeg", ".png"}
-ESPACE_NOM = "Planches reçues"
+ESPACE_NOM = "Planches Programme reçues"
 
 # ── Import comme message personnel (transfert par jeton) ───────────────────
 # Même politique de pièces jointes que le composeur de messages (cf.
