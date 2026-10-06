@@ -5,6 +5,28 @@ from fastapi.templating import Jinja2Templates
 
 templates = Jinja2Templates(directory="app/templates")
 
+# ── Cache-busting des fichiers statiques (?v=mtime) ─────────────────────────
+# Sans ça, un fichier CSS/JS modifié (ex. app.css recompilé après un ajout de
+# classes Tailwind) reste servi depuis le cache du navigateur après un
+# déploiement, tant que l'utilisateur ne force pas un rechargement complet —
+# déjà rencontré sur formation.css/js (cache-busting ajouté localement à ce
+# module-là) ; ici en global Jinja pour que n'importe quel template puisse
+# s'en servir, à commencer par app.css chargé par toutes les pages via
+# base.html.
+import pathlib as _pathlib
+
+_STATIC_DIR = _pathlib.Path(__file__).resolve().parent / "static"
+
+
+def _asset_version(rel_path: str) -> int:
+    try:
+        return int((_STATIC_DIR / rel_path).stat().st_mtime)
+    except OSError:
+        return 0
+
+
+templates.env.globals["asset_version"] = _asset_version
+
 # ── Filtre dates en français ─────────────────────────────────────────────────
 _MOIS = {
     "January":"janvier","February":"février","March":"mars","April":"avril",
