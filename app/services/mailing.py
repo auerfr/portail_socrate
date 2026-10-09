@@ -373,9 +373,12 @@ def verify_unsubscribe_token(token: str) -> Optional[tuple[int, str, int]]:
 # ─────────────────────────────────────────────────────────────────────────────
 
 async def _resolve_attachments(db: AsyncSession, attachments_json) -> list[tuple[str, bytes, str]]:
-    """Charge le contenu des pièces jointes depuis la GED.
+    """Charge le contenu des pièces jointes d'une campagne.
 
-    Format attendu : [{"doc_id": int, "filename": str}, ...]
+    Format attendu : une liste de dicts, chacun soit
+      - {"doc_id": int, "filename": str} — document de la GED, ou
+      - {"upload_path": str, "filename": str, "mime_type": str} — fichier
+        uploadé directement dans le composeur (app/routers/mailing.py).
     Renvoie : [(filename, bytes, mime_type), ...]
     """
     out = []
@@ -389,6 +392,18 @@ async def _resolve_attachments(db: AsyncSession, attachments_json) -> list[tuple
         return out
 
     for a in attachments_json:
+        upload_path = a.get("upload_path")
+        if upload_path:
+            try:
+                with open(upload_path, "rb") as f:
+                    content = f.read()
+                fname = a.get("filename") or os.path.basename(upload_path)
+                mime = a.get("mime_type") or mimetypes.guess_type(fname)[0] or "application/octet-stream"
+                out.append((fname, content, mime))
+            except OSError:
+                logger.warning("PJ uploadée introuvable : %s", upload_path)
+            continue
+
         doc_id = a.get("doc_id")
         if not doc_id:
             continue
@@ -402,7 +417,7 @@ async def _resolve_attachments(db: AsyncSession, attachments_json) -> list[tuple
             mime = doc.mime_type or mimetypes.guess_type(fname)[0] or "application/octet-stream"
             out.append((fname, content, mime))
         except OSError:
-            logger.warning("PJ introuvable doc_id=%s path=%s", doc_id, doc.file_path)
+            logger.warning("PJ introuvable doc_id=%s path=%s", doc_id, doc.storage_path)
     return out
 
 

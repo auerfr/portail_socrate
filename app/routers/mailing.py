@@ -1,10 +1,12 @@
 """Router Listes de diffusion."""
 import asyncio
 import json
+import uuid
 from datetime import datetime
-from typing import Annotated, Optional
+from pathlib import Path
+from typing import Annotated, List, Optional, Union
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select, func, desc
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -17,7 +19,7 @@ from app.models.mailing import (
     MailingCampaign, MailingDelivery, CampaignStatus, DeliveryStatus,
 )
 from app.models.lodge import ExternalContact
-from app.models.documents import Document, DocStatus
+from app.models.documents import Document
 from app.services.mailing import (
     resolve_recipients, send_campaign_async, launch_send_task,
     verify_unsubscribe_token, make_unsubscribe_token,
@@ -25,6 +27,16 @@ from app.services.mailing import (
 
 router = APIRouter(prefix="/mailing", tags=["mailing"])
 from app.template_engine import templates
+
+# Pièces jointes uploadées directement dans le composeur (distinctes des
+# documents de la GED, référencés eux par doc_id sans limite de taille propre
+# — ils sont déjà hébergés). Plafond plus bas que pour un message 1-à-1
+# (10 Mo) : une campagne part vers toute une liste de diffusion, le volume
+# total est donc multiplié par le nombre de destinataires.
+MAILING_UPLOAD_DIR = Path("app/static/uploads/mailing")
+MAILING_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+MAILING_MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 Mo
+MAILING_ALLOWED_EXTENSIONS = {".pdf", ".doc", ".docx", ".odt", ".xls", ".xlsx", ".jpg", ".jpeg", ".png"}
 
 
 def _can_send(user, member) -> bool:
@@ -821,25 +833,9 @@ async def compose_new(
 
     recipients = await resolve_recipients(db, ml)
 
-    # Documents publiables depuis la GED pour PJ — avec filtre whitelist
-    from app.services.confidentiality import get_config as get_conf
-    conf = await get_conf(db=db)
-    docs_q = select(Document).where(
-        Document.status == DocStatus.PUBLISHED,
-        Document.storage_path.isnot(None),
-    )
-    if conf.get("pj_whitelist_enabled"):
-        allowed = conf.get("pj_allowed_folder_ids") or []
-        if allowed:
-            docs_q = docs_q.where(Document.folder_id.in_(allowed))
-        else:
-            # whitelist activée mais aucun dossier coché => aucun PJ autorisé
-            docs_q = docs_q.where(Document.id == -1)
-    docs = (await db.execute(docs_q.order_by(desc(Document.updated_at)).limit(100))).scalars().all()
-
     return templates.TemplateResponse(request, "pages/mailing/compose.html", {
         "current_user": user, "current_member": member,
-        "mlist": ml, "recipients": recipients, "docs": docs,
+        "mlist": ml, "recipients": recipients,
         "draft": draft,
     })
 
@@ -852,7 +848,8 @@ async def compose_save(
     subject: Annotated[str, Form()],
     body_md: Annotated[str, Form()],
     reply_to: Annotated[str, Form()] = "",
-    attachment_doc_ids: Annotated[list[str], Form()] = None,
+    attachments_json: Annotated[str, Form()] = "[]",
+    attachments: Annotated[Optional[Union[List[UploadFile], UploadFile]], File()] = None,
     draft_id: Annotated[str, Form()] = "",
     action: Annotated[str, Form()] = "draft",   # draft | test | send
 ):
@@ -863,30 +860,83 @@ async def compose_save(
     if not ml:
         raise HTTPException(404)
 
-    # Pièces jointes JSON (avec validation whitelist)
+    # Un <input type="file" multiple> soumis sans fichier envoie une seule
+    # partie vide — Starlette la remonte alors comme un UploadFile isolé au
+    # lieu d'une liste (cf. même normalisation dans app/routers/messages.py).
+    if attachments is None:
+        upload_list: List[UploadFile] = []
+    elif isinstance(attachments, list):
+        upload_list = attachments
+    else:
+        upload_list = [attachments]
+
+    # Valider les nouveaux fichiers AVANT d'écrire quoi que ce soit sur disque.
+    rejected: List[str] = []
+    valid_uploads: List[tuple] = []  # (filename, content, mime_type)
+    for upload in upload_list:
+        if not upload.filename:
+            continue
+        ext = Path(upload.filename).suffix.lower()
+        if ext not in MAILING_ALLOWED_EXTENSIONS:
+            rejected.append(f"{upload.filename} (format non accepté)")
+            continue
+        content = await upload.read()
+        if len(content) > MAILING_MAX_FILE_SIZE:
+            rejected.append(f"{upload.filename} (plus de {MAILING_MAX_FILE_SIZE // (1024 * 1024)} Mo)")
+            continue
+        valid_uploads.append((upload.filename, content, upload.content_type or "application/octet-stream"))
+    if rejected:
+        raise HTTPException(400, "Pièce(s) jointe(s) refusée(s) : " + " ; ".join(rejected))
+
+    # Pièces jointes déjà choisies côté client — documents de la GED
+    # (référencés par doc_id) ou fichiers déjà uploadés lors d'un brouillon
+    # précédent (conservés tels quels, pas re-uploadés) — envoyées en JSON
+    # plutôt qu'en une liste de champs cachés, pour porter les deux formats.
+    try:
+        existing_atts = json.loads(attachments_json) if attachments_json else []
+        if not isinstance(existing_atts, list):
+            existing_atts = []
+    except (json.JSONDecodeError, TypeError):
+        existing_atts = []
+
     from app.services.confidentiality import get_config as get_conf
     conf = await get_conf(db=db)
     whitelist_on = conf.get("pj_whitelist_enabled")
     allowed_folder_ids = set(conf.get("pj_allowed_folder_ids") or [])
 
-    attachments = []
-    if attachment_doc_ids:
-        for s in attachment_doc_ids:
-            if s.isdigit():
-                doc = await db.get(Document, int(s))
-                if not doc:
-                    continue
-                # Validation whitelist côté serveur (anti-trafiquage formulaire)
-                if whitelist_on and doc.folder_id not in allowed_folder_ids:
-                    raise HTTPException(
-                        403,
-                        f"Document « {doc.name} » non autorisé en pièce jointe "
-                        "(dossier hors whitelist). Voir /admin/confidentiality."
-                    )
-                attachments.append({
-                    "doc_id": doc.id,
-                    "filename": doc.original_filename or doc.name,
-                })
+    final_attachments = []
+    for a in existing_atts:
+        if not isinstance(a, dict):
+            continue
+        if a.get("doc_id"):
+            doc = await db.get(Document, int(a["doc_id"]))
+            if not doc:
+                continue
+            # Validation whitelist côté serveur (anti-trafiquage formulaire)
+            if whitelist_on and doc.folder_id not in allowed_folder_ids:
+                raise HTTPException(
+                    403,
+                    f"Document « {doc.name} » non autorisé en pièce jointe "
+                    "(dossier hors whitelist). Voir /admin/confidentiality."
+                )
+            final_attachments.append({
+                "doc_id": doc.id,
+                "filename": a.get("filename") or doc.original_filename or doc.name,
+            })
+        elif a.get("upload_path") and Path(a["upload_path"]).exists():
+            final_attachments.append(a)
+
+    # Écrire les nouveaux fichiers, une fois toute validation passée.
+    for filename, content, mime in valid_uploads:
+        ext = Path(filename).suffix.lower()
+        stored_name = f"{uuid.uuid4().hex}{ext}"
+        dest = MAILING_UPLOAD_DIR / stored_name
+        dest.write_bytes(content)
+        final_attachments.append({
+            "upload_path": str(dest),
+            "filename": filename,
+            "mime_type": mime,
+        })
 
     # Charger ou créer la campagne
     campaign = None
@@ -909,7 +959,7 @@ async def compose_save(
         campaign.sender_id = member.id
 
     campaign.reply_to = (reply_to or "").strip() or None
-    campaign.attachments = attachments or None
+    campaign.attachments = final_attachments or None
 
     await db.commit()
     await db.refresh(campaign)
