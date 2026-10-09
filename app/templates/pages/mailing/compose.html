@@ -73,8 +73,33 @@
       </div>
 
       <div>
-        <label class="block text-xs font-semibold text-gray-500 uppercase mb-1">Corps (Markdown)</label>
-        <textarea name="body_md" rows="14" required
+        <div class="flex items-center justify-between mb-1">
+          <label class="block text-xs font-semibold text-gray-500 uppercase">Corps</label>
+          <button type="button" onclick="openMailPreview()"
+                  class="text-xs font-medium text-loge-700 hover:text-loge-800 flex items-center gap-1">
+            <i class="ti ti-eye"></i> Aperçu
+          </button>
+        </div>
+
+        <!-- Barre d'outils : insère/entoure la sélection avec la syntaxe Markdown correspondante -->
+        <div class="flex flex-wrap items-center gap-1 border border-gray-200 rounded-t-xl bg-gray-50 px-2 py-1.5">
+          <button type="button" onclick="mdWrap('**','**')" title="Gras"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-200 text-sm font-bold text-gray-700">G</button>
+          <button type="button" onclick="mdWrap('*','*')" title="Italique"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-200 text-sm italic text-gray-700">I</button>
+          <button type="button" onclick="mdList()" title="Liste"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700">
+            <i class="ti ti-list"></i>
+          </button>
+          <button type="button" onclick="mdLink()" title="Lien"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700">
+            <i class="ti ti-link"></i>
+          </button>
+          <span class="w-px h-5 bg-gray-300 mx-1"></span>
+          <button type="button" onclick="mdInsert('∴')" title="Insérer le caractère ∴"
+                  class="w-7 h-7 flex items-center justify-center rounded hover:bg-gray-200 text-gray-700 font-medium">∴</button>
+        </div>
+        <textarea name="body_md" id="mail-body-textarea" rows="14" required
                   placeholder="Bonjour {{ '{{prenom}}' }},
 
 Voici la convocation à notre prochaine tenue du **31 mai 2026** à 19h30 au Temple.
@@ -86,10 +111,9 @@ Voici la convocation à notre prochaine tenue du **31 mai 2026** à 19h30 au Tem
 
 Bien à toi,
 Le Secrétaire"
-                  class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm font-mono focus:ring-2 focus:ring-loge-500">{{ draft.body_md if draft else '' }}</textarea>
+                  class="w-full border border-gray-200 border-t-0 rounded-b-xl px-3 py-2 text-sm font-mono focus:outline-none focus:ring-2 focus:ring-loge-500">{{ draft.body_md if draft else '' }}</textarea>
         <p class="text-[11px] text-gray-400 mt-1">
           Variables : <code>{{ '{{prenom}}' }}</code>, <code>{{ '{{nom}}' }}</code>, <code>{{ '{{civilite}}' }}</code> (Frère/Sœur), <code>{{ '{{civilite_court}}' }}</code> (F∴/S∴), <code>{{ '{{grade}}' }}</code>
-          · Markdown supporté : <code>**gras**</code>, <code>*italique*</code>, <code>[lien](url)</code>, listes avec <code>-</code>
         </p>
       </div>
 
@@ -281,5 +305,73 @@ document.getElementById('mail-doc-picker-body').addEventListener('click', functi
   }));
   closeMailDocPicker();
 });
+</script>
+
+<script>
+// ── Barre d'outils Markdown : entoure/insère dans la sélection du textarea ──
+function mdWrap(prefix, suffix) {
+  const ta = document.getElementById('mail-body-textarea');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const sel = ta.value.slice(start, end) || 'texte';
+  ta.focus();
+  ta.setRangeText(prefix + sel + suffix, start, end, 'select');
+}
+function mdInsert(text) {
+  const ta = document.getElementById('mail-body-textarea');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  ta.focus();
+  ta.setRangeText(text, start, end, 'end');
+}
+function mdList() {
+  const ta = document.getElementById('mail-body-textarea');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const sel = ta.value.slice(start, end) || 'élément';
+  const withDashes = sel.split('\n').map(l => l.startsWith('- ') ? l : '- ' + l).join('\n');
+  ta.focus();
+  ta.setRangeText(withDashes, start, end, 'select');
+}
+function mdLink() {
+  const ta = document.getElementById('mail-body-textarea');
+  const start = ta.selectionStart, end = ta.selectionEnd;
+  const sel = ta.value.slice(start, end) || 'texte du lien';
+  const url = prompt('URL du lien :', 'https://');
+  if (!url) { ta.focus(); return; }
+  ta.focus();
+  ta.setRangeText('[' + sel + '](' + url + ')', start, end, 'end');
+}
+</script>
+
+<!-- ═══ Modale d'aperçu (avec fusion de champs) ═══ -->
+<div id="mail-preview-modal" class="hidden fixed inset-0 z-[60] flex items-end sm:items-center justify-center bg-black/50 px-4"
+     onclick="if(event.target===this)closeMailPreview()">
+  <div class="bg-white rounded-t-2xl sm:rounded-2xl shadow-2xl w-full sm:max-w-xl flex flex-col" style="height:85vh; max-height:85vh;">
+    <div class="flex items-center justify-between gap-3 px-4 py-3 border-b border-gray-100 shrink-0">
+      <h3 class="text-sm font-semibold text-gray-800">Aperçu de l'email</h3>
+      <button type="button" onclick="closeMailPreview()" class="text-gray-400 hover:text-gray-600 shrink-0 text-lg leading-none w-7 h-7 flex items-center justify-center">✕</button>
+    </div>
+    <iframe id="mail-preview-iframe" class="flex-1 w-full" style="border:0;"></iframe>
+  </div>
+</div>
+
+<script>
+function openMailPreview() {
+  document.getElementById('mail-preview-modal').classList.remove('hidden');
+  const iframe = document.getElementById('mail-preview-iframe');
+  iframe.srcdoc = '<p style="padding:24px;font-family:-apple-system,sans-serif;color:#9ca3af;">Génération de l’aperçu…</p>';
+  const subject = document.querySelector('input[name="subject"]').value;
+  const bodyMd = document.getElementById('mail-body-textarea').value;
+  const fd = new FormData();
+  fd.set('subject', subject);
+  fd.set('body_md', bodyMd);
+  fetch('/mailing/lists/{{ mlist.id }}/compose/preview', { method: 'POST', body: fd })
+    .then(r => r.text())
+    .then(html => { iframe.srcdoc = html; })
+    .catch(() => {
+      iframe.srcdoc = '<p style="padding:24px;font-family:-apple-system,sans-serif;color:#dc2626;">Erreur lors de la génération de l’aperçu.</p>';
+    });
+}
+function closeMailPreview() {
+  document.getElementById('mail-preview-modal').classList.add('hidden');
+}
 </script>
 {% endblock %}

@@ -810,6 +810,59 @@ async def contacts_template_csv(
 #  Composer + envoyer
 # ─────────────────────────────────────────────────────────────────────────────
 
+@router.post("/lists/{list_id}/compose/preview", response_class=HTMLResponse)
+async def compose_preview(
+    list_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    subject: Annotated[str, Form()] = "",
+    body_md: Annotated[str, Form()] = "",
+):
+    """Aperçu du mail tel qu'il sera réellement envoyé — avec fusion de champs
+    sur un vrai destinataire de la liste (premier de la liste résolue, sinon
+    un exemple fictif si la liste est vide). Réutilise telles quelles les
+    fonctions de rendu de l'envoi réel pour qu'aucun écart ne soit possible
+    entre l'aperçu et le mail effectivement reçu."""
+    from html import escape as _esc
+    from app.models.lodge import LodgeSettings
+    from app.services.mailing import (
+        Recipient, render_subject, render_body_md, md_to_html, make_html_email,
+    )
+
+    user, member = ctx
+    if not _can_send(user, member):
+        raise HTTPException(403)
+    ml = await db.get(MailingList, list_id)
+    if not ml:
+        raise HTTPException(404)
+
+    recipients = await resolve_recipients(db, ml)
+    is_sample = not recipients
+    sample = recipients[0] if recipients else Recipient(
+        email="exemple@email.fr", first_name="Jean", last_name="Dupont",
+        civility="", grade_label="Apprenti", kind="m",
+    )
+
+    lr = await db.execute(select(LodgeSettings).limit(1))
+    lodge = lr.scalar_one_or_none()
+    lodge_name = lodge.name if lodge and lodge.name else "Portail Socrate"
+
+    subj = render_subject(subject or "(sans objet)", sample)
+    html_inner = md_to_html(render_body_md(body_md or "", sample))
+    html = make_html_email(html_inner, "#", ml.name, lodge_name)
+
+    who = f"{sample.first_name} {sample.last_name}".strip() or sample.email
+    note = " (exemple fictif — la liste n'a aucun destinataire pour l'instant)" if is_sample else ""
+    banner = (
+        '<div style="background:#fef3c7;color:#92400e;font:12px -apple-system,BlinkMacSystemFont,sans-serif;'
+        'padding:8px 14px;border-bottom:1px solid #fde68a;">'
+        f'Aperçu avec fusion de champs sur : <strong>{_esc(who)}</strong>{_esc(note)}<br>'
+        f'Objet : {_esc(subj)}'
+        '</div>'
+    )
+    return HTMLResponse(banner + html)
+
+
 @router.get("/lists/{list_id}/compose", response_class=HTMLResponse)
 async def compose_new(
     list_id: int,
