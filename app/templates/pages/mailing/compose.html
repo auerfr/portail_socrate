@@ -28,23 +28,23 @@
     </div>
 
     <form method="post" action="/mailing/lists/{{ mlist.id }}/compose" enctype="multipart/form-data" class="space-y-4"
-          x-data="{
-            atts: {{ (draft.attachments | tojson) if draft and draft.attachments else '[]' }},
+          x-data='{
+            atts: {{ (draft.attachments | tojson) if draft and draft.attachments else "[]" }},
             newFiles: [],
-            allowedExt: ['pdf','doc','docx','odt','xls','xlsx','jpg','jpeg','png'],
+            allowedExt: ["pdf","doc","docx","odt","xls","xlsx","jpg","jpeg","png"],
             addDocAtt(doc) {
               if (!this.atts.some(a => a.doc_id === doc.id)) this.atts.push({doc_id: doc.id, filename: doc.name});
             },
             addFiles(e) {
               const rejected = [];
               for (const f of e.target.files) {
-                const ext = f.name.split('.').pop().toLowerCase();
-                if (!this.allowedExt.includes(ext)) { rejected.push(f.name + ' (format non accepté)'); continue; }
-                if (f.size > 5*1024*1024) { rejected.push(f.name + ' (plus de 5 Mo)'); continue; }
+                const ext = f.name.split(".").pop().toLowerCase();
+                if (!this.allowedExt.includes(ext)) { rejected.push(f.name + " (format non accepté)"); continue; }
+                if (f.size > 5*1024*1024) { rejected.push(f.name + " (plus de 5 Mo)"); continue; }
                 if (this.newFiles.some(x => x.name === f.name && x.size === f.size)) continue;
                 this.newFiles.push(f);
               }
-              if (rejected.length) alert('Fichier(s) non ajouté(s) :\n' + rejected.join('\n'));
+              if (rejected.length) alert("Fichier(s) non ajouté(s) :\n" + rejected.join("\n"));
               this.syncInput();
             },
             removeNewFile(i) { this.newFiles.splice(i,1); this.syncInput(); },
@@ -53,8 +53,8 @@
               for (const f of this.newFiles) dt.items.add(f);
               this.$refs.fileInput.files = dt.files;
             },
-            fmt(b) { return b < 1024 ? b+'o' : b < 1048576 ? Math.round(b/1024)+'Ko' : (b/1048576).toFixed(1)+'Mo'; }
-          }"
+            fmt(b) { return b < 1024 ? b+"o" : b < 1048576 ? Math.round(b/1024)+"Ko" : (b/1048576).toFixed(1)+"Mo"; }
+          }'
           @mail-doc-picked.window="addDocAtt($event.detail)">
       {% if draft %}<input type="hidden" name="draft_id" value="{{ draft.id }}">{% endif %}
 
