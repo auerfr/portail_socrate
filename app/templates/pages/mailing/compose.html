@@ -15,7 +15,7 @@
   {% if msg == 'saved' %}
   <div class="bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-2xl px-4 py-2 text-sm">✓ Brouillon enregistré.</div>
   {% elif msg == 'test' %}
-  <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-4 py-2 text-sm">📧 Email de test envoyé à {{ current_member.email or 'votre adresse' }}.</div>
+  <div class="bg-blue-50 border border-blue-200 text-blue-800 rounded-2xl px-4 py-2 text-sm">📧 Email de test envoyé à {{ request.query_params.get('_test_to') or current_member.email or 'votre adresse' }}.</div>
   {% endif %}
 
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
@@ -173,14 +173,18 @@ Le Secrétaire"
           </div>
         </div>
 
-        <div class="flex flex-wrap gap-2 justify-end">
+        <div class="flex flex-wrap gap-2 justify-end items-center">
+          <input type="email" name="test_email" value="{{ current_member.email or '' }}"
+                 placeholder="adresse pour le test"
+                 title="Adresse à laquelle envoyer le test (par défaut : la tienne)"
+                 class="w-44 border border-gray-200 rounded-xl px-3 py-2 text-xs focus:outline-none focus:ring-2 focus:ring-loge-500">
           <button type="submit" name="action" value="draft"
                   class="px-4 py-2 text-sm bg-gray-100 hover:bg-gray-200 text-gray-800 rounded-xl">
             💾 Brouillon
           </button>
           <button type="submit" name="action" value="test"
                   class="px-4 py-2 text-sm bg-blue-50 hover:bg-blue-100 text-blue-800 rounded-xl border border-blue-200">
-            📧 Test à moi
+            📧 Tester
           </button>
           {# Bouton planifier — JS récupère la date et redirige #}
           <button type="button"

@@ -905,6 +905,7 @@ async def compose_save(
     attachments: Annotated[Optional[Union[List[UploadFile], UploadFile]], File()] = None,
     draft_id: Annotated[str, Form()] = "",
     action: Annotated[str, Form()] = "draft",   # draft | test | send
+    test_email: Annotated[str, Form()] = "",
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -1019,33 +1020,54 @@ async def compose_save(
 
     # Action
     if action == "test":
-        # Envoi de test à soi-même (utilise l'email du membre courant)
+        # Envoi de test — à une adresse choisie, ou à soi-même par défaut.
+        # Passe par EXACTEMENT le même pipeline que l'envoi réel (réécriture
+        # des liens pour le suivi de clic, lien de désinscription) : un test
+        # qui sauterait cette étape pourrait sembler fonctionner alors que
+        # l'envoi réel, lui, casserait les liens (c'est précisément ce qui
+        # s'est produit : le domaine de suivi des clics était mal configuré,
+        # mais le test envoyait les liens bruts, sans le révéler).
         from app.services.email import _send_raw
         from app.services.mailing import (
             render_subject, render_body_md, md_to_html, make_html_email,
+            _resolve_attachments, _member_to_recipient, _rewrite_links,
+            make_unsubscribe_token,
         )
         from app.models.lodge import LodgeSettings
-        from app.services.mailing import _resolve_attachments
+        from app.config import get_settings
         lr = await db.execute(select(LodgeSettings).limit(1))
         lodge = lr.scalar_one_or_none()
         lodge_name = lodge.name if lodge and lodge.name else "Portail Socrate"
-        if member.email:
-            from app.services.mailing import _member_to_recipient
+
+        to_email = (test_email or "").strip() or (member.email or "")
+        if to_email and "@" in to_email:
+            settings = get_settings()
+            base_url = (settings.portal_url or f"https://{settings.lodge_domain}").rstrip("/")
+
             test_recipient = _member_to_recipient(member)
             subj = "[TEST] " + render_subject(campaign.subject, test_recipient)
             body_md_r = render_body_md(campaign.body_md, test_recipient)
             html_inner = md_to_html(body_md_r)
-            html = make_html_email(html_inner, "#test", ml.name, lodge_name)
+
+            # Identifiant de livraison factice (0) : la redirection de clic
+            # fonctionne même sans ligne MailingDelivery correspondante en
+            # base — seul le comptage de clic est alors sauté.
+            tok = make_unsubscribe_token(ml.id, "m", member.id)
+            unsub_url = f"{base_url}/mailing/unsubscribe/{tok}"
+            html_with_links = _rewrite_links(html_inner, base_url, 0)
+            html = make_html_email(html_with_links, unsub_url, ml.name, lodge_name)
+
             try:
                 atts = await _resolve_attachments(db, campaign.attachments)
                 await _send_raw(
-                    to=member.email, subject=subj, html=html, text=body_md_r,
+                    to=to_email, subject=subj, html=html, text=body_md_r,
                     attachments=atts or None,
                 )
             except Exception:
                 pass
+        from urllib.parse import quote as _quote
         return RedirectResponse(
-            url=f"/mailing/lists/{list_id}/compose?draft_id={campaign.id}&_msg=test",
+            url=f"/mailing/lists/{list_id}/compose?draft_id={campaign.id}&_msg=test&_test_to={_quote(to_email)}",
             status_code=303,
         )
 
