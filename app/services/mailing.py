@@ -421,9 +421,14 @@ async def _resolve_attachments(db: AsyncSession, attachments_json) -> list[tuple
     return out
 
 
-async def send_campaign_async(campaign_id: int, base_url: str = "https://portail.amisdesocrate.fr"):
+async def send_campaign_async(campaign_id: int, base_url: Optional[str] = None):
     """Worker d'envoi d'une campagne — boucle avec rate-limit + reuse SMTP."""
     from app.services.email import _send_raw, open_smtp_client
+
+    if not base_url:
+        settings = get_settings()
+        base_url = settings.portal_url or f"https://{settings.lodge_domain}"
+    base_url = base_url.rstrip("/")
 
     async with AsyncSessionLocal() as db:
         campaign = await db.get(MailingCampaign, campaign_id)

@@ -227,7 +227,7 @@ async def run_confirmation_campaign(
     """Envoie l'email de confirmation aux correspondants externes actifs.
     Si contact_ids est fourni, seuls ces contacts sont ciblés."""
     settings = get_settings()
-    base_url = (portal_url or settings.portal_url or "https://portail.amisdesocrate.fr").rstrip("/")
+    base_url = (portal_url or settings.portal_url or f"https://{settings.lodge_domain}").rstrip("/")
 
     async with AsyncSessionLocal() as db:
         stmt = (

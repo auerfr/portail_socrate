@@ -368,7 +368,7 @@ async def run_bulk_access_send(
     est None), en tâche de fond (sa propre session DB, calqué sur
     app.services.mailing.send_campaign_async)."""
     settings = get_settings()
-    base_url = (portal_url or settings.portal_url or "https://portail.amisdesocrate.fr").rstrip("/")
+    base_url = (portal_url or settings.portal_url or f"https://{settings.lodge_domain}").rstrip("/")
     guide_pdf = build_guide_pdf(settings.lodge_name, base_url)
 
     async with AsyncSessionLocal() as db:

@@ -147,7 +147,9 @@ async def send_notification(
             sender_name = f"{'S∴' if sender.civility == 'S' else 'F∴'} {sender.last_name} {sender.first_name}"
         else:
             sender_name = "Portail Loge"
-        base_url = (portal_base_url or "https://portail.amisdesocrate.fr").rstrip("/")
+        from app.config import get_settings
+        settings = get_settings()
+        base_url = (portal_base_url or settings.portal_url or f"https://{settings.lodge_domain}").rstrip("/")
 
         recipient_emails = [
             m.email for m in all_members
