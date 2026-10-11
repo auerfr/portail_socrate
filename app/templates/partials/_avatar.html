@@ -2,8 +2,11 @@
    n'est pas discret pour qui regarde — même règle que le filtre anon_nom,
    voir app/template_engine.py : si le nom est masqué, la photo l'est aussi,
    sinon la photo contournerait la discrétion), sinon initiales dans un rond
-   dégradé (même rendu qu'avant). À importer AVEC le contexte (nécessaire
-   pour la règle de discrétion) :
+   dégradé (même rendu qu'avant). Exception : on se voit toujours soi-même
+   en clair, quel que soit son rôle — anon_nom ne fait pas ce cas particulier
+   (il masque selon le rôle du visiteur, pas selon qui est visé), ce qui
+   masquerait sinon sa propre photo à soi-même. À importer AVEC le contexte
+   (nécessaire pour la règle de discrétion) :
      {% import "partials/_avatar.html" as avatar with context %}
    puis :
      {{ avatar.avatar(member, classes='w-9 h-9 rounded-full text-xs font-bold') }}
@@ -13,9 +16,10 @@
    défaut — passer une couleur unie pour matcher une page qui utilisait déjà
    un fond uni, ex: bg='#2c7a7b'). #}
 {% macro avatar(member, classes='w-8 h-8 rounded-full text-xs font-semibold', bg='linear-gradient(135deg,#4a9d8f,#2c7a7b)') %}
+{% set is_self = member and current_member and current_member.id == member.id %}
 {% set lname = member.last_name if member else '' %}
-{% set lname_shown = (lname | anon_nom) if member else '' %}
-{% set masked = member and lname_shown != lname %}
+{% set lname_shown = member.last_name if is_self else ((lname | anon_nom) if member else '') %}
+{% set masked = member and not is_self and lname_shown != lname %}
 {% if member and member.photo_url and not masked %}
 <img src="{{ member.photo_url }}" alt="" class="{{ classes }} object-cover flex-shrink-0">
 {% else %}

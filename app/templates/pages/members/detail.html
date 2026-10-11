@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/_presence.html" as presence %}
-{% block title %}{{ target.last_name | anon_nom }} {{ target.first_name }} — Portail Socrate{% endblock %}
+{% block title %}{{ target.last_name if (current_member and current_member.id == target.id) else (target.last_name | anon_nom) }} {{ target.first_name }} — Portail Socrate{% endblock %}
 
 {% block content %}
 <div class="p-4 lg:p-8 max-w-4xl mx-auto">
@@ -11,7 +11,7 @@
     <div class="flex items-center gap-1.5">
       <a href="/members/" class="hover:text-loge-700">Membres</a>
       <span>›</span>
-      <span class="text-gray-800">{{ target.last_name | anon_nom }} {{ target.first_name }}</span>
+      <span class="text-gray-800">{{ target.last_name if (current_member and current_member.id == target.id) else (target.last_name | anon_nom) }} {{ target.first_name }}</span>
     </div>
     {% if current_user and (current_user.is_admin or (current_member and current_member.lodge_function and current_member.lodge_function.value in ['VM', 'SECRETAIRE', 'PREMIER_S', 'SECOND_S'])) %}
     <a href="/attendance/member/{{ target.id }}"
@@ -28,9 +28,13 @@
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
 
     <!-- En-tête -->
-    {% set lname_shown = target.last_name | anon_nom %}
-    {% set photo_masked = lname_shown != target.last_name %}
-    {% set can_edit_photo = can_manage or (current_member and current_member.id == target.id) %}
+    {% set is_self = current_member and current_member.id == target.id %}
+    {# anon_nom masque selon le rôle du visiteur, pas selon qui est visé — on
+       se voit toujours soi-même en clair, sinon ta propre photo te serait
+       masquée à toi-même selon ta fonction. #}
+    {% set lname_shown = target.last_name if is_self else (target.last_name | anon_nom) %}
+    {% set photo_masked = not is_self and lname_shown != target.last_name %}
+    {% set can_edit_photo = can_manage or is_self %}
     <div class="bg-gradient-to-r from-loge-800 to-loge-700 px-6 py-8 text-white">
       <div class="flex items-center gap-5">
         <div class="relative w-16 h-16 flex-shrink-0">
@@ -57,7 +61,7 @@
           {% endif %}
         </div>
         <div>
-          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.last_name | anon_nom }} {{ target.first_name }}</h1>
+          <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ lname_shown }} {{ target.first_name }}</h1>
           <p class="text-loge-200 text-sm mt-1">{{ grade_label(target.masonic_grade, target.civility) }} · {{ office_label or function_label(target.lodge_function, target.civility) }}</p>
           <p class="text-loge-200 text-xs mt-1">{{ target | presence_label }}</p>
           <div class="mt-2">
