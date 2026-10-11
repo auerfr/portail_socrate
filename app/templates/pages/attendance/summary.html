@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Synthèse — {{ meeting.meeting_date.strftime('%d/%m/%Y') }} — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -220,10 +221,7 @@
         </div>
         {% for att in present | sort(attribute='member.last_name') %}
         <div class="flex items-center gap-3 px-5 py-2.5">
-          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-               style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-            {{ att.member.first_name[0] }}{{ att.member.last_name | anon_nom | first }}
-          </div>
+          {{ avatar.avatar(att.member, classes='w-7 h-7 rounded-full text-xs font-semibold') }}
           <div class="flex-1 text-sm font-medium text-gray-800">
             {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
             {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}
@@ -242,10 +240,7 @@
         </div>
         {% for att in excused | sort(attribute='member.last_name') %}
         <div class="flex items-center gap-3 px-5 py-2.5">
-          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-               style="background:linear-gradient(135deg,#d97706,#b45309);">
-            {{ att.member.first_name[0] }}{{ att.member.last_name | anon_nom | first }}
-          </div>
+          {{ avatar.avatar(att.member, classes='w-7 h-7 rounded-full text-xs font-semibold', bg='linear-gradient(135deg,#d97706,#b45309)') }}
           <div class="flex-1">
             <div class="text-sm font-medium text-gray-800">
               {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
@@ -268,10 +263,7 @@
         </div>
         {% for att in absent | sort(attribute='member.last_name') %}
         <div class="flex items-center gap-3 px-5 py-2.5">
-          <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-               style="background:linear-gradient(135deg,#dc2626,#b91c1c);">
-            {{ att.member.first_name[0] }}{{ att.member.last_name | anon_nom | first }}
-          </div>
+          {{ avatar.avatar(att.member, classes='w-7 h-7 rounded-full text-xs font-semibold', bg='linear-gradient(135deg,#dc2626,#b91c1c)') }}
           <div class="flex-1 text-sm text-gray-600">
             {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
             {{ att.member.last_name | anon_nom }} {{ att.member.first_name }}

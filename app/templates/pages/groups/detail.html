@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}{{ group.name }} — Groupes{% endblock %}
 
 {% block content %}
@@ -92,10 +93,7 @@
           {% for m in members %}
           <div class="flex items-center justify-between px-5 py-3">
             <div class="flex items-center gap-3">
-              <div class="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-                   style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
-              </div>
+              {{ avatar.avatar(m, classes='w-8 h-8 rounded-full text-xs font-semibold') }}
               <div>
                 <a href="/members/{{ m.id }}" class="text-sm font-medium text-gray-900 hover:text-loge-700">
                   {{ m.last_name | anon_nom }} {{ m.first_name }}

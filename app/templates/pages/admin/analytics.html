@@ -1,4 +1,5 @@
 {% extends "pages/admin/_layout.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Analytics — Administration{% endblock %}
 
 {% block admin_content %}
@@ -206,10 +207,7 @@
     {% for row in top_members %}
     {% set m = row.member %}
     <div class="flex items-center gap-3">
-      <div class="w-7 h-7 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-           style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-        {{ m.first_name[0] if m.first_name else '?' }}{{ m.last_name[0] if m.last_name else '' }}
-      </div>
+      {{ avatar.avatar(m, classes='w-7 h-7 rounded-full text-[10px] font-bold') }}
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between text-xs mb-0.5">
           <span class="text-gray-700 truncate pr-2">{{ m.first_name }} {{ m.last_name }}</span>

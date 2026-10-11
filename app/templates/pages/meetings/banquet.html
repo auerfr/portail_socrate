@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Agapes — {{ meeting.meeting_date.strftime('%d/%m/%Y') }}{% endblock %}
 
 {% block content %}
@@ -106,9 +107,7 @@
       {% set diet_icons = {'VEGETARIAN': '🥦', 'VEGAN': '🌱', 'NO_PORK': '🚫', 'NO_ALCOHOL': '🚱', 'OTHER': '⚠'} %}
       {% for att in agape_members %}
       <div class="flex items-center gap-3 px-5 py-3">
-        <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-700 flex items-center justify-center text-xs font-bold shrink-0">
-          {{ att.member.first_name[0] }}{{ att.member.last_name | anon_nom | first }}
-        </div>
+        {{ avatar.avatar(att.member, classes='w-8 h-8 rounded-full text-xs font-bold', bg_class='bg-loge-100', text_class='text-loge-700') }}
         <div class="flex-1">
           <span class="text-sm font-medium text-gray-900">
             {% if att.member.civility == 'S' %}S∴{% else %}F∴{% endif %}

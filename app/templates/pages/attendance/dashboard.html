@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Assiduité — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -193,10 +194,7 @@
               <td style="position:sticky; left:0; background:{% if is_danger %}#fff1f2{% elif is_warn %}#fffbeb{% else %}#ffffff{% endif %}; z-index:5; border-right:1px solid #e5e7eb;"
                   class="px-4 py-2 whitespace-nowrap">
                 <a href="/attendance/member/{{ mbr.id }}" class="flex items-center gap-2.5 group">
-                  <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-                       style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-                    {{ mbr.first_name[0] }}{{ mbr.last_name | anon_nom | first }}
-                  </div>
+                  {{ avatar.avatar(mbr, classes='w-7 h-7 rounded-full text-xs font-semibold') }}
                   <div>
                     <div class="text-sm font-medium text-gray-900 group-hover:text-loge-700">
                       {% if mbr.civility == 'S' %}S∴{% else %}F∴{% endif %}

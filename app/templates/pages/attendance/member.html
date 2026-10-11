@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Assiduité — {{ target.last_name | anon_nom }} {{ target.first_name }} — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -14,10 +15,7 @@
   <!-- Profil membre + résumé -->
   <div class="bg-gradient-to-br from-loge-800 to-loge-700 text-white rounded-2xl px-6 py-5 mb-6">
     <div class="flex items-center gap-4">
-      <div class="w-14 h-14 rounded-full flex items-center justify-center text-xl font-bold text-white flex-shrink-0"
-           style="background:rgba(255,255,255,0.15); border:2px solid rgba(255,255,255,0.25);">
-        {{ target.first_name[0] }}{{ target.last_name | anon_nom | first }}
-      </div>
+      {{ avatar.avatar(target, classes='w-14 h-14 rounded-full text-xl font-bold border-2 border-white/25', bg='rgba(255,255,255,0.15)') }}
       <div>
         <h1 class="text-lg font-bold">
           {% if target.civility == 'S' %}S∴{% else %}F∴{% endif %}

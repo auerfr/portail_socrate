@@ -8,22 +8,29 @@
    masquerait sinon sa propre photo à soi-même. À importer AVEC le contexte
    (nécessaire pour la règle de discrétion) :
      {% import "partials/_avatar.html" as avatar with context %}
-   puis :
+   puis, variante dégradé/fond uni (par défaut) :
      {{ avatar.avatar(member, classes='w-9 h-9 rounded-full text-xs font-bold') }}
+   ou variante fond clair + texte coloré (ex: style "léger" bg-loge-100 /
+   text-loge-700 utilisé pour les commentaires de planches) — passer des
+   classes Tailwind (avec leurs variantes dark mode) plutôt qu'un style
+   inline, via bg_class/text_class :
+     {{ avatar.avatar(member, classes='w-8 h-8 rounded-full text-xs font-bold',
+                       bg_class='bg-loge-100', text_class='text-loge-700') }}
    `classes` doit inclure la taille et `rounded-full` — appliqué tel quel à
    l'image ou au rond d'initiales, pour un remplacement direct des anciens
-   divs d'initiales. `bg` est le fond CSS du rond d'initiales (dégradé par
-   défaut — passer une couleur unie pour matcher une page qui utilisait déjà
-   un fond uni, ex: bg='#2c7a7b'). #}
-{% macro avatar(member, classes='w-8 h-8 rounded-full text-xs font-semibold', bg='linear-gradient(135deg,#4a9d8f,#2c7a7b)') %}
+   divs d'initiales. `bg` est le fond CSS (dégradé par défaut, ou couleur
+   unie ex: bg='#2c7a7b') utilisé seulement si bg_class n'est pas fourni. #}
+{% macro avatar(member, classes='w-8 h-8 rounded-full text-xs font-semibold', bg='linear-gradient(135deg,#4a9d8f,#2c7a7b)', bg_class=none, text_class='text-white') %}
 {% set is_self = member and current_member and current_member.id == member.id %}
 {% set lname = member.last_name if member else '' %}
 {% set lname_shown = member.last_name if is_self else ((lname | anon_nom) if member else '') %}
 {% set masked = member and not is_self and lname_shown != lname %}
 {% if member and member.photo_url and not masked %}
 <img src="{{ member.photo_url }}" alt="" class="{{ classes }} object-cover flex-shrink-0">
+{% elif bg_class %}
+<div class="{{ classes }} {{ bg_class }} {{ text_class }} flex items-center justify-center flex-shrink-0">{{ member.first_name[0] if member else '?' }}{{ lname_shown[0] if lname_shown else '' }}</div>
 {% else %}
-<div class="{{ classes }} flex items-center justify-center text-white flex-shrink-0"
+<div class="{{ classes }} {{ text_class }} flex items-center justify-center flex-shrink-0"
      style="background: {{ bg }};">{{ member.first_name[0] if member else '?' }}{{ lname_shown[0] if lname_shown else '' }}</div>
 {% endif %}
 {% endmacro %}

@@ -108,9 +108,12 @@
           <div class="flex items-center gap-3 px-4 py-3">
 
             <!-- Avatar -->
-            <div class="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-                 style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);"
-                 x-text="m.initials"></div>
+            <div class="w-9 h-9 rounded-full flex-shrink-0 overflow-hidden"
+                 :class="!m.photo_url ? 'flex items-center justify-center text-xs font-semibold text-white' : ''"
+                 :style="!m.photo_url ? 'background:linear-gradient(135deg,#4a9d8f,#2c7a7b);' : ''">
+              <template x-if="m.photo_url"><img :src="m.photo_url" alt="" class="w-9 h-9 rounded-full object-cover"></template>
+              <template x-if="!m.photo_url"><span x-text="m.initials"></span></template>
+            </div>
 
             <!-- Nom -->
             <div class="flex-1 min-w-0">
@@ -620,10 +623,14 @@
 // Données initiales injectées depuis Jinja2
 const INITIAL_MEMBERS = [
   {% for m in active_members %}
+  {% set is_self = current_member and current_member.id == m.id %}
+  {% set lname_shown = m.last_name if is_self else (m.last_name | anon_nom) %}
+  {% set masked = not is_self and lname_shown != m.last_name %}
   {
     id: {{ m.id }},
-    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | anon_nom }} {{ m.first_name }}",
-    initials: "{{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}",
+    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ lname_shown }} {{ m.first_name }}",
+    initials: "{{ m.first_name[0] }}{{ lname_shown[0] if lname_shown else '' }}",
+    photo_url: {{ (m.photo_url if (m.photo_url and not masked) else none) | tojson }},
     status: "{{ att_by_member[m.id].status.value if m.id in att_by_member else '' }}",
     excuse: "{{ (att_by_member[m.id].excuse_reason or '') if m.id in att_by_member else '' }}",
   },

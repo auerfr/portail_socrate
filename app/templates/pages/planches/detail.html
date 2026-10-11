@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}{{ planche.title }} — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -149,9 +150,7 @@
     <div class="space-y-4 mb-6">
       {% for c in planche.comments %}
       <div class="flex gap-3">
-        <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-700 font-bold text-xs flex items-center justify-center shrink-0">
-          {{ c.author.first_name[0] if c.author else '?' }}{{ c.author.last_name | anon_nom | first if c.author else '' }}
-        </div>
+        {{ avatar.avatar(c.author, classes='w-8 h-8 rounded-full text-xs font-bold', bg_class='bg-loge-100', text_class='text-loge-700') }}
         <div class="flex-1 min-w-0">
           <div class="flex items-baseline gap-2 mb-1">
             <span class="text-sm font-medium text-gray-800">
@@ -173,9 +172,7 @@
     {% endif %}
 
     <form method="post" action="/planches/{{ planche.id }}/comments" class="flex gap-3">
-      <div class="w-8 h-8 rounded-full bg-loge-100 text-loge-700 font-bold text-xs flex items-center justify-center shrink-0 mt-1">
-        {{ current_member.first_name[0] }}{{ current_member.last_name[0] }}
-      </div>
+      <div class="mt-1">{{ avatar.avatar(current_member, classes='w-8 h-8 rounded-full text-xs font-bold', bg_class='bg-loge-100', text_class='text-loge-700') }}</div>
       <div class="flex-1">
         <textarea name="content" rows="3" required
                   placeholder="Votre commentaire…"

@@ -1,4 +1,5 @@
 {% extends "base.html" %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Tableau de bord — Portail Socrate{% endblock %}
 
 {% macro donation_widget(lodge) %}
@@ -251,10 +252,7 @@
           <div class="divide-y divide-gray-50">
             {% for item in alert_members[:4] %}
             <div class="flex items-center gap-2.5 px-4 py-2">
-              <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0"
-                   style="background:linear-gradient(135deg,#dc2626,#b91c1c);">
-                {{ item.member.first_name[0] }}{{ item.member.last_name | anon_nom | first }}
-              </div>
+              {{ avatar.avatar(item.member, classes='w-6 h-6 rounded-full text-[10px] font-bold', bg='linear-gradient(135deg,#dc2626,#b91c1c)') }}
               <a href="/attendance/member/{{ item.member.id }}"
                  class="flex-1 text-xs font-medium text-gray-800 hover:text-loge-700 truncate">
                 {% if item.member.civility == 'S' %}S∴{% else %}F∴{% endif %}
@@ -492,10 +490,7 @@
           {% set sender = recent_senders_map.get(rec.message.sender_id) %}
           <a href="/messages/{{ rec.message_id }}"
              class="flex items-start gap-2.5 px-4 py-2.5 hover:bg-loge-50/50 transition-colors group">
-            <div class="w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-bold text-white flex-shrink-0 mt-0.5"
-                 style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-              {% if sender %}{{ sender.first_name[0] }}{{ sender.last_name | anon_nom | first }}{% else %}?{% endif %}
-            </div>
+            <div class="mt-0.5">{{ avatar.avatar(sender, classes='w-6 h-6 rounded-full text-[10px] font-bold') }}</div>
             <div class="flex-1 min-w-0">
               <div class="text-[10px] text-gray-500">{{ ((sender.last_name | anon_nom) ~ ' ' ~ sender.first_name) if sender else '?' }}</div>
               <div class="text-xs font-medium text-gray-900 truncate group-hover:text-loge-700">{{ rec.message.subject }}</div>
