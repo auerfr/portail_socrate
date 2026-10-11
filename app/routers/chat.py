@@ -425,6 +425,12 @@ async def chat_channel(
     )
     can_manage_channel = can_manage or is_channel_admin
 
+    # Suppression du canal : admin/VM/Secrétaire, créateur/admin du canal, ou
+    # n'importe quel membre d'une discussion directe (pour corriger ses propres
+    # erreurs — ex. doublon créé par mégarde) — jamais un simple membre d'un
+    # groupe privé ou d'un canal officiel qu'il n'a pas créé.
+    can_delete_channel = can_manage or is_channel_admin or channel.type == ChannelType.DIRECT
+
     # Admins du canal pour affichage
     channel_admin_ids = {
         cm.member_id for cm in channel_member_rows if cm.is_admin
@@ -463,6 +469,7 @@ async def chat_channel(
         "active_members": active_members,
         "can_manage": can_manage,
         "can_manage_channel": can_manage_channel,
+        "can_delete_channel": can_delete_channel,
         "channel_members": channel_members,
         "channel_admin_ids": channel_admin_ids,
         "lodge_groups": lodge_groups,
@@ -823,7 +830,8 @@ async def channel_edit(
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
 
-# ── Supprimer un canal (admin/VM) ────────────────────────────────────────────
+# ── Supprimer un canal (admin/VM, créateur/admin du canal, ou membre d'une
+#    discussion directe — pour pouvoir corriger ses propres erreurs) ──────────
 
 @router.post("/channels/{channel_id}/delete")
 async def delete_channel(
@@ -832,11 +840,22 @@ async def delete_channel(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not (user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)):
-        raise HTTPException(status_code=403)
     channel = await db.get(ChatChannel, channel_id)
     if not channel:
         raise HTTPException(status_code=404)
+
+    can_manage = user.is_admin or member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)
+    cm_r = await db.execute(
+        select(ChatChannelMember)
+        .where(ChatChannelMember.channel_id == channel_id, ChatChannelMember.member_id == member.id)
+    )
+    own_membership = cm_r.scalar_one_or_none()
+    is_channel_admin = channel.created_by_id == member.id or bool(own_membership and own_membership.is_admin)
+    is_dm_participant = channel.type == ChannelType.DIRECT and own_membership is not None
+
+    if not (can_manage or is_channel_admin or is_dm_participant):
+        raise HTTPException(status_code=403)
+
     await db.execute(delete(ChatRead).where(ChatRead.channel_id == channel_id))
     await db.execute(delete(ChatMessage).where(ChatMessage.channel_id == channel_id))
     await db.execute(delete(ChatChannelMember).where(ChatChannelMember.channel_id == channel_id))

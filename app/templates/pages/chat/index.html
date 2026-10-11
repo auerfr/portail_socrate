@@ -145,7 +145,7 @@
           </svg>
         </button>
         {% endif %}
-        {% if can_manage %}
+        {% if can_delete_channel %}
         <form method="post" action="/chat/channels/{{ active_channel.id }}/delete"
               onsubmit="return confirm('Supprimer le canal « {{ active_channel.name }} » et tous ses messages ?')">
           <button type="submit"
