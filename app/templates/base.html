@@ -156,6 +156,8 @@
 <body class="h-full bg-gray-50 antialiased"
       x-data="{ moreOpen: false }">
 
+{% import "partials/_avatar.html" as avatar with context %}
+
 {% if not on_auth %}
 
   <!-- ════════════════════════════════════════════════════════
@@ -434,10 +436,7 @@
     <div class="flex-shrink-0 px-3 py-3 border-t" style="border-color:rgba(255,255,255,0.1);">
       <a href="/members/{{ current_member.id if current_member else '' }}"
          class="flex items-center gap-2.5 px-2 py-2 rounded-lg hover:bg-white/5 transition-colors group">
-        <div class="w-7 h-7 rounded-full flex items-center justify-center text-xs font-semibold text-white flex-shrink-0"
-             style="background: linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-          {{ current_member.first_name[0] if current_member else '?' }}{{ current_member.last_name[0] if current_member else '' }}
-        </div>
+        {{ avatar.avatar(current_member, classes='w-7 h-7 rounded-full text-xs font-semibold') }}
         <div class="flex-1 min-w-0">
           <div class="text-xs font-medium text-gray-200 truncate">
             {{ current_member.last_name ~ ' ' ~ current_member.first_name if current_member else '—' }}
@@ -780,10 +779,7 @@
 
       <a href="/members/{{ current_member.id if current_member else '' }}" @click="moreOpen=false"
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-300 hover:bg-white/5 transition-colors">
-        <div class="w-5 h-5 rounded-full flex items-center justify-center text-[9px] font-bold text-white flex-shrink-0"
-             style="background:linear-gradient(135deg,#4a9d8f,#2c7a7b);">
-          {{ current_member.first_name[0] if current_member else '?' }}{{ current_member.last_name[0] if current_member else '' }}
-        </div>
+        {{ avatar.avatar(current_member, classes='w-5 h-5 rounded-full text-[9px] font-bold') }}
         Mon profil
       </a>
 

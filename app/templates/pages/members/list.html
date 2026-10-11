@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/_presence.html" as presence %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Membres — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -83,8 +84,8 @@
       <div class="flex items-center gap-3 p-4 hover:bg-gray-50 transition-colors">
         <a href="/members/{{ m.id }}" class="flex items-center gap-3 flex-1 min-w-0">
           <!-- Avatar -->
-          <div class="relative flex-shrink-0 w-10 h-10 rounded-full bg-loge-700 flex items-center justify-center text-white font-semibold text-sm">
-            {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+          <div class="relative flex-shrink-0">
+            {{ avatar.avatar(m, classes='w-10 h-10 rounded-full text-sm font-semibold', bg='#2c7a7b') }}
             {{ presence.dot(m) }}
           </div>
           <div class="flex-1 min-w-0">
@@ -135,8 +136,8 @@
         <tr class="hover:bg-gray-50 cursor-pointer" onclick="window.location='/members/{{ m.id }}'">
           <td class="px-6 py-3">
             <div class="flex items-center gap-3">
-              <div class="relative w-8 h-8 rounded-full bg-loge-700 flex items-center justify-center text-white text-xs font-semibold">
-                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+              <div class="relative">
+                {{ avatar.avatar(m, classes='w-8 h-8 rounded-full text-xs font-semibold', bg='#2c7a7b') }}
                 {{ presence.dot(m) }}
               </div>
               <span class="font-medium text-gray-900">{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ m.last_name | anon_nom }} {{ m.first_name }}</span>

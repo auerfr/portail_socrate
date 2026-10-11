@@ -1,8 +1,10 @@
 """Router Membres — CRUD complet"""
+import uuid
+from pathlib import Path
 from typing import Annotated, Optional
 from datetime import date
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request, status
+from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile, status
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -23,6 +25,9 @@ from app.models.finance import MemberContribution, ContributionTier, Contributio
 
 router = APIRouter(prefix="/members", tags=["members"])
 from app.template_engine import templates
+
+import pillow_heif
+pillow_heif.register_heif_opener()  # décode les .heic/.heif (photos iPhone) pour Pillow
 
 _LABEL_FUNCTION_MAP = [
     ("vénérable", LodgeFunction.VM),
@@ -729,6 +734,94 @@ async def member_update(
             if user.is_admin:
                 target_user.is_admin = bool(is_admin)
 
+    await db.commit()
+    return RedirectResponse(url=f"/members/{member_id}", status_code=302)
+
+
+# ── Photo de profil ────────────────────────────────────────────────────────
+
+AVATAR_UPLOAD_DIR = Path("app/static/uploads/avatars")
+AVATAR_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+AVATAR_MAX_FILE_SIZE = 5 * 1024 * 1024  # 5 Mo — avant recompression
+AVATAR_ALLOWED_EXTENSIONS = {".jpg", ".jpeg", ".png", ".webp", ".heic", ".heif"}
+AVATAR_SIZE_PX = 400  # carré — assez grand pour la photo de fiche, confortable partout ailleurs
+
+
+@router.post("/{member_id}/photo", response_class=HTMLResponse)
+async def member_photo_upload(
+    member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    photo: Annotated[UploadFile, File()],
+):
+    """Photo de profil — soi-même, ou n'importe quel membre pour un admin/
+    officier habilité à gérer les fiches (même droit que l'édition complète,
+    cf. member_edit_form/member_update)."""
+    user, current_member = ctx
+    if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    target = await db.get(Member, member_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Membre introuvable")
+
+    ext = Path(photo.filename or "").suffix.lower()
+    if ext not in AVATAR_ALLOWED_EXTENSIONS:
+        raise HTTPException(400, "Format d'image non accepté (jpg, png, webp, heic).")
+    content = await photo.read()
+    if len(content) > AVATAR_MAX_FILE_SIZE:
+        raise HTTPException(400, f"Image trop lourde (plus de {AVATAR_MAX_FILE_SIZE // (1024 * 1024)} Mo).")
+
+    # Recadrage carré centré + recompression — taille et poids homogènes
+    # quelle que soit la photo d'origine (les portables produisent des
+    # photos de plusieurs Mo, inutiles à stocker telles quelles pour un
+    # avatar affiché en rond de quelques dizaines de pixels).
+    from io import BytesIO
+    from PIL import Image, ImageOps
+    try:
+        img = Image.open(BytesIO(content))
+        img = ImageOps.exif_transpose(img)  # respecte l'orientation EXIF (photos prises au tél.)
+        img = img.convert("RGB")
+    except Exception:
+        raise HTTPException(400, "Fichier image illisible.")
+
+    w, h = img.size
+    side = min(w, h)
+    left, top = (w - side) // 2, (h - side) // 2
+    img = img.crop((left, top, left + side, top + side)).resize((AVATAR_SIZE_PX, AVATAR_SIZE_PX), Image.LANCZOS)
+
+    stored_name = f"{member_id}_{uuid.uuid4().hex}.jpg"
+    out_path = AVATAR_UPLOAD_DIR / stored_name
+    img.save(out_path, "JPEG", quality=85)
+
+    # Nettoyage de l'ancienne photo, si elle vient bien de ce dossier
+    # (jamais si photo_url pointe ailleurs — import historique, lien externe…)
+    if target.photo_url and target.photo_url.startswith("/static/uploads/avatars/"):
+        old_path = Path("app" + target.photo_url)
+        old_path.unlink(missing_ok=True)
+
+    target.photo_url = f"/static/uploads/avatars/{stored_name}"
+    await db.commit()
+    return RedirectResponse(url=f"/members/{member_id}", status_code=302)
+
+
+@router.post("/{member_id}/photo/remove", response_class=HTMLResponse)
+async def member_photo_remove(
+    member_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    user, current_member = ctx
+    if not (can_manage_members(current_member) or user.is_admin or current_member.id == member_id):
+        raise HTTPException(status_code=403, detail="Accès refusé")
+
+    target = await db.get(Member, member_id)
+    if not target:
+        raise HTTPException(status_code=404, detail="Membre introuvable")
+
+    if target.photo_url and target.photo_url.startswith("/static/uploads/avatars/"):
+        Path("app" + target.photo_url).unlink(missing_ok=True)
+    target.photo_url = None
     await db.commit()
     return RedirectResponse(url=f"/members/{member_id}", status_code=302)
 

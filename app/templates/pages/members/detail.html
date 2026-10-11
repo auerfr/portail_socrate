@@ -28,11 +28,33 @@
   <div class="bg-white rounded-2xl shadow-sm border border-gray-100 overflow-hidden mb-6">
 
     <!-- En-tête -->
+    {% set lname_shown = target.last_name | anon_nom %}
+    {% set photo_masked = lname_shown != target.last_name %}
+    {% set can_edit_photo = can_manage or (current_member and current_member.id == target.id) %}
     <div class="bg-gradient-to-r from-loge-800 to-loge-700 px-6 py-8 text-white">
       <div class="flex items-center gap-5">
-        <div class="relative w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
-          {{ target.first_name[0] }}{{ target.last_name | anon_nom | first }}
+        <div class="relative w-16 h-16 flex-shrink-0">
+          {% if target.photo_url and not photo_masked %}
+          <img src="{{ target.photo_url }}" alt="" class="w-16 h-16 rounded-full object-cover">
+          {% else %}
+          <div class="w-16 h-16 rounded-full bg-white/20 flex items-center justify-center text-2xl font-bold">
+            {{ target.first_name[0] }}{{ lname_shown | first }}
+          </div>
+          {% endif %}
           {{ presence.dot(target, size='md') }}
+          {% if can_edit_photo and not photo_masked %}
+          <form method="post" action="/members/{{ target.id }}/photo" enctype="multipart/form-data">
+            <label class="absolute -bottom-1 -right-1 w-6 h-6 rounded-full bg-white text-loge-700 flex items-center justify-center shadow cursor-pointer hover:bg-loge-50 transition-colors"
+                   title="Changer la photo">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M6.827 6.175A2.31 2.31 0 015.186 7.23c-.38.054-.757.112-1.134.175C3.05 7.58 2.25 8.507 2.25 9.574V18a2.25 2.25 0 002.25 2.25h15A2.25 2.25 0 0021.75 18V9.574c0-1.067-.8-1.994-1.802-2.169a47.865 47.865 0 00-1.134-.175 2.31 2.31 0 01-1.64-1.055l-.822-1.316a2.192 2.192 0 00-1.736-1.039 48.774 48.774 0 00-5.232 0 2.192 2.192 0 00-1.736 1.039l-.823 1.316z"/>
+                <path stroke-linecap="round" stroke-linejoin="round" d="M16.5 12.75a4.5 4.5 0 11-9 0 4.5 4.5 0 019 0zM18.75 10.5h.008v.008h-.008V10.5z"/>
+              </svg>
+              <input type="file" name="photo" accept=".jpg,.jpeg,.png,.webp,.heic,.heif" class="sr-only"
+                     onchange="this.form.submit()">
+            </label>
+          </form>
+          {% endif %}
         </div>
         <div>
           <h1 class="text-xl font-bold">{% if target.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ target.last_name | anon_nom }} {{ target.first_name }}</h1>
@@ -54,6 +76,12 @@
             </span>
             {% endif %}
           </div>
+          {% if can_edit_photo and target.photo_url and not photo_masked %}
+          <form method="post" action="/members/{{ target.id }}/photo/remove" class="mt-1.5"
+                onsubmit="return confirm('Retirer la photo de profil ?')">
+            <button type="submit" class="text-[11px] text-loge-200 hover:text-white underline underline-offset-2">Retirer la photo</button>
+          </form>
+          {% endif %}
         </div>
       </div>
     </div>

@@ -1,5 +1,6 @@
 {% extends "base.html" %}
 {% import "partials/_presence.html" as presence %}
+{% import "partials/_avatar.html" as avatar with context %}
 {% block title %}Chat — Portail Socrate{% endblock %}
 
 {% block content %}
@@ -177,8 +178,8 @@
       {% set is_mine = msg.sender_id == current_member.id %}
       <div class="flex {% if is_mine %}justify-end{% endif %} items-end gap-2 group" id="msg-{{ msg.id }}">
         {% if not is_mine %}
-        <div class="relative w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0 mb-0.5">
-          {{ msg.sender.first_name[0] }}{{ msg.sender.last_name | anon_nom | first }}
+        <div class="relative shrink-0 mb-0.5">
+          {{ avatar.avatar(msg.sender, classes='w-7 h-7 rounded-full text-xs font-bold', bg='linear-gradient(to bottom right,#3d8a7c,#236b6b)') }}
           {{ presence.dot(msg.sender, size='xs') }}
         </div>
         {% endif %}
@@ -444,8 +445,8 @@
             {% for m in active_members %}
             <label class="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-gray-50 transition-colors"
                    x-show="!search || '{{ ((m.last_name | anon_nom) ~ ' ' ~ m.first_name) | lower }}'.includes(search.toLowerCase())">
-              <div class="relative w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+              <div class="relative shrink-0">
+                {{ avatar.avatar(m, classes='w-7 h-7 rounded-full text-xs font-bold', bg='linear-gradient(to bottom right,#3d8a7c,#236b6b)') }}
                 {{ presence.dot(m, size='xs') }}
               </div>
               <div class="flex-1 min-w-0">
@@ -505,8 +506,8 @@
         <button type="submit"
                 class="w-full flex items-center gap-3 px-4 py-3 hover:bg-gray-50 transition-colors text-left"
                 x-show="!search || '{{ ((m.last_name | anon_nom) ~ ' ' ~ m.first_name) | lower }}'.includes(search.toLowerCase())">
-          <div class="relative w-9 h-9 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-sm font-bold shrink-0">
-            {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
+          <div class="relative shrink-0">
+            {{ avatar.avatar(m, classes='w-9 h-9 rounded-full text-sm font-bold', bg='linear-gradient(to bottom right,#3d8a7c,#236b6b)') }}
             {{ presence.dot(m) }}
           </div>
           <div class="flex-1 min-w-0 text-left">
@@ -740,9 +741,7 @@ function chatApp(initialLastId, channelId, initialOthersMaxRead) {
             {% for m in channel_members %}
             {% set is_ch_admin = m.id in (channel_admin_ids | default([])) %}
             <div class="flex items-center gap-3 px-3 py-2.5">
-              <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
-              </div>
+              {{ avatar.avatar(m, classes='w-7 h-7 rounded-full text-xs font-bold', bg='linear-gradient(to bottom right,#3d8a7c,#236b6b)') }}
               <div class="flex-1 min-w-0">
                 <div class="text-sm font-medium text-gray-900 flex items-center gap-1.5">
                   {{ m.last_name | anon_nom }} {{ m.first_name }}
@@ -798,9 +797,7 @@ function chatApp(initialLastId, channelId, initialOthersMaxRead) {
             <button type="submit"
                     class="w-full flex items-center gap-3 px-3 py-2.5 hover:bg-loge-50 transition-colors text-left"
                     x-show="!addSearch || '{{ ((m.last_name | anon_nom) ~ ' ' ~ m.first_name) | lower }}'.includes(addSearch.toLowerCase())">
-              <div class="w-7 h-7 rounded-full bg-gradient-to-br from-loge-600 to-loge-800 flex items-center justify-center text-white text-xs font-bold shrink-0">
-                {{ m.first_name[0] }}{{ m.last_name | anon_nom | first }}
-              </div>
+              {{ avatar.avatar(m, classes='w-7 h-7 rounded-full text-xs font-bold', bg='linear-gradient(to bottom right,#3d8a7c,#236b6b)') }}
               <span class="text-sm text-gray-800 flex-1 truncate">{{ m.last_name | anon_nom }} {{ m.first_name }}</span>
               <svg class="w-4 h-4 text-loge-400 shrink-0" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
                 <path stroke-linecap="round" stroke-linejoin="round" d="M12 4.5v15m7.5-7.5h-15"/>

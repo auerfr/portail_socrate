@@ -37,6 +37,7 @@ openpyxl==3.1.5
 # Fichiers / uploads
 python-magic==0.4.27
 pillow==10.3.0
+pillow-heif==1.8.1
 
 # Utilitaires
 pydantic[email]==2.7.1

@@ -1,0 +1,25 @@
+{# Avatar de membre — photo si member.photo_url est défini (et que le nom
+   n'est pas discret pour qui regarde — même règle que le filtre anon_nom,
+   voir app/template_engine.py : si le nom est masqué, la photo l'est aussi,
+   sinon la photo contournerait la discrétion), sinon initiales dans un rond
+   dégradé (même rendu qu'avant). À importer AVEC le contexte (nécessaire
+   pour la règle de discrétion) :
+     {% import "partials/_avatar.html" as avatar with context %}
+   puis :
+     {{ avatar.avatar(member, classes='w-9 h-9 rounded-full text-xs font-bold') }}
+   `classes` doit inclure la taille et `rounded-full` — appliqué tel quel à
+   l'image ou au rond d'initiales, pour un remplacement direct des anciens
+   divs d'initiales. `bg` est le fond CSS du rond d'initiales (dégradé par
+   défaut — passer une couleur unie pour matcher une page qui utilisait déjà
+   un fond uni, ex: bg='#2c7a7b'). #}
+{% macro avatar(member, classes='w-8 h-8 rounded-full text-xs font-semibold', bg='linear-gradient(135deg,#4a9d8f,#2c7a7b)') %}
+{% set lname = member.last_name if member else '' %}
+{% set lname_shown = (lname | anon_nom) if member else '' %}
+{% set masked = member and lname_shown != lname %}
+{% if member and member.photo_url and not masked %}
+<img src="{{ member.photo_url }}" alt="" class="{{ classes }} object-cover flex-shrink-0">
+{% else %}
+<div class="{{ classes }} flex items-center justify-center text-white flex-shrink-0"
+     style="background: {{ bg }};">{{ member.first_name[0] if member else '?' }}{{ lname_shown[0] if lname_shown else '' }}</div>
+{% endif %}
+{% endmacro %}
