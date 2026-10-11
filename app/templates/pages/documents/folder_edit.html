@@ -39,7 +39,7 @@
         <option value="" selected>— Ne pas déplacer —</option>
         {% macro render_move_option(f, depth) %}
           {% if f.id != folder.id %}
-          <option value="folder:{{ f.id }}">{{ '&nbsp;&nbsp;' * depth | safe }}{{ '↳ ' if depth > 0 else '' }}{{ f.name }}</option>
+          <option value="folder:{{ f.id }}">{{ ('&nbsp;&nbsp;' * depth) | safe }}{{ '↳ ' if depth > 0 else '' }}{{ f.name }}</option>
           {% for child in all_folders_flat if child.parent_id == f.id %}
             {{ render_move_option(child, depth + 1) }}
           {% endfor %}

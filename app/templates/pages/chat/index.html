@@ -185,11 +185,11 @@
         {% endif %}
         <div class="max-w-[80%] sm:max-w-[70%]">
           {% if not is_mine %}
-          <div class="text-xs text-gray-500 mb-1 pl-1">{{ msg.sender.last_name | anon_nom }} {{ msg.sender.first_name }}</div>
+          <div class="text-xs text-gray-500 mb-1 pl-1">{{ (msg.sender.last_name | anon_nom) ~ ' ' ~ msg.sender.first_name if msg.sender else 'Membre supprimé' }}</div>
           {% endif %}
           {% if msg.reply_to %}
           <div class="text-xs bg-gray-100 border-l-2 border-loge-400 rounded px-2 py-1 mb-1 text-gray-500 truncate">
-            ↩ {{ msg.reply_to.sender.first_name }} : {{ (msg.reply_to.content[:60] if msg.reply_to.content else ('📎 ' ~ msg.reply_to.attachment_filename if msg.reply_to.attachment_filename else '')) }}
+            ↩ {{ msg.reply_to.sender.first_name if msg.reply_to.sender else 'Membre supprimé' }} : {{ (msg.reply_to.content[:60] if msg.reply_to.content else ('📎 ' ~ msg.reply_to.attachment_filename if msg.reply_to.attachment_filename else '')) }}
           </div>
           {% endif %}
           <div class="relative group/msg">
@@ -216,7 +216,8 @@
             <div class="absolute -top-2 {% if is_mine %}left-0{% else %}right-0{% endif %}
                         transition-opacity flex gap-1">
               {% set _preview = msg.content if msg.content else (("📎 " ~ msg.attachment_filename) if msg.attachment_filename else "") %}
-              <button @click='replyTo = {id: {{ msg.id }}, sender: {{ msg.sender.first_name | tojson }}, preview: {{ _preview[:60] | tojson }}}'
+              {% set _sender_first_name = msg.sender.first_name if msg.sender else 'Membre supprimé' %}
+              <button @click='replyTo = {id: {{ msg.id }}, sender: {{ _sender_first_name | tojson }}, preview: {{ _preview[:60] | tojson }}}'
                       class="w-6 h-6 rounded-full bg-white border border-gray-200 shadow-sm
                              flex items-center justify-center text-gray-400 hover:text-gray-600 text-xs"
                       title="Répondre">↩</button>

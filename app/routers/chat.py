@@ -517,17 +517,19 @@ async def chat_messages_poll(
     def _msg_json(m: ChatMessage) -> dict:
         reply = None
         if m.reply_to:
+            reply_sender = m.reply_to.sender
             reply = {
                 "id": m.reply_to.id,
-                "sender": f"{m.reply_to.sender.last_name} {m.reply_to.sender.first_name}",
+                "sender": f"{reply_sender.last_name} {reply_sender.first_name}" if reply_sender else "Membre supprimé",
                 "preview": (m.reply_to.content or (f"📎 {m.reply_to.attachment_filename}" if m.reply_to.attachment_filename else ""))[:80],
             }
         from app.services.presence import presence_status
+        sender = m.sender
         return {
             "id": m.id,
             "sender_id": m.sender_id,
-            "sender_name": f"{m.sender.last_name} {m.sender.first_name}",
-            "sender_initials": f"{m.sender.first_name[0]}{m.sender.last_name[0]}",
+            "sender_name": f"{sender.last_name} {sender.first_name}" if sender else "Membre supprimé",
+            "sender_initials": f"{sender.first_name[0]}{sender.last_name[0]}" if sender else "?",
             "is_mine": m.sender_id == member.id,
             "content": m.content or "",
             "content_type": m.content_type.value,
