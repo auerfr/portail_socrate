@@ -62,11 +62,15 @@
     {% if is_previewable %}
     <div class="bg-gray-50 border-b border-gray-100">
       {% if doc.mime_type == 'application/pdf' %}
-      <div class="relative" style="height: 70vh; min-height: 400px;">
-        <iframe src="/documents/file/{{ doc.id }}/preview"
-                class="w-full h-full border-0"
-                title="{{ doc.name }}"></iframe>
-      </div>
+      <!-- Rendu "maison" sur <canvas> via pdf.js (pas d'iframe/embed) : sur
+           mobile (Safari iOS en PWA notamment), le lecteur PDF natif d'un
+           iframe peut passer en plein écran au niveau du système, hors de
+           notre page, laissant l'utilisateur bloqué sans bouton retour. -->
+      <div id="pdf-viewer-{{ doc.id }}" class="overflow-y-auto p-4" style="height: 70vh; min-height: 400px;"></div>
+      <script type="module">
+        import { renderPdfInto } from '/static/js/pdf_viewer.js';
+        renderPdfInto(document.getElementById('pdf-viewer-{{ doc.id }}'), '/documents/file/{{ doc.id }}/preview', { darkChrome: false });
+      </script>
       {% elif doc.mime_type and doc.mime_type.startswith('image/') %}
       <div class="flex items-center justify-center p-6">
         <img src="/documents/file/{{ doc.id }}/preview"

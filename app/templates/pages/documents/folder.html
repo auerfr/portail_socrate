@@ -8,12 +8,18 @@
        setView(v) { this.view = v; localStorage.setItem('docView', v); },
        preview: null,
        openPreview(id, name, type) {
-         const url = `/documents/file/${id}/preview`;
-         const w = Math.min(window.screen.width * 0.85, 1000);
-         const h = Math.min(window.screen.height * 0.85, 850);
-         const left = Math.round((window.screen.width - w) / 2);
-         const top = Math.round((window.screen.height - h) / 2);
-         window.open(url, 'apercu_' + id, `width=${w},height=${h},left=${left},top=${top},scrollbars=yes,resizable=yes`);
+         // Ouvre la modale d'aperçu intégrée (x-show='preview' plus bas dans
+         // la page), au lieu d'un window.open() en popup : c'était le vrai
+         // bug derrière le blocage sur le PDF sans pouvoir revenir en
+         // arrière sur mobile/PWA — window.open() avec des options de
+         // popup desktop (width/height/left/top) n'ouvre pas une vraie
+         // fenêtre détachable sur mobile ; selon le navigateur ça navigue
+         // carrément la page courante vers le PDF brut, hors de toute
+         // interface de l'appli, sans bouton retour ni fermer. La modale
+         // ci-dessous (avec rendu pdf.js, jamais de lecteur natif) était
+         // déjà prête mais jamais déclenchée.
+         this.preview = { id, name, type };
+         document.body.style.overflow = 'hidden';
        },
        closePreview() { this.preview = null; document.body.style.overflow=''; },
        embeds: {},
@@ -1691,16 +1697,17 @@
   <!-- Zone de contenu -->
   <div class="flex-1 overflow-hidden min-h-0">
 
-    <!-- PDF : rendu natif navigateur. iframe plutôt qu'embed : sur mobile
-         (notamment Safari iOS), <embed type="application/pdf"> peut prendre
-         le plein écran et passer au-dessus du bandeau de titre, rendant le
-         bouton ✕ ci-dessus inatteignable — l'utilisateur reste bloqué sur le
-         PDF. <iframe> respecte le conteneur et n'a pas ce problème (même
-         approche que pages/documents/file_view.html). -->
+    <!-- PDF : rendu "maison" page par page sur <canvas> via pdf.js (voir
+         /static/js/pdf_viewer.js), PAS d'iframe/embed pointant sur le PDF
+         brut. Sur mobile (notamment Safari iOS en PWA/plein écran), le
+         lecteur PDF natif embarqué dans un iframe peut passer en plein
+         écran au niveau du système, hors de notre page : l'utilisateur se
+         retrouve alors juste face au PDF, sans bouton fermer ni retour
+         possible, réellement bloqué. En dessinant nous-mêmes les pages, il
+         n'y a plus de lecteur natif à invoquer. -->
     <template x-if="preview && preview.type === 'pdf'">
-      <iframe :src="`/documents/file/${preview.id}/preview`"
-              class="w-full h-full border-0"
-              :title="preview ? preview.name : ''"></iframe>
+      <div class="w-full h-full overflow-y-auto p-4"
+           x-init="window.renderPdfInto && window.renderPdfInto($el, `/documents/file/${preview.id}/preview`)"></div>
     </template>
 
     <!-- Image : centrée avec fond sombre (inline) -->
@@ -1781,10 +1788,18 @@ function openPlancheModal(docId, docName, docType) {
 
   const previewArea = document.getElementById('planche-preview-area');
   if (docType === 'pdf') {
-    previewArea.innerHTML = '<embed src="/documents/file/' + docId + '/preview" type="application/pdf" class="w-full h-full min-h-[260px] md:min-h-full">';
+    // Rendu "maison" via pdf.js (pas d'embed pointant sur le PDF brut) :
+    // même raison que la modale d'aperçu générale, voir son commentaire.
+    previewArea.className = 'md:w-1/2 bg-gray-100 overflow-y-auto p-3 min-h-[260px] md:min-h-0 flex-shrink-0';
+    previewArea.innerHTML = '';
+    if (window.renderPdfInto) {
+      window.renderPdfInto(previewArea, '/documents/file/' + docId + '/preview', { darkChrome: false });
+    }
   } else if (docType === 'image') {
+    previewArea.className = 'md:w-1/2 bg-gray-100 flex items-center justify-center min-h-[260px] md:min-h-0 flex-shrink-0';
     previewArea.innerHTML = '<img src="/documents/file/' + docId + '/preview" alt="" class="max-w-full max-h-full object-contain">';
   } else {
+    previewArea.className = 'md:w-1/2 bg-gray-100 flex items-center justify-center min-h-[260px] md:min-h-0 flex-shrink-0';
     previewArea.innerHTML = '<div class="text-center text-sm text-gray-400 p-6">'
       + 'Aperçu non disponible pour ce type de fichier.<br>'
       + '<a href="/documents/file/' + docId + '/download" class="text-loge-700 hover:underline font-medium">Télécharger pour consulter</a>'
@@ -2201,5 +2216,6 @@ window.dfDrop = function(el, e) {
   window.__dfDocIds = [];
 };
 </script>
+<script type="module" src="/static/js/pdf_viewer.js"></script>
 
 {% endblock %}
