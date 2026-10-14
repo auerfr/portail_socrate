@@ -180,6 +180,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE meetings ADD COLUMN compte_rendu_html TEXT"
             )
+        if "status" not in cols_mtg:
+            await conn.exec_driver_sql(
+                "ALTER TABLE meetings ADD COLUMN status VARCHAR(9) NOT NULL DEFAULT 'PUBLISHED'"
+            )
 
         # ── GED — group_id sur doc_spaces et doc_folders ───────────────────
         r_ds = await conn.exec_driver_sql("PRAGMA table_info(doc_spaces)")
