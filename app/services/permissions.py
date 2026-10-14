@@ -29,6 +29,7 @@ ALL_PERMISSIONS = {
     "can_manage_planches":          "Planches — rédiger/gérer au nom d'un officier",
     "can_manage_groups":            "Groupes — créer, modifier la composition",
     "can_manage_partner_lodges":    "Loges voisines — ajouter, modifier l'annuaire",
+    "can_manage_guests":            "Accès visiteur — inviter/gérer les comptes des frères d'autres loges",
 }
 
 async def user_permissions(db: AsyncSession, user_id: int) -> set:

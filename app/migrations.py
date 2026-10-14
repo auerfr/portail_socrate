@@ -1472,3 +1472,57 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             )
             """
         )
+
+        # guest_accounts / guest_sessions — accès visiteur (frères d'autres
+        # loges), droits très restreints, entité volontairement séparée de
+        # members/users (voir app/models/guest.py pour le pourquoi).
+        await conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS guest_accounts (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                first_name VARCHAR(100) NOT NULL,
+                last_name VARCHAR(100) NOT NULL,
+                email VARCHAR(200) NOT NULL UNIQUE,
+                home_lodge VARCHAR(200),
+                obedience VARCHAR(200),
+                password_hash VARCHAR(200),
+                totp_secret VARCHAR(64),
+                totp_enabled BOOLEAN NOT NULL DEFAULT 0,
+                onboarding_completed BOOLEAN NOT NULL DEFAULT 0,
+                magic_token VARCHAR(100) UNIQUE,
+                magic_token_expires_at DATETIME,
+                is_active BOOLEAN NOT NULL DEFAULT 1,
+                expires_at DATETIME,
+                last_login_at DATETIME,
+                invited_by_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
+                linked_visitor_id INTEGER REFERENCES visitors(id) ON DELETE SET NULL,
+                promoted_to_member_id INTEGER REFERENCES members(id) ON DELETE SET NULL,
+                created_at DATETIME
+            )
+            """
+        )
+        await conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_guest_accounts_email ON guest_accounts(email)"
+        )
+        await conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_guest_accounts_magic_token ON guest_accounts(magic_token)"
+        )
+        await conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS guest_sessions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guest_account_id INTEGER NOT NULL REFERENCES guest_accounts(id) ON DELETE CASCADE,
+                jti VARCHAR(64) NOT NULL UNIQUE,
+                ip_address VARCHAR(64),
+                user_agent VARCHAR(300),
+                created_at DATETIME,
+                expires_at DATETIME
+            )
+            """
+        )
+        await conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_guest_sessions_guest_account_id ON guest_sessions(guest_account_id)"
+        )
+        await conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_guest_sessions_jti ON guest_sessions(jti)"
+        )

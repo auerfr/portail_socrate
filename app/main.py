@@ -52,6 +52,8 @@ from app.routers import engagement as engagement_router
 from app.routers import secretariat as secretariat_router
 from app.routers import lodges_directory as lodges_directory_router
 from app.routers import statistiques as statistiques_router
+from app.routers import guests as guests_router
+from app.routers import visiteur as visiteur_router
 # Import des modèles pour que Base.metadata.create_all les crée
 import app.models.messaging      # noqa: F401
 import app.models.reports        # noqa: F401
@@ -376,6 +378,11 @@ async def two_factor_gate_middleware(request: Request, call_next):
                         url=f"/auth/2fa/verify?next={quote(next_path, safe='')}",
                         status_code=303,
                     )
+                # Onboarding visiteur (mot de passe + 2FA) obligatoire et non
+                # contournable avant tout accès — même principe que
+                # 2fa_pending ci-dessus, propre aux comptes GuestAccount.
+                if payload.get("principal") == "guest" and payload.get("onboarding_pending"):
+                    return RedirectResponse(url="/auth/visiteur/onboarding", status_code=303)
             except Exception:
                 pass
     return await call_next(request)
@@ -610,6 +617,8 @@ app.include_router(notifications_router.router)
 app.include_router(engagement_router.router)
 app.include_router(lodges_directory_router.router)
 app.include_router(statistiques_router.router)
+app.include_router(guests_router.router)
+app.include_router(visiteur_router.router)
 # app.include_router(admin.router)
 
 

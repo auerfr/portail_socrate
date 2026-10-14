@@ -1,0 +1,32 @@
+{% extends "base_visiteur.html" %}
+{% block title %}Accueil{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">Bienvenue, {{ guest.first_name }}</h1>
+    <p class="text-sm text-gray-500 mt-0.5">
+      Compte visiteur{% if guest.home_lodge %} — {{ guest.home_lodge }}{% endif %}
+    </p>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center">
+    <div class="text-4xl mb-3">🚧</div>
+    <h2 class="font-semibold text-gray-900 mb-1">Espace en préparation</h2>
+    <p class="text-sm text-gray-500 max-w-sm mx-auto">
+      Votre accès visiteur est actif. Le contenu qui vous sera ouvert par la
+      loge (programme des tenues, contacts, documents, participation au
+      forum…) apparaîtra ici au fur et à mesure.
+    </p>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
+    <a href="/visiteur/mot-de-passe" class="flex items-center justify-between text-sm text-gray-700 hover:text-gray-900">
+      <span><i class="ti ti-lock"></i> Changer mon mot de passe</span>
+      <i class="ti ti-chevron-right text-gray-300"></i>
+    </a>
+  </div>
+
+</div>
+{% endblock %}

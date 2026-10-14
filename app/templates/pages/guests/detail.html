@@ -1,0 +1,109 @@
+{% extends "base.html" %}
+{% block title %}{{ guest.full_name }} — Accès visiteur{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6 space-y-5">
+
+  <a href="/gestion-visiteurs/" class="text-sm text-gray-500 hover:text-gray-700">← Accès visiteur</a>
+
+  {% if invited %}
+  <div class="p-3 bg-emerald-50 border border-emerald-200 rounded-lg text-emerald-700 text-sm">
+    <i class="ti ti-mail"></i> Invitation envoyée à {{ guest.email }}.
+  </div>
+  {% endif %}
+
+  <div class="flex items-center justify-between gap-3 flex-wrap">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">{{ guest.full_name }}</h1>
+      <p class="text-sm text-gray-500 mt-0.5">
+        {{ guest.email }}{% if guest.home_lodge %} · {{ guest.home_lodge }}{% endif %}
+      </p>
+    </div>
+    <span class="text-xs font-medium px-2.5 py-1 rounded-full
+      {% if status_label == 'Actif' %}bg-emerald-50 text-emerald-700
+      {% elif status_label == 'Invitation en attente' %}bg-amber-50 text-amber-700
+      {% elif status_label == 'Expiré' %}bg-gray-100 text-gray-500
+      {% else %}bg-rose-50 text-rose-700{% endif %}">
+      {{ status_label }}
+    </span>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3 text-sm">
+    <div class="flex justify-between"><span class="text-gray-500">Obédience</span><span class="text-gray-900">{{ guest.obedience or "—" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Invité par</span><span class="text-gray-900">{{ guest.invited_by.first_name ~ " " ~ guest.invited_by.last_name if guest.invited_by else "—" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Visiteur relié (présences)</span><span class="text-gray-900">{{ "Oui" if guest.linked_visitor_id else "Non" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Onboarding (mot de passe + 2FA)</span><span class="text-gray-900">{{ "Terminé" if guest.onboarding_completed else "En attente" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Double authentification</span><span class="text-gray-900">{{ "Activée" if guest.totp_enabled else "—" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Accès jusqu'au</span><span class="text-gray-900">{{ guest.expires_at.strftime('%d/%m/%Y') if guest.expires_at else "Sans limite" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Dernière connexion</span><span class="text-gray-900">{{ guest.last_login_at.strftime('%d/%m/%Y %H:%M') if guest.last_login_at else "Jamais" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Sessions enregistrées</span><span class="text-gray-900">{{ sessions_count }}</span></div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+    <h2 class="font-semibold text-gray-900 text-sm">Modifier</h2>
+    <form method="post" action="/gestion-visiteurs/{{ guest.id }}/edit" class="space-y-3">
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Prénom</label>
+          <input type="text" name="first_name" value="{{ guest.first_name }}" required
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Nom</label>
+          <input type="text" name="last_name" value="{{ guest.last_name }}" required
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div class="grid grid-cols-2 gap-3">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Loge d'origine</label>
+          <input type="text" name="home_lodge" value="{{ guest.home_lodge or '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">Obédience</label>
+          <input type="text" name="obedience" value="{{ guest.obedience or '' }}"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Accès jusqu'au</label>
+        <input type="date" name="expires_at" value="{{ guest.expires_at.strftime('%Y-%m-%d') if guest.expires_at else '' }}"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <button type="submit" class="w-full py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg text-sm transition-colors">
+        Enregistrer
+      </button>
+    </form>
+  </div>
+
+  <div class="flex flex-col gap-2">
+    {% if not guest.onboarding_completed %}
+    <form method="post" action="/gestion-visiteurs/{{ guest.id }}/resend">
+      <button type="submit"
+        class="w-full py-2.5 bg-white border border-gray-200 hover:bg-gray-50 text-gray-700 font-medium rounded-xl text-sm transition-colors">
+        <i class="ti ti-send"></i> (Re)envoyer le lien d'invitation
+      </button>
+    </form>
+    {% endif %}
+
+    <form method="post" action="/gestion-visiteurs/{{ guest.id }}/toggle-active">
+      <button type="submit"
+        class="w-full py-2.5 {{ 'bg-rose-50 hover:bg-rose-100 text-rose-700' if guest.is_active else 'bg-emerald-50 hover:bg-emerald-100 text-emerald-700' }} font-medium rounded-xl text-sm transition-colors">
+        {{ "Désactiver le compte" if guest.is_active else "Réactiver le compte" }}
+      </button>
+    </form>
+
+    {% if not guest.onboarding_completed %}
+    <form method="post" action="/gestion-visiteurs/{{ guest.id }}/delete"
+          onsubmit="return confirm('Supprimer définitivement cette invitation jamais utilisée ?');">
+      <button type="submit"
+        class="w-full py-2 text-rose-600 hover:text-rose-800 font-medium text-xs transition-colors">
+        Supprimer l'invitation
+      </button>
+    </form>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1,0 +1,68 @@
+{% extends "base.html" %}
+{% block title %}Inviter un visiteur — Portail Socrate{% endblock %}
+
+{% block content %}
+<div class="max-w-lg mx-auto px-4 py-6 space-y-5">
+
+  <div>
+    <a href="/gestion-visiteurs/" class="text-sm text-gray-500 hover:text-gray-700">← Accès visiteur</a>
+    <h1 class="text-xl font-bold text-gray-900 mt-1">Inviter un visiteur</h1>
+    <p class="text-sm text-gray-500 mt-0.5">
+      Un lien d'invitation personnel et valable 7 jours lui sera envoyé par email.
+      Lors de sa première connexion, il devra définir un mot de passe et activer
+      une double authentification (obligatoire).
+    </p>
+  </div>
+
+  {% if error %}
+  <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">{{ error }}</div>
+  {% endif %}
+
+  <form method="post" action="/gestion-visiteurs/new" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Prénom</label>
+        <input type="text" name="first_name" required autofocus
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Nom</label>
+        <input type="text" name="last_name" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Email</label>
+      <input type="email" name="email" required
+             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <p class="text-xs text-gray-400 mt-1">
+        Si cet email correspond à un visiteur déjà venu en tenue, son historique sera relié automatiquement.
+      </p>
+    </div>
+    <div class="grid grid-cols-2 gap-3">
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Loge d'origine</label>
+        <input type="text" name="home_lodge"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1.5">Obédience</label>
+        <input type="text" name="obedience"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+    </div>
+    <div>
+      <label class="block text-sm font-medium text-gray-700 mb-1.5">Accès jusqu'au (optionnel)</label>
+      <input type="date" name="expires_at"
+             class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      <p class="text-xs text-gray-400 mt-1">Laissez vide pour un accès sans date de fin (désactivable à tout moment).</p>
+    </div>
+
+    <button type="submit"
+      class="w-full py-2.5 bg-loge-700 hover:bg-loge-800 text-white font-medium rounded-lg text-sm transition-colors">
+      Envoyer l'invitation
+    </button>
+  </form>
+
+</div>
+{% endblock %}

@@ -421,6 +421,11 @@
         <i class="ti ti-settings"></i>
         {% if current_user.is_admin %}Paramètres{% else %}Contacts externes{% endif %}
       </a>
+      <a href="/gestion-visiteurs/"
+         class="nav-item {% if '/gestion-visiteurs' in request.url.path %}active{% endif %}">
+        <i class="ti ti-user-plus"></i>
+        Accès visiteur
+      </a>
       {% if current_user.is_admin %}
       <a href="/admin/"
          class="nav-item {% if '/admin' in request.url.path %}active{% endif %}">
@@ -748,6 +753,11 @@
          class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/settings' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
         <i class="ti ti-settings text-lg opacity-70"></i>
         {% if current_user.is_admin %}Paramètres{% else %}Contacts externes{% endif %}
+      </a>
+      <a href="/gestion-visiteurs/" @click="moreOpen=false"
+         class="flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition-colors {% if '/gestion-visiteurs' in request.url.path %}text-white bg-white/10{% else %}text-gray-300 hover:bg-white/5{% endif %}">
+        <i class="ti ti-user-plus text-lg opacity-70"></i>
+        Accès visiteur
       </a>
       {% endif %}
 

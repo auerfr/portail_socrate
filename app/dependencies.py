@@ -87,6 +87,14 @@ async def get_current_user(
 
     try:
         payload = decode_token(raw_token)
+        # Un token visiteur (voir get_current_guest ci-dessous) ne doit
+        # JAMAIS pouvoir authentifier un membre, même si son "sub" (id de
+        # GuestAccount) coïncide par hasard avec un vrai User.id — c'est la
+        # garantie structurelle qui ferme par défaut tout le reste de
+        # l'application à un compte visiteur, sans avoir à maintenir une
+        # liste noire de routes.
+        if payload.get("principal") == "guest":
+            return None
         user_id: int = int(payload.get("sub"))
         jti: str = payload.get("jti", "")
     except (JWTError, TypeError, ValueError):
@@ -148,6 +156,74 @@ async def require_auth(
             headers={"WWW-Authenticate": "Bearer"},
         )
     return ctx
+
+
+# ── Accès visiteur (comptes GuestAccount — droits très restreints) ─────────
+#
+# Volontairement un principal à part entière, jamais mélangé à
+# get_current_user/require_auth ci-dessus : un token visiteur est rejeté
+# explicitement par get_current_user (claim "principal" == "guest"), donc
+# AUCUNE route qui dépend de require_auth/require_active_member/etc. n'est
+# jamais atteignable par un visiteur, quelle que soit la page — seules les
+# routes qui déclarent explicitement Depends(require_guest_auth) le sont.
+# C'est ce qui garantit "fermé par défaut" sans avoir à tenir une liste
+# noire à jour à chaque nouvelle route de l'application.
+
+async def get_current_guest(
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Résout le GuestAccount courant depuis le cookie de session, ou None."""
+    raw_token = request.cookies.get("access_token")
+    if not raw_token:
+        return None
+    try:
+        payload = decode_token(raw_token)
+        if payload.get("principal") != "guest":
+            return None
+        guest_id = int(payload.get("sub"))
+        jti = payload.get("jti", "")
+    except (JWTError, TypeError, ValueError):
+        return None
+
+    from app.models.guest import GuestAccount, GuestSession
+
+    guest = (
+        await db.execute(select(GuestAccount).where(GuestAccount.id == guest_id))
+    ).scalar_one_or_none()
+    if not guest or not guest.is_active:
+        return None
+    if guest.expires_at and guest.expires_at < datetime.utcnow():
+        return None
+
+    if jti:
+        sess = (
+            await db.execute(select(GuestSession).where(GuestSession.jti == jti))
+        ).scalar_one_or_none()
+        if sess is None:
+            return None  # session révoquée (déconnexion / désactivation)
+
+    return guest
+
+
+async def require_guest_auth(
+    guest: Annotated[Optional[object], Depends(get_current_guest)]
+):
+    """Exige une session visiteur valide — lève 401 sinon."""
+    if guest is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Authentification visiteur requise",
+        )
+    return guest
+
+
+def can_manage_guests(member: Member) -> bool:
+    """Peut inviter/gérer les comptes visiteurs : VM, Secrétaire, ou droit
+    fin dédié (délégable comme les autres can_manage_xxx)."""
+    return member.lodge_function in (
+        LodgeFunction.VM, LodgeFunction.SECRETAIRE,
+    ) or has_fine_permission(member, "can_manage_guests")
 
 
 async def require_active_member(

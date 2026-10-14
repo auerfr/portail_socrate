@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import (
     verify_password, hash_password, create_access_token, create_refresh_token,
-    decode_token, get_current_user, require_auth
+    decode_token, get_current_user, require_auth, require_guest_auth
 )
 from app.models.identity import User, Member
 from app.models.lodge import LodgeSettings
@@ -25,6 +25,71 @@ async def _get_lodge(db: AsyncSession):
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 from app.template_engine import templates
+
+
+async def _try_guest_login(request: Request, db: AsyncSession, identifier: str, password: str, next: str):
+    """Essaie d'authentifier `identifier`/`password` comme compte visiteur
+    (GuestAccount, identifiant = email). Retourne la redirection de login à
+    renvoyer si ça marche, None sinon (pour laisser /auth/login retomber sur
+    l'échec "identifiant/mot de passe incorrect" générique — on ne révèle
+    jamais si un email correspond à un compte membre ou visiteur)."""
+    from app.models.guest import GuestAccount, GuestSession
+
+    guest = (
+        await db.execute(select(GuestAccount).where(GuestAccount.email == identifier))
+    ).scalar_one_or_none()
+    if not guest or not guest.is_active or not guest.password_hash:
+        return None
+    if guest.expires_at and guest.expires_at < datetime.utcnow():
+        return None
+    if not verify_password(password, guest.password_hash):
+        return None
+
+    guest.last_login_at = datetime.utcnow()
+    try:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=None, action="GUEST_LOGIN",
+            target_label=f"{guest.full_name} ({guest.email})",
+            request=request,
+        )
+    except Exception:
+        pass
+    await db.commit()
+
+    token_data = {"sub": str(guest.id), "principal": "guest"}
+    if guest.totp_enabled:
+        token_data["2fa_pending"] = True
+    access_token = create_access_token(token_data)
+
+    try:
+        payload = decode_token(access_token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti:
+            expires = datetime.utcfromtimestamp(exp) if exp else None
+            db.add(GuestSession(
+                guest_account_id=guest.id, jti=jti,
+                ip_address=request.client.host if request.client else None,
+                user_agent=(request.headers.get("user-agent", "")[:300]),
+                expires_at=expires,
+            ))
+            await db.commit()
+    except Exception:
+        pass
+
+    safe_next = next if (next and next.startswith("/") and not next.startswith("//")) else "/visiteur/"
+    if guest.totp_enabled:
+        from urllib.parse import quote
+        redirect = RedirectResponse(url=f"/auth/2fa/verify?next={quote(safe_next, safe='')}", status_code=status.HTTP_302_FOUND)
+    else:
+        redirect = RedirectResponse(url=safe_next, status_code=status.HTTP_302_FOUND)
+    redirect.set_cookie(
+        "access_token", access_token,
+        httponly=True, samesite="lax", secure=False,
+        max_age=60 * 60 * 8,
+    )
+    return redirect
 
 
 # ── Login (form web) ───────────────────────────────────────────────────────
@@ -62,6 +127,13 @@ async def login_submit(
     lodge = await _get_lodge(db)
 
     if not user or not verify_password(form_data.password, user.password_hash):
+        # Connexion unifiée : pas de compte membre trouvé/mot de passe
+        # invalide -> on essaie un compte visiteur (GuestAccount) avant de
+        # déclarer l'échec, pour que /auth/login reste le seul point
+        # d'entrée, membre comme visiteur.
+        guest_redirect = await _try_guest_login(request, db, identifier, form_data.password, next)
+        if guest_redirect is not None:
+            return guest_redirect
         try:
             from app.services.audit import log_audit
             await log_audit(
@@ -152,6 +224,179 @@ async def login_submit(
         httponly=True, samesite="lax", secure=False,
         max_age=60 * 60 * 24 * 30,
     )
+    return redirect
+
+
+# ── Accès visiteur : lien magique + onboarding 2FA obligatoire ────────────
+
+@router.get("/magic/{token}", response_class=HTMLResponse)
+async def guest_magic_login(
+    token: str,
+    request: Request,
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Première connexion visiteur via lien magique à usage unique — pose
+    un cookie de session visiteur avec onboarding_pending tant que le
+    mot de passe + la 2FA ne sont pas configurés (voir
+    two_factor_gate_middleware dans app/main.py, qui force la redirection
+    vers /auth/visiteur/onboarding et empêche tout contournement)."""
+    from app.models.guest import GuestAccount, GuestSession
+
+    lodge = await _get_lodge(db)
+    guest = (
+        await db.execute(select(GuestAccount).where(GuestAccount.magic_token == token))
+    ).scalar_one_or_none()
+
+    invalid = (
+        not guest or not guest.is_active
+        or not guest.magic_token_expires_at
+        or guest.magic_token_expires_at < datetime.utcnow()
+    )
+    if invalid:
+        return templates.TemplateResponse(request, "pages/auth/login.html", {
+            "lodge": lodge,
+            "error": "Ce lien d'invitation est invalide ou a expiré. Contactez l'officier qui vous a invité.",
+        }, status_code=status.HTTP_400_BAD_REQUEST)
+
+    guest.last_login_at = datetime.utcnow()
+    try:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=None, action="GUEST_MAGIC_LOGIN",
+            target_label=f"{guest.full_name} ({guest.email})",
+            request=request,
+        )
+    except Exception:
+        pass
+    await db.commit()
+
+    token_data = {"sub": str(guest.id), "principal": "guest"}
+    if not guest.onboarding_completed:
+        token_data["onboarding_pending"] = True
+    access_token = create_access_token(token_data)
+
+    try:
+        payload = decode_token(access_token)
+        jti = payload.get("jti")
+        exp = payload.get("exp")
+        if jti:
+            expires = datetime.utcfromtimestamp(exp) if exp else None
+            db.add(GuestSession(
+                guest_account_id=guest.id, jti=jti,
+                ip_address=request.client.host if request.client else None,
+                user_agent=(request.headers.get("user-agent", "")[:300]),
+                expires_at=expires,
+            ))
+            await db.commit()
+    except Exception:
+        pass
+
+    target = "/auth/visiteur/onboarding" if not guest.onboarding_completed else "/visiteur/"
+    redirect = RedirectResponse(url=target, status_code=status.HTTP_302_FOUND)
+    redirect.set_cookie(
+        "access_token", access_token,
+        httponly=True, samesite="lax", secure=False,
+        max_age=60 * 60 * 8,
+    )
+    return redirect
+
+
+@router.get("/visiteur/onboarding", response_class=HTMLResponse)
+async def guest_onboarding_page(
+    request: Request,
+    guest: Annotated[object, Depends(require_guest_auth)],
+):
+    """Onboarding visiteur obligatoire (mot de passe puis 2FA), non
+    contournable — voir two_factor_gate_middleware."""
+    if guest.onboarding_completed:
+        return RedirectResponse(url="/visiteur/", status_code=303)
+
+    step = "password" if not guest.password_hash else "totp"
+    ctx = {"guest": guest, "step": step}
+    if step == "totp":
+        import pyotp, qrcode, io, base64
+        temp_secret = pyotp.random_base32()
+        totp = pyotp.TOTP(temp_secret)
+        provisioning_url = totp.provisioning_uri(
+            name=guest.email, issuer_name="Portail Socrate — Visiteur",
+        )
+        qr = qrcode.make(provisioning_url)
+        buf = io.BytesIO()
+        qr.save(buf, format="PNG")
+        ctx["temp_secret"] = temp_secret
+        ctx["qr_b64"] = base64.b64encode(buf.getvalue()).decode()
+    return templates.TemplateResponse(request, "pages/auth/visiteur_onboarding.html", ctx)
+
+
+@router.post("/visiteur/onboarding/password")
+async def guest_onboarding_set_password(
+    request: Request,
+    guest: Annotated[object, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    new_password: str = Form(...),
+    confirm_password: str = Form(...),
+):
+    if guest.onboarding_completed:
+        return RedirectResponse(url="/visiteur/", status_code=303)
+    if len(new_password) < 8:
+        return templates.TemplateResponse(request, "pages/auth/visiteur_onboarding.html", {
+            "guest": guest, "step": "password",
+            "error": "Le mot de passe doit contenir au moins 8 caractères.",
+        }, status_code=400)
+    if new_password != confirm_password:
+        return templates.TemplateResponse(request, "pages/auth/visiteur_onboarding.html", {
+            "guest": guest, "step": "password",
+            "error": "Les deux mots de passe ne correspondent pas.",
+        }, status_code=400)
+    guest.password_hash = hash_password(new_password)
+    await db.commit()
+    return RedirectResponse(url="/auth/visiteur/onboarding", status_code=303)
+
+
+@router.post("/visiteur/onboarding/totp")
+async def guest_onboarding_enable_totp(
+    request: Request,
+    guest: Annotated[object, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    temp_secret: str = Form(...),
+    code: str = Form(...),
+):
+    """Dernière étape de l'onboarding — active la 2FA (obligatoire) et lève
+    le claim onboarding_pending du token en le re-signant, comme
+    /auth/2fa/verify le fait pour 2fa_pending."""
+    import pyotp
+    if guest.onboarding_completed:
+        return RedirectResponse(url="/visiteur/", status_code=303)
+    if not guest.password_hash:
+        return RedirectResponse(url="/auth/visiteur/onboarding", status_code=303)
+
+    totp = pyotp.TOTP(temp_secret)
+    if not totp.verify(code.strip(), valid_window=1):
+        raise HTTPException(400, "Code invalide — vérifiez l'heure de votre appareil")
+
+    guest.totp_secret = temp_secret
+    guest.totp_enabled = True
+    guest.onboarding_completed = True
+    guest.magic_token = None
+    guest.magic_token_expires_at = None
+    await db.commit()
+
+    redirect = RedirectResponse(url="/visiteur/", status_code=303)
+    raw_token = request.cookies.get("access_token")
+    try:
+        payload = decode_token(raw_token)
+        from jose import jwt as _jwt
+        from app.config import get_settings as _get_settings
+        _settings = _get_settings()
+        cleared_payload = {k: v for k, v in payload.items() if k != "onboarding_pending"}
+        new_access_token = _jwt.encode(cleared_payload, _settings.secret_key, algorithm=_settings.algorithm)
+        redirect.set_cookie(
+            "access_token", new_access_token,
+            httponly=True, samesite="lax", secure=False,
+            max_age=60 * 60 * 8,
+        )
+    except Exception:
+        pass
     return redirect
 
 
@@ -369,22 +614,28 @@ async def totp_verify(
     code: str = Form(...),
     next: str = Form("/"),
 ):
-    """Vérifie le code TOTP post-login."""
+    """Vérifie le code TOTP post-login (membre ou visiteur)."""
     import pyotp
-    # Récupère user depuis le cookie (pas encore require_auth car 2FA pas encore validée)
+    # Récupère le principal depuis le cookie (pas encore require_auth/
+    # require_guest_auth car 2FA pas encore validée)
     raw_token = request.cookies.get("access_token")
     if not raw_token:
         return RedirectResponse(url="/auth/login", status_code=303)
     try:
         from app.dependencies import decode_token
         payload = decode_token(raw_token)
-        user_id = int(payload.get("sub"))
+        principal_id = int(payload.get("sub"))
+        is_guest = payload.get("principal") == "guest"
     except Exception:
         return RedirectResponse(url="/auth/login", status_code=303)
 
-    from app.models.identity import User
     from sqlalchemy import select
-    u = (await db.execute(select(User).where(User.id == user_id))).scalar_one_or_none()
+    if is_guest:
+        from app.models.guest import GuestAccount
+        u = (await db.execute(select(GuestAccount).where(GuestAccount.id == principal_id))).scalar_one_or_none()
+    else:
+        from app.models.identity import User
+        u = (await db.execute(select(User).where(User.id == principal_id))).scalar_one_or_none()
     if not u or not u.totp_enabled or not u.totp_secret:
         return RedirectResponse(url=next or "/", status_code=303)
 
