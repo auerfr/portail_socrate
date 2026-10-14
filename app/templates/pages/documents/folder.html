@@ -1632,6 +1632,24 @@
      class="fixed inset-0 z-[60] flex flex-col bg-black/85 backdrop-blur-sm"
      @click.self="closePreview()">
 
+  <!-- Bouton fermer flottant, toujours au-dessus de tout (y compris du
+       rendu natif du PDF dans l'iframe) — sur mobile (notamment Safari iOS
+       en PWA/plein écran), le lecteur PDF intégré peut visuellement
+       recouvrir la barre de titre ci-dessous ou absorber les gestes de
+       retour du navigateur/OS ; ce bouton reste cliquable car positionné en
+       `fixed` dans son propre contexte d'empilement, avec un z-index
+       supérieur à tout le reste de la modale. Doublon volontaire du ✕ de la
+       barre de titre (gardé pour le flux normal desktop/tactile standard),
+       c'est le filet de sécurité pour ne jamais rester bloqué. -->
+  <button @click="closePreview()"
+          class="fixed z-[70] w-11 h-11 flex items-center justify-center rounded-full bg-black/70 text-white shadow-lg active:bg-black/90 transition-colors"
+          style="top: calc(env(safe-area-inset-top, 0px) + 10px); right: calc(env(safe-area-inset-right, 0px) + 10px);"
+          title="Fermer">
+    <svg class="w-5 h-5" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+      <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+    </svg>
+  </button>
+
   <!-- Barre de titre -->
   <div class="flex items-center justify-between px-5 py-3 bg-white/5 border-b border-white/10 flex-shrink-0">
     <div class="flex items-center gap-3 min-w-0">
