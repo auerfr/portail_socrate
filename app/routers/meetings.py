@@ -93,6 +93,24 @@ async def _notify_meeting_published(db: AsyncSession, meeting: Meeting, actor: M
         pass
 
 
+async def _existing_meeting_dates_map(db: AsyncSession, exclude_id: int | None = None) -> dict:
+    """{date ISO -> {id, title}} pour toutes les tenues (sauf exclude_id,
+    en édition) — sert à avertir dans le formulaire si on s'apprête à
+    recréer une tenue à une date déjà prise au lieu de modifier
+    l'existante (cause de doublons constatée en usage réel)."""
+    q = select(Meeting.id, Meeting.meeting_date, Meeting.title, Meeting.type)
+    if exclude_id is not None:
+        q = q.where(Meeting.id != exclude_id)
+    rows = (await db.execute(q)).all()
+    return {
+        row.meeting_date.isoformat(): {
+            "id": row.id,
+            "title": row.title or _type_label(row.type),
+        }
+        for row in rows
+    }
+
+
 def _type_label(t) -> str:
     labels = {
         "BLANCHE":      "Tenue blanche",
@@ -2247,6 +2265,7 @@ async def meeting_new_form(
         "grade_label": _grade_label,
         "errors": {},
         "is_new": True,
+        "existing_meeting_dates": await _existing_meeting_dates_map(db),
         "form_action": "/meetings/new/form",
         "degree_labels": {
             "APPRENTI": "1er degré — Apprentis",
@@ -2420,6 +2439,7 @@ async def meeting_edit_form(
         "grade_label": _grade_label,
         "errors": {},
         "is_new": False,
+        "existing_meeting_dates": await _existing_meeting_dates_map(db, exclude_id=meeting_id),
         "form_action": f"/meetings/{meeting_id}/edit",
         "degree_labels": {
             "APPRENTI": "1er degré — Apprentis",

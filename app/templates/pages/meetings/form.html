@@ -21,14 +21,26 @@
   <form method="post" action="{{ form_action }}" class="flex flex-col gap-6">
 
     <!-- Date et heure -->
-    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6">
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+         x-data="{ selectedDate: {{ (meeting.meeting_date.strftime('%Y-%m-%d') if meeting else '') | tojson }} }">
       <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Date & lieu</h2>
+
+      <!-- Avertissement si une autre tenue existe déjà à la date choisie —
+           pour éviter d'en recréer une par erreur au lieu de modifier
+           l'existante (cause fréquente de doublons constatée en usage réel). -->
+      <template x-if="selectedDate && window._existingMeetingDates && window._existingMeetingDates[selectedDate]">
+        <div class="mb-4 bg-amber-50 border border-amber-200 rounded-lg px-3 py-2.5 text-xs text-amber-800 flex items-center justify-between gap-3 flex-wrap">
+          <span>⚠️ Une tenue existe déjà à cette date : <strong x-text="window._existingMeetingDates[selectedDate].title"></strong></span>
+          <a :href="'/meetings/' + window._existingMeetingDates[selectedDate].id + '/edit'"
+             class="underline font-semibold shrink-0 hover:text-amber-900">Modifier celle-ci plutôt →</a>
+        </div>
+      </template>
+
       <div class="grid sm:grid-cols-2 gap-4">
 
         <div>
           <label class="block text-sm font-medium text-gray-700 mb-1">Date <span class="text-red-500">*</span></label>
-          <input type="date" name="meeting_date" required
-                 value="{{ meeting.meeting_date.strftime('%Y-%m-%d') if meeting else '' }}"
+          <input type="date" name="meeting_date" required x-model="selectedDate"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
 
@@ -410,6 +422,10 @@
 
 // ── Données degrés (lues par x-init du composant Alpine) ────────────────────
 window._initDegrees = {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"APPRENTI","desc":""}]{% endif %};
+
+// ── Tenues existantes par date (hors celle-ci en édition), pour avertir si
+// on s'apprête à en recréer une au lieu de modifier l'existante ───────────
+window._existingMeetingDates = {{ existing_meeting_dates | tojson }};
 
 // ── Titre automatique ────────────────────────────────────────────────────────
 (function() {
