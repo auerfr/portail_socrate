@@ -79,7 +79,7 @@
           <select name="meeting_type" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             {% for t in MeetingType %}
             <option value="{{ t.value }}"
-              {% if meeting and meeting.type == t %}selected{% endif %}>
+              {% if (meeting and meeting.type == t) or (not meeting and t.value == 'SOLENNELLE') %}selected{% endif %}>
               {{ type_label(t) }}
             </option>
             {% endfor %}
@@ -91,7 +91,7 @@
           <select name="meeting_grade" class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             {% for g in MeetingGrade %}
             <option value="{{ g.value }}"
-              {% if meeting and meeting.grade == g %}selected{% endif %}>
+              {% if (meeting and meeting.grade == g) or (not meeting and g.value == 'APPRENTI') %}selected{% endif %}>
               {{ grade_label(g) }}
             </option>
             {% endfor %}
@@ -176,13 +176,13 @@
     <!-- Degrés travaillés -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
          x-data="{
-           degrees: [{grade:'MAITRE',desc:''}],
+           degrees: [{grade:'APPRENTI',desc:''}],
            addDegree() { this.degrees.push({ grade: 'APPRENTI', desc: '' }) },
            removeDegree(i) { if (this.degrees.length > 1) this.degrees.splice(i, 1) },
            gradesValue() { return this.degrees.map(d => d.grade).join(',') },
            descsValue() { return this.degrees.map(d => d.desc).join('|') }
          }"
-         x-init="degrees = JSON.parse(JSON.stringify(window._initDegrees || [{grade:'MAITRE',desc:''}]))"
+         x-init="degrees = JSON.parse(JSON.stringify(window._initDegrees || [{grade:'APPRENTI',desc:''}]))"
          >
       <div class="flex flex-col sm:flex-row sm:items-start gap-3 mb-4">
         <div class="flex-1">
@@ -378,7 +378,7 @@
   document.querySelector('form').addEventListener('submit', _syncAgendaHtml);
 
 // ── Données degrés (lues par x-init du composant Alpine) ────────────────────
-window._initDegrees = {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"MAITRE","desc":""}]{% endif %};
+window._initDegrees = {% if meeting and meeting.degrees %}[{% for deg in meeting.degrees %}{"grade":{{ deg.grade.value | tojson }},"desc":{{ (deg.description or '') | tojson }}}{% if not loop.last %},{% endif %}{% endfor %}]{% else %}[{"grade":"APPRENTI","desc":""}]{% endif %};
 
 // ── Titre automatique ────────────────────────────────────────────────────────
 (function() {

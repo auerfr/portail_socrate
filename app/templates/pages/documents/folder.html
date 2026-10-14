@@ -1673,11 +1673,16 @@
   <!-- Zone de contenu -->
   <div class="flex-1 overflow-hidden min-h-0">
 
-    <!-- PDF : rendu natif navigateur -->
+    <!-- PDF : rendu natif navigateur. iframe plutôt qu'embed : sur mobile
+         (notamment Safari iOS), <embed type="application/pdf"> peut prendre
+         le plein écran et passer au-dessus du bandeau de titre, rendant le
+         bouton ✕ ci-dessus inatteignable — l'utilisateur reste bloqué sur le
+         PDF. <iframe> respecte le conteneur et n'a pas ce problème (même
+         approche que pages/documents/file_view.html). -->
     <template x-if="preview && preview.type === 'pdf'">
-      <embed :src="`/documents/file/${preview.id}/preview`"
-             type="application/pdf"
-             class="w-full h-full">
+      <iframe :src="`/documents/file/${preview.id}/preview`"
+              class="w-full h-full border-0"
+              :title="preview ? preview.name : ''"></iframe>
     </template>
 
     <!-- Image : centrée avec fond sombre (inline) -->

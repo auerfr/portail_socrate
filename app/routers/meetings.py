@@ -2234,8 +2234,8 @@ async def meeting_create(
     db: Annotated[AsyncSession, Depends(get_db)],
     meeting_date:    str = Form(...),
     meeting_time:    str = Form("20:30"),
-    meeting_type:    str = Form("BLANCHE"),
-    meeting_grade:   str = Form("MAITRE"),
+    meeting_type:    str = Form("SOLENNELLE"),
+    meeting_grade:   str = Form("APPRENTI"),
     meeting_number:  str = Form(""),
     title:           str = Form(""),
     theme:           str = Form(""),
@@ -2510,8 +2510,8 @@ async def meeting_delete(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not (user.is_admin):
-        raise HTTPException(status_code=403, detail="Seul un administrateur peut supprimer une tenue")
+    if not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=403, detail="Accès refusé")
 
     result = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
     meeting = result.scalar_one_or_none()
