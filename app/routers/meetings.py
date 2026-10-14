@@ -94,21 +94,25 @@ async def _notify_meeting_published(db: AsyncSession, meeting: Meeting, actor: M
 
 
 async def _existing_meeting_dates_map(db: AsyncSession, exclude_id: int | None = None) -> dict:
-    """{date ISO -> {id, title}} pour toutes les tenues (sauf exclude_id,
-    en édition) — sert à avertir dans le formulaire si on s'apprête à
-    recréer une tenue à une date déjà prise au lieu de modifier
-    l'existante (cause de doublons constatée en usage réel)."""
-    q = select(Meeting.id, Meeting.meeting_date, Meeting.title, Meeting.type)
+    """{date ISO -> [{id, title, time}, ...]} pour toutes les tenues (sauf
+    exclude_id, en édition) — sert à avertir dans le formulaire si on
+    s'apprête à recréer une tenue à la même date ET au même horaire qu'une
+    tenue existante, au lieu de la modifier (cause de doublons constatée en
+    usage réel). Volontairement limité à la même heure : plusieurs tenues
+    légitimes peuvent avoir lieu le même jour à des horaires différents
+    (ex: deux séances le même jour), ça ne doit pas être signalé."""
+    q = select(Meeting.id, Meeting.meeting_date, Meeting.meeting_time, Meeting.title, Meeting.type)
     if exclude_id is not None:
         q = q.where(Meeting.id != exclude_id)
     rows = (await db.execute(q)).all()
-    return {
-        row.meeting_date.isoformat(): {
+    by_date: dict = {}
+    for row in rows:
+        by_date.setdefault(row.meeting_date.isoformat(), []).append({
             "id": row.id,
             "title": row.title or _type_label(row.type),
-        }
-        for row in rows
-    }
+            "time": row.meeting_time or "",
+        })
+    return by_date
 
 
 def _type_label(t) -> str:
