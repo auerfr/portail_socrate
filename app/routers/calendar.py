@@ -11,7 +11,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_auth, has_fine_permission
+from app.dependencies import require_auth, has_fine_permission, meeting_visibility_clause
 from app.models.lodge import LodgeSettings
 from app.models.lodge_calendar import EventType, EventVisibility, LodgeEvent
 from app.models.identity import LodgeFunction, MasonicGrade, Member, MemberStatus
@@ -442,12 +442,14 @@ async def calendar_index(
     date_to = weeks[-1][-1]
 
     # Récupérer les tenues du mois
-    meetings_r = await db.execute(
-        select(Meeting).where(
-            Meeting.meeting_date >= date_from,
-            Meeting.meeting_date <= date_to,
-        )
+    meetings_q = select(Meeting).where(
+        Meeting.meeting_date >= date_from,
+        Meeting.meeting_date <= date_to,
     )
+    _mvis = meeting_visibility_clause(user, member)
+    if _mvis is not None:
+        meetings_q = meetings_q.where(_mvis)
+    meetings_r = await db.execute(meetings_q)
     meetings_list = meetings_r.scalars().all()
 
     # Récupérer les LodgeEvents du mois — un événement est inclus dès lors que
@@ -525,12 +527,14 @@ async def calendar_list(
     end_date = today + timedelta(days=92)  # ~3 mois
 
     # Tenues à venir
-    meetings_r = await db.execute(
-        select(Meeting).where(
-            Meeting.meeting_date >= today,
-            Meeting.meeting_date <= end_date,
-        ).order_by(Meeting.meeting_date)
+    meetings_q = select(Meeting).where(
+        Meeting.meeting_date >= today,
+        Meeting.meeting_date <= end_date,
     )
+    _mvis = meeting_visibility_clause(user, member)
+    if _mvis is not None:
+        meetings_q = meetings_q.where(_mvis)
+    meetings_r = await db.execute(meetings_q.order_by(Meeting.meeting_date))
     meetings_list = meetings_r.scalars().all()
 
     # LodgeEvents à venir
@@ -1048,9 +1052,11 @@ async def calendar_export_ics(
     today = date.today()
 
     # Tenues à venir
-    meetings_r = await db.execute(
-        select(Meeting).where(Meeting.meeting_date >= today).order_by(Meeting.meeting_date)
-    )
+    meetings_q = select(Meeting).where(Meeting.meeting_date >= today)
+    _mvis = meeting_visibility_clause(user, member)
+    if _mvis is not None:
+        meetings_q = meetings_q.where(_mvis)
+    meetings_r = await db.execute(meetings_q.order_by(Meeting.meeting_date))
     meetings_list = meetings_r.scalars().all()
 
     # LodgeEvents à venir

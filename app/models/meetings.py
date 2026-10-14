@@ -31,6 +31,11 @@ class MeetingType(str, enum.Enum):
     EXTRA        = "EXTRA"        # Tenue extraordinaire
 
 
+class MeetingStatus(str, enum.Enum):
+    DRAFT     = "DRAFT"      # Brouillon — invisible pour les membres (hors VM/Secrétaire/Surveillants/admin)
+    PUBLISHED = "PUBLISHED"  # Publiée — visible normalement
+
+
 class AttendanceStatus(str, enum.Enum):
     PRESENT = "PRESENT"
     EXCUSED = "EXCUSED"
@@ -87,6 +92,10 @@ class Meeting(Base):
     theme: Mapped[Optional[str]]      = mapped_column(String(300))
     grade: Mapped[MeetingGrade]       = mapped_column(Enum(MeetingGrade))
     type: Mapped[MeetingType]         = mapped_column(Enum(MeetingType), default=MeetingType.BLANCHE)
+    # Brouillon avant publication — par défaut PUBLISHED pour que les tenues
+    # existantes (créées avant ce champ) restent visibles sans migration de
+    # données supplémentaire.
+    status: Mapped[MeetingStatus]     = mapped_column(Enum(MeetingStatus), default=MeetingStatus.PUBLISHED)
     location: Mapped[Optional[str]]   = mapped_column(String(300))
     address: Mapped[Optional[str]]    = mapped_column(Text)
 

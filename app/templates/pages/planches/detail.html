@@ -44,7 +44,7 @@
       {% set an = planche.author_name.split(' ') %}
       <span>Par {{ an[0] }} {{ an[-1] | anon_nom | first }}∴ <span class="text-gray-300">({{ planche.author_lodge or "autre loge" }})</span></span>
       {% endif %}
-      {% if planche.meeting %}
+      {% if planche.meeting and (planche.meeting.status == 'PUBLISHED' or can_see_draft_meetings) %}
       <span>· Présentée en {% if planche.meeting.meeting_number is not none %}{{ '1ère' if planche.meeting.meeting_number == 1 else planche.meeting.meeting_number ~ 'e' }} {% endif %}Ten∴ du {{ planche.meeting.meeting_date.strftime('%d/%m/%Y') }}</span>
       {% endif %}
       {% if not planche.library_doc_id %}

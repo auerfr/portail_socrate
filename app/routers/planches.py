@@ -13,7 +13,7 @@ from sqlalchemy import select, or_
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth, has_fine_permission
+from app.dependencies import require_auth, has_fine_permission, meeting_visibility_clause, can_manage_meeting
 from app.models.planches import Planche, PlancheComment, PlancheStatus, PlancheGrade
 from app.models.identity import Member, MasonicGrade, MemberStatus
 from app.models.meetings import Meeting
@@ -60,12 +60,16 @@ def _can_edit_planche(user, member: Member, planche: Planche) -> bool:
             or _can_write(user, member))
 
 
-async def _form_context(db: AsyncSession) -> dict:
-    """Listes du formulaire : toutes les tenues (plus récentes d'abord) et les
+async def _form_context(db: AsyncSession, user=None, member=None) -> dict:
+    """Listes du formulaire : toutes les tenues (plus récentes d'abord, sauf
+    les brouillons pour qui n'a pas le droit de gérer les tenues) et les
     membres pouvant être auteurs (actifs d'abord, puis anciens membres)."""
-    meetings = (await db.execute(
-        select(Meeting).order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
-    )).scalars().all()
+    meetings_q = select(Meeting).order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
+    if user is not None and member is not None:
+        _mvis = meeting_visibility_clause(user, member)
+        if _mvis is not None:
+            meetings_q = meetings_q.where(_mvis)
+    meetings = (await db.execute(meetings_q)).scalars().all()
     # Seul le compte technique placeholder créé par seed.py est exclu — pas
     # "tout membre admin" (un vrai F∴/S∴ qui a aussi des droits admin reste
     # un membre réel et peut parfaitement être auteur d'une planche ; bug
@@ -283,15 +287,18 @@ async def planches_list(
                  and (p.author_id == member.id or p.created_by_id == member.id
                       or user.is_admin or _can_write(user, member))]
 
+    _can_see_draft_meetings = can_manage_meeting(member) or user.is_admin
     return templates.TemplateResponse(request, "pages/planches/list.html", {
         "current_user": user,
         "current_member": member,
         "published": published,
         "published_years": sorted({
-            (p.meeting.meeting_date if p.meeting else (p.published_at or p.created_at)).year for p in published
+            (p.meeting.meeting_date if (p.meeting and (p.meeting.status == "PUBLISHED" or _can_see_draft_meetings)) else (p.published_at or p.created_at)).year
+            for p in published
         }, reverse=True),
         "drafts": drafts,
         "can_write": _can_write(user, member),
+        "can_see_draft_meetings": _can_see_draft_meetings,
     })
 
 
@@ -305,7 +312,7 @@ async def planche_new(
 ):
     user, member = ctx
 
-    form_ctx = await _form_context(db)
+    form_ctx = await _form_context(db, user, member)
 
     return templates.TemplateResponse(request, "pages/planches/edit.html", {
         "current_user": user,
@@ -419,6 +426,7 @@ async def planche_detail(
         "library_mime": library_mime,
         "can_edit": _can_edit_planche(user, member, planche),
         "can_comment": _can_read(member, planche),
+        "can_see_draft_meetings": can_manage_meeting(member) or user.is_admin,
     })
 
 
@@ -495,7 +503,7 @@ async def planche_edit_form(
     if not _can_edit_planche(user, member, planche):
         raise HTTPException(403)
 
-    form_ctx = await _form_context(db)
+    form_ctx = await _form_context(db, user, member)
 
     return templates.TemplateResponse(request, "pages/planches/edit.html", {
         "current_user": user,

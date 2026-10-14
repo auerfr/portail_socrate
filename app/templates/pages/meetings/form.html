@@ -312,6 +312,37 @@
       </div>
     </div>
 
+    <!-- Statut & notification -->
+    {% set show_notify = is_new or (meeting and meeting.status.value == 'DRAFT') %}
+    <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-6"
+         x-data="{ status: {{ (meeting.status.value if meeting else 'PUBLISHED') | tojson }} }">
+      <h2 class="text-sm font-semibold text-gray-700 uppercase tracking-wider mb-4">Statut</h2>
+      <div class="flex flex-col sm:flex-row gap-3 mb-3">
+        <label class="flex-1 flex items-center gap-2 border rounded-lg px-4 py-3 cursor-pointer transition-colors"
+               :class="status === 'PUBLISHED' ? 'border-loge-500 bg-loge-50' : 'border-gray-200'">
+          <input type="radio" name="meeting_status" value="PUBLISHED" x-model="status" class="accent-loge-600">
+          <span class="text-sm font-medium text-gray-800">Publier{% if not is_new and meeting.status.value == 'DRAFT' %} maintenant{% endif %}</span>
+        </label>
+        <label class="flex-1 flex items-center gap-2 border rounded-lg px-4 py-3 cursor-pointer transition-colors"
+               :class="status === 'DRAFT' ? 'border-amber-400 bg-amber-50' : 'border-gray-200'">
+          <input type="radio" name="meeting_status" value="DRAFT" x-model="status" class="accent-amber-600">
+          <span class="text-sm font-medium text-gray-800">Enregistrer en brouillon</span>
+        </label>
+      </div>
+      <p class="text-xs text-gray-400 {% if show_notify %}mb-3{% endif %}">
+        Un brouillon n'est visible que par les officiers habilités à gérer les tenues
+        (VM, Secrétaire, Surveillants, admin) — invisible pour les autres membres
+        (liste, programme, calendrier, recherche...) tant qu'il n'est pas publié.
+      </p>
+      {% if show_notify %}
+      <label x-show="status === 'PUBLISHED'" class="flex items-center gap-2 cursor-pointer">
+        <input type="checkbox" name="notify_members" value="1" checked
+               class="rounded border-gray-300 text-loge-700">
+        <span class="text-sm text-gray-700">Notifier les membres concernés (notification push)</span>
+      </label>
+      {% endif %}
+    </div>
+
     <!-- Boutons -->
     <div class="flex gap-3">
       <button type="submit"

@@ -59,12 +59,13 @@ def _format_slot_label(start: datetime, end: Optional[datetime]) -> str:
     return txt
 
 
-async def _check_schedule_conflicts(options: list["PollOption"], db: AsyncSession) -> dict[int, list[str]]:
+async def _check_schedule_conflicts(options: list["PollOption"], db: AsyncSession, user=None, member=None) -> dict[int, list[str]]:
     """Pour un sondage SCHEDULE, détecte les créneaux proposés qui chevauchent
     un événement d'agenda ou une tenue déjà planifiée. Recalculé à chaque
     affichage (l'agenda peut évoluer après la création du sondage)."""
     from app.models.calendar import Event
     from app.models.meetings import Meeting
+    from app.dependencies import meeting_visibility_clause
 
     slots = [(opt.id, opt.slot_start, opt.slot_end) for opt in options if opt.slot_start]
     if not slots:
@@ -80,9 +81,12 @@ async def _check_schedule_conflicts(options: list["PollOption"], db: AsyncSessio
         )
     )
     events = ev_r.scalars().all()
-    mt_r = await db.execute(
-        select(Meeting).where(Meeting.meeting_date >= lo, Meeting.meeting_date <= hi)
-    )
+    mt_q = select(Meeting).where(Meeting.meeting_date >= lo, Meeting.meeting_date <= hi)
+    if user is not None and member is not None:
+        _mvis = meeting_visibility_clause(user, member)
+        if _mvis is not None:
+            mt_q = mt_q.where(_mvis)
+    mt_r = await db.execute(mt_q)
     meetings = mt_r.scalars().all()
 
     conflicts: dict[int, list[str]] = {}
@@ -488,7 +492,7 @@ async def poll_detail(
 
     schedule_conflicts = {}
     if poll.vote_type == "SCHEDULE":
-        schedule_conflicts = await _check_schedule_conflicts(poll.options, db)
+        schedule_conflicts = await _check_schedule_conflicts(poll.options, db, user, member)
 
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 

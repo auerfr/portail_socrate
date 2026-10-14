@@ -21,7 +21,7 @@ from typing import Annotated
 from app.config import get_settings
 from app.database import engine, Base, get_db
 from app.migrations import run_lightweight_migrations, ensure_wal_mode
-from app.dependencies import get_current_user, can_manage_attendance
+from app.dependencies import get_current_user, can_manage_attendance, meeting_visibility_clause
 from app.routers import auth, members, meetings, finance, programs, attendance, announcements
 from app.routers import settings as settings_router
 from app.routers import messages as messages_router
@@ -625,13 +625,14 @@ async def home(
         return RedirectResponse(url="/auth/login")
     user, member = ctx
     today = date.today()
+    _meeting_vis = meeting_visibility_clause(user, member)
 
     # ── Prochaine tenue ──────────────────────────────────────────────────────
+    next_q = select(Meeting).where(Meeting.meeting_date >= today)
+    if _meeting_vis is not None:
+        next_q = next_q.where(_meeting_vis)
     next_r = await db.execute(
-        select(Meeting)
-        .where(Meeting.meeting_date >= today)
-        .order_by(Meeting.meeting_date)
-        .limit(1)
+        next_q.order_by(Meeting.meeting_date).limit(1)
     )
     next_meeting = next_r.scalar_one_or_none()
 
@@ -668,11 +669,11 @@ async def home(
         next_visitors = vis_r.scalar() or 0
 
     # ── 3 prochaines tenues après la prochaine ───────────────────────────────
+    upcoming_q = select(Meeting).where(Meeting.meeting_date >= today)
+    if _meeting_vis is not None:
+        upcoming_q = upcoming_q.where(_meeting_vis)
     upcoming_r = await db.execute(
-        select(Meeting)
-        .where(Meeting.meeting_date >= today)
-        .order_by(Meeting.meeting_date)
-        .offset(1).limit(3)
+        upcoming_q.order_by(Meeting.meeting_date).offset(1).limit(3)
     )
     upcoming_meetings = upcoming_r.scalars().all()
 
@@ -837,7 +838,7 @@ async def home(
         recent_senders_map = {m.id: m for m in rs.scalars().all()}
 
     # ── Derniers maçons passants ─────────────────────────────────────────────
-    recent_visitors_r = await db.execute(
+    recent_visitors_q = (
         select(MeetingVisitor)
         .options(
             selectinload(MeetingVisitor.visitor),
@@ -845,8 +846,11 @@ async def home(
         )
         .join(Meeting, Meeting.id == MeetingVisitor.meeting_id)
         .where(MeetingVisitor.status == VisitorStatus.CONFIRMED)
-        .order_by(Meeting.meeting_date.desc(), MeetingVisitor.id.desc())
-        .limit(4)
+    )
+    if _meeting_vis is not None:
+        recent_visitors_q = recent_visitors_q.where(_meeting_vis)
+    recent_visitors_r = await db.execute(
+        recent_visitors_q.order_by(Meeting.meeting_date.desc(), MeetingVisitor.id.desc()).limit(4)
     )
     recent_visitors = recent_visitors_r.scalars().all()
 

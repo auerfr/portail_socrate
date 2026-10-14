@@ -11,7 +11,7 @@ from sqlalchemy.orm import selectinload
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.database import get_db
-from app.dependencies import require_auth, can_manage_attendance
+from app.dependencies import require_auth, can_manage_attendance, meeting_visibility_clause
 from app.models.identity import (
     Member, MemberStatus, member_active_now_condition,
 )
@@ -843,12 +843,17 @@ async def member_attendance(
     if not target:
         raise HTTPException(status_code=404)
 
-    att_r = await db.execute(
+    att_q = (
         select(Attendance)
         .join(Meeting, Meeting.id == Attendance.meeting_id)
         .options(selectinload(Attendance.meeting))
         .where(Attendance.member_id == member_id)
-        .order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
+    )
+    _mvis = meeting_visibility_clause(user, current_member)
+    if _mvis is not None:
+        att_q = att_q.where(_mvis)
+    att_r = await db.execute(
+        att_q.order_by(Meeting.meeting_date.desc(), Meeting.id.desc())
     )
     attendances = att_r.scalars().all()
 

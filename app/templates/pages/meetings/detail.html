@@ -30,6 +30,9 @@
               {% if meeting.is_locked %}
               <span class="text-xs bg-black/20 rounded-full px-2.5 py-1">🔒 Verrouillée</span>
               {% endif %}
+              {% if meeting.status.value == 'DRAFT' %}
+              <span class="text-xs font-medium bg-amber-400/90 text-amber-950 rounded-full px-2.5 py-1">Brouillon — invisible pour les membres</span>
+              {% endif %}
             </div>
             {% if can_manage %}
             <div class="flex items-center gap-2 shrink-0">

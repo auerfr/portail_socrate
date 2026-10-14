@@ -18,12 +18,12 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.utils.text import masonic_write
 from app.dependencies import (
-    require_auth, can_manage_meeting, can_lock_meeting,
+    require_auth, can_manage_meeting, can_lock_meeting, meeting_visibility_clause,
 )
 from app.models.reports import MeetingReport, ReportStatus
 from app.models.meetings import (
     Meeting, Attendance, AttendanceStatus, DegreeAttended,
-    MeetingGrade, MeetingType, MeetingDegree,
+    MeetingGrade, MeetingType, MeetingStatus, MeetingDegree,
     Visitor, MeetingVisitor, MeetingGuest, MeetingWaitlist,
     DietaryRestriction, GuestStatus, VisitorStatus,
 )
@@ -68,6 +68,29 @@ async def _count_agapes(db: AsyncSession, meeting_id: int) -> int:
     )
     g = r3.scalar() or 0
     return int(m + v + g)
+
+
+async def _notify_meeting_published(db: AsyncSession, meeting: Meeting, actor: Member) -> None:
+    """Notification push aux membres concernés (grade >= meeting.grade), lors
+    de la création d'une tenue publiée directement, ou de la publication d'un
+    brouillon. Best-effort : une erreur d'envoi ne doit jamais faire échouer
+    la création/publication elle-même."""
+    try:
+        from app.models.identity import MemberStatus, MasonicGrade
+        from app.services.push import send_push_broadcast
+        GRADE_LEVEL = {MasonicGrade.APPRENTI: 1, MasonicGrade.COMPAGNON: 2, MasonicGrade.MAITRE: 3}
+        meeting_level = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "BLANCHE": 1}.get(meeting.grade.value, 1)
+        r = await db.execute(select(Member).where(Member.status == MemberStatus.ACTIVE))
+        eligible_ids = [
+            m.id for m in r.scalars().all()
+            if m.id != actor.id and GRADE_LEVEL.get(m.masonic_grade, 0) >= meeting_level
+        ]
+        date_str = meeting.meeting_date.strftime("%d/%m/%Y")
+        title_push = f"📅 Nouvelle tenue le {date_str}"
+        body_push = (meeting.title or meeting.theme or f"Tenue {meeting.grade.value.lower()}")[:140]
+        await send_push_broadcast(db, eligible_ids, title_push, body_push, f"/meetings/{meeting.id}")
+    except Exception:
+        pass
 
 
 def _type_label(t) -> str:
@@ -270,6 +293,9 @@ async def meetings_list(
     q = select(Meeting).order_by(Meeting.meeting_date.asc())
     if selected_year:
         q = q.where(Meeting.masonic_year_id == selected_year.id)
+    _vis = meeting_visibility_clause(user, member)
+    if _vis is not None:
+        q = q.where(_vis)
     # Si le form n'a pas encore été soumis → comportement par défaut = "month"
     # (un des trois boutons radio est toujours soumis une fois le form envoyé)
     effective_filter = filter_mode if submitted == "1" else "month"
@@ -291,12 +317,13 @@ async def meetings_list(
     # Nombre de tenues masquées par la coupure de date (pour le hint)
     past_count = 0
     if effective_filter in ("month", "upcoming") and selected_year:
-        pc_r = await db.execute(
-            select(sql_func.count()).where(
-                Meeting.masonic_year_id == selected_year.id,
-                Meeting.meeting_date < cutoff,
-            )
+        pc_q = select(sql_func.count()).where(
+            Meeting.masonic_year_id == selected_year.id,
+            Meeting.meeting_date < cutoff,
         )
+        if _vis is not None:
+            pc_q = pc_q.where(_vis)
+        pc_r = await db.execute(pc_q)
         past_count = pc_r.scalar() or 0
 
     # Compter les présences pour chaque tenue
@@ -366,6 +393,8 @@ async def meeting_detail(
     )
     meeting = result.scalar_one_or_none()
     if not meeting:
+        raise HTTPException(status_code=404, detail="Tenue introuvable")
+    if meeting.status == MeetingStatus.DRAFT and not (can_manage_meeting(member) or user.is_admin):
         raise HTTPException(status_code=404, detail="Tenue introuvable")
 
     # Présence du membre courant
@@ -2213,6 +2242,7 @@ async def meeting_new_form(
         "lodge": lodge,
         "MeetingType": MeetingType,
         "MeetingGrade": MeetingGrade,
+        "MeetingStatus": MeetingStatus,
         "type_label": _type_label,
         "grade_label": _grade_label,
         "errors": {},
@@ -2250,6 +2280,8 @@ async def meeting_create(
     # Multi-degrés : liste de degrés séparés par virgule + descriptions
     degrees_grades:  str = Form(""),  # ex: "APPRENTI,COMPAGNON,MAITRE"
     degrees_descs:   str = Form(""),  # ex: "Ouverture,Passage,Travaux"
+    meeting_status:  str = Form("PUBLISHED"),  # "DRAFT" | "PUBLISHED"
+    notify_members:  str = Form(""),
 ):
     user, member = ctx
     if not (can_manage_meeting(member) or user.is_admin):
@@ -2316,6 +2348,7 @@ async def meeting_create(
         visio_url=final_visio_url,
         registration_closes_at=reg_closes,
         created_by_id=member.id,
+        status=MeetingStatus.DRAFT if meeting_status == "DRAFT" else MeetingStatus.PUBLISHED,
     )
     db.add(new_meeting)
     await db.flush()  # obtenir l'ID
@@ -2340,23 +2373,8 @@ async def meeting_create(
 
     await db.commit()
 
-    # ── Push notification aux membres concernés (grade >= meeting.grade) ─────
-    try:
-        from app.models.identity import MemberStatus, MasonicGrade
-        from app.services.push import send_push_broadcast
-        GRADE_LEVEL = {MasonicGrade.APPRENTI: 1, MasonicGrade.COMPAGNON: 2, MasonicGrade.MAITRE: 3}
-        meeting_level = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "BLANCHE": 1}.get(new_meeting.grade.value, 1)
-        r = await db.execute(select(Member).where(Member.status == MemberStatus.ACTIVE))
-        eligible_ids = [
-            m.id for m in r.scalars().all()
-            if m.id != member.id and GRADE_LEVEL.get(m.masonic_grade, 0) >= meeting_level
-        ]
-        date_str = d.strftime("%d/%m/%Y")
-        title_push = f"📅 Nouvelle tenue le {date_str}"
-        body_push = (new_meeting.title or new_meeting.theme or f"Tenue {new_meeting.grade.value.lower()}")[:140]
-        await send_push_broadcast(db, eligible_ids, title_push, body_push, f"/meetings/{new_meeting.id}")
-    except Exception:
-        pass
+    if new_meeting.status == MeetingStatus.PUBLISHED and bool(notify_members):
+        await _notify_meeting_published(db, new_meeting, member)
 
     return RedirectResponse(url=f"/meetings/{new_meeting.id}", status_code=302)
 
@@ -2397,6 +2415,7 @@ async def meeting_edit_form(
         "lodge": lodge,
         "MeetingType": MeetingType,
         "MeetingGrade": MeetingGrade,
+        "MeetingStatus": MeetingStatus,
         "type_label": _type_label,
         "grade_label": _grade_label,
         "errors": {},
@@ -2434,6 +2453,8 @@ async def meeting_edit_save(
     visio_url:       str = Form(""),
     degrees_grades:  str = Form(""),
     degrees_descs:   str = Form(""),
+    meeting_status:  str = Form("PUBLISHED"),
+    notify_members:  str = Form(""),
 ):
     user, member = ctx
     if not (can_manage_meeting(member) or user.is_admin):
@@ -2447,6 +2468,9 @@ async def meeting_edit_save(
     meeting = result.scalar_one_or_none()
     if not meeting:
         raise HTTPException(status_code=404)
+
+    was_draft = meeting.status == MeetingStatus.DRAFT
+    meeting.status = MeetingStatus.DRAFT if meeting_status == "DRAFT" else MeetingStatus.PUBLISHED
 
     d = date.fromisoformat(meeting_date)
 
@@ -2497,6 +2521,13 @@ async def meeting_edit_save(
             ))
 
     await db.commit()
+
+    # Notification seulement au moment où le brouillon devient publié — pas
+    # à chaque modification d'une tenue déjà publiée (ça spammerait les
+    # membres à chaque correction mineure).
+    if was_draft and meeting.status == MeetingStatus.PUBLISHED and bool(notify_members):
+        await _notify_meeting_published(db, meeting, member)
+
     return RedirectResponse(url=f"/meetings/{meeting_id}", status_code=302)
 
 
@@ -2543,6 +2574,8 @@ async def meeting_register(
     result = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
     meeting = result.scalar_one_or_none()
     if not meeting:
+        raise HTTPException(status_code=404)
+    if meeting.status == MeetingStatus.DRAFT and not (can_manage_meeting(member) or user.is_admin):
         raise HTTPException(status_code=404)
 
     try:
@@ -2595,7 +2628,7 @@ async def public_register_page(
     """Page publique d'inscription — accessible sans login."""
     result = await db.execute(select(Meeting).where(Meeting.token == token))
     meeting = result.scalar_one_or_none()
-    if not meeting:
+    if not meeting or meeting.status == MeetingStatus.DRAFT:
         raise HTTPException(status_code=404, detail="Lien d'inscription invalide")
 
     # Fermeture auto : tenue passée OU date de clôture dépassée
@@ -2678,7 +2711,7 @@ async def public_register_submit(
 
     result = await db.execute(select(Meeting).where(Meeting.token == token))
     meeting = result.scalar_one_or_none()
-    if not meeting or not meeting.registration_open:
+    if not meeting or meeting.status == MeetingStatus.DRAFT or not meeting.registration_open:
         raise HTTPException(status_code=404)
 
     agape_bool = bool(agape)

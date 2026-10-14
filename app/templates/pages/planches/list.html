@@ -78,7 +78,8 @@
       {% for p in published %}
       {% set GRADE_LABELS = {'TOUS':'', 'APPRENTI':'App∴', 'COMPAGNON':'Comp∴', 'MAITRE':'M∴'} %}
       {% set grade_val = p.grade.value if p.grade.value is defined else p.grade %}
-      {% set d = p.meeting.meeting_date if p.meeting else (p.published_at or p.created_at) %}
+      {% set meeting_visible = p.meeting and (p.meeting.status == 'PUBLISHED' or can_see_draft_meetings) %}
+      {% set d = p.meeting.meeting_date if meeting_visible else (p.published_at or p.created_at) %}
       {% if p.author %}{% set who = p.author.first_name ~ ' ' ~ (p.author.last_name | anon_nom | first) ~ '∴' %}
       {% elif p.author_name %}{% set an = p.author_name.split(' ') %}{% set who = an[0] ~ ' ' ~ (an[-1] | anon_nom | first) ~ '∴' %}
       {% else %}{% set who = '' %}{% endif %}
@@ -86,13 +87,13 @@
          data-search="{{ (p.title ~ ' ' ~ who ~ ' ' ~ (p.author_lodge or '')) | lower }}"
          data-year="{{ d.year }}" data-grade="{{ grade_val }}"
          data-kind="{{ 'external' if (not p.author and p.author_name) else 'member' }}"
-         data-meeting="{{ 'meeting' if p.meeting else 'nomeeting' }}"
+         data-meeting="{{ 'meeting' if meeting_visible else 'nomeeting' }}"
          class="flex items-center justify-between bg-white border border-gray-100 rounded-xl px-4 py-3 hover:border-loge-200 hover:bg-loge-50 transition-colors group shadow-sm">
         <div class="min-w-0">
           <p class="font-medium text-gray-800 group-hover:text-loge-700 truncate">{{ p.title }}</p>
           <p class="text-xs text-gray-400 mt-0.5">
             {{ who }}{% if p.author_lodge %} <span class="text-gray-400">({{ p.author_lodge }})</span>{% endif %}
-            {% if p.meeting %} · {% if p.meeting.meeting_number is not none %}n°{{ p.meeting.meeting_number }} · {% endif %}Ten∴ du {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}
+            {% if meeting_visible %} · {% if p.meeting.meeting_number is not none %}n°{{ p.meeting.meeting_number }} · {% endif %}Ten∴ du {{ p.meeting.meeting_date.strftime('%d/%m/%Y') }}
             {% else %} · {{ d.strftime('%d/%m/%Y') }}{% endif %}
             {% if p.file_path or p.library_doc_id %} · 📎{% endif %}
             {% if p.comments %} · 💬 {{ p.comments|length }}{% endif %}

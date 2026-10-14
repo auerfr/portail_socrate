@@ -93,6 +93,9 @@
                 {% if m.is_locked %}
                 <span class="text-xs text-gray-500 bg-gray-100 rounded-full px-2 py-0.5">🔒 Verrouillée</span>
                 {% endif %}
+                {% if m.status.value == 'DRAFT' %}
+                <span class="text-xs font-medium text-amber-700 bg-amber-50 rounded-full px-2 py-0.5">Brouillon</span>
+                {% endif %}
               </div>
               <h3 class="font-semibold text-gray-900 mt-1">
                 {{ m.title or type_label(m.type) }}

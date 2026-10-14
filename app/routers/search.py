@@ -8,7 +8,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_auth
+from app.dependencies import require_auth, meeting_visibility_clause
 from app.models.identity import Member
 from app.models.documents import Document, DocStatus
 from app.models.forum import ForumSubject, ForumMessage
@@ -127,11 +127,12 @@ async def global_search(
             })
 
         # ── Tenues ───────────────────────────────────────────────────────
+        meeting_q = select(Meeting).where(or_(Meeting.title.ilike(like), Meeting.theme.ilike(like)))
+        _mvis = meeting_visibility_clause(user, member)
+        if _mvis is not None:
+            meeting_q = meeting_q.where(_mvis)
         r = await db.execute(
-            select(Meeting)
-            .where(or_(Meeting.title.ilike(like), Meeting.theme.ilike(like)))
-            .order_by(Meeting.meeting_date.desc())
-            .limit(RESULTS_PER_CATEGORY)
+            meeting_q.order_by(Meeting.meeting_date.desc()).limit(RESULTS_PER_CATEGORY)
         )
         meeting_hits = r.scalars().all()
         if meeting_hits:

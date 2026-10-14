@@ -12,10 +12,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_admin, require_auth
+from app.dependencies import require_admin, require_auth, can_manage_meeting, meeting_visibility_clause
 from app.models.documents import DocShare, Document, DocStatus, DocFolder, DocSpace
 from app.models.chat import ChatChannel, ChatMessage, MessageContentType
-from app.models.meetings import Meeting
+from app.models.meetings import Meeting, MeetingStatus
 from app.models.lodge_calendar import LodgeEvent
 
 # ── Deux routers : un avec préfixe /documents (auth), un sans (public) ────────
@@ -196,6 +196,8 @@ async def share_to_meeting(
     meeting = await db.get(Meeting, meeting_id)
     if not meeting:
         raise HTTPException(status_code=404, detail="Tenue introuvable")
+    if meeting.status == MeetingStatus.DRAFT and not (can_manage_meeting(member) or user.is_admin):
+        raise HTTPException(status_code=404, detail="Tenue introuvable")
 
     base_url = str(request.base_url).rstrip("/")
     download_url = f"{base_url}/documents/file/{doc_id}/download"
@@ -248,13 +250,17 @@ async def share_targets(
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    user, member = ctx
     today = date.today()
     now_dt = datetime.combine(today, datetime.min.time())
 
     # Prochaines réunions (10)
+    mtg_q = select(Meeting).where(Meeting.meeting_date >= today)
+    _mvis = meeting_visibility_clause(user, member)
+    if _mvis is not None:
+        mtg_q = mtg_q.where(_mvis)
     mtg_r = await db.execute(
-        select(Meeting)
-        .where(Meeting.meeting_date >= today)
+        mtg_q
         .order_by(Meeting.meeting_date)
         .limit(10)
     )

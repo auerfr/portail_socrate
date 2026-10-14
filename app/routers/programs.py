@@ -20,10 +20,10 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import require_auth, require_admin, has_fine_permission
+from app.dependencies import require_auth, require_admin, has_fine_permission, can_manage_meeting
 from app.models.programs import Program, ProgramMeeting
 from app.models.identity import LodgeFunction
-from app.models.meetings import Meeting, MeetingType, MeetingGrade
+from app.models.meetings import Meeting, MeetingType, MeetingGrade, MeetingStatus
 from app.models.lodge import MasonicYear, LodgeSettings, ExternalContact
 from app.models.documents import DocFolder, DocSpace, DocStatus, Document
 from app.models.mailing import MailingList, MailingListExternal
@@ -595,9 +595,16 @@ async def program_detail(
 
     lodge = await _get_lodge(db)
 
-    # Trier les tenues par date (filtrer les ProgramMeeting orphelins)
+    # Trier les tenues par date (filtrer les ProgramMeeting orphelins, et les
+    # tenues en brouillon pour qui n'a pas le droit de les gérer — une tenue
+    # ajoutée à un programme avant sa publication ne doit pas fuiter ici)
+    _can_see_drafts = can_manage_meeting(member) or user.is_admin
     pm_sorted = sorted(
-        [pm for pm in program.meetings if pm.meeting is not None],
+        [
+            pm for pm in program.meetings
+            if pm.meeting is not None
+            and (_can_see_drafts or pm.meeting.status == MeetingStatus.PUBLISHED)
+        ],
         key=lambda pm: pm.meeting.meeting_date,
     )
 

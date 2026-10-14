@@ -251,6 +251,22 @@ def can_manage_meeting(member: Member) -> bool:
     ) or has_fine_permission(member, "can_manage_meetings")
 
 
+def meeting_visibility_clause(user: User, member: Member):
+    """Condition SQLAlchemy à ajouter (via .where()) à toute requête qui
+    sélectionne des Meeting et peut être vue par un membre non habilité à les
+    gérer : restreint aux tenues publiées, pour qu'un brouillon reste
+    invisible à tout le monde sauf VM/Secrétaire/Surveillants/admin — qui le
+    voient tous, sans restriction (retourne None, donc rien à filtrer).
+
+    Usage : `cond = meeting_visibility_clause(user, member)` puis
+    `if cond is not None: q = q.where(cond)`.
+    """
+    from app.models.meetings import Meeting, MeetingStatus
+    if can_manage_meeting(member) or user.is_admin:
+        return None
+    return Meeting.status == MeetingStatus.PUBLISHED
+
+
 def can_lock_meeting(member: Member) -> bool:
     """Peut verrouiller une tenue."""
     return member.lodge_function == LodgeFunction.VM
