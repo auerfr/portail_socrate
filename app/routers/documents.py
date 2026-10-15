@@ -1753,6 +1753,23 @@ async def document_rename(
     return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
 
 
+@router.post("/file/{doc_id}/toggle-guest-visible")
+async def document_toggle_guest_visible(
+    doc_id: int,
+    ctx: Annotated[object, Depends(require_doc_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Bascule la visibilité du document pour les comptes visiteurs (Phase 2
+    de l'accès visiteur) — volontairement indépendant du système de droits
+    par grade/groupe (voir app/models/documents.py)."""
+    doc = await db.get(Document, doc_id)
+    if not doc:
+        raise HTTPException(status_code=404)
+    doc.visible_to_guests = not doc.visible_to_guests
+    await db.commit()
+    return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
+
+
 # ── Fiches "planches reçues" (Loge / Degré / Date de tenue / Lieu) ───────────
 
 @router.post("/file/{doc_id}/planche-entries/add")

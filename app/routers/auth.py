@@ -78,7 +78,12 @@ async def _try_guest_login(request: Request, db: AsyncSession, identifier: str, 
     except Exception:
         pass
 
-    safe_next = next if (next and next.startswith("/") and not next.startswith("//")) else "/visiteur/"
+    # "/" (page d'accueil membre, défaut du formulaire de login) n'est jamais
+    # une destination valide pour un visiteur — sans ce garde-fou, un visiteur
+    # qui se connecte directement sur /auth/login (plutôt que via un lien
+    # profond) atterrit sur "/", inaccessible pour lui, et rebondit vers le
+    # login sans message d'erreur visible.
+    safe_next = next if (next and next not in ("/", "") and next.startswith("/") and not next.startswith("//")) else "/visiteur/"
     if guest.totp_enabled:
         from urllib.parse import quote
         redirect = RedirectResponse(url=f"/auth/2fa/verify?next={quote(safe_next, safe='')}", status_code=status.HTTP_302_FOUND)

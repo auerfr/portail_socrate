@@ -2305,6 +2305,7 @@ async def meeting_create(
     degrees_descs:   str = Form(""),  # ex: "Ouverture,Passage,Travaux"
     meeting_status:  str = Form("PUBLISHED"),  # "DRAFT" | "PUBLISHED"
     notify_members:  str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     user, member = ctx
     if not (can_manage_meeting(member) or user.is_admin):
@@ -2372,6 +2373,7 @@ async def meeting_create(
         registration_closes_at=reg_closes,
         created_by_id=member.id,
         status=MeetingStatus.DRAFT if meeting_status == "DRAFT" else MeetingStatus.PUBLISHED,
+        visible_to_guests=bool(visible_to_guests),
     )
     db.add(new_meeting)
     await db.flush()  # obtenir l'ID
@@ -2479,6 +2481,7 @@ async def meeting_edit_save(
     degrees_descs:   str = Form(""),
     meeting_status:  str = Form("PUBLISHED"),
     notify_members:  str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     user, member = ctx
     if not (can_manage_meeting(member) or user.is_admin):
@@ -2512,6 +2515,7 @@ async def meeting_edit_save(
     meeting.agape_capacity  = int(agape_capacity) if agape_capacity else None
     meeting.agape_location  = agape_location or None
     meeting.visio_url       = visio_url or None
+    meeting.visible_to_guests = bool(visible_to_guests)
 
     # Clôture des inscriptions (agapes incluses). Si modifiée, on rouvre les
     # inscriptions si la nouvelle date est dans le futur.

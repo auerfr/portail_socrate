@@ -741,6 +741,14 @@
               </svg>
             </button>
             {% endif %}
+            <!-- Bouton Visible aux comptes visiteurs -->
+            <form method="post" action="/documents/file/{{ doc.id }}/toggle-guest-visible">
+              <button type="submit"
+                      title="{{ 'Visible par les comptes visiteurs du portail — cliquer pour retirer' if doc.visible_to_guests else 'Rendre visible aux comptes visiteurs du portail' }}"
+                      class="flex items-center justify-center w-7 h-7 rounded-lg transition-colors {{ 'text-emerald-600 hover:bg-emerald-50' if doc.visible_to_guests else 'text-gray-300 hover:bg-gray-100 hover:text-gray-500' }}">
+                <i class="ti ti-user-plus text-sm"></i>
+              </button>
+            </form>
             <!-- Bouton Corbeille -->
             <form method="post" action="/documents/file/{{ doc.id }}/trash">
               <button type="submit" title="Mettre à la corbeille"
@@ -942,6 +950,11 @@
             </button>
             {% endif %}
             {% if is_admin or can_write %}
+            <form method="post" action="/documents/file/{{ doc.id }}/toggle-guest-visible">
+              <button type="submit" class="block w-full text-center text-xs py-0.5 transition-colors {{ 'text-emerald-600 hover:text-emerald-700' if doc.visible_to_guests else 'text-gray-400 hover:text-gray-600' }}">
+                {{ 'Visible aux visiteurs ✓' if doc.visible_to_guests else 'Rendre visible aux visiteurs' }}
+              </button>
+            </form>
             <form method="post" action="/documents/file/{{ doc.id }}/trash">
               <button type="submit" class="block w-full text-center text-xs text-red-400 hover:text-red-600 py-0.5 transition-colors">
                 Corbeille

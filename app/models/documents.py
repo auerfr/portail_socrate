@@ -207,6 +207,12 @@ class Document(Base):
     # définitivement tout seul de ce qu'un admin a mis en Corbeille lui-même.
     auto_deleted: Mapped[bool] = mapped_column(Boolean, default=False)
 
+    # Accès visiteur (Phase 2) — opt-in explicite par document, volontairement
+    # indépendant du système de droits par grade/groupe de DocSpace/DocFolder
+    # (voir app/routers/visiteur.py) : un document grade-gated ne devient
+    # jamais visible aux comptes GuestAccount par effet de bord.
+    visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
+
     folder: Mapped["DocFolder"]                 = relationship(back_populates="documents")
     versions: Mapped[list["DocumentVersion"]]   = relationship(back_populates="document")
     planche_entries: Mapped[list["PlancheEntry"]] = relationship(

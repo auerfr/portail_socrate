@@ -1,0 +1,37 @@
+{% extends "base_visiteur.html" %}
+{% block title %}Contacts{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/" class="text-sm text-gray-500 hover:text-gray-700">← Accueil</a>
+  <h1 class="text-xl font-bold text-gray-900">Contacts</h1>
+  <p class="text-sm text-gray-500 -mt-3">Annuaire restreint — seuls le Vénérable Maître et le Secrétaire sont joignables depuis cet espace.</p>
+
+  <div class="space-y-3">
+    {% if lodge and (lodge.vm_name_display or lodge.vm_email_display or lodge.vm_phone) %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Vénérable Maître</div>
+      <div class="font-medium text-gray-900">{{ lodge.vm_name_display or "—" }}</div>
+      {% if lodge.vm_email_display %}<div class="text-sm text-gray-600 mt-1"><i class="ti ti-mail"></i> {{ lodge.vm_email_display }}</div>{% endif %}
+      {% if lodge.vm_phone %}<div class="text-sm text-gray-600 mt-0.5"><i class="ti ti-phone"></i> {{ lodge.vm_phone }}</div>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if lodge and (lodge.secretary_name_display or lodge.secretary_email_display) %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+      <div class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1">Secrétaire</div>
+      <div class="font-medium text-gray-900">{{ lodge.secretary_name_display or "—" }}</div>
+      {% if lodge.secretary_email_display %}<div class="text-sm text-gray-600 mt-1"><i class="ti ti-mail"></i> {{ lodge.secretary_email_display }}</div>{% endif %}
+    </div>
+    {% endif %}
+
+    {% if not lodge or not (lodge.vm_name_display or lodge.vm_email_display or lodge.secretary_name_display or lodge.secretary_email_display) %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500 text-sm">
+      Aucun contact n'est renseigné pour l'instant.
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

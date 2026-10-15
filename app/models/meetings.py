@@ -112,6 +112,11 @@ class Meeting(Base):
     locked_by_id: Mapped[Optional[int]]   = mapped_column(ForeignKey("members.id"))
     locked_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
 
+    # Accès visiteur (Phase 2) — opt-in explicite par tenue : ne montre que
+    # date/heure/type/lieu aux comptes GuestAccount, jamais l'ordre du jour
+    # ni le compte-rendu (voir app/routers/visiteur.py).
+    visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
+
     # Inscription publique (lien dans le programme PDF)
     token: Mapped[str] = mapped_column(
         String(64), unique=True, default=lambda: secrets.token_urlsafe(32)

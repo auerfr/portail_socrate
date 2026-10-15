@@ -1,0 +1,34 @@
+{% extends "base_visiteur.html" %}
+{% block title %}Programme{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/" class="text-sm text-gray-500 hover:text-gray-700">← Accueil</a>
+  <h1 class="text-xl font-bold text-gray-900">Programme</h1>
+
+  {% if not meetings %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500 text-sm">
+    Aucune tenue n'est ouverte aux visiteurs pour l'instant.
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+    {% for m in meetings %}
+    <div class="p-4">
+      <div class="flex items-center justify-between gap-3">
+        <div class="font-medium text-gray-900">
+          {{ m.meeting_date | datefr('%A %d %B %Y') | capitalize }}
+          {% if m.meeting_time %}<span class="text-gray-500 font-normal"> · {{ m.meeting_time }}</span>{% endif %}
+        </div>
+      </div>
+      <div class="text-sm text-gray-600 mt-1">{{ type_label(m.type) }}</div>
+      {% if m.location %}
+      <div class="text-xs text-gray-400 mt-0.5"><i class="ti ti-map-pin"></i> {{ m.location }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}
