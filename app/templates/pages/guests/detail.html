@@ -14,7 +14,7 @@
 
   <div class="flex items-center justify-between gap-3 flex-wrap">
     <div>
-      <h1 class="text-xl font-bold text-gray-900">{{ guest.full_name }}</h1>
+      <h1 class="text-xl font-bold text-gray-900">{{ guest.civility_symbol }} {{ guest.full_name }}</h1>
       <p class="text-sm text-gray-500 mt-0.5">
         {{ guest.email }}{% if guest.home_lodge %} · {{ guest.home_lodge }}{% endif %}
       </p>
@@ -63,6 +63,14 @@
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
     <h2 class="font-semibold text-gray-900 text-sm">Modifier</h2>
     <form method="post" action="/gestion-visiteurs/{{ guest.id }}/edit" class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">Civilité</label>
+        <select name="civility" required
+                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+          <option value="F" {% if guest.civility != 'S' %}selected{% endif %}>F∴ — Frère</option>
+          <option value="S" {% if guest.civility == 'S' %}selected{% endif %}>S∴ — Sœur</option>
+        </select>
+      </div>
       <div class="grid grid-cols-2 gap-3">
         <div>
           <label class="block text-xs font-medium text-gray-500 mb-1">Prénom</label>

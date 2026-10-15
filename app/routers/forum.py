@@ -372,7 +372,7 @@ async def forum_thread(
         for m in ar.scalars().all():
             authors[m.id] = m
 
-    # Auteurs visiteurs (Phase 3) — étiquetés "Frère visiteur — [loge]" dans
+    # Auteurs visiteurs (Phase 3) — étiquetés "F∴/S∴ ... — [loge]" dans
     # le template, jamais confondus avec un membre.
     guest_author_ids = {m.created_by_guest_id for m in messages if m.created_by_guest_id}
     guest_authors: dict[int, object] = {}

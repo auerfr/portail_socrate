@@ -17,8 +17,8 @@
         <div class="text-sm font-semibold text-gray-900">
           {% if guest_author %}
           <span class="inline-flex items-center gap-1 text-amber-700">
-            {{ "Vous" if is_me else guest_author.full_name }}
-            <span class="text-[10px] font-medium px-1.5 py-0.5 bg-amber-100 rounded-full">Frère visiteur{% if guest_author.home_lodge %} — {{ guest_author.home_lodge }}{% endif %}</span>
+            {{ guest_author.civility_symbol }} {{ "Vous" if is_me else guest_author.full_name }}
+            <span class="text-[10px] font-medium px-1.5 py-0.5 bg-amber-100 rounded-full">visiteur{% if guest_author.home_lodge %} — {{ guest_author.home_lodge }}{% endif %}</span>
           </span>
           {% elif author %}{{ author.first_name }} {{ author.last_name }}
           {% else %}—{% endif %}

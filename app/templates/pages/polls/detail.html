@@ -274,7 +274,7 @@
             {% endfor %}
             {% for gv in r.guest_voters %}
             <span class="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
-              {{ gv.full_name }} · Frère visiteur{% if gv.home_lodge %} — {{ gv.home_lodge }}{% endif %}
+              {{ gv.civility_symbol }} {{ gv.full_name }} · visiteur{% if gv.home_lodge %} — {{ gv.home_lodge }}{% endif %}
             </span>
             {% endfor %}
           </div>

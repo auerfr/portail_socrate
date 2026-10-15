@@ -1488,6 +1488,7 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             """
             CREATE TABLE IF NOT EXISTS guest_accounts (
                 id INTEGER PRIMARY KEY AUTOINCREMENT,
+                civility VARCHAR(10),
                 first_name VARCHAR(100) NOT NULL,
                 last_name VARCHAR(100) NOT NULL,
                 email VARCHAR(200) NOT NULL UNIQUE,
@@ -1544,6 +1545,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if "masonic_grade" not in cols_ga:
             await conn.exec_driver_sql(
                 "ALTER TABLE guest_accounts ADD COLUMN masonic_grade VARCHAR(10)"
+            )
+        if "civility" not in cols_ga:
+            await conn.exec_driver_sql(
+                "ALTER TABLE guest_accounts ADD COLUMN civility VARCHAR(10)"
             )
 
         # ── Accès visiteur par dossier/espace entier (Phase 2) ──────────────

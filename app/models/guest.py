@@ -32,6 +32,9 @@ class GuestAccount(Base):
 
     id: Mapped[int] = mapped_column(primary_key=True)
 
+    # "F" (Frère) ou "S" (Sœur) — même convention que Member.civility et
+    # Visitor.civility (app/models/identity.py, app/models/meetings.py).
+    civility: Mapped[Optional[str]] = mapped_column(String(10))
     first_name: Mapped[str] = mapped_column(String(100))
     last_name: Mapped[str] = mapped_column(String(100))
     email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
@@ -80,6 +83,13 @@ class GuestAccount(Base):
     @property
     def full_name(self) -> str:
         return f"{self.first_name} {self.last_name}"
+
+    @property
+    def civility_symbol(self) -> str:
+        """"S∴" ou "F∴" — même convention que partout ailleurs dans l'app
+        (ex: app/routers/meetings.py), civilité non renseignée = F∴ par
+        défaut (même comportement que pour un Member/Visitor)."""
+        return "S∴" if self.civility == "S" else "F∴"
 
     def __repr__(self) -> str:
         return f"<GuestAccount {self.full_name} — {self.home_lodge}>"

@@ -54,7 +54,7 @@
           <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">{{ voter.last_name }} {{ voter.first_name }}</span>
           {% endfor %}
           {% for gv in r.guest_voters %}
-          <span class="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">{{ gv.full_name }} · Frère visiteur</span>
+          <span class="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">{{ gv.civility_symbol }} {{ gv.full_name }} · visiteur</span>
           {% endfor %}
         </div>
         {% endif %}

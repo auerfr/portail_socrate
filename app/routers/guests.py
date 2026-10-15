@@ -35,7 +35,7 @@ async def _send_invitation_email(guest: GuestAccount, base_url: str) -> None:
     link = f"{base_url}/auth/magic/{guest.magic_token}"
     html = f"""<p>Bonjour {guest.first_name},</p>
 <p>Vous avez été invité·e à accéder à l'espace visiteur du portail de la loge,
-en tant que frère d'une autre loge{(' (' + guest.home_lodge + ')') if guest.home_lodge else ''}.</p>
+en tant que {guest.civility_symbol} d'une autre loge{(' (' + guest.home_lodge + ')') if guest.home_lodge else ''}.</p>
 <p><a href="{link}" style="background:#2c7a7b;color:#fff;padding:10px 20px;border-radius:6px;text-decoration:none;display:inline-block;">
   Accéder à mon espace visiteur →
 </a></p>
@@ -103,6 +103,7 @@ async def guest_create(
     request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    civility: str = Form(...),
     first_name: str = Form(...),
     last_name: str = Form(...),
     email: str = Form(...),
@@ -132,6 +133,7 @@ async def guest_create(
     ).scalar_one_or_none()
 
     guest = GuestAccount(
+        civility=civility if civility in ("F", "S") else None,
         first_name=first_name.strip(),
         last_name=last_name.strip(),
         email=email,
@@ -240,6 +242,7 @@ async def guest_edit(
     request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
+    civility: str = Form(...),
     first_name: str = Form(...),
     last_name: str = Form(...),
     home_lodge: str = Form(""),
@@ -253,6 +256,7 @@ async def guest_edit(
     if not guest:
         raise HTTPException(404)
 
+    guest.civility = civility if civility in ("F", "S") else None
     guest.first_name = first_name.strip()
     guest.last_name = last_name.strip()
     guest.home_lodge = home_lodge.strip() or None

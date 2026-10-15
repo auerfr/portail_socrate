@@ -27,7 +27,7 @@
           <div class="text-sm font-semibold text-white truncate">Portail Socrate</div>
           <div class="text-[11px] font-medium truncate" style="color:#d4a24e;">
             <i class="ti ti-user-exclamation"></i>
-            Frère visiteur{% if guest.home_lodge %} — {{ guest.home_lodge }}{% endif %}
+            {{ guest.civility_symbol }} visiteur{% if guest.home_lodge %} — {{ guest.home_lodge }}{% endif %}
           </div>
         </div>
       </a>
