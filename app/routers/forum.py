@@ -592,6 +592,29 @@ async def forum_post(
     except Exception:
         pass
 
+    # Push aux visiteurs ayant déjà participé à ce fil (Phase 3 — pas de
+    # notion d'abonnement explicite côté visiteur, avoir déjà répondu en
+    # tient lieu), seulement si le sujet leur est toujours ouvert.
+    if s.visible_to_guests:
+        try:
+            from app.services.push import send_push_broadcast_guests
+            gr = await db.execute(
+                select(ForumMessage.created_by_guest_id)
+                .where(ForumMessage.subject_id == subject_id, ForumMessage.created_by_guest_id.isnot(None))
+                .distinct()
+            )
+            guest_ids = [row[0] for row in gr.all()]
+            if guest_ids:
+                preview = (text[:140] + "…") if len(text) > 140 else text
+                await send_push_broadcast_guests(
+                    db, guest_ids,
+                    f"💬 {s.title}",
+                    f"{member.first_name or 'Un membre'} : {preview}",
+                    f"/visiteur/forum/{subject_id}",
+                )
+        except Exception:
+            pass
+
     return RedirectResponse(url=f"/forum/t/{subject_id}#m-{msg.id}", status_code=303)
 
 

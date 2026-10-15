@@ -15,6 +15,7 @@
     .visiteur-nav-item i { font-size: 19px; opacity: 0.75; }
     .visiteur-nav-item.active { color: #d4a24e; }
     .visiteur-nav-item.active i { opacity: 1; }
+    [x-cloak] { display: none !important; }
   </style>
 </head>
 <body class="h-full bg-gray-50">
@@ -68,6 +69,18 @@
       <i class="ti ti-chart-bar"></i> Sondages
     </a>
   </nav>
+
+  <script>
+    // Même enregistrement que côté membre (app/templates/base.html) — sans
+    // lui, navigator.serviceWorker.ready ne se résout jamais sur les pages
+    // visiteur et les notifications push restent silencieusement bloquées.
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('/sw.js').catch(() => {});
+      });
+    }
+  </script>
+  <script defer src="/static/js/alpine.min.js"></script>
 
 </body>
 </html>

@@ -154,3 +154,63 @@ async def send_push_broadcast(db: AsyncSession, member_ids: list[int], title: st
         await db.execute(delete(PushSubscription).where(PushSubscription.id.in_(dead_ids)))
         await db.commit()
     return sent
+
+
+# ── Équivalents pour les comptes visiteurs (GuestPushSubscription) ─────────
+# Même logique d'envoi (send_push_to_subscription est générique sur
+# endpoint/clés, pas sur member_id) — juste une table séparée à requêter et
+# nettoyer, comme GuestSession reste séparée de UserSession.
+
+async def send_push_to_guest(db: AsyncSession, guest_id: int, title: str, body: str, url: str = "/visiteur/") -> int:
+    from app.models.guest import GuestPushSubscription
+    r = await db.execute(select(GuestPushSubscription).where(GuestPushSubscription.guest_account_id == guest_id))
+    subs = list(r.scalars().all())
+    sent = 0
+    dead_ids = []
+    for sub in subs:
+        result, _reason = await send_push_to_subscription(sub, title, body, url)
+        if result is PushResult.SENT:
+            sent += 1
+        elif result is PushResult.EXPIRED:
+            dead_ids.append(sub.id)
+    if dead_ids:
+        await db.execute(delete(GuestPushSubscription).where(GuestPushSubscription.id.in_(dead_ids)))
+        await db.commit()
+    return sent
+
+
+async def send_push_to_guest_diagnostic(db: AsyncSession, guest_id: int, title: str, body: str, url: str = "/visiteur/") -> list[dict]:
+    from app.models.guest import GuestPushSubscription
+    r = await db.execute(select(GuestPushSubscription).where(GuestPushSubscription.guest_account_id == guest_id))
+    subs = list(r.scalars().all())
+    details = []
+    dead_ids = []
+    for sub in subs:
+        result, reason = await send_push_to_subscription(sub, title, body, url)
+        details.append({"result": result.value, "reason": reason})
+        if result is PushResult.EXPIRED:
+            dead_ids.append(sub.id)
+    if dead_ids:
+        await db.execute(delete(GuestPushSubscription).where(GuestPushSubscription.id.in_(dead_ids)))
+        await db.commit()
+    return details
+
+
+async def send_push_broadcast_guests(db: AsyncSession, guest_ids: list[int], title: str, body: str, url: str = "/visiteur/") -> int:
+    if not guest_ids:
+        return 0
+    from app.models.guest import GuestPushSubscription
+    r = await db.execute(select(GuestPushSubscription).where(GuestPushSubscription.guest_account_id.in_(guest_ids)))
+    subs = list(r.scalars().all())
+    sent = 0
+    dead_ids = []
+    for sub in subs:
+        result, _reason = await send_push_to_subscription(sub, title, body, url)
+        if result is PushResult.SENT:
+            sent += 1
+        elif result is PushResult.EXPIRED:
+            dead_ids.append(sub.id)
+    if dead_ids:
+        await db.execute(delete(GuestPushSubscription).where(GuestPushSubscription.id.in_(dead_ids)))
+        await db.commit()
+    return sent

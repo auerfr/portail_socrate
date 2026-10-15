@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
-from sqlalchemy import select
+from sqlalchemy import select, delete
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -454,6 +454,43 @@ async def visiteur_forum_reply(
     db.add(msg)
     subject.last_message_at = datetime.utcnow()
     await db.commit()
+
+    # Notifie les membres abonnés au fil, et les autres visiteurs y ayant
+    # déjà participé (pas de notion d'abonnement explicite côté visiteur —
+    # avoir déjà répondu en tient lieu).
+    try:
+        from app.models.forum import ForumSubscription
+        from app.services.push import send_push_broadcast, send_push_broadcast_guests
+        preview = (text[:140] + "…") if len(text) > 140 else text
+
+        sr = await db.execute(select(ForumSubscription.member_id).where(ForumSubscription.subject_id == subject_id))
+        member_ids = [row[0] for row in sr.all()]
+        if member_ids:
+            await send_push_broadcast(
+                db, member_ids, f"💬 {subject.title}",
+                f"{guest.civility_symbol} {guest.full_name} (visiteur) : {preview}",
+                f"/forum/t/{subject_id}",
+            )
+
+        gr = await db.execute(
+            select(ForumMessage.created_by_guest_id)
+            .where(
+                ForumMessage.subject_id == subject_id,
+                ForumMessage.created_by_guest_id.isnot(None),
+                ForumMessage.created_by_guest_id != guest.id,
+            )
+            .distinct()
+        )
+        other_guest_ids = [row[0] for row in gr.all()]
+        if other_guest_ids:
+            await send_push_broadcast_guests(
+                db, other_guest_ids, f"💬 {subject.title}",
+                f"{guest.civility_symbol} {guest.full_name} : {preview}",
+                f"/visiteur/forum/{subject_id}",
+            )
+    except Exception:
+        pass
+
     return RedirectResponse(url=f"/visiteur/forum/{subject_id}#m-{msg.id}", status_code=303)
 
 
@@ -629,3 +666,104 @@ async def visiteur_lodges_directory(
         "lodges": lodges,
         "schedule_labels": schedule_labels,
     })
+
+
+# ── Notifications push (PWA) ────────────────────────────────────────────
+# Même mécanique que /push/* pour les membres (app/routers/push.py), sur
+# une table séparée (GuestPushSubscription) — un visiteur ne peut jamais
+# s'abonner au nom d'un membre ni inversement.
+
+from pydantic import BaseModel as _BaseModel
+from app.config import get_settings as _get_settings
+from app.services.push import (
+    send_push_to_guest_diagnostic as _send_push_to_guest_diagnostic,
+)
+
+
+class _GuestSubKeys(_BaseModel):
+    p256dh: str
+    auth: str
+
+
+class _GuestSubPayload(_BaseModel):
+    endpoint: str
+    keys: _GuestSubKeys
+
+
+@router.get("/push/vapid-key")
+async def visiteur_push_vapid_key(
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+):
+    s = _get_settings()
+    if not s.vapid_public_key:
+        raise HTTPException(status_code=503, detail="Push non configuré (VAPID_PUBLIC_KEY manquant)")
+    return {"public_key": s.vapid_public_key}
+
+
+@router.post("/push/subscribe")
+async def visiteur_push_subscribe(
+    payload: _GuestSubPayload,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from app.models.guest import GuestPushSubscription
+    r = await db.execute(select(GuestPushSubscription).where(GuestPushSubscription.endpoint == payload.endpoint))
+    existing = r.scalar_one_or_none()
+    if existing:
+        existing.guest_account_id = guest.id
+        existing.key_p256dh = payload.keys.p256dh
+        existing.key_auth = payload.keys.auth
+    else:
+        db.add(GuestPushSubscription(
+            guest_account_id=guest.id,
+            endpoint=payload.endpoint,
+            key_p256dh=payload.keys.p256dh,
+            key_auth=payload.keys.auth,
+        ))
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/push/unsubscribe")
+async def visiteur_push_unsubscribe(
+    payload: dict,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from app.models.guest import GuestPushSubscription
+    endpoint = payload.get("endpoint")
+    if not endpoint:
+        raise HTTPException(status_code=400, detail="endpoint requis")
+    await db.execute(delete(GuestPushSubscription).where(GuestPushSubscription.endpoint == endpoint))
+    await db.commit()
+    return {"ok": True}
+
+
+@router.post("/push/test")
+async def visiteur_push_test(
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    details = await _send_push_to_guest_diagnostic(
+        db, guest.id,
+        title="🔔 Test de notification",
+        body=f"Bonjour {guest.first_name}, vos notifications push fonctionnent !",
+        url="/visiteur/",
+    )
+    sent = sum(1 for d in details if d["result"] == "sent")
+    return {"ok": True, "sent": sent, "details": details}
+
+
+@router.get("/push/status")
+async def visiteur_push_status(
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from app.models.guest import GuestPushSubscription
+    s = _get_settings()
+    r = await db.execute(select(GuestPushSubscription).where(GuestPushSubscription.guest_account_id == guest.id))
+    subs = r.scalars().all()
+    return {
+        "configured": bool(s.vapid_public_key),
+        "subscriptions": len(subs),
+    }

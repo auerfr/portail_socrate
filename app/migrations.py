@@ -1598,3 +1598,21 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE news_articles ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
             )
+
+        # ── Notifications push visiteur ──────────────────────────────────────
+        await conn.exec_driver_sql(
+            """
+            CREATE TABLE IF NOT EXISTS guest_push_subscriptions (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                guest_account_id INTEGER NOT NULL REFERENCES guest_accounts(id) ON DELETE CASCADE,
+                endpoint VARCHAR(1000) NOT NULL,
+                key_p256dh VARCHAR(200) NOT NULL,
+                key_auth VARCHAR(100) NOT NULL,
+                created_at DATETIME
+            )
+            """
+        )
+        await conn.exec_driver_sql(
+            "CREATE INDEX IF NOT EXISTS ix_guest_push_subscriptions_guest_account_id "
+            "ON guest_push_subscriptions(guest_account_id)"
+        )

@@ -33,7 +33,7 @@ from app.models.system import (
     Attachment, InvitationToken, ReminderLog, UserPreference,
     ExportArchive, TracingSection
 )
-from app.models.guest import GuestAccount, GuestSession
+from app.models.guest import GuestAccount, GuestSession, GuestPushSubscription
 
 __all__ = [
     "Member", "User", "Group", "GroupMember", "Permission",
@@ -57,5 +57,5 @@ __all__ = [
     "AuditLog", "Notification", "PushSubscription",
     "Attachment", "InvitationToken", "ReminderLog", "UserPreference",
     "ExportArchive", "TracingSection",
-    "GuestAccount", "GuestSession",
+    "GuestAccount", "GuestSession", "GuestPushSubscription",
 ]

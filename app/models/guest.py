@@ -110,3 +110,19 @@ class GuestSession(Base):
     user_agent: Mapped[Optional[str]] = mapped_column(String(300))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     expires_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+
+class GuestPushSubscription(Base):
+    """Abonnement PWA push d'un compte visiteur — même forme que
+    PushSubscription (app/models/system.py), table séparée pour ne jamais
+    mélanger les deux espaces, comme GuestSession/UserSession."""
+    __tablename__ = "guest_push_subscriptions"
+
+    id: Mapped[int] = mapped_column(primary_key=True)
+    guest_account_id: Mapped[int] = mapped_column(
+        ForeignKey("guest_accounts.id", ondelete="CASCADE"), index=True
+    )
+    endpoint: Mapped[str] = mapped_column(String(1000))
+    key_p256dh: Mapped[str] = mapped_column(String(200))
+    key_auth: Mapped[str] = mapped_column(String(100))
+    created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
