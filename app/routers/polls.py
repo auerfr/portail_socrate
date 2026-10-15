@@ -182,8 +182,9 @@ def _count_voters(poll: Poll) -> int:
     créneaux (SCHEDULE), impossible de savoir combien de personnes se
     cachent derrière N lignes orphelines — on ne les compte pas plutôt que
     de deviner faux."""
-    identified = len({v.member_id for v in poll.votes if v.member_id is not None})
-    orphaned = [v for v in poll.votes if v.member_id is None]
+    identified = len({("m", v.member_id) for v in poll.votes if v.member_id is not None})
+    identified += len({("g", v.guest_id) for v in poll.votes if v.guest_id is not None})
+    orphaned = [v for v in poll.votes if v.member_id is None and v.guest_id is None]
     if not orphaned:
         return identified
     if poll.vote_type == "RANKING" and poll.options:
@@ -283,6 +284,7 @@ async def polls_create(
     vote_type: str = Form("CHOICE"),
     rating_winners: str = Form("3"),
     member_ids: str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     user, member = ctx
     if not _can_manage(member, user.is_admin):
@@ -332,6 +334,11 @@ async def polls_create(
         created_by_id=member.id,
         vote_type=vt,
         rating_winners=r_winners if vt == "RANKING" else None,
+        # Un visiteur ne peut voter que sur un sondage CHOICE (voir
+        # app/routers/visiteur.py) — le flag reste posable sur n'importe
+        # quel type mais n'a d'effet que là, pour ne pas bloquer un officier
+        # qui coche par anticipation avant de finaliser le type.
+        visible_to_guests=bool(visible_to_guests),
     )
     db.add(poll)
     await db.flush()
@@ -429,15 +436,22 @@ async def _compute_results(poll: Poll, my_option_ids: set, db: AsyncSession) -> 
             count = sum(1 for v in poll.votes if v.option_id == opt.id)
             pct = round(count * 100 / total_votes) if total_votes else 0
             voters = []
+            guest_voters = []
             if poll.is_public_vote and not poll.is_anonymous:
                 voter_ids = [v.member_id for v in poll.votes if v.option_id == opt.id and v.member_id]
                 if voter_ids:
                     vr = await db.execute(select(Member).where(Member.id.in_(voter_ids)))
                     voters = vr.scalars().all()
+                guest_voter_ids = [v.guest_id for v in poll.votes if v.option_id == opt.id and v.guest_id]
+                if guest_voter_ids:
+                    from app.models.guest import GuestAccount
+                    gvr = await db.execute(select(GuestAccount).where(GuestAccount.id.in_(guest_voter_ids)))
+                    guest_voters = gvr.scalars().all()
             results.append({
                 "option": opt,
                 "count": count,
                 "pct": pct,
+                "guest_voters": guest_voters,
                 "is_mine": opt.id in my_option_ids,
                 "voters": voters,
             })
@@ -564,6 +578,7 @@ async def poll_edit(
     title: str = Form(""),
     description: str = Form(""),
     ends_at: str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     user, member = ctx
     if not _can_manage(member, user.is_admin):
@@ -577,6 +592,7 @@ async def poll_edit(
         raise HTTPException(status_code=400, detail="Titre requis")
     poll.title = title
     poll.description = description.strip() or None
+    poll.visible_to_guests = bool(visible_to_guests)
 
     if ends_at.strip():
         try:

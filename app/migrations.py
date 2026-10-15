@@ -1559,3 +1559,29 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE doc_folders ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
             )
+
+        # ── Accès visiteur — forum et sondages (Phase 3) ────────────────────
+        r_fs = await conn.exec_driver_sql("PRAGMA table_info(forum_subjects)")
+        cols_fs = [row[1] for row in r_fs.fetchall()]
+        if "visible_to_guests" not in cols_fs:
+            await conn.exec_driver_sql(
+                "ALTER TABLE forum_subjects ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
+            )
+        r_fm = await conn.exec_driver_sql("PRAGMA table_info(forum_messages)")
+        cols_fm = [row[1] for row in r_fm.fetchall()]
+        if "created_by_guest_id" not in cols_fm:
+            await conn.exec_driver_sql(
+                "ALTER TABLE forum_messages ADD COLUMN created_by_guest_id INTEGER REFERENCES guest_accounts(id) ON DELETE SET NULL"
+            )
+        r_pl2 = await conn.exec_driver_sql("PRAGMA table_info(polls)")
+        cols_pl2 = [row[1] for row in r_pl2.fetchall()]
+        if "visible_to_guests" not in cols_pl2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE polls ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
+            )
+        r_pv = await conn.exec_driver_sql("PRAGMA table_info(poll_votes)")
+        cols_pv = [row[1] for row in r_pv.fetchall()]
+        if "guest_id" not in cols_pv:
+            await conn.exec_driver_sql(
+                "ALTER TABLE poll_votes ADD COLUMN guest_id INTEGER REFERENCES guest_accounts(id) ON DELETE SET NULL"
+            )

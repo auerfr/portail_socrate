@@ -5,30 +5,69 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>{% block title %}Espace visiteur{% endblock %} — Portail Socrate</title>
   <link href="/static/css/app.css" rel="stylesheet">
+  <style>
+    .visiteur-nav-item {
+      display: flex; flex-direction: column; align-items: center; justify-content: center;
+      gap: 3px; flex: 1; padding: 8px 4px; font-size: 11px; font-weight: 500;
+      color: #9ca3af; text-decoration: none; transition: color 120ms;
+      -webkit-tap-highlight-color: transparent;
+    }
+    .visiteur-nav-item i { font-size: 19px; opacity: 0.75; }
+    .visiteur-nav-item.active { color: #d4a24e; }
+    .visiteur-nav-item.active i { opacity: 1; }
+  </style>
 </head>
 <body class="h-full bg-gray-50">
 
-  <header class="bg-loge-900 text-white">
-    <div class="max-w-2xl mx-auto px-4 py-3 flex items-center justify-between gap-3">
-      <div class="flex items-center gap-2 min-w-0">
-        <span class="text-xl">⚜</span>
+  <header style="background: linear-gradient(135deg, #0f3d3a, #1a2538);">
+    <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+      <a href="/visiteur/" class="flex items-center gap-2.5 min-w-0">
+        <span class="text-2xl shrink-0">⚜</span>
         <div class="min-w-0">
-          <div class="text-sm font-semibold truncate">Portail Socrate</div>
-          <div class="text-[11px] text-amber-300 font-medium truncate">
+          <div class="text-sm font-semibold text-white truncate">Portail Socrate</div>
+          <div class="text-[11px] font-medium truncate" style="color:#d4a24e;">
             <i class="ti ti-user-exclamation"></i>
             Frère visiteur{% if guest.home_lodge %} — {{ guest.home_lodge }}{% endif %}
           </div>
         </div>
+      </a>
+      <div class="flex items-center gap-1 shrink-0">
+        <a href="/visiteur/mot-de-passe" title="Mot de passe"
+           class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+          <i class="ti ti-settings text-lg"></i>
+        </a>
+        <form method="post" action="/auth/logout">
+          <button type="submit" title="Déconnexion"
+                  class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
+            <i class="ti ti-logout text-lg"></i>
+          </button>
+        </form>
       </div>
-      <form method="post" action="/auth/logout">
-        <button type="submit" class="text-xs text-slate-300 hover:text-white underline">Déconnexion</button>
-      </form>
     </div>
   </header>
 
-  <main class="max-w-2xl mx-auto px-4 py-6">
+  <main class="max-w-2xl mx-auto px-4 py-6 pb-24">
     {% block content %}{% endblock %}
   </main>
+
+  <nav class="fixed bottom-0 inset-x-0 z-40 flex"
+       style="background:#132a28; border-top:1px solid rgba(255,255,255,0.08); padding-bottom: env(safe-area-inset-bottom, 0px);">
+    <a href="/visiteur/" class="visiteur-nav-item {% if request.url.path == '/visiteur/' %}active{% endif %}">
+      <i class="ti ti-home"></i> Accueil
+    </a>
+    <a href="/visiteur/programme" class="visiteur-nav-item {% if '/visiteur/programme' in request.url.path %}active{% endif %}">
+      <i class="ti ti-calendar-event"></i> Programme
+    </a>
+    <a href="/visiteur/documents" class="visiteur-nav-item {% if '/visiteur/documents' in request.url.path %}active{% endif %}">
+      <i class="ti ti-file-text"></i> Documents
+    </a>
+    <a href="/visiteur/forum" class="visiteur-nav-item {% if '/visiteur/forum' in request.url.path %}active{% endif %}">
+      <i class="ti ti-messages"></i> Forum
+    </a>
+    <a href="/visiteur/sondages" class="visiteur-nav-item {% if '/visiteur/sondages' in request.url.path %}active{% endif %}">
+      <i class="ti ti-chart-bar"></i> Sondages
+    </a>
+  </nav>
 
 </body>
 </html>

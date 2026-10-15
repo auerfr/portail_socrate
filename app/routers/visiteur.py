@@ -4,7 +4,7 @@ posé par un officier — jamais de visibilité par défaut (voir
 Meeting.visible_to_guests, Document.visible_to_guests). Toute page de ce
 module dépend de require_guest_auth, jamais de require_auth (voir
 app/dependencies.py)."""
-from datetime import date
+from datetime import date, datetime
 from pathlib import Path
 from typing import Annotated
 
@@ -22,6 +22,9 @@ from app.models.meetings import Meeting, MeetingStatus
 from app.routers.meetings import _type_label
 from app.models.documents import Document, DocFolder, DocSpace, DocStatus
 from app.models.lodge import LodgeSettings
+from app.models.forum import ForumSubject, ForumMessage
+from app.models.content import Poll, PollOption, PollVote
+from app.routers.polls import _compute_results, _is_open
 
 router = APIRouter(prefix="/visiteur", tags=["visiteur"])
 from app.template_engine import templates
@@ -364,3 +367,189 @@ async def visiteur_password_submit(
     return templates.TemplateResponse(request, "pages/visiteur/password.html", {
         "guest": guest, "success": True,
     })
+
+
+# ── Forum : lecture + réponse sur les sujets explicitement ouverts
+# (jamais de création de sujet — voir app/routers/forum.py pour le toggle
+# officier) ──────────────────────────────────────────────────────────────
+
+@router.get("/forum", response_class=HTMLResponse)
+async def visiteur_forum_list(
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    r = await db.execute(
+        select(ForumSubject)
+        .where(ForumSubject.visible_to_guests.is_(True))
+        .order_by(ForumSubject.last_message_at.desc().nulls_last(), ForumSubject.created_at.desc())
+    )
+    subjects = r.scalars().all()
+    return templates.TemplateResponse(request, "pages/visiteur/forum_list.html", {
+        "guest": guest,
+        "subjects": subjects,
+    })
+
+
+@router.get("/forum/{subject_id}", response_class=HTMLResponse)
+async def visiteur_forum_thread(
+    subject_id: int,
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    subject = await db.get(ForumSubject, subject_id)
+    if not subject or not subject.visible_to_guests:
+        raise HTTPException(status_code=404)
+
+    mr = await db.execute(
+        select(ForumMessage)
+        .where(ForumMessage.subject_id == subject_id, ForumMessage.deleted_at.is_(None))
+        .order_by(ForumMessage.created_at)
+    )
+    messages = mr.scalars().all()
+
+    member_ids = {m.created_by_id for m in messages if m.created_by_id}
+    authors = {}
+    if member_ids:
+        from app.models.identity import Member
+        ar = await db.execute(select(Member).where(Member.id.in_(member_ids)))
+        authors = {m.id: m for m in ar.scalars().all()}
+
+    guest_ids = {m.created_by_guest_id for m in messages if m.created_by_guest_id}
+    guest_authors = {guest.id: guest}
+    other_guest_ids = guest_ids - {guest.id}
+    if other_guest_ids:
+        gr = await db.execute(select(GuestAccount).where(GuestAccount.id.in_(other_guest_ids)))
+        for g in gr.scalars().all():
+            guest_authors[g.id] = g
+
+    return templates.TemplateResponse(request, "pages/visiteur/forum_thread.html", {
+        "guest": guest,
+        "subject": subject,
+        "messages": messages,
+        "authors": authors,
+        "guest_authors": guest_authors,
+    })
+
+
+@router.post("/forum/{subject_id}/reply")
+async def visiteur_forum_reply(
+    subject_id: int,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    content: str = Form(...),
+):
+    subject = await db.get(ForumSubject, subject_id)
+    if not subject or not subject.visible_to_guests:
+        raise HTTPException(status_code=404)
+    if subject.is_locked:
+        raise HTTPException(status_code=403, detail="Sujet verrouillé")
+
+    text = content.strip()
+    if not text:
+        raise HTTPException(status_code=400, detail="Message vide")
+
+    msg = ForumMessage(subject_id=subject_id, content_html=text, created_by_guest_id=guest.id)
+    db.add(msg)
+    subject.last_message_at = datetime.utcnow()
+    await db.commit()
+    return RedirectResponse(url=f"/visiteur/forum/{subject_id}#m-{msg.id}", status_code=303)
+
+
+# ── Sondages : vote sur les sondages explicitement ouverts, type "Choix"
+# uniquement (jamais de création — voir app/routers/polls.py) ──────────────
+
+@router.get("/sondages", response_class=HTMLResponse)
+async def visiteur_polls_list(
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    r = await db.execute(
+        select(Poll).where(Poll.visible_to_guests.is_(True)).order_by(Poll.created_at.desc())
+    )
+    polls = r.scalars().all()
+    return templates.TemplateResponse(request, "pages/visiteur/polls_list.html", {
+        "guest": guest,
+        "polls": polls,
+        "is_open": _is_open,
+    })
+
+
+@router.get("/sondages/{poll_id}", response_class=HTMLResponse)
+async def visiteur_poll_detail(
+    poll_id: int,
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    poll = await db.get(Poll, poll_id, options=[
+        selectinload(Poll.options).selectinload(PollOption.votes),
+        selectinload(Poll.votes),
+    ])
+    if not poll or not poll.visible_to_guests:
+        raise HTTPException(status_code=404)
+
+    my_votes_r = await db.execute(
+        select(PollVote).where(PollVote.poll_id == poll_id, PollVote.guest_id == guest.id)
+    )
+    my_votes = my_votes_r.scalars().all()
+    my_option_ids = {v.option_id for v in my_votes}
+    has_voted = bool(my_votes)
+
+    results, total_votes = await _compute_results(poll, my_option_ids, db)
+    votable = poll.vote_type == "CHOICE"
+
+    return templates.TemplateResponse(request, "pages/visiteur/poll_detail.html", {
+        "guest": guest,
+        "poll": poll,
+        "results": results,
+        "total_votes": total_votes,
+        "has_voted": has_voted,
+        "my_option_ids": my_option_ids,
+        "is_open": _is_open(poll),
+        "votable": votable,
+    })
+
+
+@router.post("/sondages/{poll_id}/vote")
+async def visiteur_poll_vote(
+    poll_id: int,
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    poll = await db.get(Poll, poll_id, options=[selectinload(Poll.options)])
+    if not poll or not poll.visible_to_guests:
+        raise HTTPException(status_code=404)
+    if poll.vote_type != "CHOICE":
+        raise HTTPException(status_code=400, detail="Ce type de sondage n'est pas votable par un visiteur")
+    if not _is_open(poll):
+        return RedirectResponse(url=f"/visiteur/sondages/{poll_id}?error=poll_closed", status_code=303)
+
+    existing_r = await db.execute(
+        select(PollVote).where(PollVote.poll_id == poll_id, PollVote.guest_id == guest.id)
+    )
+    for v in existing_r.scalars().all():
+        await db.delete(v)
+
+    form = await request.form()
+    option_ids_raw = form.getlist("option_id")
+    valid_ids = {opt.id for opt in poll.options}
+    chosen = []
+    for oid_str in option_ids_raw:
+        try:
+            oid = int(oid_str)
+            if oid in valid_ids:
+                chosen.append(oid)
+        except ValueError:
+            pass
+    if not poll.is_multiple and len(chosen) > 1:
+        chosen = chosen[:1]
+
+    for oid in chosen:
+        db.add(PollVote(poll_id=poll_id, option_id=oid, guest_id=guest.id))
+
+    await db.commit()
+    return RedirectResponse(url=f"/visiteur/sondages/{poll_id}", status_code=303)

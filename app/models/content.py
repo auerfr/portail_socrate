@@ -61,6 +61,11 @@ class Poll(Base):
     target_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lodge_groups.id"), nullable=True)
     target_member_ids: Mapped[Optional[list]] = mapped_column(JSON)  # ciblage manuel (liste d'IDs membres)
 
+    # Accès visiteur (Phase 3) — opt-in explicite par sondage : un compte
+    # GuestAccount peut alors voter (CHOICE uniquement, jamais créer de
+    # sondage) — voir app/routers/visiteur.py.
+    visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -91,6 +96,12 @@ class PollVote(Base):
     poll_id: Mapped[int]   = mapped_column(ForeignKey("polls.id", ondelete="CASCADE"))
     option_id: Mapped[int] = mapped_column(ForeignKey("poll_options.id", ondelete="CASCADE"))
     member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))  # toujours renseigné — l'anonymat se joue à l'affichage, pas au stockage
+    # Vote d'un compte visiteur (Phase 3) — exclusif avec member_id, jamais
+    # les deux à la fois. ondelete SET NULL : si le compte visiteur est
+    # supprimé (invitation jamais activée), le vote n'arrive normalement
+    # jamais à exister (onboarding requis avant tout accès) mais on garde
+    # le même filet de sécurité que pour un membre supprimé.
+    guest_id: Mapped[Optional[int]] = mapped_column(ForeignKey("guest_accounts.id", ondelete="SET NULL"))
     voted_at: Mapped[datetime]       = mapped_column(DateTime, server_default=func.now())
     score: Mapped[Optional[int]]     = mapped_column(Integer)  # sondages de type "RANKING" uniquement : le rang (1=préféré)
 

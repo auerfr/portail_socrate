@@ -80,6 +80,12 @@ function gedPicker() {
           </button>
         </form>
         {% if can_manage %}
+        <form method="post" action="/forum/t/{{ subject.id }}/toggle-guest-visible" class="inline">
+          <button class="px-2 py-1.5 text-xs {{ 'text-emerald-600' if subject.visible_to_guests else 'text-gray-400' }} hover:text-emerald-700"
+                  title="{{ 'Ouvert aux comptes visiteurs — cliquer pour fermer' if subject.visible_to_guests else 'Ouvrir aux comptes visiteurs' }}">
+            <i class="ti ti-user-plus"></i>
+          </button>
+        </form>
         <form method="post" action="/forum/t/{{ subject.id }}/pin" class="inline">
           <button class="px-2 py-1.5 text-xs text-gray-500 hover:text-loge-700"
                   title="{{ 'Désépingler' if subject.is_pinned else 'Épingler' }}">
@@ -109,15 +115,21 @@ function gedPicker() {
   <!-- Messages -->
   {% for msg in messages %}
   {% set author = authors.get(msg.created_by_id) %}
-  <div id="m-{{ msg.id }}" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+  {% set guest_author = guest_authors.get(msg.created_by_guest_id) if msg.created_by_guest_id else None %}
+  <div id="m-{{ msg.id }}" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 {{ 'ring-1 ring-amber-200' if guest_author }}">
     <div class="flex items-start gap-3">
-      <div class="w-9 h-9 rounded-full bg-loge-100 text-loge-700 flex items-center justify-center text-sm font-semibold shrink-0">
-        {% if author %}{{ (author.first_name or '?')[0] }}{{ (author.last_name | anon_nom or '')[0] }}{% else %}?{% endif %}
+      <div class="w-9 h-9 rounded-full {{ 'bg-amber-100 text-amber-700' if guest_author else 'bg-loge-100 text-loge-700' }} flex items-center justify-center text-sm font-semibold shrink-0">
+        {% if guest_author %}<i class="ti ti-user-exclamation"></i>{% elif author %}{{ (author.first_name or '?')[0] }}{{ (author.last_name | anon_nom or '')[0] }}{% else %}?{% endif %}
       </div>
       <div class="flex-1 min-w-0">
         <div class="flex items-center justify-between gap-2 flex-wrap">
           <div class="text-sm font-semibold text-gray-900">
-            {% if author %}{{ author.last_name | anon_nom }} {{ author.first_name }}{% else %}—{% endif %}
+            {% if guest_author %}
+            <span class="inline-flex items-center gap-1 text-amber-700">
+              {{ guest_author.full_name }}
+              <span class="text-[10px] font-medium px-1.5 py-0.5 bg-amber-100 rounded-full">Frère visiteur{% if guest_author.home_lodge %} — {{ guest_author.home_lodge }}{% endif %}</span>
+            </span>
+            {% elif author %}{{ author.last_name | anon_nom }} {{ author.first_name }}{% else %}—{% endif %}
           </div>
           <div class="flex items-center gap-2 text-xs text-gray-400">
             {% if msg.updated_at and msg.updated_at != msg.created_at %}<span class="italic">modifié</span>{% endif %}

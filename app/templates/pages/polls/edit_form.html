@@ -42,6 +42,17 @@
         </p>
       </div>
 
+      {% if poll.vote_type == 'CHOICE' %}
+      <label class="flex items-center gap-3 cursor-pointer p-3.5 bg-gray-50 border border-gray-100 rounded-xl">
+        <input type="checkbox" name="visible_to_guests" value="1" {% if poll.visible_to_guests %}checked{% endif %}
+               class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+        <div>
+          <div class="text-sm font-medium text-gray-700"><i class="ti ti-user-plus"></i> Ouvrir aux comptes visiteurs</div>
+          <div class="text-xs text-gray-400">Les visiteurs du portail pourront voter (jamais créer de sondage)</div>
+        </div>
+      </label>
+      {% endif %}
+
       <div class="flex gap-3 pt-2">
         <a href="/polls/{{ poll.id }}"
            class="flex-1 text-center border border-gray-200 text-gray-600 text-sm font-medium py-2.5 rounded-xl hover:bg-gray-50 transition-colors">

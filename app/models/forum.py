@@ -42,6 +42,10 @@ class ForumSubject(Base):
     title: Mapped[str]    = mapped_column(String(300))
     is_pinned: Mapped[bool]  = mapped_column(Boolean, default=False)
     is_locked: Mapped[bool]  = mapped_column(Boolean, default=False)
+    # Accès visiteur (Phase 3) — opt-in explicite par sujet : un compte
+    # GuestAccount peut alors lire et répondre (jamais créer de sujet) —
+    # voir app/routers/visiteur.py.
+    visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
     last_message_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
@@ -67,6 +71,10 @@ class ForumMessage(Base):
     parent_id: Mapped[Optional[int]] = mapped_column(ForeignKey("forum_messages.id"))
     content_html: Mapped[str]        = mapped_column(Text)
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
+    # Auteur visiteur (Phase 3) — exclusif avec created_by_id, jamais les
+    # deux. ondelete SET NULL : le message reste (étiqueté "Frère visiteur"
+    # sans nom précis) même si le compte visiteur est ensuite désactivé.
+    created_by_guest_id: Mapped[Optional[int]] = mapped_column(ForeignKey("guest_accounts.id", ondelete="SET NULL"))
     created_at: Mapped[datetime]  = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime]  = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
     deleted_at: Mapped[Optional[datetime]] = mapped_column(DateTime)

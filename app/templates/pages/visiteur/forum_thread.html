@@ -1,0 +1,48 @@
+{% extends "base_visiteur.html" %}
+{% block title %}{{ subject.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/forum" class="text-sm text-gray-500 hover:text-gray-700">← Forum</a>
+  <h1 class="text-xl font-bold text-gray-900">{{ subject.title }}</h1>
+
+  <div class="space-y-3">
+    {% for msg in messages %}
+    {% set is_me = msg.created_by_guest_id == guest.id %}
+    {% set guest_author = guest_authors.get(msg.created_by_guest_id) if msg.created_by_guest_id else None %}
+    {% set author = authors.get(msg.created_by_id) if msg.created_by_id else None %}
+    <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 {{ 'ring-1 ring-amber-200' if guest_author }}">
+      <div class="flex items-center justify-between gap-2 flex-wrap mb-1.5">
+        <div class="text-sm font-semibold text-gray-900">
+          {% if guest_author %}
+          <span class="inline-flex items-center gap-1 text-amber-700">
+            {{ "Vous" if is_me else guest_author.full_name }}
+            <span class="text-[10px] font-medium px-1.5 py-0.5 bg-amber-100 rounded-full">Frère visiteur{% if guest_author.home_lodge %} — {{ guest_author.home_lodge }}{% endif %}</span>
+          </span>
+          {% elif author %}{{ author.first_name }} {{ author.last_name }}
+          {% else %}—{% endif %}
+        </div>
+        <span class="text-xs text-gray-400">{{ msg.created_at | localdt('%d/%m/%Y à %H:%M') }}</span>
+      </div>
+      <div class="text-sm text-gray-700 whitespace-pre-wrap break-words">{{ msg.content_html }}</div>
+    </div>
+    {% endfor %}
+  </div>
+
+  {% if subject.is_locked %}
+  <div class="bg-gray-50 border border-gray-200 rounded-xl p-4 text-center text-sm text-gray-500">
+    <i class="ti ti-lock"></i> Ce sujet est verrouillé — lecture seule.
+  </div>
+  {% else %}
+  <form method="post" action="/visiteur/forum/{{ subject.id }}/reply" class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4 space-y-3">
+    <textarea name="content" rows="4" required placeholder="Votre réponse…"
+              class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"></textarea>
+    <button type="submit" class="px-4 py-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium rounded-lg transition-colors">
+      Répondre
+    </button>
+  </form>
+  {% endif %}
+
+</div>
+{% endblock %}

@@ -1,0 +1,73 @@
+{% extends "base_visiteur.html" %}
+{% block title %}{{ poll.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/sondages" class="text-sm text-gray-500 hover:text-gray-700">← Sondages</a>
+  <div>
+    <h1 class="text-xl font-bold text-gray-900">{{ poll.title }}</h1>
+    {% if poll.description %}<p class="text-sm text-gray-500 mt-1">{{ poll.description }}</p>{% endif %}
+  </div>
+
+  {% if request.query_params.get('error') == 'poll_closed' %}
+  <div class="p-3 bg-red-50 border border-red-200 rounded-lg text-red-700 text-sm">Ce sondage est clôturé.</div>
+  {% endif %}
+
+  {% if not votable %}
+  <div class="p-3 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm">
+    Ce type de sondage n'est pas encore votable depuis l'espace visiteur — résultats en lecture seule.
+  </div>
+  {% endif %}
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-4">
+
+    {% if is_open and votable and (not has_voted) %}
+    <form method="post" action="/visiteur/sondages/{{ poll.id }}/vote" class="space-y-2">
+      {% for r in results %}
+      <label class="flex items-center gap-3 p-3 border border-gray-200 rounded-xl cursor-pointer hover:bg-gray-50">
+        <input type="{{ 'checkbox' if poll.is_multiple else 'radio' }}" name="option_id" value="{{ r.option.id }}"
+               class="text-loge-700">
+        <span class="text-sm text-gray-800">{{ r.option.label }}</span>
+      </label>
+      {% endfor %}
+      <button type="submit" class="w-full py-2.5 bg-loge-700 hover:bg-loge-800 text-white font-medium rounded-lg text-sm transition-colors">
+        Voter
+      </button>
+    </form>
+    {% else %}
+    <div class="space-y-3">
+      {% for r in results %}
+      <div>
+        <div class="flex items-center justify-between text-sm mb-1">
+          <span class="text-gray-800 {% if r.is_mine %}font-semibold{% endif %}">
+            {{ r.option.label }}{% if r.is_mine %} <span class="text-loge-600">· votre choix</span>{% endif %}
+          </span>
+          <span class="text-gray-400">{{ r.count }} ({{ r.pct }}%)</span>
+        </div>
+        <div class="h-3 bg-gray-100 rounded-full overflow-hidden">
+          <div class="h-full rounded-full {{ 'bg-loge-600' if r.is_mine else 'bg-loge-300' }}" style="width: {{ r.pct }}%"></div>
+        </div>
+        {% if r.voters or r.guest_voters %}
+        <div class="flex flex-wrap gap-1 mt-1.5">
+          {% for voter in r.voters %}
+          <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">{{ voter.last_name }} {{ voter.first_name }}</span>
+          {% endfor %}
+          {% for gv in r.guest_voters %}
+          <span class="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">{{ gv.full_name }} · Frère visiteur</span>
+          {% endfor %}
+        </div>
+        {% endif %}
+      </div>
+      {% endfor %}
+      <p class="text-xs text-gray-400 pt-1">{{ total_votes }} votant{{ 's' if total_votes != 1 }} · {{ "Ouvert" if is_open else "Clôturé" }}</p>
+      {% if is_open and votable and has_voted %}
+      <p class="text-xs text-gray-400">Vous avez déjà voté.</p>
+      {% endif %}
+    </div>
+    {% endif %}
+
+  </div>
+
+</div>
+{% endblock %}

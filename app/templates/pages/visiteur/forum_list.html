@@ -1,0 +1,29 @@
+{% extends "base_visiteur.html" %}
+{% block title %}Forum{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/" class="text-sm text-gray-500 hover:text-gray-700">← Accueil</a>
+  <h1 class="text-xl font-bold text-gray-900">Forum</h1>
+
+  {% if not subjects %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500 text-sm">
+    Aucun sujet n'est ouvert aux visiteurs pour l'instant.
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+    {% for s in subjects %}
+    <a href="/visiteur/forum/{{ s.id }}" class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
+      <div class="min-w-0">
+        <div class="font-medium text-gray-900 truncate">{{ s.title }}</div>
+        {% if s.is_locked %}<div class="text-xs text-gray-400 mt-0.5"><i class="ti ti-lock"></i> Verrouillé — lecture seule</div>{% endif %}
+      </div>
+      <i class="ti ti-chevron-right text-gray-300 shrink-0"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

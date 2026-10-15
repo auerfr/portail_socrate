@@ -372,6 +372,16 @@ async def forum_thread(
         for m in ar.scalars().all():
             authors[m.id] = m
 
+    # Auteurs visiteurs (Phase 3) — étiquetés "Frère visiteur — [loge]" dans
+    # le template, jamais confondus avec un membre.
+    guest_author_ids = {m.created_by_guest_id for m in messages if m.created_by_guest_id}
+    guest_authors: dict[int, object] = {}
+    if guest_author_ids:
+        from app.models.guest import GuestAccount
+        gr = await db.execute(select(GuestAccount).where(GuestAccount.id.in_(guest_author_ids)))
+        for g in gr.scalars().all():
+            guest_authors[g.id] = g
+
     # Stances structurées par décision
     decision_data = []
     for d in decisions:
@@ -405,6 +415,7 @@ async def forum_thread(
         "messages": messages,
         "decision_data": decision_data,
         "authors": authors,
+        "guest_authors": guest_authors,
         "is_subscribed": is_subscribed,
         "can_manage": _is_admin_or_manager(user, member),
         "StancePosition": StancePosition,
@@ -937,6 +948,27 @@ async def forum_toggle_pin(
     if not s:
         raise HTTPException(404)
     s.is_pinned = not s.is_pinned
+    await db.commit()
+    return RedirectResponse(url=f"/forum/t/{subject_id}", status_code=303)
+
+
+@router.post("/t/{subject_id}/toggle-guest-visible")
+async def forum_toggle_guest_visible(
+    subject_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Ouvre/ferme ce sujet aux comptes visiteurs (Phase 3 de l'accès
+    visiteur) — lecture + réponse, jamais la création d'un nouveau sujet."""
+    user, member = ctx
+    if not _is_admin_or_manager(user, member):
+        raise HTTPException(403)
+    s = (await db.execute(
+        select(ForumSubject).where(ForumSubject.id == subject_id)
+    )).scalar_one_or_none()
+    if not s:
+        raise HTTPException(404)
+    s.visible_to_guests = not s.visible_to_guests
     await db.commit()
     return RedirectResponse(url=f"/forum/t/{subject_id}", status_code=303)
 

@@ -182,6 +182,14 @@
             <div class="text-xs text-gray-400">Les noms des votants sont affichés sous chaque option</div>
           </div>
         </label>
+        <label class="flex items-center gap-3 cursor-pointer" x-show="voteType === 'CHOICE'" x-cloak>
+          <input type="checkbox" name="visible_to_guests" value="1"
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+          <div>
+            <div class="text-sm font-medium text-gray-700"><i class="ti ti-user-plus"></i> Ouvrir aux comptes visiteurs</div>
+            <div class="text-xs text-gray-400">Les visiteurs du portail pourront voter (jamais créer de sondage) — uniquement pour ce type "Choix"</div>
+          </div>
+        </label>
       </div>
       <div class="flex items-center gap-2.5 p-4 bg-teal-50/50 border border-teal-100 rounded-xl" x-show="voteType === 'SCHEDULE'" x-cloak>
         <span class="text-teal-600">👥</span>

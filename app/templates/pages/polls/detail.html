@@ -265,11 +265,16 @@
                         {% else %}{% if r.is_mine %}bg-loge-600{% else %}bg-loge-300{% endif %}{% endif %}"
                  style="width: {{ r.pct }}%"></div>
           </div>
-          {% if r.voters %}
+          {% if r.voters or r.guest_voters %}
           <div class="flex flex-wrap gap-1 mt-1.5">
             {% for voter in r.voters %}
             <span class="text-xs bg-gray-100 text-gray-500 rounded-full px-2 py-0.5">
               {{ voter.last_name | anon_nom }} {{ voter.first_name }}
+            </span>
+            {% endfor %}
+            {% for gv in r.guest_voters %}
+            <span class="text-xs bg-amber-100 text-amber-700 rounded-full px-2 py-0.5">
+              {{ gv.full_name }} · Frère visiteur{% if gv.home_lodge %} — {{ gv.home_lodge }}{% endif %}
             </span>
             {% endfor %}
           </div>

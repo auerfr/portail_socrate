@@ -2,40 +2,60 @@
 {% block title %}Accueil{% endblock %}
 
 {% block content %}
-<div class="space-y-5">
+<div class="space-y-6">
 
   <div>
-    <h1 class="text-xl font-bold text-gray-900">Bienvenue, {{ guest.first_name }}</h1>
+    <h1 class="text-2xl font-bold text-gray-900">Bienvenue, {{ guest.first_name }}</h1>
     <p class="text-sm text-gray-500 mt-0.5">
       Compte visiteur{% if guest.home_lodge %} — {{ guest.home_lodge }}{% endif %}
     </p>
   </div>
 
-  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
-    <a href="/visiteur/programme" class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
-      <span class="flex items-center gap-3 text-sm text-gray-800"><i class="ti ti-calendar-event text-gray-400"></i> Programme</span>
-      <i class="ti ti-chevron-right text-gray-300"></i>
+  <div class="grid grid-cols-2 gap-3">
+    <a href="/visiteur/programme"
+       class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-2 hover:shadow-md hover:-translate-y-0.5 transition-all">
+      <div class="w-10 h-10 rounded-xl bg-loge-50 text-loge-700 flex items-center justify-center">
+        <i class="ti ti-calendar-event text-xl"></i>
+      </div>
+      <div class="text-sm font-semibold text-gray-900">Programme</div>
+      <div class="text-xs text-gray-400">Tenues ouvertes aux visiteurs</div>
     </a>
-    <a href="/visiteur/contacts" class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
-      <span class="flex items-center gap-3 text-sm text-gray-800"><i class="ti ti-address-book text-gray-400"></i> Contacts</span>
-      <i class="ti ti-chevron-right text-gray-300"></i>
+
+    <a href="/visiteur/documents"
+       class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-2 hover:shadow-md hover:-translate-y-0.5 transition-all">
+      <div class="w-10 h-10 rounded-xl bg-amber-50 text-amber-600 flex items-center justify-center">
+        <i class="ti ti-file-text text-xl"></i>
+      </div>
+      <div class="text-sm font-semibold text-gray-900">Documents</div>
+      <div class="text-xs text-gray-400">Bibliothèque partagée</div>
     </a>
-    <a href="/visiteur/documents" class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
-      <span class="flex items-center gap-3 text-sm text-gray-800"><i class="ti ti-file-text text-gray-400"></i> Documents</span>
-      <i class="ti ti-chevron-right text-gray-300"></i>
+
+    <a href="/visiteur/forum"
+       class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-2 hover:shadow-md hover:-translate-y-0.5 transition-all">
+      <div class="w-10 h-10 rounded-xl bg-indigo-50 text-indigo-600 flex items-center justify-center">
+        <i class="ti ti-messages text-xl"></i>
+      </div>
+      <div class="text-sm font-semibold text-gray-900">Forum</div>
+      <div class="text-xs text-gray-400">Sujets ouverts à l'échange</div>
+    </a>
+
+    <a href="/visiteur/sondages"
+       class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-2 hover:shadow-md hover:-translate-y-0.5 transition-all">
+      <div class="w-10 h-10 rounded-xl bg-emerald-50 text-emerald-600 flex items-center justify-center">
+        <i class="ti ti-chart-bar text-xl"></i>
+      </div>
+      <div class="text-sm font-semibold text-gray-900">Sondages</div>
+      <div class="text-xs text-gray-400">Votes ouverts aux visiteurs</div>
     </a>
   </div>
 
-  <p class="text-xs text-gray-400 text-center">
-    Le forum et les sondages ouverts par la loge arriveront dans une prochaine étape.
-  </p>
-
-  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-4">
-    <a href="/visiteur/mot-de-passe" class="flex items-center justify-between text-sm text-gray-700 hover:text-gray-900">
-      <span><i class="ti ti-lock"></i> Changer mon mot de passe</span>
-      <i class="ti ti-chevron-right text-gray-300"></i>
-    </a>
-  </div>
+  <a href="/visiteur/contacts"
+     class="flex items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:bg-gray-50 transition-colors">
+    <span class="flex items-center gap-3 text-sm text-gray-800">
+      <i class="ti ti-address-book text-gray-400 text-lg"></i> Contacts de la loge
+    </span>
+    <i class="ti ti-chevron-right text-gray-300"></i>
+  </a>
 
 </div>
 {% endblock %}
