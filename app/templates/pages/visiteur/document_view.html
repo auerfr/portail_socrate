@@ -1,0 +1,60 @@
+{% extends "base_visiteur.html" %}
+{% block title %}{{ doc.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/documents/dossier/{{ folder.id }}" class="text-sm text-gray-500 hover:text-gray-700">
+    ← {{ folder.name }}
+  </a>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
+    <div class="px-5 py-4 border-b border-gray-100">
+      <h1 class="text-lg font-bold text-gray-900">{{ doc.name }}</h1>
+      {% if doc.description %}<p class="text-sm text-gray-500 mt-1">{{ doc.description }}</p>{% endif %}
+    </div>
+
+    {% if is_previewable %}
+    <div class="bg-gray-50 border-b border-gray-100">
+      {% if doc.mime_type == 'application/pdf' %}
+      <div id="pdf-viewer-{{ doc.id }}" class="overflow-y-auto p-4" style="height: 70vh; min-height: 400px;"></div>
+      <script type="module">
+        import { renderPdfInto } from '/static/js/pdf_viewer.js';
+        renderPdfInto(document.getElementById('pdf-viewer-{{ doc.id }}'), '/visiteur/documents/{{ doc.id }}/preview', { darkChrome: false });
+      </script>
+      {% elif doc.mime_type and doc.mime_type.startswith('image/') %}
+      <div class="flex items-center justify-center p-6">
+        <img src="/visiteur/documents/{{ doc.id }}/preview" alt="{{ doc.name }}"
+             class="max-w-full max-h-[60vh] rounded-xl shadow-md object-contain">
+      </div>
+      {% endif %}
+    </div>
+    {% elif doc.link_url %}
+    <div class="px-5 py-4 border-b border-gray-100 bg-purple-50">
+      <p class="text-sm text-purple-700 font-medium mb-2">Lien externe</p>
+      <a href="{{ doc.link_url }}" target="_blank" rel="noopener"
+         class="text-sm text-purple-600 underline break-all hover:text-purple-800">{{ doc.link_url }}</a>
+    </div>
+    {% else %}
+    <div class="px-5 py-4 bg-gray-50 text-center text-sm text-gray-400 italic">
+      Aperçu non disponible pour ce type de fichier
+    </div>
+    {% endif %}
+
+    <div class="px-5 py-4 flex flex-wrap gap-3">
+      {% if doc.link_url %}
+      <a href="{{ doc.link_url }}" target="_blank" rel="noopener"
+         class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+        <i class="ti ti-external-link"></i> Ouvrir le lien
+      </a>
+      {% else %}
+      <a href="/visiteur/documents/{{ doc.id }}/download"
+         class="inline-flex items-center gap-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-medium px-4 py-2 rounded-xl transition-colors">
+        <i class="ti ti-download"></i> Télécharger
+      </a>
+      {% endif %}
+    </div>
+  </div>
+
+</div>
+{% endblock %}

@@ -48,11 +48,26 @@
         <div class="font-medium text-gray-900 truncate">{{ doc.name }}</div>
         {% if doc.description %}<div class="text-xs text-gray-500 truncate">{{ doc.description }}</div>{% endif %}
       </div>
-      <a href="/visiteur/documents/{{ doc.id }}/download"
-         {% if doc.link_url %}target="_blank" rel="noopener"{% endif %}
-         class="shrink-0 px-3 py-1.5 bg-loge-50 text-loge-700 text-xs font-medium rounded-lg hover:bg-loge-100 transition-colors">
-        {{ "Ouvrir" if doc.link_url else "Télécharger" }}
-      </a>
+      {% set previewable = doc.mime_type and (doc.mime_type == 'application/pdf' or doc.mime_type.startswith('image/')) %}
+      <div class="flex items-center gap-2 shrink-0">
+        {% if doc.link_url %}
+        <a href="{{ doc.link_url }}" target="_blank" rel="noopener"
+           class="px-3 py-1.5 bg-loge-50 text-loge-700 text-xs font-medium rounded-lg hover:bg-loge-100 transition-colors">
+          Ouvrir
+        </a>
+        {% else %}
+        {% if previewable %}
+        <a href="/visiteur/documents/{{ doc.id }}/view"
+           class="px-3 py-1.5 bg-loge-50 text-loge-700 text-xs font-medium rounded-lg hover:bg-loge-100 transition-colors">
+          Aperçu
+        </a>
+        {% endif %}
+        <a href="/visiteur/documents/{{ doc.id }}/download"
+           class="px-3 py-1.5 {% if previewable %}border border-gray-200 text-gray-600 hover:bg-gray-50{% else %}bg-loge-50 text-loge-700 hover:bg-loge-100{% endif %} text-xs font-medium rounded-lg transition-colors">
+          Télécharger
+        </a>
+        {% endif %}
+      </div>
     </div>
     {% endfor %}
   </div>

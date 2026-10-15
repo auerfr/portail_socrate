@@ -242,12 +242,7 @@ async def visiteur_documents_folder(
     })
 
 
-@router.get("/documents/{doc_id}/download")
-async def visiteur_document_download(
-    doc_id: int,
-    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
-    db: Annotated[AsyncSession, Depends(get_db)],
-):
+async def _get_guest_doc_or_404(db: AsyncSession, doc_id: int, guest: GuestAccount) -> Document:
     r = await db.execute(
         select(Document)
         .options(selectinload(Document.folder).selectinload(DocFolder.space))
@@ -261,6 +256,59 @@ async def visiteur_document_download(
         or not _doc_guest_visible(doc, _guest_rank(guest))
     ):
         raise HTTPException(status_code=404)
+    return doc
+
+
+@router.get("/documents/{doc_id}/view", response_class=HTMLResponse)
+async def visiteur_document_view(
+    doc_id: int,
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    doc = await _get_guest_doc_or_404(db, doc_id, guest)
+    is_previewable = bool(
+        doc.storage_path and doc.mime_type
+        and (doc.mime_type.startswith("image/") or doc.mime_type == "application/pdf")
+    )
+    return templates.TemplateResponse(request, "pages/visiteur/document_view.html", {
+        "guest": guest,
+        "doc": doc,
+        "folder": doc.folder,
+        "space": doc.folder.space,
+        "is_previewable": is_previewable,
+    })
+
+
+@router.get("/documents/{doc_id}/preview")
+async def visiteur_document_preview(
+    doc_id: int,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Flux inline (Content-Disposition: inline) pour l'aperçu PDF/image dans
+    document_view.html — pas de compteur de téléchargement, comme côté
+    membre (documents_preview dans app/routers/documents.py)."""
+    doc = await _get_guest_doc_or_404(db, doc_id, guest)
+    if not doc.storage_path:
+        raise HTTPException(status_code=404, detail="Pas de fichier à prévisualiser")
+    path = Path(doc.storage_path)
+    if not path.exists():
+        raise HTTPException(status_code=404, detail="Fichier introuvable sur le serveur")
+    return FileResponse(
+        path=path,
+        media_type=doc.mime_type or "application/octet-stream",
+        headers={"Content-Disposition": "inline"},
+    )
+
+
+@router.get("/documents/{doc_id}/download")
+async def visiteur_document_download(
+    doc_id: int,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    doc = await _get_guest_doc_or_404(db, doc_id, guest)
 
     if doc.link_url:
         return RedirectResponse(url=doc.link_url, status_code=302)
