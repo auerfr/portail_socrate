@@ -101,6 +101,12 @@
                  class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
           <span class="text-sm text-gray-700">Publier immédiatement</span>
         </label>
+        <label class="flex items-center gap-2.5 cursor-pointer">
+          <input type="checkbox" name="visible_to_guests" value="1"
+                 {% if article and article.visible_to_guests %}checked{% endif %}
+                 class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+          <span class="text-sm text-gray-700"><i class="ti ti-user-plus"></i> Visible aux comptes visiteurs</span>
+        </label>
       </div>
 
       {% if not article %}

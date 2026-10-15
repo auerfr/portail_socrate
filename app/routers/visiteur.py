@@ -23,7 +23,7 @@ from app.routers.meetings import _type_label
 from app.models.documents import Document, DocFolder, DocSpace, DocStatus
 from app.models.lodge import LodgeSettings
 from app.models.forum import ForumSubject, ForumMessage
-from app.models.content import Poll, PollOption, PollVote
+from app.models.content import Poll, PollOption, PollVote, NewsArticle
 from app.routers.polls import _compute_results, _is_open
 
 router = APIRouter(prefix="/visiteur", tags=["visiteur"])
@@ -553,3 +553,79 @@ async def visiteur_poll_vote(
 
     await db.commit()
     return RedirectResponse(url=f"/visiteur/sondages/{poll_id}", status_code=303)
+
+
+# ── Actualités : articles explicitement marqués visibles aux visiteurs ─────
+# (jamais un article ciblé sur un groupe — pas de notion de groupe pour un
+# compte visiteur — et plafonné par le grade minimum de l'article comme pour
+# le reste) ──────────────────────────────────────────────────────────────
+
+def _news_guest_visible(article: NewsArticle, guest_rank: int) -> bool:
+    if not article.visible_to_guests or not article.is_online or article.target_group_id:
+        return False
+    now = datetime.utcnow()
+    if article.publish_from and article.publish_from > now:
+        return False
+    if article.publish_until and article.publish_until < now:
+        return False
+    if article.min_grade and guest_rank < _MIN_GRADE_RANK.get(article.min_grade, 0):
+        return False
+    return True
+
+
+@router.get("/actualites", response_class=HTMLResponse)
+async def visiteur_news_list(
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    r = await db.execute(select(NewsArticle).order_by(NewsArticle.is_featured.desc(), NewsArticle.created_at.desc()))
+    guest_rank = _guest_rank(guest)
+    articles = [a for a in r.scalars().all() if _news_guest_visible(a, guest_rank)]
+    return templates.TemplateResponse(request, "pages/visiteur/news_list.html", {
+        "guest": guest,
+        "articles": articles,
+    })
+
+
+@router.get("/actualites/{article_id}", response_class=HTMLResponse)
+async def visiteur_news_detail(
+    article_id: int,
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    article = await db.get(NewsArticle, article_id)
+    if not article or not _news_guest_visible(article, _guest_rank(guest)):
+        raise HTTPException(status_code=404)
+    return templates.TemplateResponse(request, "pages/visiteur/news_detail.html", {
+        "guest": guest,
+        "article": article,
+    })
+
+
+# ── Loges voisines : annuaire de référence, peu sensible — ouvert dans son
+# ensemble à tout compte visiteur actif, sans opt-in par loge (contrairement
+# au reste du contenu) : c'est un répertoire externe, pas une donnée interne
+# à la loge, et un maçon qui voyage en est justement le public naturel ─────
+
+@router.get("/loges-voisines", response_class=HTMLResponse)
+async def visiteur_lodges_directory(
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    from app.models.lodges_directory import NeighboringLodge
+    from app.routers.lodges_directory import _schedule_label
+    r = await db.execute(
+        select(NeighboringLodge)
+        .where(NeighboringLodge.active.is_(True))
+        .order_by(NeighboringLodge.region, NeighboringLodge.orient, NeighboringLodge.name)
+    )
+    lodges = r.scalars().all()
+    schedule_labels = {lg.id: _schedule_label(lg.schedule) for lg in lodges}
+    return templates.TemplateResponse(request, "pages/visiteur/lodges_directory.html", {
+        "guest": guest,
+        "lodges": lodges,
+        "schedule_labels": schedule_labels,
+    })

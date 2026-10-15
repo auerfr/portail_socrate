@@ -47,15 +47,31 @@
       <div class="text-sm font-semibold text-gray-900">Sondages</div>
       <div class="text-xs text-gray-400">Votes ouverts aux visiteurs</div>
     </a>
+
+    <a href="/visiteur/actualites"
+       class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 flex flex-col gap-2 hover:shadow-md hover:-translate-y-0.5 transition-all">
+      <div class="w-10 h-10 rounded-xl bg-rose-50 text-rose-600 flex items-center justify-center">
+        <i class="ti ti-news text-xl"></i>
+      </div>
+      <div class="text-sm font-semibold text-gray-900">Actualités</div>
+      <div class="text-xs text-gray-400">Articles partagés par la loge</div>
+    </a>
   </div>
 
-  <a href="/visiteur/contacts"
-     class="flex items-center justify-between gap-3 bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:bg-gray-50 transition-colors">
-    <span class="flex items-center gap-3 text-sm text-gray-800">
-      <i class="ti ti-address-book text-gray-400 text-lg"></i> Contacts de la loge
-    </span>
-    <i class="ti ti-chevron-right text-gray-300"></i>
-  </a>
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+    <a href="/visiteur/contacts" class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
+      <span class="flex items-center gap-3 text-sm text-gray-800">
+        <i class="ti ti-address-book text-gray-400 text-lg"></i> Contacts de la loge
+      </span>
+      <i class="ti ti-chevron-right text-gray-300"></i>
+    </a>
+    <a href="/visiteur/loges-voisines" class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
+      <span class="flex items-center gap-3 text-sm text-gray-800">
+        <i class="ti ti-map-pin text-gray-400 text-lg"></i> Loges voisines
+      </span>
+      <i class="ti ti-chevron-right text-gray-300"></i>
+    </a>
+  </div>
 
 </div>
 {% endblock %}

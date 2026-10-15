@@ -1,0 +1,31 @@
+{% extends "base_visiteur.html" %}
+{% block title %}Actualités{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/" class="text-sm text-gray-500 hover:text-gray-700">← Accueil</a>
+  <h1 class="text-xl font-bold text-gray-900">Actualités</h1>
+
+  {% if not articles %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500 text-sm">
+    Aucune actualité n'est partagée avec les visiteurs pour l'instant.
+  </div>
+  {% else %}
+  <div class="space-y-3">
+    {% for a in articles %}
+    <a href="/visiteur/actualites/{{ a.id }}"
+       class="block bg-white rounded-2xl border border-gray-100 shadow-sm p-4 hover:shadow-md transition-all">
+      <div class="flex items-center gap-2 mb-1">
+        {% if a.is_featured %}<span class="text-xs">📌</span>{% endif %}
+        <div class="font-medium text-gray-900">{{ a.title }}</div>
+      </div>
+      <div class="text-xs text-gray-400 mb-1.5">{{ a.created_at | localdt('%d/%m/%Y') }}</div>
+      <div class="text-sm text-gray-500">{{ a.content_html | striptags | truncate(160) }}</div>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

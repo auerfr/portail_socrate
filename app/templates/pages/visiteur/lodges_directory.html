@@ -1,0 +1,35 @@
+{% extends "base_visiteur.html" %}
+{% block title %}Loges voisines{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/" class="text-sm text-gray-500 hover:text-gray-700">← Accueil</a>
+  <h1 class="text-xl font-bold text-gray-900">Loges voisines</h1>
+  <p class="text-sm text-gray-500 -mt-3">Répertoire de référence — rythme théorique de réunion.</p>
+
+  {% if not lodges %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500 text-sm">
+    Aucune loge voisine n'est référencée pour l'instant.
+  </div>
+  {% else %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+    {% for lg in lodges %}
+    <div class="p-4">
+      <div class="font-medium text-gray-900">{{ lg.name }}</div>
+      <div class="text-xs text-gray-500 mt-0.5">
+        {{ lg.orient }}{% if lg.rite %} · {{ lg.rite }}{% endif %}{% if lg.obedience %} · {{ lg.obedience }}{% endif %}
+      </div>
+      {% if schedule_labels[lg.id] and schedule_labels[lg.id] != "—" %}
+      <div class="text-xs text-gray-400 mt-1"><i class="ti ti-calendar-event"></i> {{ schedule_labels[lg.id] }}{% if lg.meeting_time %} à {{ lg.meeting_time }}{% endif %}</div>
+      {% endif %}
+      {% if lg.address %}
+      <div class="text-xs text-gray-400 mt-0.5"><i class="ti ti-map-pin"></i> {{ lg.address }}</div>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

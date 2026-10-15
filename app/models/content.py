@@ -25,6 +25,9 @@ class NewsArticle(Base):
     min_grade: Mapped[Optional[str]] = mapped_column(String(50))
     target_group_id: Mapped[Optional[int]] = mapped_column(ForeignKey("lodge_groups.id"), nullable=True)
 
+    # Accès visiteur (Phase 2) — opt-in explicite par article.
+    visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
     updated_at: Mapped[datetime] = mapped_column(

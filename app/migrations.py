@@ -1590,3 +1590,11 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE poll_votes ADD COLUMN guest_id INTEGER REFERENCES guest_accounts(id) ON DELETE SET NULL"
             )
+
+        # ── Accès visiteur — actualités ──────────────────────────────────────
+        r_news = await conn.exec_driver_sql("PRAGMA table_info(news_articles)")
+        cols_news = [row[1] for row in r_news.fetchall()]
+        if "visible_to_guests" not in cols_news:
+            await conn.exec_driver_sql(
+                "ALTER TABLE news_articles ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
+            )

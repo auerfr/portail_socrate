@@ -164,6 +164,7 @@ async def news_create(
     target: str = Form(""),
     publish_until: str = Form(""),
     notify_members: str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     user, member = ctx
     if not _can_manage(user, member):
@@ -189,6 +190,7 @@ async def news_create(
         target_group_id=target_group_id,
         publish_until=pu,
         created_by_id=member.id,
+        visible_to_guests=bool(visible_to_guests),
     )
     db.add(article)
     await db.commit()
@@ -264,6 +266,7 @@ async def news_update(
     is_online: str = Form(""),
     target: str = Form(""),
     publish_until: str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     user, member = ctx
     if not _can_manage(user, member):
@@ -289,6 +292,7 @@ async def news_update(
     article.min_grade = min_grade
     article.target_group_id = target_group_id
     article.publish_until = pu
+    article.visible_to_guests = bool(visible_to_guests)
     await db.commit()
     return RedirectResponse(url="/news/", status_code=303)
 

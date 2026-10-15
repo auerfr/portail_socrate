@@ -1,0 +1,16 @@
+{% extends "base_visiteur.html" %}
+{% block title %}{{ article.title }}{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/actualites" class="text-sm text-gray-500 hover:text-gray-700">← Actualités</a>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5">
+    <h1 class="text-xl font-bold text-gray-900">{{ article.title }}</h1>
+    <div class="text-xs text-gray-400 mt-1 mb-4">{{ article.created_at | localdt('%d/%m/%Y') }}</div>
+    <div class="prose prose-sm max-w-none text-gray-700">{{ article.content_html | sanitize_html }}</div>
+  </div>
+
+</div>
+{% endblock %}
