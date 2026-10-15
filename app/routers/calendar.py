@@ -676,13 +676,16 @@ async def calendar_create_event(
 ):
     user, member = ctx
     personal = is_personal in ("on", "1", "true")
-    # Jamais pour un événement personnel, et seulement si la visibilité est
-    # une des visibilités "par grade" — GROUP/MEMBERS/OFFICERS/ADMIN restent
-    # toujours fermées aux visiteurs (voir visiteur.py::_lodge_event_guest_visible).
+    # Jamais pour un événement personnel. Les visibilités "par grade" sont
+    # ouvrables directement ; GROUP l'est aussi — mais ne montrera en
+    # pratique l'événement qu'aux visiteurs réellement membres de ce groupe
+    # (voir visiteur.py::_lodge_event_guest_visible) — MEMBERS/OFFICERS/ADMIN
+    # restent toujours fermées (pas de notion de membre nommé/fonction côté
+    # visiteur).
     open_to_guests = (
         not personal
         and visible_to_guests in ("1", "on", "true")
-        and visibility in ("ALL", "MAITRES", "COMPAGNONS_ET_MAITRES", "APPRENTIS")
+        and visibility in ("ALL", "MAITRES", "COMPAGNONS_ET_MAITRES", "APPRENTIS", "GROUP")
     )
 
     # Validation : les non-privilégiés ne peuvent créer que des événements
@@ -971,7 +974,7 @@ async def calendar_event_edit(
     event.visible_to_guests = (
         not event.is_personal
         and visible_to_guests in ("1", "on", "true")
-        and visibility in ("ALL", "MAITRES", "COMPAGNONS_ET_MAITRES", "APPRENTIS")
+        and visibility in ("ALL", "MAITRES", "COMPAGNONS_ET_MAITRES", "APPRENTIS", "GROUP")
     )
 
     await db.commit()

@@ -21,6 +21,8 @@ from app.models.identity import MasonicGrade
 from app.models.meetings import Meeting, MeetingStatus
 from app.routers.meetings import _type_label
 from app.models.lodge_calendar import LodgeEvent, EventVisibility
+from app.models.groups import LodgeGroup
+from app.routers.groups import resolve_group_guest_ids
 from app.models.documents import Document, DocFolder, DocSpace, DocStatus
 from app.models.lodge import LodgeSettings
 from app.models.forum import ForumSubject, ForumMessage
@@ -43,25 +45,32 @@ def _guest_rank(guest: GuestAccount) -> int:
     return _GUEST_GRADE_RANK.get(guest.masonic_grade, 0)
 
 
-# Événements d'agenda (LodgeEvent) : seules les visibilités "par grade" sont
-# ouvrables aux visiteurs — GROUP/MEMBERS/OFFICERS/ADMIN restent toujours
-# fermées (pas de notion de groupe/membre nommé côté visiteur). None = jamais
-# ouvert, même avec visible_to_guests=True (filet de sécurité si la donnée a
-# été modifiée hors de ce chemin, ex: admin DB direct).
+# Événements d'agenda (LodgeEvent) : les visibilités "par grade" sont
+# ouvrables directement par grade réel du visiteur ; GROUP l'est aussi mais
+# seulement si le visiteur est explicitement membre du groupe ciblé (voir
+# app/routers/groups.py::resolve_group_guest_ids) — MEMBERS/OFFICERS/ADMIN
+# restent toujours fermées (pas de notion de membre nommé/fonction côté
+# visiteur).
 _LODGE_EVENT_GUEST_GRADES: dict[str, Optional[set]] = {
     "ALL": None,  # None ici = "aucun filtre de grade", pas "jamais ouvert"
     "APPRENTIS": {MasonicGrade.APPRENTI},
     "COMPAGNONS_ET_MAITRES": {MasonicGrade.COMPAGNON, MasonicGrade.MAITRE},
     "MAITRES": {MasonicGrade.MAITRE},
 }
-_LODGE_EVENT_GUEST_OPENABLE = set(_LODGE_EVENT_GUEST_GRADES)
 
 
-def _lodge_event_guest_visible(event: LodgeEvent, guest: GuestAccount) -> bool:
+async def _lodge_event_guest_visible(event: LodgeEvent, guest: GuestAccount, db: AsyncSession) -> bool:
     if event.is_personal or not event.visible_to_guests:
         return False
     v = event.visibility.value
-    if v not in _LODGE_EVENT_GUEST_OPENABLE:
+    if v == "GROUP":
+        if not event.visibility_group_id:
+            return False
+        group = await db.get(LodgeGroup, event.visibility_group_id)
+        if not group:
+            return False
+        return guest.id in await resolve_group_guest_ids(db, group)
+    if v not in _LODGE_EVENT_GUEST_GRADES:
         return False
     allowed = _LODGE_EVENT_GUEST_GRADES[v]
     return allowed is None or guest.masonic_grade in allowed
@@ -130,7 +139,7 @@ async def visiteur_agenda(
         )
         .order_by(LodgeEvent.start_datetime)
     )
-    events = [e for e in r.scalars().all() if _lodge_event_guest_visible(e, guest)]
+    events = [e for e in r.scalars().all() if await _lodge_event_guest_visible(e, guest, db)]
     return templates.TemplateResponse(request, "pages/visiteur/agenda.html", {
         "guest": guest,
         "events": events,
@@ -146,7 +155,7 @@ async def visiteur_agenda_detail(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     event = await db.get(LodgeEvent, event_id)
-    if not event or not _lodge_event_guest_visible(event, guest):
+    if not event or not await _lodge_event_guest_visible(event, guest, db):
         raise HTTPException(status_code=404)
     return templates.TemplateResponse(request, "pages/visiteur/agenda_detail.html", {
         "guest": guest,
@@ -569,7 +578,19 @@ async def visiteur_forum_reply(
 
 
 # ── Sondages : vote sur les sondages explicitement ouverts, type "Choix"
-# uniquement (jamais de création — voir app/routers/polls.py) ──────────────
+# uniquement (jamais de création — voir app/routers/polls.py). Un sondage
+# ciblé sur un groupe (target_group_id) n'est visible que pour les
+# visiteurs explicitement membres de ce groupe. ────────────────────────────
+
+async def _poll_guest_visible(poll: Poll, guest: GuestAccount, db: AsyncSession) -> bool:
+    if not poll.visible_to_guests:
+        return False
+    if poll.target_group_id:
+        group = await db.get(LodgeGroup, poll.target_group_id)
+        if not group or guest.id not in await resolve_group_guest_ids(db, group):
+            return False
+    return True
+
 
 @router.get("/sondages", response_class=HTMLResponse)
 async def visiteur_polls_list(
@@ -580,7 +601,7 @@ async def visiteur_polls_list(
     r = await db.execute(
         select(Poll).where(Poll.visible_to_guests.is_(True)).order_by(Poll.created_at.desc())
     )
-    polls = r.scalars().all()
+    polls = [p for p in r.scalars().all() if await _poll_guest_visible(p, guest, db)]
     return templates.TemplateResponse(request, "pages/visiteur/polls_list.html", {
         "guest": guest,
         "polls": polls,
@@ -599,7 +620,7 @@ async def visiteur_poll_detail(
         selectinload(Poll.options).selectinload(PollOption.votes),
         selectinload(Poll.votes),
     ])
-    if not poll or not poll.visible_to_guests:
+    if not poll or not await _poll_guest_visible(poll, guest, db):
         raise HTTPException(status_code=404)
 
     my_votes_r = await db.execute(
@@ -632,7 +653,7 @@ async def visiteur_poll_vote(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     poll = await db.get(Poll, poll_id, options=[selectinload(Poll.options)])
-    if not poll or not poll.visible_to_guests:
+    if not poll or not await _poll_guest_visible(poll, guest, db):
         raise HTTPException(status_code=404)
     if poll.vote_type != "CHOICE":
         raise HTTPException(status_code=400, detail="Ce type de sondage n'est pas votable par un visiteur")
@@ -667,18 +688,23 @@ async def visiteur_poll_vote(
 
 
 # ── Actualités : articles explicitement marqués visibles aux visiteurs ─────
-# (jamais un article ciblé sur un groupe — pas de notion de groupe pour un
-# compte visiteur — et plafonné par le grade minimum de l'article comme pour
-# le reste) ──────────────────────────────────────────────────────────────
+# (un article ciblé sur un groupe n'est visible que pour les visiteurs
+# explicitement membres de ce groupe — voir app/routers/groups.py — et
+# plafonné par le grade minimum de l'article comme pour le reste) ─────────
 
-def _news_guest_visible(article: NewsArticle, guest_rank: int) -> bool:
-    if not article.visible_to_guests or not article.is_online or article.target_group_id:
+async def _news_guest_visible(article: NewsArticle, guest: GuestAccount, db: AsyncSession) -> bool:
+    if not article.visible_to_guests or not article.is_online:
         return False
+    if article.target_group_id:
+        group = await db.get(LodgeGroup, article.target_group_id)
+        if not group or guest.id not in await resolve_group_guest_ids(db, group):
+            return False
     now = datetime.utcnow()
     if article.publish_from and article.publish_from > now:
         return False
     if article.publish_until and article.publish_until < now:
         return False
+    guest_rank = _guest_rank(guest)
     if article.min_grade and guest_rank < _MIN_GRADE_RANK.get(article.min_grade, 0):
         return False
     return True
@@ -691,8 +717,7 @@ async def visiteur_news_list(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     r = await db.execute(select(NewsArticle).order_by(NewsArticle.is_featured.desc(), NewsArticle.created_at.desc()))
-    guest_rank = _guest_rank(guest)
-    articles = [a for a in r.scalars().all() if _news_guest_visible(a, guest_rank)]
+    articles = [a for a in r.scalars().all() if await _news_guest_visible(a, guest, db)]
     return templates.TemplateResponse(request, "pages/visiteur/news_list.html", {
         "guest": guest,
         "articles": articles,
@@ -707,7 +732,7 @@ async def visiteur_news_detail(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     article = await db.get(NewsArticle, article_id)
-    if not article or not _news_guest_visible(article, _guest_rank(guest)):
+    if not article or not await _news_guest_visible(article, guest, db):
         raise HTTPException(status_code=404)
     return templates.TemplateResponse(request, "pages/visiteur/news_detail.html", {
         "guest": guest,

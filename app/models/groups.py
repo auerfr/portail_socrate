@@ -4,7 +4,7 @@ from datetime import datetime
 from typing import Optional
 from sqlalchemy import (
     String, Enum, Boolean, DateTime, ForeignKey, Text,
-    UniqueConstraint, func, Integer,
+    UniqueConstraint, Index, func, Integer, text,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 from app.database import Base
@@ -65,20 +65,28 @@ class LodgeGroup(Base):
 
 
 class GroupMembership(Base):
-    """Appartenance explicite d'un membre à un groupe personnalisé."""
+    """Appartenance explicite d'un membre OU d'un compte visiteur à un groupe
+    personnalisé (CUSTOM/COMMISSION) — exactement l'un des deux (member_id
+    XOR guest_id), jamais les deux, jamais aucun. Un compte visiteur ne peut
+    jamais rejoindre un groupe système (GRADE/COUNCIL/PAIR), calculé
+    uniquement depuis les attributs Member (voir app/routers/groups.py)."""
     __tablename__ = "lodge_group_memberships"
 
     id: Mapped[int]        = mapped_column(primary_key=True)
     group_id: Mapped[int]  = mapped_column(ForeignKey("lodge_groups.id", ondelete="CASCADE"))
-    member_id: Mapped[int] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"))
+    member_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id", ondelete="CASCADE"), nullable=True)
+    guest_id: Mapped[Optional[int]] = mapped_column(ForeignKey("guest_accounts.id", ondelete="CASCADE"), nullable=True)
     added_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     added_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
     group: Mapped["LodgeGroup"] = relationship(back_populates="memberships")
 
     __table_args__ = (
-        UniqueConstraint("group_id", "member_id", name="uq_group_member"),
+        Index("uq_group_member", "group_id", "member_id", unique=True,
+              sqlite_where=text("member_id IS NOT NULL")),
+        Index("uq_group_guest", "group_id", "guest_id", unique=True,
+              sqlite_where=text("guest_id IS NOT NULL")),
     )
 
     def __repr__(self) -> str:
-        return f"<GroupMembership group={self.group_id} member={self.member_id}>"
+        return f"<GroupMembership group={self.group_id} member={self.member_id} guest={self.guest_id}>"

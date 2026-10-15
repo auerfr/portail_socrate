@@ -1624,3 +1624,41 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE lodge_events ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
             )
+
+        # ── Groupes avec visiteurs — guest_id sur lodge_group_memberships ───
+        # member_id doit devenir nullable (une ligne de membership est soit
+        # un membre, soit un visiteur) : impossible via un simple ALTER TABLE
+        # sous SQLite, donc recréation de la table (même procédé que pour
+        # documents.original_filename plus haut dans ce fichier).
+        r_gm = await conn.exec_driver_sql("PRAGMA table_info(lodge_group_memberships)")
+        cols_gm_info = r_gm.fetchall()
+        cols_gm = [row[1] for row in cols_gm_info]
+        member_id_col = next((row for row in cols_gm_info if row[1] == "member_id"), None)
+        if "guest_id" not in cols_gm or (member_id_col and member_id_col[3] == 1):  # notnull == 1
+            await conn.exec_driver_sql("""
+                CREATE TABLE IF NOT EXISTS lodge_group_memberships_new (
+                    id INTEGER PRIMARY KEY,
+                    group_id INTEGER NOT NULL REFERENCES lodge_groups(id) ON DELETE CASCADE,
+                    member_id INTEGER REFERENCES members(id) ON DELETE CASCADE,
+                    guest_id INTEGER REFERENCES guest_accounts(id) ON DELETE CASCADE,
+                    added_by_id INTEGER REFERENCES members(id),
+                    added_at DATETIME
+                )
+            """)
+            await conn.exec_driver_sql(
+                "INSERT OR IGNORE INTO lodge_group_memberships_new "
+                "(id, group_id, member_id, added_by_id, added_at) "
+                "SELECT id, group_id, member_id, added_by_id, added_at FROM lodge_group_memberships"
+            )
+            await conn.exec_driver_sql("DROP TABLE lodge_group_memberships")
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_group_memberships_new RENAME TO lodge_group_memberships"
+            )
+        await conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_group_member ON lodge_group_memberships(group_id, member_id) "
+            "WHERE member_id IS NOT NULL"
+        )
+        await conn.exec_driver_sql(
+            "CREATE UNIQUE INDEX IF NOT EXISTS uq_group_guest ON lodge_group_memberships(group_id, guest_id) "
+            "WHERE guest_id IS NOT NULL"
+        )

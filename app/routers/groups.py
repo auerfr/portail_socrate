@@ -1,5 +1,6 @@
 """Router — Gestion des groupes de membres"""
 import json
+from datetime import datetime
 from typing import Annotated, Optional, List
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException
@@ -12,6 +13,7 @@ from app.database import get_db
 from app.dependencies import require_auth, require_finance_manager, can_manage_finance, has_fine_permission
 from app.models.groups import LodgeGroup as Group, GroupMembership, GroupType, SYSTEM_GROUPS
 from app.models.identity import Member, MemberStatus, LodgeFunction, MasonicGrade
+from app.models.guest import GuestAccount
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 from app.template_engine import templates
@@ -81,6 +83,32 @@ async def resolve_group_member_ids(db: AsyncSession, group: Group) -> list[int]:
     return [m.id for m in members]
 
 
+async def resolve_group_guest_ids(db: AsyncSession, group: Group) -> list[int]:
+    """Comptes visiteurs membres de ce groupe — toujours vide pour un groupe
+    système (GRADE/COUNCIL/PAIR, calculé depuis les attributs Member : un
+    visiteur n'en fait jamais partie), sinon depuis GroupMembership.guest_id."""
+    if group.group_type in (GroupType.GRADE, GroupType.COUNCIL, GroupType.PAIR):
+        return []
+    r = await db.execute(
+        select(GroupMembership.guest_id).where(
+            GroupMembership.group_id == group.id, GroupMembership.guest_id.isnot(None),
+        )
+    )
+    return [row[0] for row in r.all()]
+
+
+async def _get_eligible_guests(db: AsyncSession) -> list[GuestAccount]:
+    """Comptes visiteurs actifs, ayant terminé l'onboarding et non expirés —
+    mêmes critères que la connexion (voir app/dependencies.py::require_guest_auth)."""
+    r = await db.execute(
+        select(GuestAccount)
+        .where(GuestAccount.is_active.is_(True), GuestAccount.onboarding_completed.is_(True))
+        .order_by(GuestAccount.last_name, GuestAccount.first_name)
+    )
+    now = datetime.utcnow()
+    return [g for g in r.scalars().all() if not (g.expires_at and g.expires_at < now)]
+
+
 async def ensure_system_groups(db: AsyncSession) -> None:
     """Crée les groupes système s'ils n'existent pas encore."""
     for slug, cfg in SYSTEM_GROUPS.items():
@@ -119,12 +147,13 @@ async def list_groups(
     )
     groups = r.scalars().all()
 
-    # Calculer le nb de membres pour chaque groupe
+    # Calculer le nb de membres (+ visiteurs pour les groupes manuels) pour chaque groupe
     all_active = await _get_active_members(db)
     group_counts: dict[int, int] = {}
     for g in groups:
         members = await resolve_group_members(db, g)
-        group_counts[g.id] = len(members)
+        guest_ids = await resolve_group_guest_ids(db, g)
+        group_counts[g.id] = len(members) + len(guest_ids)
 
     return templates.TemplateResponse(request, "pages/groups/list.html", {
         "current_member": member,
@@ -197,14 +226,26 @@ async def group_detail(
     member_ids_in_group = {m.id for m in members}
     members_not_in = [m for m in all_active if m.id not in member_ids_in_group]
 
+    is_dynamic = group.group_type in (GroupType.GRADE, GroupType.COUNCIL, GroupType.PAIR)
+
+    guest_ids_in_group = set(await resolve_group_guest_ids(db, group))
+    guests: list[GuestAccount] = []
+    guests_not_in: list[GuestAccount] = []
+    if not is_dynamic:
+        eligible_guests = await _get_eligible_guests(db)
+        guests = [g for g in eligible_guests if g.id in guest_ids_in_group]
+        guests_not_in = [g for g in eligible_guests if g.id not in guest_ids_in_group]
+
     return templates.TemplateResponse(request, "pages/groups/detail.html", {
         "current_member": member,
         "current_user": user,
         "group": group,
         "members": members,
         "members_not_in": members_not_in,
+        "guests": guests,
+        "guests_not_in": guests_not_in,
         "can_manage": _can_manage_groups(user, member),
-        "is_dynamic": group.group_type in (GroupType.GRADE, GroupType.COUNCIL, GroupType.PAIR),
+        "is_dynamic": is_dynamic,
         "GroupType": GroupType,
     })
 
@@ -257,6 +298,63 @@ async def remove_member(
         select(GroupMembership).where(
             GroupMembership.group_id == group_id,
             GroupMembership.member_id == member_id,
+        )
+    )
+    gm = r.scalar_one_or_none()
+    if gm:
+        await db.delete(gm)
+        await db.commit()
+
+    return RedirectResponse(url=f"/groups/{group_id}", status_code=303)
+
+
+@router.post("/{group_id}/add-guest")
+async def add_guest(
+    group_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    guest_id: Annotated[int, Form()],
+):
+    user, member = ctx
+    if not _can_manage_groups(user, member):
+        raise HTTPException(403)
+
+    group = await db.get(Group, group_id)
+    if not group or group.is_system or group.group_type in (GroupType.GRADE, GroupType.COUNCIL, GroupType.PAIR):
+        raise HTTPException(400, "Ce groupe est géré automatiquement")
+
+    r = await db.execute(
+        select(GroupMembership).where(
+            GroupMembership.group_id == group_id,
+            GroupMembership.guest_id == guest_id,
+        )
+    )
+    if not r.scalar_one_or_none():
+        db.add(GroupMembership(
+            group_id=group_id,
+            guest_id=guest_id,
+            added_by_id=member.id,
+        ))
+        await db.commit()
+
+    return RedirectResponse(url=f"/groups/{group_id}", status_code=303)
+
+
+@router.post("/{group_id}/remove-guest")
+async def remove_guest(
+    group_id: int,
+    ctx: Annotated[object, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    guest_id: Annotated[int, Form()],
+):
+    user, member = ctx
+    if not _can_manage_groups(user, member):
+        raise HTTPException(403)
+
+    r = await db.execute(
+        select(GroupMembership).where(
+            GroupMembership.group_id == group_id,
+            GroupMembership.guest_id == guest_id,
         )
     )
     gm = r.scalar_one_or_none()

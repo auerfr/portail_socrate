@@ -64,10 +64,11 @@ class LodgeEvent(Base):
     is_personal: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Opt-in explicite pour l'exposer dans l'agenda des comptes visiteurs —
-    # jamais pour un événement personnel, et seulement si sa visibilité est
-    # une des visibilités "par grade" (ALL/APPRENTIS/COMPAGNONS_ET_MAITRES/
-    # MAITRES) : GROUP/MEMBERS/OFFICERS/ADMIN restent toujours fermés aux
-    # visiteurs (voir app/routers/visiteur.py::_lodge_event_guest_visible).
+    # jamais pour un événement personnel. Ouvrable pour les visibilités "par
+    # grade" (ALL/APPRENTIS/COMPAGNONS_ET_MAITRES/MAITRES, filtrées sur le
+    # grade réel du visiteur) et pour GROUP (filtré sur l'appartenance réelle
+    # du visiteur à ce groupe) — MEMBERS/OFFICERS/ADMIN restent toujours
+    # fermés aux visiteurs (voir app/routers/visiteur.py::_lodge_event_guest_visible).
     visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # Série récurrente : toutes les occurrences générées ensemble partagent
