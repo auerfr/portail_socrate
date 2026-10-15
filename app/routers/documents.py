@@ -1299,6 +1299,7 @@ async def admin_edit_space(
     group_id: str = Form(""),
     order_position: int = Form(0),
     icon: str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     space = await db.get(DocSpace, space_id)
     if not space:
@@ -1309,6 +1310,7 @@ async def admin_edit_space(
     space.group_id = int(group_id) if group_id.strip().isdigit() else None
     space.order_position = order_position
     space.icon = icon.strip() or None
+    space.visible_to_guests = bool(visible_to_guests)
     await db.commit()
     return RedirectResponse(url=f"/documents/space/{space_id}?saved=1", status_code=303)
 
@@ -1573,6 +1575,7 @@ async def folder_edit_save(
     write_min_grade: str = Form("ALL"),
     # Suppression automatique
     auto_delete_after_days: str = Form(""),
+    visible_to_guests: str = Form(""),
 ):
     folder = await db.get(DocFolder, folder_id)
     if not folder:
@@ -1582,6 +1585,7 @@ async def folder_edit_save(
     folder.min_grade = MinGrade(min_grade)
     folder.group_id = int(group_id) if group_id.strip().isdigit() else None
     folder.order_position = order_position
+    folder.visible_to_guests = bool(visible_to_guests)
     # Permissions granulaires
     folder.allow_download   = allow_download in ("1", "on", "true")
     folder.download_group_id = int(download_group_id) if download_group_id.strip().isdigit() else None

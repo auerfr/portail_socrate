@@ -350,6 +350,14 @@
         <input type="number" name="order_position" value="{{ space.order_position }}" min="0"
                class="w-24 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:ring-2 focus:ring-loge-500">
       </div>
+      <label class="flex items-center gap-2 cursor-pointer pt-2 border-t border-gray-100">
+        <input type="checkbox" name="visible_to_guests" value="1" {% if space.visible_to_guests %}checked{% endif %}
+               class="rounded border-gray-300 text-loge-700">
+        <span class="text-sm text-gray-700">
+          Ouvrir tout cet espace aux comptes visiteurs du portail
+          <span class="block text-xs text-gray-400">Sous réserve du grade minimum ci-dessus — un visiteur n'y voit que ce que son grade couvre.</span>
+        </span>
+      </label>
       <div class="flex gap-3 pt-1">
         <button type="button" onclick="document.getElementById('modal-space-edit').classList.add('hidden')"
                 class="flex-1 border border-gray-300 text-gray-700 text-sm font-medium py-2 rounded-lg hover:bg-gray-50">Annuler</button>

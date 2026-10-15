@@ -12,17 +12,31 @@ from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
+from sqlalchemy.orm import selectinload
 
 from app.database import get_db
 from app.dependencies import require_guest_auth, verify_password, hash_password
 from app.models.guest import GuestAccount
+from app.models.identity import MasonicGrade
 from app.models.meetings import Meeting, MeetingStatus
 from app.routers.meetings import _type_label
-from app.models.documents import Document, DocStatus
+from app.models.documents import Document, DocFolder, DocStatus
 from app.models.lodge import LodgeSettings
 
 router = APIRouter(prefix="/visiteur", tags=["visiteur"])
 from app.template_engine import templates
+
+# Le grade réel du visiteur plafonne tout contenu grade-gated qui lui est
+# ouvert, en plus de l'opt-in visible_to_guests — un rang absent (compte pas
+# encore renseigné) vaut 0 : ne voit que ce qui est ouvert à "ALL" (le plus
+# restrictif), jamais "tout voir par défaut".
+_GUEST_GRADE_RANK = {MasonicGrade.APPRENTI: 1, MasonicGrade.COMPAGNON: 2, MasonicGrade.MAITRE: 3}
+_MEETING_GRADE_RANK = {"APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3, "ALL": 0}
+_MIN_GRADE_RANK = {"ALL": 0, "APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3}
+
+
+def _guest_rank(guest: GuestAccount) -> int:
+    return _GUEST_GRADE_RANK.get(guest.masonic_grade, 0)
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -52,7 +66,11 @@ async def visiteur_programme(
         )
         .order_by(Meeting.meeting_date, Meeting.meeting_time)
     )
-    meetings = r.scalars().all()
+    guest_rank = _guest_rank(guest)
+    meetings = [
+        m for m in r.scalars().all()
+        if guest_rank >= _MEETING_GRADE_RANK.get(m.grade.value, 0)
+    ]
     return templates.TemplateResponse(request, "pages/visiteur/programme.html", {
         "guest": guest,
         "meetings": meetings,
@@ -76,7 +94,27 @@ async def visiteur_contacts(
     })
 
 
-# ── Documents explicitement marqués publics ─────────────────────────────────
+# ── Documents : propre opt-in, ou hérité du dossier/espace entier ──────────
+
+def _doc_guest_visible(doc: Document, guest_rank: int) -> bool:
+    """Un document est visible à ce visiteur si lui-même, son dossier ou son
+    espace a été explicitement ouvert aux visiteurs, ET que le grade du
+    visiteur couvre à la fois le grade minimum du dossier et de l'espace
+    (même logique à deux niveaux que pour un membre — voir
+    _get_authorized_doc dans app/routers/documents.py)."""
+    folder = doc.folder
+    if not folder or folder.personal_owner_id:
+        return False  # jamais un dossier personnel, flag ou pas
+    space = folder.space
+    opened = bool(doc.visible_to_guests or folder.visible_to_guests or (space and space.visible_to_guests))
+    if not opened:
+        return False
+    if guest_rank < _MIN_GRADE_RANK.get(folder.min_grade.value, 0):
+        return False
+    if space and guest_rank < _MIN_GRADE_RANK.get(space.min_grade.value, 0):
+        return False
+    return True
+
 
 @router.get("/documents", response_class=HTMLResponse)
 async def visiteur_documents(
@@ -86,14 +124,15 @@ async def visiteur_documents(
 ):
     r = await db.execute(
         select(Document)
+        .options(selectinload(Document.folder).selectinload(DocFolder.space))
         .where(
-            Document.visible_to_guests.is_(True),
             Document.status == DocStatus.PUBLISHED,
             Document.deleted_at.is_(None),
         )
         .order_by(Document.name)
     )
-    documents = r.scalars().all()
+    guest_rank = _guest_rank(guest)
+    documents = [d for d in r.scalars().all() if _doc_guest_visible(d, guest_rank)]
     return templates.TemplateResponse(request, "pages/visiteur/documents.html", {
         "guest": guest,
         "documents": documents,
@@ -106,12 +145,17 @@ async def visiteur_document_download(
     guest: Annotated[GuestAccount, Depends(require_guest_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    doc = await db.get(Document, doc_id)
+    r = await db.execute(
+        select(Document)
+        .options(selectinload(Document.folder).selectinload(DocFolder.space))
+        .where(Document.id == doc_id)
+    )
+    doc = r.scalar_one_or_none()
     if (
         not doc
-        or not doc.visible_to_guests
         or doc.status != DocStatus.PUBLISHED
         or doc.deleted_at is not None
+        or not _doc_guest_visible(doc, _guest_rank(guest))
     ):
         raise HTTPException(status_code=404)
 

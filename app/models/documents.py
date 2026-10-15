@@ -49,6 +49,11 @@ class DocSpace(Base):
     # contenu (cf. échange du 02/10/2026 sur la clarté de la bibliothèque).
     icon: Mapped[Optional[str]] = mapped_column(String(10), nullable=True)
 
+    # Accès visiteur (Phase 2) — ouvre tout l'espace (dossiers + documents
+    # publiés) aux comptes GuestAccount dont le grade couvre min_grade,
+    # sans avoir à cocher chaque document un par un.
+    visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
+
     created_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
@@ -86,6 +91,12 @@ class DocFolder(Base):
     subject_member_id: Mapped[Optional[int]] = mapped_column(
         ForeignKey("members.id", ondelete="SET NULL"), nullable=True
     )
+
+    # Accès visiteur (Phase 2) — ouvre tout le dossier (documents publiés)
+    # aux comptes GuestAccount dont le grade couvre min_grade, sans avoir à
+    # cocher chaque document un par un. Non récursif : un sous-dossier doit
+    # être ouvert séparément.
+    visible_to_guests: Mapped[bool] = mapped_column(Boolean, default=False)
 
     # ── Permissions granulaires (ajout Mai 2026) ──────────────────────────────
     # TÉLÉCHARGEMENT

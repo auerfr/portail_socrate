@@ -183,6 +183,21 @@
         </p>
       </div>
 
+      {# Accès visiteur #}
+      <div class="bg-gray-50 rounded-xl p-4 space-y-2">
+        <label class="flex items-center gap-2 cursor-pointer">
+          <input type="checkbox" name="visible_to_guests" value="1" {% if folder.visible_to_guests %}checked{% endif %}
+                 class="rounded border-gray-300 text-loge-700">
+          <span class="text-sm font-semibold text-gray-800">
+            <i class="ti ti-user-plus text-emerald-600"></i> Ouvrir ce dossier aux comptes visiteurs
+          </span>
+        </label>
+        <p class="text-[10px] text-gray-400">
+          Donne accès à tous les documents publiés de ce dossier (pas des sous-dossiers) aux comptes
+          visiteurs du portail dont le grade couvre le grade minimum défini ci-dessus.
+        </p>
+      </div>
+
     </div>
 
     <div class="flex gap-3 pt-2">

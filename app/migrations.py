@@ -1493,6 +1493,7 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
                 email VARCHAR(200) NOT NULL UNIQUE,
                 home_lodge VARCHAR(200),
                 obedience VARCHAR(200),
+                masonic_grade VARCHAR(10),
                 password_hash VARCHAR(200),
                 totp_secret VARCHAR(64),
                 totp_enabled BOOLEAN NOT NULL DEFAULT 0,
@@ -1534,3 +1535,27 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         await conn.exec_driver_sql(
             "CREATE INDEX IF NOT EXISTS ix_guest_sessions_jti ON guest_sessions(jti)"
         )
+
+        # ── Grade réel du visiteur (plafonne le contenu grade-gated qui lui
+        # est ouvert — ajouté après coup, donc guardé pour les installs déjà
+        # migrées avec l'ancien guest_accounts) ────────────────────────────
+        r_ga = await conn.exec_driver_sql("PRAGMA table_info(guest_accounts)")
+        cols_ga = [row[1] for row in r_ga.fetchall()]
+        if "masonic_grade" not in cols_ga:
+            await conn.exec_driver_sql(
+                "ALTER TABLE guest_accounts ADD COLUMN masonic_grade VARCHAR(10)"
+            )
+
+        # ── Accès visiteur par dossier/espace entier (Phase 2) ──────────────
+        r_dsp = await conn.exec_driver_sql("PRAGMA table_info(doc_spaces)")
+        cols_dsp = [row[1] for row in r_dsp.fetchall()]
+        if "visible_to_guests" not in cols_dsp:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_spaces ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
+            )
+        r_dfo = await conn.exec_driver_sql("PRAGMA table_info(doc_folders)")
+        cols_dfo = [row[1] for row in r_dfo.fetchall()]
+        if "visible_to_guests" not in cols_dfo:
+            await conn.exec_driver_sql(
+                "ALTER TABLE doc_folders ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
+            )

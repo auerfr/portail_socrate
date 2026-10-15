@@ -16,6 +16,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_auth, can_manage_guests
 from app.models.guest import GuestAccount, GuestSession
+from app.models.identity import MasonicGrade
 from app.models.meetings import Visitor
 from app.services.email import _send_raw
 
@@ -93,6 +94,7 @@ async def guest_new_form(
         "current_user": user,
         "current_member": member,
         "guest": None,
+        "masonic_grades": list(MasonicGrade),
     })
 
 
@@ -106,6 +108,7 @@ async def guest_create(
     email: str = Form(...),
     home_lodge: str = Form(""),
     obedience: str = Form(""),
+    masonic_grade: str = Form(...),
     expires_at: str = Form(""),
 ):
     user, member = ctx
@@ -118,6 +121,7 @@ async def guest_create(
     if existing:
         return templates.TemplateResponse(request, "pages/guests/form.html", {
             "current_user": user, "current_member": member, "guest": None,
+            "masonic_grades": list(MasonicGrade),
             "error": "Un compte visiteur existe déjà avec cet email.",
         }, status_code=400)
 
@@ -133,6 +137,7 @@ async def guest_create(
         email=email,
         home_lodge=home_lodge.strip() or None,
         obedience=obedience.strip() or None,
+        masonic_grade=MasonicGrade(masonic_grade),
         invited_by_id=member.id,
         linked_visitor_id=linked_visitor.id if linked_visitor else None,
         magic_token=secrets.token_urlsafe(32),
@@ -197,6 +202,7 @@ async def guest_detail(
         "invited": request.query_params.get("invited") == "1",
         "visitors": visitors,
         "linked_visitor": linked_visitor,
+        "masonic_grades": list(MasonicGrade),
     })
 
 
@@ -238,6 +244,7 @@ async def guest_edit(
     last_name: str = Form(...),
     home_lodge: str = Form(""),
     obedience: str = Form(""),
+    masonic_grade: str = Form(...),
     expires_at: str = Form(""),
 ):
     user, member = ctx
@@ -250,6 +257,7 @@ async def guest_edit(
     guest.last_name = last_name.strip()
     guest.home_lodge = home_lodge.strip() or None
     guest.obedience = obedience.strip() or None
+    guest.masonic_grade = MasonicGrade(masonic_grade)
     guest.expires_at = None
     if expires_at.strip():
         try:

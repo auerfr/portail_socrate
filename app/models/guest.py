@@ -1,22 +1,30 @@
 """Domaine — Accès visiteur (frères d'autres loges, droits très restreints).
 
 Un GuestAccount est volontairement une entité séparée de Member/User : il
-n'a ni grade maçonnique ni fonction en loge, et la quasi-totalité des
-permissions de l'appli reposent sur ces deux notions. Le mélanger dans
-Member aurait obligé à faire gérer "et si c'est None ?" à des dizaines
-d'endroits déjà écrits pour des membres. Séparé, un compte visiteur ne
-peut strictement rien faire par défaut : seules les routes qui dépendent
+n'a pas de fonction en loge, et la quasi-totalité des permissions de
+l'appli reposent sur fonction + grade combinés. Le mélanger dans Member
+aurait obligé à faire gérer "et si c'est None ?" à des dizaines d'endroits
+déjà écrits pour des membres. Séparé, un compte visiteur ne peut
+strictement rien faire par défaut : seules les routes qui dépendent
 explicitement de require_guest_auth (voir app/dependencies.py) lui sont
 accessibles — tout le reste de l'application lui est fermé par
 construction, pas par une liste noire à tenir à jour.
+
+Il a en revanche bien un grade maçonnique réel (c'est un Maçon d'une autre
+loge) : le contenu qui lui est ouvert (programme, documents) reste filtré
+par ce grade exactement comme pour un membre, en plus de l'opt-in explicite
+posé par l'officier — un visiteur Apprenti ne voit jamais une tenue ou un
+document réservé aux Maîtres même si elle est par ailleurs marquée
+visible aux visiteurs.
 """
 from datetime import datetime
 from typing import Optional
 
-from sqlalchemy import String, Boolean, DateTime, ForeignKey, func
+from sqlalchemy import String, Boolean, DateTime, Enum, ForeignKey, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.database import Base
+from app.models.identity import MasonicGrade
 
 
 class GuestAccount(Base):
@@ -29,6 +37,11 @@ class GuestAccount(Base):
     email: Mapped[str] = mapped_column(String(200), unique=True, index=True)
     home_lodge: Mapped[Optional[str]] = mapped_column(String(200))
     obedience: Mapped[Optional[str]] = mapped_column(String(200))
+    # Grade réel du visiteur (renseigné par l'officier qui invite, qui le
+    # connaît) — sert de plafond sur tout contenu grade-gated qui lui est
+    # ouvert. NULL = traité comme APPRENTI (le plus restrictif) tant que ce
+    # n'est pas renseigné, jamais comme "tout voir".
+    masonic_grade: Mapped[Optional[MasonicGrade]] = mapped_column(Enum(MasonicGrade), nullable=True)
 
     # Authentification — vide tant que l'onboarding (1er lien magique) n'est
     # pas terminé. 2FA obligatoire pour ce type de compte (pas une option
