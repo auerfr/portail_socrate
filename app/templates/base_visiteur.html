@@ -21,7 +21,7 @@
 <body class="h-full bg-gray-50">
 
   <header style="background: linear-gradient(135deg, #0f3d3a, #1a2538);">
-    <div class="max-w-2xl mx-auto px-4 py-4 flex items-center justify-between gap-3">
+    <div class="px-4 sm:px-6 py-4 flex items-center justify-between gap-3">
       <a href="/visiteur/" class="flex items-center gap-2.5 min-w-0">
         <span class="text-2xl shrink-0">⚜</span>
         <div class="min-w-0">
@@ -32,15 +32,16 @@
           </div>
         </div>
       </a>
-      <div class="flex items-center gap-1 shrink-0">
-        <a href="/visiteur/mot-de-passe" title="Mot de passe"
-           class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
-          <i class="ti ti-settings text-lg"></i>
+      <div class="flex items-center gap-2 shrink-0">
+        <a href="/visiteur/mot-de-passe" title="Réglages du compte"
+           class="flex items-center gap-1.5 h-9 px-3 rounded-lg text-sm font-medium text-slate-200 hover:text-white hover:bg-white/10 transition-colors border border-white/15">
+          <i class="ti ti-settings text-base"></i>
+          <span class="hidden sm:inline">Réglages</span>
         </a>
         <form method="post" action="/auth/logout">
           <button type="submit" title="Déconnexion"
-                  class="w-8 h-8 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors">
-            <i class="ti ti-logout text-lg"></i>
+                  class="w-9 h-9 flex items-center justify-center rounded-lg text-slate-300 hover:text-white hover:bg-white/10 transition-colors border border-white/15">
+            <i class="ti ti-logout text-base"></i>
           </button>
         </form>
       </div>
@@ -51,23 +52,25 @@
     {% block content %}{% endblock %}
   </main>
 
-  <nav class="fixed bottom-0 inset-x-0 z-40 flex"
+  <nav class="fixed bottom-0 inset-x-0 z-40 flex justify-center"
        style="background:#132a28; border-top:1px solid rgba(255,255,255,0.08); padding-bottom: env(safe-area-inset-bottom, 0px);">
-    <a href="/visiteur/" class="visiteur-nav-item {% if request.url.path == '/visiteur/' %}active{% endif %}">
-      <i class="ti ti-home"></i> Accueil
-    </a>
-    <a href="/visiteur/programme" class="visiteur-nav-item {% if '/visiteur/programme' in request.url.path %}active{% endif %}">
-      <i class="ti ti-calendar-event"></i> Programme
-    </a>
-    <a href="/visiteur/documents" class="visiteur-nav-item {% if '/visiteur/documents' in request.url.path %}active{% endif %}">
-      <i class="ti ti-file-text"></i> Documents
-    </a>
-    <a href="/visiteur/forum" class="visiteur-nav-item {% if '/visiteur/forum' in request.url.path %}active{% endif %}">
-      <i class="ti ti-messages"></i> Forum
-    </a>
-    <a href="/visiteur/sondages" class="visiteur-nav-item {% if '/visiteur/sondages' in request.url.path %}active{% endif %}">
-      <i class="ti ti-chart-bar"></i> Sondages
-    </a>
+    <div class="flex w-full max-w-md">
+      <a href="/visiteur/" class="visiteur-nav-item {% if request.url.path == '/visiteur/' %}active{% endif %}">
+        <i class="ti ti-home"></i> Accueil
+      </a>
+      <a href="/visiteur/programme" class="visiteur-nav-item {% if '/visiteur/programme' in request.url.path %}active{% endif %}">
+        <i class="ti ti-calendar-event"></i> Programme
+      </a>
+      <a href="/visiteur/documents" class="visiteur-nav-item {% if '/visiteur/documents' in request.url.path %}active{% endif %}">
+        <i class="ti ti-file-text"></i> Documents
+      </a>
+      <a href="/visiteur/forum" class="visiteur-nav-item {% if '/visiteur/forum' in request.url.path %}active{% endif %}">
+        <i class="ti ti-messages"></i> Forum
+      </a>
+      <a href="/visiteur/sondages" class="visiteur-nav-item {% if '/visiteur/sondages' in request.url.path %}active{% endif %}">
+        <i class="ti ti-chart-bar"></i> Sondages
+      </a>
+    </div>
   </nav>
 
   <script>
