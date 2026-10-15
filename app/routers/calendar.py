@@ -672,9 +672,18 @@ async def calendar_create_event(
     recurrence_position: Optional[str] = Form(None),
     recurrence_until: Optional[str] = Form(None),
     visibility_member_ids: Optional[str] = Form(None),
+    visible_to_guests: Optional[str] = Form(None),
 ):
     user, member = ctx
     personal = is_personal in ("on", "1", "true")
+    # Jamais pour un événement personnel, et seulement si la visibilité est
+    # une des visibilités "par grade" — GROUP/MEMBERS/OFFICERS/ADMIN restent
+    # toujours fermées aux visiteurs (voir visiteur.py::_lodge_event_guest_visible).
+    open_to_guests = (
+        not personal
+        and visible_to_guests in ("1", "on", "true")
+        and visibility in ("ALL", "MAITRES", "COMPAGNONS_ET_MAITRES", "APPRENTIS")
+    )
 
     # Validation : les non-privilégiés ne peuvent créer que des événements
     # personnels ou des événements de groupe dont ils font partie
@@ -742,6 +751,7 @@ async def calendar_create_event(
             visibility_group_id=grp_id,
             visibility_member_ids=mbr_ids_str,
             is_personal=personal,
+            visible_to_guests=open_to_guests,
             created_by_id=member.id,
         )
         db.add(event)
@@ -790,6 +800,7 @@ async def calendar_create_event(
             visibility_group_id=grp_id,
             visibility_member_ids=mbr_ids_str,
             is_personal=personal,
+            visible_to_guests=open_to_guests,
             created_by_id=member.id,
             recurrence_group_id=group_id,
             recurrence_label=label,
@@ -910,6 +921,7 @@ async def calendar_event_edit(
     visibility: str = Form(...),
     visibility_group_id: Optional[int] = Form(None),
     visibility_member_ids: Optional[str] = Form(None),
+    visible_to_guests: Optional[str] = Form(None),
 ):
     user, member = ctx
 
@@ -956,6 +968,11 @@ async def calendar_event_edit(
     event.visibility = vis
     event.visibility_group_id = visibility_group_id if vis == EventVisibility.GROUP else None
     event.visibility_member_ids = mbr_ids_str if vis == EventVisibility.MEMBERS else None
+    event.visible_to_guests = (
+        not event.is_personal
+        and visible_to_guests in ("1", "on", "true")
+        and visibility in ("ALL", "MAITRES", "COMPAGNONS_ET_MAITRES", "APPRENTIS")
+    )
 
     await db.commit()
     return RedirectResponse(url=f"/calendar/events/{event_id}", status_code=303)

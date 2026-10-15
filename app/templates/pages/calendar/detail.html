@@ -347,6 +347,15 @@
               </div>
               <p class="text-xs text-gray-400 mt-1"><span x-text="selectedMembers.length"></span> membre(s) — seuls eux + vous verrez l'événement.</p>
             </div>
+
+            <div x-show="['ALL','MAITRES','COMPAGNONS_ET_MAITRES','APPRENTIS'].includes(visibility)" x-cloak class="mt-3 pt-3 border-t border-gray-100">
+              <label class="flex items-center gap-2.5 cursor-pointer">
+                <input type="checkbox" name="visible_to_guests" value="1"
+                       {% if event.visible_to_guests %}checked{% endif %}
+                       class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+                <span class="text-sm text-gray-700"><i class="ti ti-user-plus"></i> Visible dans l'agenda des comptes visiteurs</span>
+              </label>
+            </div>
           </div>
         </div>
       </div>

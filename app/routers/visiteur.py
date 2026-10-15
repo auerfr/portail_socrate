@@ -6,7 +6,7 @@ module dépend de require_guest_auth, jamais de require_auth (voir
 app/dependencies.py)."""
 from datetime import date, datetime
 from pathlib import Path
-from typing import Annotated
+from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -20,6 +20,7 @@ from app.models.guest import GuestAccount
 from app.models.identity import MasonicGrade
 from app.models.meetings import Meeting, MeetingStatus
 from app.routers.meetings import _type_label
+from app.models.lodge_calendar import LodgeEvent, EventVisibility
 from app.models.documents import Document, DocFolder, DocSpace, DocStatus
 from app.models.lodge import LodgeSettings
 from app.models.forum import ForumSubject, ForumMessage
@@ -40,6 +41,30 @@ _MIN_GRADE_RANK = {"ALL": 0, "APPRENTI": 1, "COMPAGNON": 2, "MAITRE": 3}
 
 def _guest_rank(guest: GuestAccount) -> int:
     return _GUEST_GRADE_RANK.get(guest.masonic_grade, 0)
+
+
+# Événements d'agenda (LodgeEvent) : seules les visibilités "par grade" sont
+# ouvrables aux visiteurs — GROUP/MEMBERS/OFFICERS/ADMIN restent toujours
+# fermées (pas de notion de groupe/membre nommé côté visiteur). None = jamais
+# ouvert, même avec visible_to_guests=True (filet de sécurité si la donnée a
+# été modifiée hors de ce chemin, ex: admin DB direct).
+_LODGE_EVENT_GUEST_GRADES: dict[str, Optional[set]] = {
+    "ALL": None,  # None ici = "aucun filtre de grade", pas "jamais ouvert"
+    "APPRENTIS": {MasonicGrade.APPRENTI},
+    "COMPAGNONS_ET_MAITRES": {MasonicGrade.COMPAGNON, MasonicGrade.MAITRE},
+    "MAITRES": {MasonicGrade.MAITRE},
+}
+_LODGE_EVENT_GUEST_OPENABLE = set(_LODGE_EVENT_GUEST_GRADES)
+
+
+def _lodge_event_guest_visible(event: LodgeEvent, guest: GuestAccount) -> bool:
+    if event.is_personal or not event.visible_to_guests:
+        return False
+    v = event.visibility.value
+    if v not in _LODGE_EVENT_GUEST_OPENABLE:
+        return False
+    allowed = _LODGE_EVENT_GUEST_GRADES[v]
+    return allowed is None or guest.masonic_grade in allowed
 
 
 @router.get("/", response_class=HTMLResponse)
@@ -78,6 +103,55 @@ async def visiteur_programme(
         "guest": guest,
         "meetings": meetings,
         "type_label": _type_label,
+    })
+
+
+# ── Agenda (événements libres de la loge explicitement ouverts) ────────────
+
+_LODGE_EVENT_TYPE_LABELS = {
+    "RITUAL": "Tenue rituelle", "AGAPE": "Agape / repas",
+    "EXTERNAL": "Événement extérieur", "ADMIN": "Réunion administrative",
+    "DEADLINE": "Échéance", "OTHER": "Autre",
+}
+
+
+@router.get("/agenda", response_class=HTMLResponse)
+async def visiteur_agenda(
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    r = await db.execute(
+        select(LodgeEvent)
+        .where(
+            LodgeEvent.visible_to_guests.is_(True),
+            LodgeEvent.is_personal.is_(False),
+            LodgeEvent.start_datetime >= datetime.combine(date.today(), datetime.min.time()),
+        )
+        .order_by(LodgeEvent.start_datetime)
+    )
+    events = [e for e in r.scalars().all() if _lodge_event_guest_visible(e, guest)]
+    return templates.TemplateResponse(request, "pages/visiteur/agenda.html", {
+        "guest": guest,
+        "events": events,
+        "type_label": _LODGE_EVENT_TYPE_LABELS,
+    })
+
+
+@router.get("/agenda/{event_id}", response_class=HTMLResponse)
+async def visiteur_agenda_detail(
+    event_id: int,
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    event = await db.get(LodgeEvent, event_id)
+    if not event or not _lodge_event_guest_visible(event, guest):
+        raise HTTPException(status_code=404)
+    return templates.TemplateResponse(request, "pages/visiteur/agenda_detail.html", {
+        "guest": guest,
+        "event": event,
+        "type_label": _LODGE_EVENT_TYPE_LABELS,
     })
 
 

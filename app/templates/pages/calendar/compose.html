@@ -335,6 +335,16 @@
           </div>
 
           <p class="text-xs text-gray-400 mt-1">Définit qui peut voir cet événement dans l'agenda.</p>
+
+          {# Ouverture aux comptes visiteurs — seulement pour les visibilités "par grade" #}
+          <div x-show="['ALL','MAITRES','COMPAGNONS_ET_MAITRES','APPRENTIS'].includes(visibility)" x-cloak class="mt-3 pt-3 border-t border-gray-100">
+            <label class="flex items-center gap-2.5 cursor-pointer">
+              <input type="checkbox" name="visible_to_guests" value="1"
+                     class="w-4 h-4 rounded border-gray-300 text-loge-600 focus:ring-loge-500">
+              <span class="text-sm text-gray-700"><i class="ti ti-user-plus"></i> Visible dans l'agenda des comptes visiteurs</span>
+            </label>
+            <p class="text-xs text-gray-400 mt-1 ml-6">Le grade réel du visiteur reste vérifié — un visiteur Apprenti ne verra jamais un événement "Maîtres uniquement".</p>
+          </div>
         </div>
       </div>
 

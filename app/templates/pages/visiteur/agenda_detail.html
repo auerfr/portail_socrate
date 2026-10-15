@@ -1,0 +1,53 @@
+{% extends "base_visiteur.html" %}
+{% block title %}{{ event.title }} — Agenda{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <a href="/visiteur/agenda" class="text-sm text-gray-500 hover:text-gray-700">← Agenda</a>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 space-y-4">
+    <div>
+      <h1 class="text-xl font-bold text-gray-900">{{ event.title }}</h1>
+      <div class="text-xs text-gray-400 mt-1">{{ type_label.get(event.event_type.value, event.event_type.value) }}</div>
+    </div>
+
+    <div class="flex items-center gap-2 text-sm text-gray-700">
+      <i class="ti ti-calendar-event text-gray-400"></i>
+      <span>
+        {{ event.start_datetime | datefr('%A %d %B %Y') | capitalize }}
+        {% if not event.all_day %}
+          à {{ event.start_datetime.strftime('%H:%M') }}
+          {% if event.end_datetime %}– {{ event.end_datetime.strftime('%H:%M') }}{% endif %}
+        {% else %}
+          <span class="text-gray-400">(journée entière)</span>
+        {% endif %}
+      </span>
+    </div>
+
+    {% if event.location %}
+    <div class="flex items-center gap-2 text-sm text-gray-700">
+      <i class="ti ti-map-pin text-gray-400"></i>
+      <span>{{ event.location }}</span>
+    </div>
+    {% endif %}
+
+    {% if event.meeting_url %}
+    <div class="flex items-center gap-2">
+      <i class="ti ti-video text-indigo-400"></i>
+      <a href="{{ event.meeting_url }}" target="_blank" rel="noopener"
+         class="text-sm font-semibold text-indigo-600 hover:text-indigo-800 hover:underline">
+        Rejoindre la réunion à distance
+      </a>
+    </div>
+    {% endif %}
+
+    {% if event.description %}
+    <div class="border-t border-gray-100 pt-4">
+      <p class="text-sm text-gray-800 leading-relaxed whitespace-pre-line">{{ event.description }}</p>
+    </div>
+    {% endif %}
+  </div>
+
+</div>
+{% endblock %}

@@ -1616,3 +1616,11 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             "CREATE INDEX IF NOT EXISTS ix_guest_push_subscriptions_guest_account_id "
             "ON guest_push_subscriptions(guest_account_id)"
         )
+
+        # ── Accès visiteur — agenda (LodgeEvent) ────────────────────────────
+        r_le = await conn.exec_driver_sql("PRAGMA table_info(lodge_events)")
+        cols_le = [row[1] for row in r_le.fetchall()]
+        if "visible_to_guests" not in cols_le:
+            await conn.exec_driver_sql(
+                "ALTER TABLE lodge_events ADD COLUMN visible_to_guests BOOLEAN NOT NULL DEFAULT 0"
+            )
