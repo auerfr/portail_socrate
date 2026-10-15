@@ -183,6 +183,11 @@ async def guest_detail(
         )
     ).scalar_one()
 
+    visitors = (
+        await db.execute(select(Visitor).order_by(Visitor.created_at.desc()).limit(300))
+    ).scalars().all()
+    linked_visitor = await db.get(Visitor, guest.linked_visitor_id) if guest.linked_visitor_id else None
+
     return templates.TemplateResponse(request, "pages/guests/detail.html", {
         "current_user": user,
         "current_member": member,
@@ -190,7 +195,37 @@ async def guest_detail(
         "status_label": _status_label(guest),
         "sessions_count": sessions_count,
         "invited": request.query_params.get("invited") == "1",
+        "visitors": visitors,
+        "linked_visitor": linked_visitor,
     })
+
+
+@router.post("/{guest_id}/link-visitor")
+async def guest_link_visitor(
+    guest_id: int,
+    request: Request,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    visitor_id: str = Form(""),
+):
+    """Relie (ou délie) manuellement ce compte visiteur à un Visitor existant
+    (présence en tenue) — en complément du rapprochement automatique par
+    email fait à l'invitation."""
+    user, member = ctx
+    _require_manage(user, member)
+    guest = await db.get(GuestAccount, guest_id)
+    if not guest:
+        raise HTTPException(404)
+
+    if visitor_id.strip():
+        visitor = await db.get(Visitor, int(visitor_id))
+        if not visitor:
+            raise HTTPException(404, "Visiteur introuvable")
+        guest.linked_visitor_id = visitor.id
+    else:
+        guest.linked_visitor_id = None
+    await db.commit()
+    return RedirectResponse(url=f"/gestion-visiteurs/{guest.id}", status_code=303)
 
 
 @router.post("/{guest_id}/edit")

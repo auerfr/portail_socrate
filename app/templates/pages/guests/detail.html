@@ -31,12 +31,32 @@
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3 text-sm">
     <div class="flex justify-between"><span class="text-gray-500">Obédience</span><span class="text-gray-900">{{ guest.obedience or "—" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Invité par</span><span class="text-gray-900">{{ guest.invited_by.first_name ~ " " ~ guest.invited_by.last_name if guest.invited_by else "—" }}</span></div>
-    <div class="flex justify-between"><span class="text-gray-500">Visiteur relié (présences)</span><span class="text-gray-900">{{ "Oui" if guest.linked_visitor_id else "Non" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Visiteur relié (présences)</span><span class="text-gray-900">{{ (linked_visitor.last_name ~ " " ~ linked_visitor.first_name) if linked_visitor else "Non" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Onboarding (mot de passe + 2FA)</span><span class="text-gray-900">{{ "Terminé" if guest.onboarding_completed else "En attente" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Double authentification</span><span class="text-gray-900">{{ "Activée" if guest.totp_enabled else "—" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Accès jusqu'au</span><span class="text-gray-900">{{ guest.expires_at.strftime('%d/%m/%Y') if guest.expires_at else "Sans limite" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Dernière connexion</span><span class="text-gray-900">{{ guest.last_login_at.strftime('%d/%m/%Y %H:%M') if guest.last_login_at else "Jamais" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Sessions enregistrées</span><span class="text-gray-900">{{ sessions_count }}</span></div>
+  </div>
+
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
+    <h2 class="font-semibold text-gray-900 text-sm">Visiteur relié (présences en tenue)</h2>
+    <p class="text-xs text-gray-400">
+      Associe ce compte à sa fiche de présence s'il est déjà venu en tenue — son historique de visites reste ainsi rattaché à son compte portail.
+    </p>
+    <form method="post" action="/gestion-visiteurs/{{ guest.id }}/link-visitor" class="flex gap-2">
+      <select name="visitor_id" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <option value="">— Aucun —</option>
+        {% for v in visitors %}
+        <option value="{{ v.id }}" {% if guest.linked_visitor_id == v.id %}selected{% endif %}>
+          {{ v.last_name }} {{ v.first_name }}{% if v.lodge_name %} — {{ v.lodge_name }}{% endif %} ({{ v.created_at.strftime('%d/%m/%Y') if v.created_at else '?' }})
+        </option>
+        {% endfor %}
+      </select>
+      <button type="submit" class="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 font-medium rounded-lg text-sm transition-colors shrink-0">
+        Relier
+      </button>
+    </form>
   </div>
 
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
