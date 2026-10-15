@@ -31,7 +31,7 @@
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3 text-sm">
     <div class="flex justify-between"><span class="text-gray-500">Obédience</span><span class="text-gray-900">{{ guest.obedience or "—" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Invité par</span><span class="text-gray-900">{{ guest.invited_by.first_name ~ " " ~ guest.invited_by.last_name if guest.invited_by else "—" }}</span></div>
-    <div class="flex justify-between"><span class="text-gray-500">Visiteur relié (présences)</span><span class="text-gray-900">{{ (linked_visitor.last_name ~ " " ~ linked_visitor.first_name) if linked_visitor else "Non" }}</span></div>
+    <div class="flex justify-between"><span class="text-gray-500">Maçon passant relié (présences)</span><span class="text-gray-900">{{ (linked_visitor.last_name ~ " " ~ linked_visitor.first_name) if linked_visitor else "Non" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Onboarding (mot de passe + 2FA)</span><span class="text-gray-900">{{ "Terminé" if guest.onboarding_completed else "En attente" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Double authentification</span><span class="text-gray-900">{{ "Activée" if guest.totp_enabled else "—" }}</span></div>
     <div class="flex justify-between"><span class="text-gray-500">Accès jusqu'au</span><span class="text-gray-900">{{ guest.expires_at.strftime('%d/%m/%Y') if guest.expires_at else "Sans limite" }}</span></div>
@@ -40,9 +40,9 @@
   </div>
 
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 space-y-3">
-    <h2 class="font-semibold text-gray-900 text-sm">Visiteur relié (présences en tenue)</h2>
+    <h2 class="font-semibold text-gray-900 text-sm">Maçon passant relié (présences en tenue)</h2>
     <p class="text-xs text-gray-400">
-      Associe ce compte à sa fiche de présence s'il est déjà venu en tenue — son historique de visites reste ainsi rattaché à son compte portail.
+      Associe ce compte à sa fiche de maçon passant s'il est déjà venu en tenue — son historique de présences reste ainsi rattaché à son compte portail.
     </p>
     <form method="post" action="/gestion-visiteurs/{{ guest.id }}/link-visitor" class="flex gap-2">
       <select name="visitor_id" class="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
