@@ -7,29 +7,25 @@
   <a href="/visiteur/" class="text-sm text-gray-500 hover:text-gray-700">← Accueil</a>
   <h1 class="text-xl font-bold text-gray-900">Documents</h1>
 
-  {% if not groups %}
+  {% if not spaces %}
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500 text-sm">
     Aucun document n'est partagé avec les visiteurs pour l'instant.
   </div>
   {% else %}
-  {% for group in groups %}
+  {% for entry in spaces %}
   <div>
     <div class="text-xs font-medium text-gray-400 uppercase tracking-wide mb-1.5 px-1">
-      {{ group.space_name }} <span class="text-gray-300">/</span> {{ group.folder_name }}
+      {{ entry.space.icon ~ ' ' if entry.space.icon }}{{ entry.space.name }}
     </div>
     <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
-      {% for doc in group.docs %}
-      <div class="flex items-center justify-between gap-3 p-4">
-        <div class="min-w-0">
-          <div class="font-medium text-gray-900 truncate">{{ doc.name }}</div>
-          {% if doc.description %}<div class="text-xs text-gray-500 truncate">{{ doc.description }}</div>{% endif %}
-        </div>
-        <a href="/visiteur/documents/{{ doc.id }}/download"
-           {% if doc.link_url %}target="_blank" rel="noopener"{% endif %}
-           class="shrink-0 px-3 py-1.5 bg-loge-50 text-loge-700 text-xs font-medium rounded-lg hover:bg-loge-100 transition-colors">
-          {{ "Ouvrir" if doc.link_url else "Télécharger" }}
-        </a>
-      </div>
+      {% for node in entry.folders %}
+      <a href="/visiteur/documents/dossier/{{ node.folder.id }}"
+         class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
+        <span class="flex items-center gap-3 text-sm text-gray-800">
+          <i class="ti ti-folder text-amber-500"></i> {{ node.folder.name }}
+        </span>
+        <i class="ti ti-chevron-right text-gray-300"></i>
+      </a>
       {% endfor %}
     </div>
   </div>

@@ -1,0 +1,62 @@
+{% extends "base_visiteur.html" %}
+{% block title %}{{ node.folder.name }}{% endblock %}
+
+{% block content %}
+<div class="space-y-5">
+
+  <div class="text-xs text-gray-500 flex flex-wrap items-center gap-1">
+    <a href="/visiteur/documents" class="hover:text-gray-700">Documents</a>
+    <span class="text-gray-300">/</span>
+    <span>{{ space.icon ~ ' ' if space and space.icon }}{{ space.name if space else '—' }}</span>
+    {% for f in breadcrumb %}
+    <span class="text-gray-300">/</span>
+    {% if loop.last %}
+    <span class="text-gray-700 font-medium">{{ f.name }}</span>
+    {% else %}
+    <a href="/visiteur/documents/dossier/{{ f.id }}" class="hover:text-gray-700">{{ f.name }}</a>
+    {% endif %}
+    {% endfor %}
+  </div>
+
+  <h1 class="text-xl font-bold text-gray-900">{{ node.folder.name }}</h1>
+
+  {% if not node.children and not node.docs %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-6 text-center text-gray-500 text-sm">
+    Ce dossier est vide.
+  </div>
+  {% endif %}
+
+  {% if node.children %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+    {% for child in node.children %}
+    <a href="/visiteur/documents/dossier/{{ child.folder.id }}"
+       class="flex items-center justify-between gap-3 p-4 hover:bg-gray-50 transition-colors">
+      <span class="flex items-center gap-3 text-sm text-gray-800">
+        <i class="ti ti-folder text-amber-500"></i> {{ child.folder.name }}
+      </span>
+      <i class="ti ti-chevron-right text-gray-300"></i>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if node.docs %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm divide-y divide-gray-100">
+    {% for doc in node.docs %}
+    <div class="flex items-center justify-between gap-3 p-4">
+      <div class="min-w-0">
+        <div class="font-medium text-gray-900 truncate">{{ doc.name }}</div>
+        {% if doc.description %}<div class="text-xs text-gray-500 truncate">{{ doc.description }}</div>{% endif %}
+      </div>
+      <a href="/visiteur/documents/{{ doc.id }}/download"
+         {% if doc.link_url %}target="_blank" rel="noopener"{% endif %}
+         class="shrink-0 px-3 py-1.5 bg-loge-50 text-loge-700 text-xs font-medium rounded-lg hover:bg-loge-100 transition-colors">
+        {{ "Ouvrir" if doc.link_url else "Télécharger" }}
+      </a>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+</div>
+{% endblock %}

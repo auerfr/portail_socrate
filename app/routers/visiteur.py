@@ -20,7 +20,7 @@ from app.models.guest import GuestAccount
 from app.models.identity import MasonicGrade
 from app.models.meetings import Meeting, MeetingStatus
 from app.routers.meetings import _type_label
-from app.models.documents import Document, DocFolder, DocStatus
+from app.models.documents import Document, DocFolder, DocSpace, DocStatus
 from app.models.lodge import LodgeSettings
 
 router = APIRouter(prefix="/visiteur", tags=["visiteur"])
@@ -94,7 +94,16 @@ async def visiteur_contacts(
     })
 
 
-# ── Documents : propre opt-in, ou hérité du dossier/espace entier ──────────
+# ── Documents : vraie arborescence espace → dossier → sous-dossier,
+# limitée à ce qui est ouvert aux visiteurs (opt-in + grade) ───────────────
+#
+# Calculée en mémoire à chaque requête plutôt qu'en SQL récursif — le volume
+# (bibliothèque d'une loge) reste modeste et ça garde la logique lisible.
+# Règle simplificatrice assumée : un dossier qui échoue son propre contrôle
+# de grade (le sien, pas celui d'un ancêtre — chaque dossier a son min_grade
+# indépendant) est exclu avec tout ce qu'il contient, même si un de ses
+# sous-dossiers serait par ailleurs ouvert et d'un grade plus permissif —
+# cas de configuration incohérent qu'on ne cherche pas à supporter ici.
 
 def _doc_guest_visible(doc: Document, guest_rank: int) -> bool:
     """Un document est visible à ce visiteur si lui-même, son dossier ou son
@@ -116,48 +125,120 @@ def _doc_guest_visible(doc: Document, guest_rank: int) -> bool:
     return True
 
 
+async def _build_guest_doc_tree(db: AsyncSession, guest: GuestAccount) -> dict:
+    """Retourne {"spaces": [...], "folder_nodes": {folder_id: node}} — la
+    liste des espaces accessibles (avec leurs dossiers racine) et un index
+    plat de tous les nœuds dossier atteints, pour les pages de détail
+    (dossier) et la reconstruction du fil d'Ariane sans requêtes
+    supplémentaires."""
+    guest_rank = _guest_rank(guest)
+
+    spaces = (
+        await db.execute(select(DocSpace).order_by(DocSpace.order_position, DocSpace.name))
+    ).scalars().all()
+    folders = (
+        await db.execute(
+            select(DocFolder)
+            .where(DocFolder.personal_owner_id.is_(None))
+            .order_by(DocFolder.order_position, DocFolder.name)
+        )
+    ).scalars().all()
+    docs = (
+        await db.execute(
+            select(Document).where(Document.status == DocStatus.PUBLISHED, Document.deleted_at.is_(None))
+        )
+    ).scalars().all()
+
+    spaces_by_id = {s.id: s for s in spaces}
+    children_by_parent: dict = {}
+    for f in folders:
+        children_by_parent.setdefault(f.parent_id, []).append(f)
+    docs_by_folder: dict = {}
+    for d in docs:
+        docs_by_folder.setdefault(d.folder_id, []).append(d)
+
+    def _folder_ok(f: DocFolder) -> bool:
+        return guest_rank >= _MIN_GRADE_RANK.get(f.min_grade.value, 0)
+
+    def _space_ok(s: DocSpace) -> bool:
+        return guest_rank >= _MIN_GRADE_RANK.get(s.min_grade.value, 0)
+
+    def _folder_opened(f: DocFolder) -> bool:
+        space = spaces_by_id.get(f.space_id)
+        return bool(f.visible_to_guests or (space and space.visible_to_guests))
+
+    def _doc_visible(d: Document, f: DocFolder) -> bool:
+        return bool(d.visible_to_guests or _folder_opened(f))
+
+    folder_nodes: dict = {}
+
+    def _build_folder(f: DocFolder, parent_node):
+        if not _folder_ok(f):
+            return None
+        own_docs = [d for d in docs_by_folder.get(f.id, []) if _doc_visible(d, f)]
+        node = {"folder": f, "docs": own_docs, "children": [], "parent": parent_node}
+        for cf in children_by_parent.get(f.id, []):
+            child_node = _build_folder(cf, node)
+            if child_node:
+                node["children"].append(child_node)
+        if not own_docs and not node["children"]:
+            return None
+        folder_nodes[f.id] = node
+        return node
+
+    space_list = []
+    for s in spaces:
+        if not _space_ok(s):
+            continue
+        root_folders = [
+            n for f in children_by_parent.get(None, []) if f.space_id == s.id
+            for n in [_build_folder(f, None)] if n
+        ]
+        if root_folders:
+            space_list.append({"space": s, "folders": root_folders})
+
+    return {"spaces": space_list, "folder_nodes": folder_nodes}
+
+
 @router.get("/documents", response_class=HTMLResponse)
 async def visiteur_documents(
     request: Request,
     guest: Annotated[GuestAccount, Depends(require_guest_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
-    r = await db.execute(
-        select(Document)
-        .options(selectinload(Document.folder).selectinload(DocFolder.space))
-        .where(
-            Document.status == DocStatus.PUBLISHED,
-            Document.deleted_at.is_(None),
-        )
-        .order_by(Document.name)
-    )
-    guest_rank = _guest_rank(guest)
-    documents = [d for d in r.scalars().all() if _doc_guest_visible(d, guest_rank)]
-
-    # Regroupées par espace puis dossier — un visiteur n'a pas de navigation
-    # dossier/espace comme un membre, mais doit pouvoir situer chaque
-    # document plutôt que de voir une liste plate sans repères.
-    def _sort_key(d: Document):
-        space = d.folder.space
-        return (
-            (space.order_position, space.name) if space else (0, ""),
-            (d.folder.order_position, d.folder.name),
-            d.name,
-        )
-    documents.sort(key=_sort_key)
-
-    groups: list[dict] = []
-    for d in documents:
-        space = d.folder.space
-        space_name = space.name if space else "—"
-        folder_name = d.folder.name
-        if not groups or groups[-1]["space_name"] != space_name or groups[-1]["folder_name"] != folder_name:
-            groups.append({"space_name": space_name, "folder_name": folder_name, "docs": []})
-        groups[-1]["docs"].append(d)
-
+    tree = await _build_guest_doc_tree(db, guest)
     return templates.TemplateResponse(request, "pages/visiteur/documents.html", {
         "guest": guest,
-        "groups": groups,
+        "spaces": tree["spaces"],
+    })
+
+
+@router.get("/documents/dossier/{folder_id}", response_class=HTMLResponse)
+async def visiteur_documents_folder(
+    folder_id: int,
+    request: Request,
+    guest: Annotated[GuestAccount, Depends(require_guest_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    tree = await _build_guest_doc_tree(db, guest)
+    node = tree["folder_nodes"].get(folder_id)
+    if not node:
+        raise HTTPException(status_code=404)
+
+    breadcrumb = []
+    n = node
+    while n:
+        breadcrumb.append(n["folder"])
+        n = n["parent"]
+    breadcrumb.reverse()
+
+    space = await db.get(DocSpace, node["folder"].space_id)
+
+    return templates.TemplateResponse(request, "pages/visiteur/documents_folder.html", {
+        "guest": guest,
+        "node": node,
+        "breadcrumb": breadcrumb,
+        "space": space,
     })
 
 
