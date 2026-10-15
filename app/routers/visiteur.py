@@ -133,9 +133,31 @@ async def visiteur_documents(
     )
     guest_rank = _guest_rank(guest)
     documents = [d for d in r.scalars().all() if _doc_guest_visible(d, guest_rank)]
+
+    # Regroupées par espace puis dossier — un visiteur n'a pas de navigation
+    # dossier/espace comme un membre, mais doit pouvoir situer chaque
+    # document plutôt que de voir une liste plate sans repères.
+    def _sort_key(d: Document):
+        space = d.folder.space
+        return (
+            (space.order_position, space.name) if space else (0, ""),
+            (d.folder.order_position, d.folder.name),
+            d.name,
+        )
+    documents.sort(key=_sort_key)
+
+    groups: list[dict] = []
+    for d in documents:
+        space = d.folder.space
+        space_name = space.name if space else "—"
+        folder_name = d.folder.name
+        if not groups or groups[-1]["space_name"] != space_name or groups[-1]["folder_name"] != folder_name:
+            groups.append({"space_name": space_name, "folder_name": folder_name, "docs": []})
+        groups[-1]["docs"].append(d)
+
     return templates.TemplateResponse(request, "pages/visiteur/documents.html", {
         "guest": guest,
-        "documents": documents,
+        "groups": groups,
     })
 
 
