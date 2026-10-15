@@ -5,6 +5,7 @@ uvicorn[standard]==0.29.0
 # Base de données
 sqlalchemy[asyncio]==2.0.30
 asyncpg==0.29.0
+aiosqlite==0.22.1  # utilisé en prod (DATABASE_URL sqlite+aiosqlite://) et en dev local
 alembic==1.13.1
 
 # Auth
