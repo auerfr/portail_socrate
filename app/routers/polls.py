@@ -535,6 +535,42 @@ async def poll_detail(
     })
 
 
+@router.post("/{poll_id}/notify-remaining")
+async def poll_notify_remaining(
+    poll_id: int,
+    ctx: Annotated[tuple, Depends(require_auth)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+):
+    """Relance (push) les seuls membres n'ayant pas encore voté — réservé au
+    créateur du sondage et aux admins, même règle que l'affichage "qui a
+    voté" (voir poll_detail). Le message ne révèle rien à qui que ce soit
+    d'autre : chaque relance est une notification privée, individuelle."""
+    user, member = ctx
+    poll = await db.get(Poll, poll_id, options=[selectinload(Poll.votes)])
+    if not poll:
+        raise HTTPException(status_code=404)
+
+    is_creator = bool(member and poll.created_by_id == member.id)
+    if not (is_creator or user.is_admin):
+        raise HTTPException(status_code=403)
+
+    voter_ids = {v.member_id for v in poll.votes if v.member_id is not None}
+    eligible = await _eligible_members(poll, db)
+    not_voted_ids = [m.id for m in eligible if m.id not in voter_ids]
+
+    notified = 0
+    if not_voted_ids:
+        from app.services.push import send_push_broadcast
+        notified = await send_push_broadcast(
+            db, not_voted_ids,
+            "🗳️ Rappel de vote",
+            f"« {poll.title} » attend encore votre vote.",
+            f"/polls/{poll.id}",
+        )
+
+    return RedirectResponse(url=f"/polls/{poll_id}?relance_ok={notified}", status_code=303)
+
+
 @router.get("/{poll_id}/edit", response_class=HTMLResponse)
 async def poll_edit_form(
     poll_id: int,
