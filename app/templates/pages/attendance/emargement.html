@@ -125,6 +125,12 @@
                      x-model="m.excuse"
                      placeholder="Motif d'excuse (optionnel)"
                      class="mt-1 w-full text-xs border-0 border-b border-yellow-300 bg-transparent focus:outline-none focus:border-yellow-500 text-gray-600 placeholder-gray-400">
+              <!-- Qui a saisi ce statut, quand ce n'est pas le membre lui-même -->
+              <div class="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1"
+                   x-show="m.status && m.recorded_by_name" x-cloak>
+                <i class="ti ti-user-edit"></i>
+                <span x-text="'Saisi par ' + m.recorded_by_name"></span>
+              </div>
             </div>
 
             <!-- Boutons P / E / A -->
@@ -633,6 +639,7 @@ const INITIAL_MEMBERS = [
     photo_url: {{ (m.photo_url if (m.photo_url and not masked) else none) | tojson }},
     status: "{{ att_by_member[m.id].status.value if m.id in att_by_member else '' }}",
     excuse: "{{ (att_by_member[m.id].excuse_reason or '') if m.id in att_by_member else '' }}",
+    recorded_by_name: {{ ((att_by_member[m.id].recorded_by.last_name ~ ' ' ~ att_by_member[m.id].recorded_by.first_name) if (m.id in att_by_member and att_by_member[m.id].recorded_by and att_by_member[m.id].recorded_by_id != m.id) else none) | tojson }},
   },
   {% endfor %}
 ];

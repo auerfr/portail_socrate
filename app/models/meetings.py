@@ -194,9 +194,20 @@ class Attendance(Base):
     comment: Mapped[Optional[str]] = mapped_column(Text)
     registered_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now())
 
+    # Qui a réellement saisi ce statut/cette excuse — un officier agissant
+    # pour quelqu'un d'autre (feuille d'émargement), ou le membre lui-même
+    # (auto-inscription, code PIN). Mis à jour UNIQUEMENT quand le statut ou
+    # l'excuse change réellement (voir app/routers/attendance.py) — jamais à
+    # chaque réenregistrement en masse de la feuille, sinon ça attribuerait à
+    # tort toutes les lignes inchangées au dernier officier ayant cliqué
+    # "Enregistrer". Sert à repérer/décourager les excuses "par défaut".
+    recorded_by_id: Mapped[Optional[int]] = mapped_column(ForeignKey("members.id"), nullable=True)
+    recorded_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+
     # Relations
     meeting: Mapped["Meeting"] = relationship(back_populates="attendances")
-    member: Mapped["Member"]   = relationship()
+    member: Mapped["Member"]   = relationship(foreign_keys=[member_id])
+    recorded_by: Mapped[Optional["Member"]] = relationship(foreign_keys=[recorded_by_id])
 
 
 class Visitor(Base):

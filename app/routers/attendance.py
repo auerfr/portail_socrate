@@ -1,7 +1,7 @@
 """Router Présences & Assiduité"""
 import csv
 import io
-from datetime import date
+from datetime import date, datetime
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -175,6 +175,7 @@ async def emargement_page(
         select(Meeting)
         .options(
             selectinload(Meeting.attendances).selectinload(Attendance.member),
+            selectinload(Meeting.attendances).selectinload(Attendance.recorded_by),
             selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
         )
         .where(Meeting.id == meeting_id)
@@ -394,9 +395,20 @@ async def emargement_save(
         excuse = form.get(f"excuse_{m.id}", "").strip() or None
 
         if att:
+            new_excuse = excuse if new_status == AttendanceStatus.EXCUSED else att.excuse_reason
+            # Ne tracer la saisie que si le statut ou l'excuse change vraiment
+            # — sinon réenregistrer toute la feuille sans rien y modifier
+            # attribuerait à tort chaque ligne inchangée au dernier officier
+            # ayant cliqué "Enregistrer" (voir commentaire sur le modèle).
+            changed = new_status != att.status or (
+                new_status == AttendanceStatus.EXCUSED and new_excuse != att.excuse_reason
+            )
             att.status = new_status
             if new_status == AttendanceStatus.EXCUSED:
                 att.excuse_reason = excuse
+            if changed:
+                att.recorded_by_id = member.id
+                att.recorded_at = datetime.now()
         else:
             db.add(Attendance(
                 meeting_id=meeting_id,
@@ -404,6 +416,8 @@ async def emargement_save(
                 status=new_status,
                 agape=False,
                 excuse_reason=excuse if new_status == AttendanceStatus.EXCUSED else None,
+                recorded_by_id=member.id,
+                recorded_at=datetime.now(),
             ))
 
     # ── Maçons passants (présents / no-show) ────────────────────────────────

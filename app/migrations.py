@@ -1472,3 +1472,16 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             )
             """
         )
+
+        # ── Traçabilité de la saisie de présence/excuse (qui a excusé/inscrit
+        # qui, pour éviter les excuses "par défaut" non tracées) ────────────
+        r_att = await conn.exec_driver_sql("PRAGMA table_info(attendances)")
+        cols_att = [row[1] for row in r_att.fetchall()]
+        if "recorded_by_id" not in cols_att:
+            await conn.exec_driver_sql(
+                "ALTER TABLE attendances ADD COLUMN recorded_by_id INTEGER REFERENCES members(id)"
+            )
+        if "recorded_at" not in cols_att:
+            await conn.exec_driver_sql(
+                "ALTER TABLE attendances ADD COLUMN recorded_at DATETIME"
+            )
