@@ -90,6 +90,21 @@
     </button>
   </div>
 
+  <!-- Bulle d'aide : inscrire/excuser quelqu'un d'autre -->
+  <details class="group mb-4 bg-loge-50 border border-loge-100 rounded-xl px-4 py-2.5">
+    <summary class="cursor-pointer text-xs font-medium text-loge-700 list-none flex items-center justify-between gap-2">
+      <span class="flex items-center gap-1.5"><i class="ti ti-info-circle"></i> Comment inscrire ou excuser quelqu'un à sa place ?</span>
+      <i class="ti ti-chevron-down text-loge-400 group-open:rotate-180 transition-transform flex-shrink-0"></i>
+    </summary>
+    <p class="text-xs text-loge-700/90 mt-2 leading-relaxed">
+      Cliquez simplement sur <strong>P</strong>, <strong>E</strong> ou <strong>A</strong> sur la ligne de
+      la personne concernée (utile si elle a du mal avec le site, ou n'a pas pu s'inscrire elle-même) —
+      ça s'enregistre avec le reste au clic sur « Enregistrer ». Un repère <strong>« Saisi par »</strong>
+      apparaît alors sous son nom pour tout officier qui rouvre cette page, afin que la saisie pour
+      quelqu'un d'autre reste tracée et ne devienne jamais une excuse automatique non justifiée.
+    </p>
+  </details>
+
   <!-- Liste des membres -->
   <form method="post" action="/attendance/meeting/{{ meeting.id }}" id="emargementForm"
         @submit.prevent="prepareAndSubmit()">
