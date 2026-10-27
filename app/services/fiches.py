@@ -195,4 +195,67 @@ FICHES: dict[str, Fiche] = {
             "pensez à vous inscrire à l'avance."
         ),
     ),
+    "emargement": Fiche(
+        slug="emargement",
+        title="Faire l'émargement d'une tenue",
+        intro=(
+            "Pour le Secrétaire, le Vénérable Maître et les Surveillants : marquer en 3 étapes "
+            "qui est présent, excusé ou absent à une tenue."
+        ),
+        steps=[
+            FicheStep(
+                1, "Ouvrez « Présences » depuis la tenue",
+                "Sur la fiche de la tenue, cliquez sur <b>« Émarger »</b> dans le bloc Présences.",
+                "emargement/step1.png", 14,
+            ),
+            FicheStep(
+                2, "Cliquez P / E / A pour chaque membre",
+                "<b>P</b>résent, <b>E</b>xcusé (avec motif optionnel) ou <b>A</b>bsent. Vous pouvez "
+                "marquer n'importe quel membre à sa place — un repère « Saisi par » apparaît alors "
+                "sous son nom pour que ce soit tracé.",
+                "emargement/step2.png", 9,
+            ),
+            FicheStep(
+                3, "Vérifiez les compteurs et enregistrez",
+                "Les compteurs en haut de page se mettent à jour en direct. Cliquez sur "
+                "<b>« Enregistrer l'émargement »</b> en bas de l'écran pour valider la saisie.",
+                "emargement/step3.png", 9,
+            ),
+        ],
+        tip=(
+            "Pour les maçons visiteurs (« passants »), utilisez « Ajouter un passant » plus bas sur "
+            "la même page — ils ne figurent pas dans la liste des membres."
+        ),
+    ),
+    "messagerie": Fiche(
+        slug="messagerie",
+        title="Envoyer, répondre et relancer un message",
+        intro=(
+            "La messagerie interne, pour échanger avec un ou plusieurs frères avec pièces jointes, "
+            "en gardant tout l'échange groupé dans un même fil."
+        ),
+        steps=[
+            FicheStep(
+                1, "Choisissez vos destinataires",
+                "Depuis « Messagerie » → <b>« Nouveau message »</b>, choisissez un ciblage (tous les "
+                "membres, par grade, par fonction, par groupe) ou <b>« Sélection manuelle »</b> pour "
+                "cocher des membres précis, puis rédigez l'objet et le corps du message.",
+                "messagerie/step1.png", 7,
+            ),
+            FicheStep(
+                2, "Répondez ou relancez",
+                "Sur un message reçu : <b>« Répondre »</b> ou <b>« Répondre à tous »</b>. Sur un "
+                "message que vous avez envoyé : <b>« Relancer »</b> pré-remplit un nouveau message "
+                "vers les mêmes destinataires.",
+                "messagerie/step2.png", 9,
+            ),
+            FicheStep(
+                3, "Suivez tout l'échange dans un seul fil",
+                "Toute réponse, réponse à tous ou relance s'affiche empilée sur la même page quand "
+                "vous rouvrez le message — comme dans une messagerie instantanée.",
+                "messagerie/step3.png", 11,
+            ),
+        ],
+        tip="Une barre de recherche en haut des listes « Reçus » et « Envoyés » retrouve un ancien message.",
+    ),
 }

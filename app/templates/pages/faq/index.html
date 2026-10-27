@@ -106,6 +106,30 @@
           <p class="text-xs text-gray-500">PDF 1 page, avec captures d'écran</p>
         </div>
       </a>
+
+      <a href="/guides/fiches/messagerie.pdf" target="_blank"
+         class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-mail text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Envoyer, répondre et relancer un message</p>
+          <p class="text-xs text-gray-500">PDF 1 page, avec captures d'écran</p>
+        </div>
+      </a>
+
+      {% if show_secretaire %}
+      <a href="/guides/fiches/emargement.pdf" target="_blank"
+         class="group flex items-start gap-3 p-3 rounded-xl border border-gray-100 hover:bg-loge-50 hover:border-loge-200 transition-colors">
+        <div class="w-9 h-9 rounded-lg bg-loge-50 border border-loge-100 flex items-center justify-center flex-shrink-0 group-hover:bg-loge-100">
+          <i class="ti ti-clipboard-check text-loge-700"></i>
+        </div>
+        <div>
+          <p class="text-sm font-semibold text-gray-800">Faire l'émargement d'une tenue</p>
+          <p class="text-xs text-gray-500">PDF 1 page, avec captures d'écran</p>
+        </div>
+      </a>
+      {% endif %}
     </div>
   </section>
 
