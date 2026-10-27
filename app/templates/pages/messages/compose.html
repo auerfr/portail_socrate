@@ -14,7 +14,7 @@
     {% if reply_msg %}
     <a href="/messages/{{ reply_msg.id }}" class="hover:text-loge-700">{{ reply_msg.subject }}</a>
     <span class="mx-2">›</span>
-    <span class="text-gray-800">Répondre</span>
+    <span class="text-gray-800">{{ 'Relancer' if reply_msg.sender_id == current_member.id else 'Répondre' }}</span>
     {% elif forward_msg %}
     <a href="/messages/{{ forward_msg.id }}" class="hover:text-loge-700">{{ forward_msg.subject }}</a>
     <span class="mx-2">›</span>
@@ -25,7 +25,10 @@
   </nav>
 
   <h1 class="text-2xl font-bold text-gray-900 mb-6">
-    {% if reply_msg %}{% if reply_all %}Répondre à tous{% else %}Répondre au message{% endif %}
+    {% if reply_msg %}
+      {% if reply_msg.sender_id == current_member.id %}Relancer le message
+      {% elif reply_all %}Répondre à tous
+      {% else %}Répondre au message{% endif %}
     {% elif forward_msg %}Faire suivre le message
     {% else %}Nouveau message{% endif %}
   </h1>
@@ -35,7 +38,9 @@
     <div class="font-semibold text-gray-700 mb-1">En réponse à : {{ reply_msg.subject }}</div>
     <div class="text-xs text-gray-400 line-clamp-2">{{ reply_msg.body[:200] }}{% if reply_msg.body|length > 200 %}…{% endif %}</div>
     <div class="text-xs text-loge-700 mt-2 font-medium">
-      {% if reply_all %}
+      {% if reply_msg.sender_id == current_member.id %}
+      <i class="ti ti-users"></i> Aux {{ reply_member_ids | length }} destinataire{{ 's' if reply_member_ids|length != 1 else '' }} du message d'origine
+      {% elif reply_all %}
       <i class="ti ti-users"></i> À {{ reply_member_ids | length }} destinataire{{ 's' if reply_member_ids|length != 1 else '' }} (expéditeur + autres destinataires)
       {% else %}
       <i class="ti ti-user"></i> À l'expéditeur uniquement

@@ -198,6 +198,16 @@
         </a>
         {% endif %}
         {% endif %}
+        {% if can_send and is_sender and msg.recipients %}
+        <a href="/messages/compose?reply_to={{ msg.id }}&reply_all=1"
+           class="inline-flex items-center gap-1.5 px-4 py-2 bg-loge-700 hover:bg-loge-800 text-white text-sm font-semibold rounded-xl transition-colors"
+           title="Envoie un nouveau message, dans le même fil, aux mêmes destinataires">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" d="M14.857 17.082a23.848 23.848 0 005.454-1.31A8.967 8.967 0 0118 9.75v-.7V9A6 6 0 006 9v.75a8.967 8.967 0 01-2.312 6.022c1.733.64 3.56 1.085 5.455 1.31m5.714 0a24.255 24.255 0 01-5.714 0m5.714 0a3 3 0 11-5.714 0"/>
+          </svg>
+          Relancer
+        </a>
+        {% endif %}
         {% if can_send %}
         <a href="/messages/compose?forward_from={{ msg.id }}"
            class="inline-flex items-center gap-1.5 px-4 py-2 bg-white border border-gray-200 hover:bg-gray-50 text-gray-600 text-sm font-semibold rounded-xl transition-colors">
