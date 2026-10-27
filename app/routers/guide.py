@@ -46,6 +46,26 @@ async def guide_pdf(request: Request):
     )
 
 
+@router.get("/guides/fiches/{slug}.pdf")
+async def fiche_pdf(
+    slug: str,
+    ctx: Annotated[tuple, Depends(require_auth)],
+):
+    """Fiche pratique d'une page (tutoriel avec captures d'écran) téléchargeable."""
+    import io
+    from app.services.fiches import FICHES, build_fiche_pdf
+
+    fiche = FICHES.get(slug)
+    if not fiche:
+        raise HTTPException(status_code=404)
+    settings = get_settings()
+    pdf = build_fiche_pdf(fiche, settings.lodge_name)
+    return StreamingResponse(
+        io.BytesIO(pdf), media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="fiche-{slug}.pdf"'},
+    )
+
+
 # ── Guides de formation par rôle ─────────────────────────────────────────────
 
 @router.get("/guides/membre", response_class=HTMLResponse)
