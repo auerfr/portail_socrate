@@ -258,4 +258,35 @@ FICHES: dict[str, Fiche] = {
         ],
         tip="Une barre de recherche en haut des listes « Reçus » et « Envoyés » retrouve un ancien message.",
     ),
+    "documents": Fiche(
+        slug="documents",
+        title="Consulter et déposer un document",
+        intro=(
+            "La Bibliothèque regroupe planches, comptes-rendus et archives de la loge, "
+            "classés par espaces et dossiers — avec un espace personnel rien que pour vous."
+        ),
+        steps=[
+            FicheStep(
+                1, "Cherchez ou ouvrez un espace",
+                "Depuis « Documents », utilisez la barre de recherche pour retrouver un fichier par "
+                "nom, ou parcourez les espaces. Vous disposez aussi d'un <b>« Mon espace "
+                "personnel »</b>, visible de vous seul.",
+                "documents/step1.png", 16,
+            ),
+            FicheStep(
+                2, "Consultez ou téléchargez un fichier",
+                "Dans un dossier, chaque fichier propose <b>« Aperçu »</b> (pour les PDF) et "
+                "<b>« Télécharger »</b>.",
+                "documents/step2.png", 16,
+            ),
+            FicheStep(
+                3, "Déposez un nouveau fichier",
+                "En bas du dossier, glissez-déposez un fichier dans la zone prévue, ou cliquez sur "
+                "<b>« choisissez des fichiers »</b> — visible uniquement si vous avez le droit d'écrire "
+                "dans ce dossier.",
+                "documents/step3.png", 16,
+            ),
+        ],
+        tip="L'accès à certains dossiers dépend de votre grade (Apprenti, Compagnon, Maître).",
+    ),
 }
