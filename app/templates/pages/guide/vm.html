@@ -111,6 +111,7 @@
           <li><i class="ti ti-check text-loge-600"></i> Créer / modifier une tenue</li>
           <li><i class="ti ti-check text-loge-600"></i> Gérer l'émargement (présences)</li>
           <li><i class="ti ti-check text-loge-600"></i> Gérer le tableau des officiers (remplacements)</li>
+          <li><i class="ti ti-check text-loge-600"></i> Suivre l'état de tous les tracés (<span class="font-mono">/secretariat/traces</span>)</li>
           <li><i class="ti ti-check text-loge-600"></i> Rédiger et soumettre des planches</li>
           <li><i class="ti ti-check text-loge-600"></i> Gérer les programmes de travaux</li>
           <li><i class="ti ti-check text-loge-600"></i> Publier des annonces</li>
@@ -175,6 +176,28 @@
         </ul>
       </div>
     </div>
+
+    <details class="group border-t border-gray-100 py-2 mt-3">
+      <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between text-sm">
+        Créer un sondage et relancer les non-votants
+        <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+      </summary>
+      <div class="text-gray-600 mt-2 space-y-1 text-sm">
+        <ol class="list-decimal list-inside space-y-1">
+          <li><strong>Sondages → « Nouveau sondage »</strong> — question, options, choix unique ou multiple, vote anonyme ou public.</li>
+          <li>Suivez la participation sur la fiche du sondage (votants / non-votants).</li>
+          <li>Si le vote stagne, cliquez sur <strong>« Relancer les non-votants »</strong> : une notification push est envoyée uniquement à ceux qui n'ont pas encore voté, sans révéler leur identité.</li>
+        </ol>
+      </div>
+    </details>
+
+    <details class="group border-t border-gray-100 py-2">
+      <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between text-sm">
+        Afficher un widget de don sur le tableau de bord
+        <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+      </summary>
+      <p class="text-gray-600 mt-2 text-sm">Dans <strong>Réglages → Loge</strong>, collez le lien d'intégration (iframe) de votre plateforme de don (ex. HelloAsso) : il s'affiche alors sur le tableau de bord de tous les membres. Décochez-le depuis la même page pour le masquer à nouveau.</p>
+    </details>
   </section>
 
   {# ── Référence rapide ── #}
