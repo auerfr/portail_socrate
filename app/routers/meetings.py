@@ -19,6 +19,7 @@ from app.database import get_db
 from app.utils.text import masonic_write
 from app.dependencies import (
     require_auth, can_manage_meeting, can_lock_meeting, meeting_visibility_clause,
+    can_manage_attendance,
 )
 from app.models.reports import MeetingReport, ReportStatus
 from app.models.meetings import (
@@ -459,6 +460,7 @@ async def meeting_detail(
         "AttendanceStatus": AttendanceStatus,
         "DietaryRestriction": DietaryRestriction,
         "can_manage": can_manage_meeting(member) or user.is_admin,
+        "can_manage_attendance": can_manage_attendance(member) or user.is_admin,
         "can_lock": can_lock_meeting(member),
         "registration_url": f"{request.base_url}inscription/{meeting.token}",
         "report": report,

@@ -359,6 +359,21 @@
 
         </form>
         {% endif %}
+
+        <!-- Inscrire/excuser quelqu'un d'autre -->
+        <div class="mt-4 pt-4 border-t border-gray-100">
+          {% if can_manage_attendance %}
+          <a href="/attendance/meeting/{{ meeting.id }}"
+             class="flex items-center justify-center gap-1.5 text-xs font-medium text-loge-700 hover:text-loge-800">
+            <i class="ti ti-user-edit"></i> Inscrire ou excuser un autre membre →
+          </a>
+          {% else %}
+          <p class="text-xs text-gray-400 text-center">
+            Besoin d'inscrire ou d'excuser un frère/une sœur qui n'a pas accès au site ?
+            Contactez le Secrétariat.
+          </p>
+          {% endif %}
+        </div>
       </div>
 
       <!-- Dashboard agapes -->
