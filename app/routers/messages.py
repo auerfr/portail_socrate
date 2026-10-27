@@ -1020,6 +1020,28 @@ async def trash_view(
     })
 
 
+async def _resolve_thread_ids(db: AsyncSession, message_id: int) -> list[int]:
+    """Remonte jusqu'à la racine du fil (parent_id), puis redescend sur tout
+    l'arbre des réponses (BFS niveau par niveau — les fils sont peu profonds
+    en pratique, pas besoin d'une CTE récursive)."""
+    root_id = message_id
+    while True:
+        r = await db.execute(select(Message.parent_id).where(Message.id == root_id))
+        parent_id = r.scalar_one_or_none()
+        if not parent_id:
+            break
+        root_id = parent_id
+
+    ids = {root_id}
+    frontier = [root_id]
+    while frontier:
+        r = await db.execute(select(Message.id).where(Message.parent_id.in_(frontier)))
+        new_ids = [row[0] for row in r.all() if row[0] not in ids]
+        ids.update(new_ids)
+        frontier = new_ids
+    return list(ids)
+
+
 @router.get("/{message_id}", response_class=HTMLResponse)
 async def message_detail(
     message_id: int,
@@ -1029,15 +1051,12 @@ async def message_detail(
 ):
     user, member = ctx
 
-    msg = await db.get(
-        Message, message_id,
-        options=[selectinload(Message.recipients), selectinload(Message.attachments)]
-    )
+    msg = await db.get(Message, message_id)
     if not msg or not msg.sent_at:
         raise HTTPException(404)
 
-    # Vérifier accès : destinataire ou expéditeur ou admin
-    recipient = None
+    # Vérifier accès au message demandé : destinataire, expéditeur ou admin —
+    # même garde qu'avant le passage en fil empilé.
     if msg.sender_id != member.id and not user.is_admin:
         r = await db.execute(
             select(MessageRecipient).where(
@@ -1045,51 +1064,84 @@ async def message_detail(
                 MessageRecipient.member_id == member.id,
             )
         )
-        recipient = r.scalar_one_or_none()
-        if not recipient:
+        if not r.scalar_one_or_none():
             raise HTTPException(403)
 
-    # Marquer comme lu
-    if recipient and not recipient.read_at:
-        recipient.read_at = datetime.now()
+    # ── Fil complet, filtré à ce que le visiteur a le droit de voir ────────
+    # Un fil peut en théorie avoir des destinataires différents d'un message
+    # à l'autre (ex: une relance à un sous-ensemble) — on n'affiche jamais un
+    # message auquel le visiteur n'a lui-même pas accès, même s'il a accès à
+    # un autre message du même fil.
+    thread_ids = await _resolve_thread_ids(db, message_id)
+    r = await db.execute(
+        select(Message)
+        .where(Message.id.in_(thread_ids), Message.sent_at.isnot(None))
+        .options(selectinload(Message.recipients), selectinload(Message.attachments))
+        .order_by(Message.sent_at)
+    )
+    thread_all = r.scalars().all()
+
+    my_recipient_rows: dict[int, MessageRecipient] = {}
+    for tm in thread_all:
+        for rec in tm.recipients:
+            if rec.member_id == member.id:
+                my_recipient_rows[tm.id] = rec
+                break
+
+    thread_messages = [
+        tm for tm in thread_all
+        if user.is_admin or tm.sender_id == member.id or tm.id in my_recipient_rows
+    ]
+    if not thread_messages:
+        thread_messages = [msg]  # filet de sécurité, ne devrait pas arriver
+
+    # Marquer comme lu tout ce que le visiteur reçoit dans le fil visible
+    now = datetime.now()
+    any_marked = False
+    for rec in my_recipient_rows.values():
+        if not rec.read_at:
+            rec.read_at = now
+            any_marked = True
+    if any_marked:
         await db.commit()
-    elif not recipient and msg.sender_id != member.id:
-        # Double vérification
-        r2 = await db.execute(
-            select(MessageRecipient).where(
-                MessageRecipient.message_id == message_id,
-                MessageRecipient.member_id == member.id,
-            )
-        )
-        rec2 = r2.scalar_one_or_none()
-        if rec2 and not rec2.read_at:
-            rec2.read_at = datetime.now()
-            await db.commit()
 
-    # Expéditeur
-    sender = await db.get(Member, msg.sender_id)
+    tip_msg = thread_messages[-1]  # message le plus récent du fil visible — cible des actions
 
-    # Liste des destinataires — visible par tous (émetteur, admin, et chaque
-    # destinataire) : on doit pouvoir savoir à qui un message a été envoyé.
-    # Le statut de lecture (lu/non lu par les autres) reste réservé à
-    # l'émetteur et à l'admin (can_see_read_status ci-dessous).
+    sender_ids = {tm.sender_id for tm in thread_messages if tm.sender_id}
+    sm = await db.execute(select(Member).where(Member.id.in_(sender_ids))) if sender_ids else None
+    senders_map = {m.id: m for m in sm.scalars().all()} if sm else {}
+
+    bubbles = [
+        {
+            "msg": tm,
+            "sender": senders_map.get(tm.sender_id),
+            "body_html_display": _normalize_message_links(tm.body_html),
+            "is_mine": tm.sender_id == member.id,
+        }
+        for tm in thread_messages
+    ]
+
+    # Liste des destinataires du message le plus récent — visible par tous
+    # (émetteur, admin, et chaque destinataire) : on doit pouvoir savoir à
+    # qui le fil a été envoyé en dernier. Le statut de lecture (lu/non lu par
+    # les autres) reste réservé à l'émetteur de CE message et à l'admin.
     recipients_detail = []
-    recipient_ids = [rec.member_id for rec in msg.recipients]
+    recipient_ids = [rec.member_id for rec in tip_msg.recipients]
     if recipient_ids:
         rm = await db.execute(select(Member).where(Member.id.in_(recipient_ids)))
         members_map = {m.id: m for m in rm.scalars().all()}
         recipients_detail = [
             {"member": members_map.get(rec.member_id), "rec": rec}
-            for rec in msg.recipients
+            for rec in tip_msg.recipients
         ]
-    can_see_read_status = msg.sender_id == member.id or user.is_admin
+    can_see_read_status = tip_msg.sender_id == member.id or user.is_admin
 
     unread = await _unread_count(db, member.id)
 
-    # Label du destinataire courant
+    # Label du destinataire courant sur le message le plus récent
     recipient_label = None
-    if msg.sender_id != member.id:
-        for r in msg.recipients:
+    if tip_msg.sender_id != member.id:
+        for r in tip_msg.recipients:
             if r.member_id == member.id:
                 recipient_label = r.label
                 break
@@ -1097,16 +1149,16 @@ async def message_detail(
     return templates.TemplateResponse(request, "pages/messages/detail.html", {
         "current_member": member,
         "current_user": user,
-        "msg": msg,
-        "body_html_display": _normalize_message_links(msg.body_html),
-        "sender": sender,
+        "msg": tip_msg,
+        "bubbles": bubbles,
+        "is_thread": len(thread_messages) > 1,
         "recipients_detail": recipients_detail,
         "can_see_read_status": can_see_read_status,
-        "is_sender": msg.sender_id == member.id,
-        "target_description": await _target_description_async(db, msg.target_type, msg.target_filter),
+        "is_sender": tip_msg.sender_id == member.id,
+        "target_description": await _target_description_async(db, tip_msg.target_type, tip_msg.target_filter),
         "unread_count": unread,
         "can_send": _can_send(user, member),
-        "attachments": msg.attachments,
+        "attachments": tip_msg.attachments,
         "recipient_label": recipient_label,
         "all_labels": [],  # labels existants (chargés si besoin)
         "saved_to_library": request.query_params.get("saved_to_library"),
