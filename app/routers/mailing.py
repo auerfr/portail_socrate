@@ -4,7 +4,7 @@ import json
 import uuid
 from datetime import datetime
 from pathlib import Path
-from typing import Annotated, List, Optional, Union
+from typing import Annotated, List, Optional
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -902,7 +902,11 @@ async def compose_save(
     body_md: Annotated[str, Form()],
     reply_to: Annotated[str, Form()] = "",
     attachments_json: Annotated[str, Form()] = "[]",
-    attachments: Annotated[Optional[Union[List[UploadFile], UploadFile]], File()] = None,
+    # List[UploadFile] simple, jamais Union[List[UploadFile], UploadFile] :
+    # avec l'Union, FastAPI ne garde que le DERNIER fichier posté sous ce nom
+    # de champ quand il y en a plusieurs (même bug corrigé dans
+    # app/routers/messages.py::send_message).
+    attachments: Annotated[List[UploadFile], File()] = [],
     draft_id: Annotated[str, Form()] = "",
     action: Annotated[str, Form()] = "draft",   # draft | test | send
     test_email: Annotated[str, Form()] = "",
@@ -916,13 +920,8 @@ async def compose_save(
 
     # Un <input type="file" multiple> soumis sans fichier envoie une seule
     # partie vide — Starlette la remonte alors comme un UploadFile isolé au
-    # lieu d'une liste (cf. même normalisation dans app/routers/messages.py).
-    if attachments is None:
-        upload_list: List[UploadFile] = []
-    elif isinstance(attachments, list):
-        upload_list = attachments
-    else:
-        upload_list = [attachments]
+    # lieu d'une liste, d'où le filtrage sur filename vide plus bas.
+    upload_list: List[UploadFile] = attachments
 
     # Valider les nouveaux fichiers AVANT d'écrire quoi que ce soit sur disque.
     rejected: List[str] = []

@@ -4,7 +4,7 @@ import re
 import uuid
 from datetime import datetime, timedelta
 from pathlib import Path
-from typing import Annotated, Optional, List, Union
+from typing import Annotated, Optional, List
 
 from fastapi import APIRouter, Depends, File, Form, Request, HTTPException, UploadFile
 from fastapi.responses import FileResponse, HTMLResponse, RedirectResponse
@@ -575,7 +575,11 @@ async def send_message(
     target_member_ids: Annotated[Optional[str], Form()] = None,
     parent_id: Annotated[Optional[int], Form()] = None,
     visio_url: Annotated[Optional[str], Form()] = None,
-    attachments: Annotated[Optional[Union[List[UploadFile], UploadFile]], File()] = None,
+    # List[UploadFile] simple, jamais Union[List[UploadFile], UploadFile] :
+    # avec l'Union, FastAPI ne garde que le DERNIER fichier posté sous ce nom
+    # de champ quand il y en a plusieurs — bug confirmé (plusieurs pièces
+    # jointes ajoutées au composeur, une seule effectivement enregistrée).
+    attachments: Annotated[List[UploadFile], File()] = [],
 ):
     user, member = ctx
     if not _can_send(user, member):
@@ -583,13 +587,8 @@ async def send_message(
 
     # Un <input type="file" multiple> soumis sans fichier envoie une seule
     # partie vide — Starlette la remonte alors comme un UploadFile isolé au
-    # lieu d'une liste, d'où la normalisation ci-dessous.
-    if attachments is None:
-        attachment_list: List[UploadFile] = []
-    elif isinstance(attachments, list):
-        attachment_list = attachments
-    else:
-        attachment_list = [attachments]
+    # lieu d'une liste, d'où le filtrage sur filename vide ci-dessous.
+    attachment_list: List[UploadFile] = attachments
 
     # Valider les pièces jointes AVANT toute écriture en base : auparavant un
     # fichier refusé (extension non autorisée, > 10 Mo) était ignoré en
