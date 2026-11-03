@@ -647,13 +647,16 @@ const INITIAL_MEMBERS = [
   {% set is_self = current_member and current_member.id == m.id %}
   {% set lname_shown = m.last_name if is_self else (m.last_name | anon_nom) %}
   {% set masked = not is_self and lname_shown != m.last_name %}
+  {% set civ_prefix = 'S∴' if m.civility == 'S' else 'F∴' %}
+  {% set full_name = civ_prefix ~ ' ' ~ lname_shown ~ ' ' ~ m.first_name %}
+  {% set initials_str = (m.first_name[0] if m.first_name else '') ~ (lname_shown[0] if lname_shown else '') %}
   {
     id: {{ m.id }},
-    name: "{% if m.civility == 'S' %}S∴{% else %}F∴{% endif %} {{ lname_shown }} {{ m.first_name }}",
-    initials: "{{ m.first_name[0] }}{{ lname_shown[0] if lname_shown else '' }}",
+    name: {{ full_name | tojson }},
+    initials: {{ initials_str | tojson }},
     photo_url: {{ (m.photo_url if (m.photo_url and not masked) else none) | tojson }},
-    status: "{{ att_by_member[m.id].status.value if m.id in att_by_member else '' }}",
-    excuse: "{{ (att_by_member[m.id].excuse_reason or '') if m.id in att_by_member else '' }}",
+    status: {{ (att_by_member[m.id].status.value if m.id in att_by_member else '') | tojson }},
+    excuse: {{ ((att_by_member[m.id].excuse_reason or '') if m.id in att_by_member else '') | tojson }},
     recorded_by_name: {{ ((att_by_member[m.id].recorded_by.last_name ~ ' ' ~ att_by_member[m.id].recorded_by.first_name) if (m.id in att_by_member and att_by_member[m.id].recorded_by and att_by_member[m.id].recorded_by_id != m.id) else none) | tojson }},
   },
   {% endfor %}
