@@ -559,6 +559,7 @@ async def compose(
         "preselect_member_id": preselect_member_id,
         "visio_server": visio_server,
         "visio_prefix": visio_prefix,
+        "visio_provider": lodge_cfg.visio_provider if lodge_cfg else None,
     })
 
 

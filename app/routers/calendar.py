@@ -642,6 +642,7 @@ async def calendar_compose(
         "today_weekday": date.today().weekday(),
         "visio_server": visio_server,
         "visio_prefix": visio_prefix,
+        "visio_provider": lodge_cfg.visio_provider if lodge_cfg else None,
     })
 
 
@@ -721,10 +722,14 @@ async def calendar_create_event(
         ls_r = await db.execute(select(LodgeSettings).limit(1))
         lodge_cfg = ls_r.scalar_one_or_none()
         if lodge_cfg and lodge_cfg.visio_server_url:
-            prefix = lodge_cfg.visio_room_prefix or "loge"
-            d = datetime.strptime(start_date, "%Y-%m-%d")
-            room = f"{prefix}-{d.strftime('%Y%m%d')}"
-            url = f"{lodge_cfg.visio_server_url.rstrip('/')}/{room}"
+            if lodge_cfg.visio_provider == "custom":
+                # URL personnalisée = lien fixe à réutiliser tel quel.
+                url = lodge_cfg.visio_server_url
+            else:
+                prefix = lodge_cfg.visio_room_prefix or "loge"
+                d = datetime.strptime(start_date, "%Y-%m-%d")
+                room = f"{prefix}-{d.strftime('%Y%m%d')}"
+                url = f"{lodge_cfg.visio_server_url.rstrip('/')}/{room}"
 
     is_recurring = recurring in ("on", "1", "true") and recurrence_freq
 

@@ -27,7 +27,12 @@
           generateVisio() {
             const server = '{{ visio_server }}';
             const prefix = '{{ visio_prefix }}';
+            const provider = '{{ visio_provider }}';
             if (!server) { alert('Serveur visio non configuré — vérifiez les paramètres.'); return; }
+            if (provider === 'custom') {
+              document.getElementById('meeting_url').value = server;
+              return;
+            }
             const d = document.getElementById('start_date').value || new Date().toISOString().slice(0,10);
             const ymd = d.replace(/-/g, '');
             document.getElementById('meeting_url').value = server + '/' + prefix + '-' + ymd;

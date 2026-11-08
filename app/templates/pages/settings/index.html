@@ -331,13 +331,14 @@
       </div>
 
       <!-- Visio -->
-      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4">
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5 space-y-4"
+           x-data="{ provider: '{{ lodge.visio_provider if lodge and lodge.visio_provider else '' }}' }">
         <h2 class="font-semibold text-gray-800 text-sm uppercase tracking-wide">📹 Visioconférence</h2>
         <p class="text-xs text-gray-400">Configurez votre serveur visio pour générer automatiquement les liens de tenue.</p>
         <div class="grid sm:grid-cols-2 gap-4">
           <div>
             <label class="block text-xs font-medium text-gray-500 mb-1">Fournisseur</label>
-            <select name="visio_provider"
+            <select name="visio_provider" x-model="provider"
                     class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
               <option value="" {% if not lodge or not lodge.visio_provider %}selected{% endif %}>— Désactivé —</option>
               <option value="jitsi" {% if lodge and lodge.visio_provider == 'jitsi' %}selected{% endif %}>Jitsi Meet</option>
@@ -345,16 +346,19 @@
               <option value="custom" {% if lodge and lodge.visio_provider == 'custom' %}selected{% endif %}>URL personnalisée</option>
             </select>
           </div>
-          <div>
+          <div x-show="provider !== 'custom'" x-cloak>
             <label class="block text-xs font-medium text-gray-500 mb-1">Préfixe de salle</label>
             <input type="text" name="visio_room_prefix"
                    value="{{ lodge.visio_room_prefix if lodge and lodge.visio_room_prefix else '' }}"
                    placeholder="ex : loge-socrate"
                    class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
-            <p class="text-xs text-gray-400 mt-1">La salle sera : <code>préfixe-AAAAMMJJ</code></p>
+            <p class="text-xs text-gray-400 mt-1">La salle sera : <code>préfixe-AAAAMMJJ</code> (nouvelle salle à chaque tenue).</p>
           </div>
           <div class="sm:col-span-2">
-            <label class="block text-xs font-medium text-gray-500 mb-1">URL du serveur</label>
+            <label class="block text-xs font-medium text-gray-500 mb-1">
+              URL du serveur
+              <span x-show="provider === 'custom'">— lien fixe, réutilisé tel quel à chaque tenue</span>
+            </label>
             <input type="url" name="visio_server_url"
                    value="{{ lodge.visio_server_url if lodge and lodge.visio_server_url else '' }}"
                    placeholder="https://meet.jitsi.si  ou  https://votre-serveur.fr"
@@ -363,8 +367,13 @@
         </div>
         {% if lodge and lodge.visio_provider and lodge.visio_server_url %}
         <div class="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700">
-          ✅ Visio active — les nouvelles tenues recevront automatiquement un lien de salle.
+          {% if lodge.visio_provider == 'custom' %}
+          ✅ Visio active — les nouvelles tenues recevront ce même lien à chaque fois.
+          <br>Lien utilisé : <code>{{ lodge.visio_server_url }}</code>
+          {% else %}
+          ✅ Visio active — les nouvelles tenues recevront automatiquement un lien de salle différent à chaque fois.
           <br>Exemple : <code>{{ lodge.visio_server_url.rstrip('/') }}/{{ lodge.visio_room_prefix or 'loge' }}-20260101</code>
+          {% endif %}
         </div>
         {% endif %}
       </div>

@@ -2350,10 +2350,16 @@ async def meeting_create(
         ls_r = await db.execute(select(LodgeSettings).limit(1))
         lodge_cfg = ls_r.scalar_one_or_none()
         if lodge_cfg and lodge_cfg.visio_provider and lodge_cfg.visio_server_url:
-            prefix = lodge_cfg.visio_room_prefix or "loge"
-            room   = f"{prefix}-{d.strftime('%Y%m%d')}"
-            base   = lodge_cfg.visio_server_url.rstrip("/")
-            final_visio_url = f"{base}/{room}"
+            if lodge_cfg.visio_provider == "custom":
+                # URL personnalisée = lien fixe à réutiliser tel quel (ex. un
+                # lien Proton Meet déjà complet avec mot de passe) — pas de
+                # salle par tenue, contrairement à Jitsi/BBB.
+                final_visio_url = lodge_cfg.visio_server_url
+            else:
+                prefix = lodge_cfg.visio_room_prefix or "loge"
+                room   = f"{prefix}-{d.strftime('%Y%m%d')}"
+                base   = lodge_cfg.visio_server_url.rstrip("/")
+                final_visio_url = f"{base}/{room}"
 
     new_meeting = Meeting(
         masonic_year_id=masonic_year.id,

@@ -103,7 +103,12 @@
           generateVisio() {
             const server = '{{ visio_server }}';
             const prefix = '{{ visio_prefix }}';
+            const provider = '{{ visio_provider }}';
             if (!server) { alert('Lien visio non configuré — configurez le serveur dans les paramètres.'); return; }
+            if (provider === 'custom') {
+              this.visioUrl = server;
+              return;
+            }
             const d = new Date();
             const ymd = d.getFullYear().toString()
               + String(d.getMonth()+1).padStart(2,'0')
