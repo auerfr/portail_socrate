@@ -95,6 +95,9 @@ async def _legacy_masonic_year_id(db: AsyncSession) -> Optional[int]:
     return r2.scalar_one_or_none()
 
 
+CAPITATION_CATEGORY_NAME = "Capitation GODF/régionale"
+
+
 async def _get_or_create_config(db: AsyncSession, year_id: int) -> ContributionConfig:
     r = await db.execute(
         select(ContributionConfig).where(ContributionConfig.fiscal_year_id == year_id)
@@ -116,6 +119,24 @@ async def _get_or_create_config(db: AsyncSession, year_id: int) -> ContributionC
             db.add(ContributionTier(config_id=cfg.id, tier_number=n,
                                     label=TIER_LABELS[n], coefficient=coeff, amount=0))
         await db.flush()
+
+    # Catégorie fixe pour les virements de capitation à l'obédience — garantit
+    # une entrée disponible dans le menu déroulant des Mouvements (au lieu de
+    # compter sur une saisie libre), pour fiabiliser le suivi "payé / reste à
+    # payer" sur le Bilan et le tableau de bord.
+    rcat = await db.execute(
+        select(BudgetCategory)
+        .where(BudgetCategory.fiscal_year_id == year_id, BudgetCategory.name.ilike("%capitation%"))
+        .limit(1)
+    )
+    if not rcat.scalar_one_or_none():
+        db.add(BudgetCategory(
+            fiscal_year_id=year_id,
+            name=CAPITATION_CATEGORY_NAME,
+            type=TransactionType.EXPENSE,
+        ))
+        await db.flush()
+
     return cfg
 
 
