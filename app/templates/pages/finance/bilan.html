@@ -87,55 +87,25 @@
   <div class="bg-amber-50 border border-amber-200 rounded-xl p-6 text-center text-amber-800">Aucune année configurée.</div>
   {% else %}
 
-  <!-- Résultat global en haut -->
-  <!-- Alerte capitation -->
-  {% if total_capitation_encaissee > 0 %}
-  <div class="bg-amber-50 border border-amber-200 rounded-xl px-4 py-3 mb-4 text-sm text-amber-800">
-    <strong>⚠ Capitation à reverser :</strong>
-    {{ "%.2f"|format(total_capitation_encaissee) }} € (nationale {{ "%.2f"|format(contrib_cfg.national_capitation_rate if contrib_cfg else 0) }} € + régionale {{ "%.2f"|format(contrib_cfg.regional_capitation_rate if contrib_cfg else 0) }} € × membres Appartenance).
-    Ce montant est collecté pour le compte de l'obédience — il est <strong>déduit du résultat net</strong> ci-dessous.
-    <div class="mt-2 pt-2 border-t border-amber-200 grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
-      <div>
-        <span class="font-semibold">GODF (nationale)</span> —
-        reversé : {{ "%.2f"|format(total_capitation_paid_nationale) }} € /
-        <span class="{% if capitation_restant_nationale > 0.005 %}text-red-700 font-bold{% else %}text-green-700 font-bold{% endif %}">
-          {% if capitation_restant_nationale > 0.005 %}reste {{ "%.2f"|format(capitation_restant_nationale) }} €{% else %}✓ à jour{% endif %}
-        </span>
-      </div>
-      <div>
-        <span class="font-semibold">CAALA (régionale)</span> —
-        reversé : {{ "%.2f"|format(total_capitation_paid_regionale) }} € /
-        <span class="{% if capitation_restant_regionale > 0.005 %}text-red-700 font-bold{% else %}text-green-700 font-bold{% endif %}">
-          {% if capitation_restant_regionale > 0.005 %}reste {{ "%.2f"|format(capitation_restant_regionale) }} €{% else %}✓ à jour{% endif %}
-        </span>
-      </div>
-      {% if total_capitation_paid_autre > 0 %}
-      <div class="sm:col-span-2 text-amber-600">
-        ⚠ {{ "%.2f"|format(total_capitation_paid_autre) }} € de capitation non rattachée à GODF ni CAALA (catégorie
-        ambiguë) — vérifiez le libellé de la catégorie du Mouvement correspondant.
-      </div>
-      {% endif %}
-    </div>
-    <p class="text-[11px] text-amber-600 mt-1">
-      Pour que ce suivi fonctionne, utilisez une catégorie de Mouvement contenant le mot « capitation » — par
-      exemple les catégories « Capitation nationale (GODF) » et « Capitation régionale (CAALA) » proposées dans le
-      menu déroulant. Une catégorie nommée juste « GODF » ou « CAALA » (taxes, formations…) reste comptée comme
-      une charge normale de la loge, volontairement — elle n'est pas confondue avec la capitation.
+  {% set total_produits_fonctionnement = total_produits + total_cotisations_nettes %}
+
+  <!-- ═══ Fonctionnement de la loge (hors transit capitation) ═══ -->
+  <div class="mb-3">
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">💼 Fonctionnement de la loge</h2>
+    <p class="text-xs text-gray-400">
+      L'argent qui appartient réellement à la loge — la capitation (collectée pour le GODF et CAALA, puis
+      intégralement reversée) n'y figure pas, voir la section dédiée plus bas.
     </p>
   </div>
-  {% endif %}
 
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
     <div class="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-      <div class="text-xs text-green-600 uppercase tracking-wide mb-1">Total Produits bruts</div>
-      <div class="text-2xl font-bold text-green-700">{{ "%.2f"|format(total_produits_global) }} €</div>
-      <div class="text-xs text-green-500 mt-1">
-        dont {{ "%.2f"|format(total_cotisations_nettes) }} € cot. nettes
-        {% if total_capitation_encaissee > 0 %}+ {{ "%.2f"|format(total_capitation_encaissee) }} € capitation transit{% endif %}
-      </div>
+      <div class="text-xs text-green-600 uppercase tracking-wide mb-1">Produits</div>
+      <div class="text-2xl font-bold text-green-700">{{ "%.2f"|format(total_produits_fonctionnement) }} €</div>
+      <div class="text-xs text-green-500 mt-1">dont {{ "%.2f"|format(total_cotisations_nettes) }} € de cotisations nettes</div>
     </div>
     <div class="bg-red-50 border border-red-200 rounded-xl p-5 text-center">
-      <div class="text-xs text-red-600 uppercase tracking-wide mb-1">Total Charges</div>
+      <div class="text-xs text-red-600 uppercase tracking-wide mb-1">Charges</div>
       <div class="text-2xl font-bold text-red-700">{{ "%.2f"|format(total_charges) }} €</div>
       <div class="text-xs text-red-400 mt-1">Budget prévu : {{ "%.2f"|format(total_budget) }} €</div>
     </div>
@@ -143,22 +113,17 @@
                 {% if resultat >= 0 %}bg-loge-50 border-loge-200{% else %}bg-orange-50 border-orange-200{% endif %}">
       <div class="text-xs uppercase tracking-wide mb-1
                   {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
-        {% if resultat >= 0 %}Excédent net{% else %}Déficit net{% endif %}
+        {% if resultat >= 0 %}Excédent{% else %}Déficit{% endif %}
       </div>
       <div class="text-2xl font-bold {% if resultat >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
         {{ "%.2f"|format(resultat|abs) }} €
       </div>
-      <div class="text-xs mt-1 {% if resultat >= 0 %}text-loge-400{% else %}text-orange-400{% endif %}">
-        Cot. nettes + produits − charges
-        {% if total_capitation_encaissee > 0 %}
-        <br><span class="text-gray-400">(capitation {{ "%.2f"|format(total_capitation_encaissee) }} € exclue)</span>
-        {% endif %}
-      </div>
+      <div class="text-xs mt-1 {% if resultat >= 0 %}text-loge-400{% else %}text-orange-400{% endif %}">Produits − charges</div>
     </div>
   </div>
 
   <!-- Compte de résultat — deux colonnes -->
-  <div class="grid lg:grid-cols-2 gap-6 mb-8">
+  <div class="grid lg:grid-cols-2 gap-6 mb-4">
 
     <!-- CHARGES -->
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
@@ -188,25 +153,14 @@
     <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden">
       <div class="px-5 py-3 bg-green-50 border-b border-green-100 flex items-center justify-between">
         <h2 class="font-semibold text-green-800">PRODUITS</h2>
-        <span class="text-sm font-bold text-green-700">{{ "%.2f"|format(total_produits_global) }} €</span>
+        <span class="text-sm font-bold text-green-700">{{ "%.2f"|format(total_produits_fonctionnement) }} €</span>
       </div>
 
-      <!-- Cotisations encaissées (ligne spéciale) -->
-      <div class="bg-loge-50 divide-y divide-loge-100">
-        <div class="flex items-center justify-between px-5 py-2">
-          <span class="text-xs text-loge-700">Cotisations brutes encaissées</span>
-          <span class="text-sm font-semibold text-loge-700 tabular-nums">{{ "%.2f"|format(total_cotisations) }} €</span>
-        </div>
-        {% if total_capitation_encaissee > 0 %}
-        <div class="flex items-center justify-between px-5 py-2">
-          <span class="text-xs text-amber-700">− Capitation à reverser (GODF/régional)</span>
-          <span class="text-sm font-semibold text-amber-700 tabular-nums">−{{ "%.2f"|format(total_capitation_encaissee) }} €</span>
-        </div>
+      <div class="bg-loge-50">
         <div class="flex items-center justify-between px-5 py-2.5">
           <span class="text-sm text-loge-800 font-medium">Cotisations nettes (part loge)</span>
           <span class="text-sm font-bold text-loge-700 tabular-nums">{{ "%.2f"|format(total_cotisations_nettes) }} €</span>
         </div>
-        {% endif %}
       </div>
 
       {% if produits_by_cat %}
@@ -226,13 +180,13 @@
 
       <div class="px-5 py-3 bg-green-50 border-t border-green-100 flex justify-between">
         <span class="text-sm font-semibold text-green-800">Total produits</span>
-        <span class="text-sm font-bold text-green-700">{{ "%.2f"|format(total_produits_global) }} €</span>
+        <span class="text-sm font-bold text-green-700">{{ "%.2f"|format(total_produits_fonctionnement) }} €</span>
       </div>
     </div>
 
   </div>
 
-  <!-- Résultat net encadré -->
+  <!-- Résultat encadré -->
   <div class="border-2 {% if resultat >= 0 %}border-loge-300 bg-loge-50{% else %}border-orange-300 bg-orange-50{% endif %} rounded-xl p-5 mb-8">
     <div class="flex items-center justify-between">
       <div>
@@ -240,7 +194,7 @@
           {% if resultat >= 0 %}Excédent de l'exercice{% else %}Déficit de l'exercice{% endif %}
         </div>
         <div class="text-sm {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %} mt-0.5">
-          Total Produits ({{ "%.2f"|format(total_produits_global) }} €) − Total Charges ({{ "%.2f"|format(total_charges) }} €)
+          Produits ({{ "%.2f"|format(total_produits_fonctionnement) }} €) − Charges ({{ "%.2f"|format(total_charges) }} €)
         </div>
       </div>
       <div class="text-3xl font-bold {% if resultat >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
@@ -248,6 +202,52 @@
       </div>
     </div>
   </div>
+
+  <!-- ═══ Capitation — flux de transit (séparé du fonctionnement) ═══ -->
+  {% if total_capitation_encaissee > 0 %}
+  <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-8">
+    <h2 class="text-sm font-semibold text-slate-700 uppercase tracking-wide mb-1">🔄 Capitation — flux de transit vers l'obédience</h2>
+    <p class="text-xs text-slate-500 mb-3">
+      Collectée avec les cotisations des membres, puis intégralement reversée au GODF (national) et à CAALA
+      (régional) — ce n'est <strong>pas de l'argent de la loge</strong>, et ça n'apparaît pas dans le résultat
+      ci-dessus. Total collecté : {{ "%.2f"|format(total_capitation_encaissee) }} € (nationale
+      {{ "%.2f"|format(contrib_cfg.national_capitation_rate if contrib_cfg else 0) }} € + régionale
+      {{ "%.2f"|format(contrib_cfg.regional_capitation_rate if contrib_cfg else 0) }} € × membres Appartenance).
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      <div class="bg-white rounded-lg border border-slate-200 p-3 text-xs space-y-1">
+        <div class="font-semibold text-slate-700 mb-1">GODF (nationale)</div>
+        <div class="flex justify-between text-slate-500"><span>Collecté</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_encaissee_nationale) }} €</span></div>
+        <div class="flex justify-between text-slate-500"><span>Reversé</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_paid_nationale) }} €</span></div>
+        <div class="flex justify-between pt-1 border-t border-slate-100 {% if capitation_restant_nationale > 0.005 %}text-red-700{% else %}text-green-700{% endif %} font-bold">
+          <span>{% if capitation_restant_nationale > 0.005 %}Reste à reverser{% else %}✓ À jour{% endif %}</span>
+          <span class="tabular-nums">{{ "%.2f"|format(capitation_restant_nationale) }} €</span>
+        </div>
+      </div>
+      <div class="bg-white rounded-lg border border-slate-200 p-3 text-xs space-y-1">
+        <div class="font-semibold text-slate-700 mb-1">CAALA (régionale)</div>
+        <div class="flex justify-between text-slate-500"><span>Collecté</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_encaissee_regionale) }} €</span></div>
+        <div class="flex justify-between text-slate-500"><span>Reversé</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_paid_regionale) }} €</span></div>
+        <div class="flex justify-between pt-1 border-t border-slate-100 {% if capitation_restant_regionale > 0.005 %}text-red-700{% else %}text-green-700{% endif %} font-bold">
+          <span>{% if capitation_restant_regionale > 0.005 %}Reste à reverser{% else %}✓ À jour{% endif %}</span>
+          <span class="tabular-nums">{{ "%.2f"|format(capitation_restant_regionale) }} €</span>
+        </div>
+      </div>
+    </div>
+    {% if total_capitation_paid_autre > 0 %}
+    <p class="text-xs text-amber-600 mt-2">
+      ⚠ {{ "%.2f"|format(total_capitation_paid_autre) }} € de capitation non rattachée à GODF ni CAALA (catégorie
+      ambiguë) — vérifiez le libellé de la catégorie du Mouvement correspondant.
+    </p>
+    {% endif %}
+    <p class="text-[11px] text-slate-400 mt-2">
+      Pour que ce suivi fonctionne, utilisez une catégorie de Mouvement contenant le mot « capitation » — par
+      exemple « Capitation nationale (GODF) » et « Capitation régionale (CAALA) », proposées dans le menu
+      déroulant. Une catégorie nommée juste « GODF » ou « CAALA » (taxes, formations…) reste comptée comme une
+      charge normale de la loge ci-dessus, volontairement.
+    </p>
+  </div>
+  {% endif %}
 
   <!-- Situation des créances cotisations -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden mb-8">
