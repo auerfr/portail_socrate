@@ -21,7 +21,7 @@ from app.models.identity import (
 )
 from app.models.lodge import MasonicYear, LodgeOffice
 from app.models.meetings import DietaryRestriction
-from app.models.finance import MemberContribution, ContributionTier, ContributionStatus, FiscalYear
+from app.models.finance import MemberContribution, ContributionTier, ContributionStatus, ContributionConfig, FiscalYear
 
 router = APIRouter(prefix="/members", tags=["members"])
 from app.template_engine import templates
@@ -712,6 +712,7 @@ async def member_update(
     # Seuls admin/VM/Secrétaire peuvent changer grade/statut/fonction
     if can_manage_members(current_member) or user.is_admin:
         prev_status = target.status
+        prev_membership_type = target.membership_type
         target.masonic_grade          = MasonicGrade(masonic_grade)
         target.membership_type        = MembershipType(membership_type)
         target.status                 = MemberStatus(member_status)
@@ -733,6 +734,35 @@ async def member_update(
                 target.status_date = date.today()
             from app.services.member_folders import move_member_folder_to_former
             await move_member_folder_to_former(db, target)
+
+        # Rattrapage capitation Appartenance ↔ Affiliation : si le type
+        # d'adhésion change, la cotisation de l'année courante (si pas encore
+        # soldée) doit refléter le nouveau statut, sinon le bilan affiche un
+        # écart de capitation fantôme (collecté/dû qui ne correspond plus à
+        # la réalité du membre). Les cotisations déjà PAID/EXEMPT ne sont
+        # jamais réécrites automatiquement (montant déjà encaissé/réglé).
+        if target.membership_type != prev_membership_type:
+            cur_year_r = await db.execute(select(FiscalYear).where(FiscalYear.is_current == True))
+            cur_year = cur_year_r.scalar_one_or_none()
+            if cur_year:
+                contrib_r = await db.execute(
+                    select(MemberContribution).where(
+                        MemberContribution.member_id == member_id,
+                        MemberContribution.fiscal_year_id == cur_year.id,
+                        MemberContribution.status.in_([ContributionStatus.PENDING, ContributionStatus.PARTIAL]),
+                    )
+                )
+                contrib = contrib_r.scalar_one_or_none()
+                if contrib:
+                    cfg_r = await db.execute(
+                        select(ContributionConfig).where(ContributionConfig.fiscal_year_id == cur_year.id)
+                    )
+                    cfg = cfg_r.scalar_one_or_none()
+                    if cfg:
+                        full_capitation = float(cfg.national_capitation_rate) + float(cfg.regional_capitation_rate)
+                        new_cap = 0.0 if target.membership_type == MembershipType.AFFILIATION else full_capitation
+                        contrib.capitation_amount = new_cap
+                        contrib.total_amount = float(contrib.base_amount) + new_cap
 
     target.birth_date = parse_date(birth_date)
 

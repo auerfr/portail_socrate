@@ -218,22 +218,29 @@
   </div>
 
   <!-- Reste à payer / reste à encaisser -->
-  {% if reste_a_payer_budget > 0.5 or reste_a_encaisser_total > 0.5 %}
+  {% if reste_a_payer_budget > 0.5 or reste_a_encaisser_total > 0.5 or depassements_budget > 0.5 %}
   <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
       <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à payer sur le budget</div>
       <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_payer_budget) }} €</div>
       <div class="text-xs text-gray-400 mt-1">
-        Charges votées ({{ "%.2f"|format(total_budget) }} €) pas encore engagées
-        ({{ "%.2f"|format(total_charges) }} € dépensés à ce jour)
+        Marge encore disponible, ligne de budget votée par ligne de budget votée
+        (hors dépenses non budgétées, ex. un évènement autofinancé par ses propres recettes)
       </div>
+      {% if depassements_budget > 0.5 %}
+      <div class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-2">
+        ⚠ {{ "%.2f"|format(depassements_budget) }} € de dépassement cumulé sur des lignes déjà budgétées
+        (voir le détail dans le tableau « Budget prévisionnel vs Réalisé » plus bas)
+      </div>
+      {% endif %}
     </div>
     <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
       <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à encaisser</div>
       <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_encaisser_total) }} €</div>
       <div class="text-xs text-gray-400 mt-1 space-y-0.5">
         {% if reste_a_encaisser_cotisations > 0.5 %}
-        <div>{{ "%.2f"|format(reste_a_encaisser_cotisations) }} € de cotisations dues (part loge)</div>
+        <div>{{ "%.2f"|format(reste_a_encaisser_cotisations) }} € de cotisations dues (capitation comprise —
+          voir « Créances » ci-dessous)</div>
         {% endif %}
         {% if reste_a_encaisser_recettes > 0.5 %}
         <div>{{ "%.2f"|format(reste_a_encaisser_recettes) }} € de recettes prévisionnelles non versées</div>

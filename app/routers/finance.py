@@ -2586,12 +2586,28 @@ async def _compute_bilan(
     resultat_previsionnel = total_cotisations_due_net + produits_previsionnel - total_budget
 
     # ── Reste à payer / reste à encaisser (vision synthétique) ────────────────
-    # Reste à payer = part du budget voté pas encore dépensée (0 si déjà
-    # dépassé — ce n'est alors plus un "reste", mais un dépassement, affiché
-    # ailleurs). Reste à encaisser = cotisations encore dues (part loge) +
-    # recettes budgétées pas encore perçues (ex. subvention actée non versée).
-    reste_a_payer_budget = max(budget_restant, Decimal("0"))
-    reste_a_encaisser_cotisations = max(creances_nettes, Decimal("0"))
+    # Reste à payer = somme, ligne de budget par ligne de budget, de ce qui
+    # n'est pas encore dépensé (chaque écart négatif — dépassement — est
+    # plafonné à 0 AVANT de sommer, pour qu'un dépassement sur une ligne ne
+    # vienne pas gonfler artificiellement la marge disponible sur les autres).
+    # Les dépenses hors budget (aucune ligne votée, ex. un évènement
+    # autofinancé par ses propres recettes comme une biennale) sont
+    # volontairement exclues : il n'y a rien "à payer" sur une ligne qui n'a
+    # jamais été budgétée.
+    reste_a_payer_budget = sum(
+        (max(prevu - charges_by_cat.get(cat, Decimal("0")), Decimal("0")) for cat, prevu in budget_by_cat.items()),
+        Decimal("0"),
+    )
+    depassements_budget = sum(
+        (max(charges_by_cat.get(cat, Decimal("0")) - prevu, Decimal("0")) for cat, prevu in budget_by_cat.items()),
+        Decimal("0"),
+    )
+    # Reste à encaisser = cotisations encore dues, en BRUT (ce que le membre
+    # va effectivement verser — capitation comprise, puisqu'elle transite par
+    # le compte de la loge avant d'être reversée) + recettes budgétées pas
+    # encore perçues (ex. subvention actée non versée).
+    creances = total_cotisations_due - total_cotisations
+    reste_a_encaisser_cotisations = max(creances, Decimal("0"))
     reste_a_encaisser_recettes = max(total_budget_income - total_produits, Decimal("0"))
     reste_a_encaisser_total = reste_a_encaisser_cotisations + reste_a_encaisser_recettes
 
@@ -2622,6 +2638,7 @@ async def _compute_bilan(
         "creances_nettes": creances_nettes,
         "budget_restant": budget_restant,
         "reste_a_payer_budget": reste_a_payer_budget,
+        "depassements_budget": depassements_budget,
         "reste_a_encaisser_cotisations": reste_a_encaisser_cotisations,
         "reste_a_encaisser_recettes": reste_a_encaisser_recettes,
         "reste_a_encaisser_total": reste_a_encaisser_total,
@@ -2631,7 +2648,7 @@ async def _compute_bilan(
         "total_budget_income": total_budget_income,
         "produits_previsionnel": produits_previsionnel,
         "total_cotisations_due": total_cotisations_due,
-        "creances": total_cotisations_due - total_cotisations,
+        "creances": creances,
     }
 
 
