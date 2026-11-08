@@ -59,7 +59,7 @@
   <div class="grid lg:grid-cols-3 gap-6">
 
     <!-- ── Formulaire saisie (admin) — en premier sur mobile ─────────────── -->
-    {% if is_admin %}
+    {% if can_manage %}
     <div class="space-y-4" x-data="{ newCat: false }">
 
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
@@ -197,7 +197,7 @@
                 <th class="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Recette</th>
                 <th class="text-right px-4 py-2.5 text-xs text-gray-500 font-medium">Dépense</th>
                 <th class="text-center px-3 py-2.5 text-xs text-gray-500 font-medium hidden sm:table-cell">Pièce</th>
-                {% if is_admin %}<th class="px-3 py-2.5"></th>{% endif %}
+                {% if can_manage %}<th class="px-3 py-2.5"></th>{% endif %}
               </tr>
             </thead>
             <tbody class="divide-y divide-gray-50">
@@ -233,12 +233,12 @@
                      class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline font-medium">
                     📎 Voir
                   </a>
-                  {% if is_admin %}
+                  {% if can_manage %}
                   <form method="post" action="/finance/transactions/{{ t.id }}/detach" class="inline">
                     <button type="submit" class="text-gray-300 hover:text-red-400 text-xs ml-1 transition-opacity" title="Retirer">×</button>
                   </form>
                   {% endif %}
-                  {% elif is_admin %}
+                  {% elif can_manage %}
                   <button @click="showUpload = !showUpload"
                           class="text-xs text-gray-300 hover:text-amber-500 transition-opacity" title="Joindre un justificatif">
                     📎
@@ -248,7 +248,7 @@
                   {% endif %}
 
                   <!-- Mini formulaire upload (visible au clic) -->
-                  {% if is_admin and not t.attachment_url %}
+                  {% if can_manage and not t.attachment_url %}
                   <div x-show="showUpload" x-cloak class="mt-1">
                     <form method="post" action="/finance/transactions/{{ t.id }}/attach"
                           enctype="multipart/form-data" class="flex items-center gap-1">
@@ -260,7 +260,7 @@
                   {% endif %}
                 </td>
 
-                {% if is_admin %}
+                {% if can_manage %}
                 <td class="px-3 py-2.5">
                   <form method="post" action="/finance/transactions/{{ t.id }}/delete"
                         onsubmit="return confirm('Supprimer ce mouvement ?')">
@@ -280,7 +280,7 @@
                 <td class="px-4 py-3 text-right text-green-600 tabular-nums text-sm">{{ "%.2f"|format(total_income) }} €</td>
                 <td class="px-4 py-3 text-right text-red-600 tabular-nums text-sm">{{ "%.2f"|format(total_expense) }} €</td>
                 <td class="hidden sm:table-cell"></td>
-                {% if is_admin %}<td></td>{% endif %}
+                {% if can_manage %}<td></td>{% endif %}
               </tr>
             </tfoot>
           </table>

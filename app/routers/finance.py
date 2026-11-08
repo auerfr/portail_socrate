@@ -1755,6 +1755,7 @@ async def transactions_view(
         "TransactionType": TransactionType,
         "filter_type": txn_type,
         "is_admin": user.is_admin,
+        "can_manage": user.is_admin or can_manage_finance(member),
         "today": date.today(),
     })
 
