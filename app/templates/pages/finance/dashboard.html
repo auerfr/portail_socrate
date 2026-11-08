@@ -142,12 +142,18 @@
     </div>
     <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3">
       <div class="flex items-center justify-between gap-2">
-        <span class="text-gray-500 text-xs sm:text-sm">Capitations GODF (indicatif)</span>
-        <span class="font-semibold {% if stats.capitation_paid >= stats.capitation_expected and stats.capitation_expected > 0 %}text-green-600{% else %}text-gray-600{% endif %} shrink-0">
-          {{ "%.0f"|format(stats.capitation_paid) }} € / {{ "%.0f"|format(stats.capitation_expected) }} €
+        <span class="text-gray-500 text-xs sm:text-sm">Capitation nationale (GODF, indicatif)</span>
+        <span class="font-semibold {% if stats.capitation_paid_nationale >= stats.capitation_expected_nationale and stats.capitation_expected_nationale > 0 %}text-green-600{% else %}text-gray-600{% endif %} shrink-0">
+          {{ "%.0f"|format(stats.capitation_paid_nationale) }} € / {{ "%.0f"|format(stats.capitation_expected_nationale) }} €
         </span>
       </div>
-      <p class="text-[10px] text-gray-400 mt-1">Non bloquant — à jour souhaité pour le {{ stats.capitation_deadline.strftime('%d/%m/%Y') }} (avant le Convent).</p>
+      <div class="flex items-center justify-between gap-2 mt-1.5">
+        <span class="text-gray-500 text-xs sm:text-sm">Capitation régionale (CAALA, indicatif)</span>
+        <span class="font-semibold {% if stats.capitation_paid_regionale >= stats.capitation_expected_regionale and stats.capitation_expected_regionale > 0 %}text-green-600{% else %}text-gray-600{% endif %} shrink-0">
+          {{ "%.0f"|format(stats.capitation_paid_regionale) }} € / {{ "%.0f"|format(stats.capitation_expected_regionale) }} €
+        </span>
+      </div>
+      <p class="text-[10px] text-gray-400 mt-1">Non bloquant — à jour souhaité pour le {{ stats.capitation_deadline.strftime('%d/%m/%Y') }} (avant le Convent). GODF et CAALA sont deux destinataires distincts.</p>
     </div>
   </div>
 

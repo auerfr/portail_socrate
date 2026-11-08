@@ -95,7 +95,25 @@ async def _legacy_masonic_year_id(db: AsyncSession) -> Optional[int]:
     return r2.scalar_one_or_none()
 
 
-CAPITATION_CATEGORY_NAME = "Capitation GODF/régionale"
+CAPITATION_NATIONALE_CATEGORY_NAME = "Capitation nationale (GODF)"
+CAPITATION_REGIONALE_CATEGORY_NAME = "Capitation régionale (CAALA)"
+
+
+def _capitation_bucket(category_name: Optional[str]) -> Optional[str]:
+    """Classe une catégorie de Mouvement en 'nationale' (GODF), 'regionale'
+    (CAALA) ou 'autre' (capitation non classifiée) — ou None si la catégorie
+    n'a rien à voir avec la capitation. GODF (national) et CAALA (régional)
+    sont deux obédiences/destinataires distincts, à ne jamais confondre."""
+    if not category_name:
+        return None
+    n = category_name.lower()
+    if "godf" in n or "national" in n:
+        return "nationale"
+    if "caala" in n or "région" in n or "regional" in n or "régional" in n:
+        return "regionale"
+    if "capitation" in n:
+        return "autre"
+    return None
 
 
 async def _get_or_create_config(db: AsyncSession, year_id: int) -> ContributionConfig:
@@ -120,21 +138,32 @@ async def _get_or_create_config(db: AsyncSession, year_id: int) -> ContributionC
                                     label=TIER_LABELS[n], coefficient=coeff, amount=0))
         await db.flush()
 
-    # Catégorie fixe pour les virements de capitation à l'obédience — garantit
-    # une entrée disponible dans le menu déroulant des Mouvements (au lieu de
-    # compter sur une saisie libre), pour fiabiliser le suivi "payé / reste à
-    # payer" sur le Bilan et le tableau de bord.
-    rcat = await db.execute(
-        select(BudgetCategory)
-        .where(BudgetCategory.fiscal_year_id == year_id, BudgetCategory.name.ilike("%capitation%"))
-        .limit(1)
+    # Catégories fixes pour les virements de capitation — GODF (national) et
+    # CAALA (régional) sont deux destinataires distincts, donc deux
+    # catégories séparées, chacune disponible directement dans le menu
+    # déroulant des Mouvements (au lieu de compter sur une saisie libre), pour
+    # fiabiliser le suivi "payé / reste à payer" sur le Bilan et le tableau
+    # de bord.
+    rcats = await db.execute(
+        select(BudgetCategory).where(BudgetCategory.fiscal_year_id == year_id)
     )
-    if not rcat.scalar_one_or_none():
-        db.add(BudgetCategory(
-            fiscal_year_id=year_id,
-            name=CAPITATION_CATEGORY_NAME,
-            type=TransactionType.EXPENSE,
-        ))
+    existing_buckets = {_capitation_bucket(c.name) for c in rcats.scalars().all()}
+    if "nationale" not in existing_buckets or "regionale" not in existing_buckets:
+        legacy_my_id = await _legacy_masonic_year_id(db)
+        if "nationale" not in existing_buckets:
+            db.add(BudgetCategory(
+                masonic_year_id=legacy_my_id,
+                fiscal_year_id=year_id,
+                name=CAPITATION_NATIONALE_CATEGORY_NAME,
+                type=TransactionType.EXPENSE,
+            ))
+        if "regionale" not in existing_buckets:
+            db.add(BudgetCategory(
+                masonic_year_id=legacy_my_id,
+                fiscal_year_id=year_id,
+                name=CAPITATION_REGIONALE_CATEGORY_NAME,
+                type=TransactionType.EXPENSE,
+            ))
         await db.flush()
 
     return cfg
@@ -352,40 +381,63 @@ async def finance_dashboard(
     total_budget = float(rb.scalar_one() or 0)
 
     # Trésorerie théorique = initiale + encaissé + autres recettes - dépenses
+    # (la capitation payée à l'obédience est une vraie sortie de caisse, elle
+    # compte normalement ici).
     rt_income = await db.execute(
         select(func.sum(Transaction.amount))
         .where(Transaction.fiscal_year_id == year.id, Transaction.type == TransactionType.INCOME)
     )
-    rt_expense = await db.execute(
-        select(func.sum(Transaction.amount))
+    other_income  = float(rt_income.scalar_one() or 0)
+    initial_treasury = float(cfg.initial_treasury or 0)
+
+    # Dépenses détaillées par catégorie, pour isoler la capitation (nationale
+    # GODF / régionale CAALA — deux destinataires distincts) des charges
+    # propres de la loge : la capitation est un transit, pas une ligne du
+    # budget voté, donc elle ne doit pas gonfler "dépenses engagées".
+    r_exp_txns = await db.execute(
+        select(Transaction)
+        .options(selectinload(Transaction.category))
         .where(Transaction.fiscal_year_id == year.id, Transaction.type == TransactionType.EXPENSE)
     )
-    other_income  = float(rt_income.scalar_one() or 0)
-    total_expense = float(rt_expense.scalar_one() or 0)
-    initial_treasury = float(cfg.initial_treasury or 0)
+    capitation_paid_nationale = 0.0
+    capitation_paid_regionale = 0.0
+    capitation_paid_autre = 0.0
+    total_expense = 0.0
+    for t in r_exp_txns.scalars().all():
+        amt = float(t.amount)
+        total_expense += amt
+        bucket = _capitation_bucket(t.category.name if t.category else None)
+        if bucket == "nationale":
+            capitation_paid_nationale += amt
+        elif bucket == "regionale":
+            capitation_paid_regionale += amt
+        elif bucket == "autre":
+            capitation_paid_autre += amt
+
     theoretical_treasury = initial_treasury + total_paid + other_income - total_expense
 
-    # Budget prévu vs dépenses déjà engagées (distinct de la trésorerie :
-    # sert à surveiller un dépassement du budget voté, indépendamment des
-    # recettes encaissées).
-    budget_balance = total_budget - total_expense
-    budget_consumed_pct = (total_expense / total_budget * 100) if total_budget > 0 else 0.0
+    # Budget prévu vs dépenses déjà engagées — hors capitation (transit, pas
+    # une charge votée par la loge).
+    capitation_paid_total_actual = capitation_paid_nationale + capitation_paid_regionale + capitation_paid_autre
+    total_expense_budget = total_expense - capitation_paid_total_actual
+    budget_balance = total_budget - total_expense_budget
+    budget_consumed_pct = (total_expense_budget / total_budget * 100) if total_budget > 0 else 0.0
 
-    # Capitations GODF — simple indicateur de suivi, non-bloquant (pas de
-    # gestion automatisée : la loge reverse les capitations collectées au
-    # GODF, pas de calendrier d'échéances à automatiser). Juste un repère
-    # avant l'obligation d'être soldé fin juillet (Convent fin août).
+    # Capitations GODF (nationale) / CAALA (régionale) — simple indicateur de
+    # suivi, non-bloquant (pas de gestion automatisée : la loge reverse les
+    # capitations collectées à chaque obédience, pas de calendrier
+    # d'échéances à automatiser). Juste un repère avant l'obligation d'être
+    # soldé fin juillet (Convent fin août). Deux destinataires distincts :
+    # GODF (national) et CAALA (région), suivis séparément.
     capitation_expected = sum(float(c.capitation_amount) for c in all_contribs)
-    rcap = await db.execute(
-        select(func.sum(Transaction.amount))
-        .join(BudgetCategory, Transaction.category_id == BudgetCategory.id)
-        .where(
-            Transaction.fiscal_year_id == year.id,
-            Transaction.type == TransactionType.EXPENSE,
-            BudgetCategory.name.ilike("%capitation%"),
-        )
-    )
-    capitation_paid = float(rcap.scalar_one() or 0)
+    nat_rate = float(cfg.national_capitation_rate or 0)
+    reg_rate = float(cfg.regional_capitation_rate or 0)
+    rate_total = nat_rate + reg_rate
+    if rate_total > 0:
+        capitation_expected_nationale = capitation_expected * (nat_rate / rate_total)
+    else:
+        capitation_expected_nationale = 0.0
+    capitation_expected_regionale = capitation_expected - capitation_expected_nationale
 
     stats = {
         "total_due":      total_due,
@@ -404,7 +456,11 @@ async def finance_dashboard(
         "total_expense":  total_expense,
         "theoretical_treasury": theoretical_treasury,
         "capitation_expected": capitation_expected,
-        "capitation_paid": capitation_paid,
+        "capitation_paid": capitation_paid_total_actual,
+        "capitation_expected_nationale": capitation_expected_nationale,
+        "capitation_paid_nationale": capitation_paid_nationale,
+        "capitation_expected_regionale": capitation_expected_regionale,
+        "capitation_paid_regionale": capitation_paid_regionale,
         "capitation_deadline": date(year.start_date.year, 7, 31),
         "vote_required_months": required_months,
         "vote_not_ok_count": sum(1 for ms in member_states if not ms["is_vote_ok"]),
