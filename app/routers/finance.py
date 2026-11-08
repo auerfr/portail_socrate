@@ -1204,7 +1204,9 @@ async def resync_contributions(
     affiliés = await _affilié_ids(db)
 
     open_r = await db.execute(
-        select(MemberContribution).where(
+        select(MemberContribution)
+        .options(selectinload(MemberContribution.payments))
+        .where(
             MemberContribution.fiscal_year_id == year_id,
             MemberContribution.status.in_([ContributionStatus.PENDING, ContributionStatus.PARTIAL]),
         )
@@ -1218,6 +1220,18 @@ async def resync_contributions(
             contrib.capitation_amount = cap
             contrib.total_amount = float(tier.amount) + cap
             updated += 1
+
+            # Le nouveau montant peut désormais être atteint (ou plus atteint)
+            # par les paiements déjà enregistrés — réévalue le statut, sinon
+            # une cotisation déjà intégralement payée reste coincée en
+            # "Partiel" après un recalcul du barème.
+            total_paid = sum(float(p.amount) for p in contrib.payments)
+            if total_paid <= 0:
+                contrib.status = ContributionStatus.PENDING
+            elif total_paid >= float(contrib.total_amount) - 0.005:
+                contrib.status = ContributionStatus.PAID
+            else:
+                contrib.status = ContributionStatus.PARTIAL
 
     await db.commit()
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
@@ -1359,7 +1373,7 @@ async def record_payment(
 
     # Recalculer le statut
     total_paid = sum(float(p.amount) for p in contrib.payments) + amount
-    if total_paid >= float(contrib.total_amount):
+    if total_paid >= float(contrib.total_amount) - 0.005:
         contrib.status = ContributionStatus.PAID
     elif total_paid > 0:
         contrib.status = ContributionStatus.PARTIAL
@@ -2149,7 +2163,7 @@ async def delete_payment(
         )
         if remaining_paid <= 0:
             contrib.status = ContributionStatus.PENDING
-        elif remaining_paid < float(contrib.total_amount):
+        elif remaining_paid < float(contrib.total_amount) - 0.005:
             contrib.status = ContributionStatus.PARTIAL
         else:
             contrib.status = ContributionStatus.PAID
@@ -2194,7 +2208,7 @@ async def edit_payment(
         )
         if total_paid <= 0:
             contrib.status = ContributionStatus.PENDING
-        elif total_paid < float(contrib.total_amount):
+        elif total_paid < float(contrib.total_amount) - 0.005:
             contrib.status = ContributionStatus.PARTIAL
         else:
             contrib.status = ContributionStatus.PAID
@@ -2229,7 +2243,7 @@ async def set_contribution_amount(
     total_paid = sum(float(p.amount) for p in contrib.payments)
     if total_paid <= 0:
         contrib.status = ContributionStatus.PENDING
-    elif total_paid < total_amount:
+    elif total_paid < total_amount - 0.005:
         contrib.status = ContributionStatus.PARTIAL
     else:
         contrib.status = ContributionStatus.PAID
