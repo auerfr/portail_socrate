@@ -2059,6 +2059,57 @@ async def add_transaction(
     return RedirectResponse(url=f"/finance/transactions?year_id={year_id}", status_code=303)
 
 
+@router.post("/transactions/{txn_id}/edit")
+async def edit_transaction(
+    request: Request,
+    txn_id: int,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    txn_date: Annotated[str, Form()],
+    label: Annotated[str, Form()],
+    amount: Annotated[float, Form()],
+    txn_type: Annotated[str, Form()],
+    category_id: Annotated[Optional[int], Form()] = None,
+    new_category: Annotated[str, Form()] = "",
+):
+    _, rec_member = ctx
+    txn = await db.get(Transaction, txn_id)
+    if not txn:
+        raise HTTPException(404)
+
+    before = f"{'+' if txn.type == TransactionType.INCOME else '-'}{float(txn.amount):.2f}€ « {txn.label} » le {txn.date.strftime('%d/%m/%Y')}"
+
+    cat_id = category_id or None
+    if not cat_id and new_category.strip():
+        cat = BudgetCategory(
+            fiscal_year_id=txn.fiscal_year_id,
+            masonic_year_id=await _legacy_masonic_year_id(db),
+            name=new_category.strip(),
+            type=TransactionType(txn_type),
+            planned_amount=0,
+        )
+        db.add(cat)
+        await db.flush()
+        cat_id = cat.id
+
+    txn.date = date.fromisoformat(txn_date)
+    txn.label = label.strip()
+    txn.amount = amount
+    txn.type = TransactionType(txn_type)
+    txn.category_id = cat_id
+
+    sign = "+" if txn.type == TransactionType.INCOME else "-"
+    await log_audit(
+        db, actor_id=rec_member.id if rec_member else None,
+        action="FINANCE_TXN_EDIT",
+        target_type="transaction", target_id=txn.id, target_label=txn.label,
+        details=f"Avant : {before} — Après : {sign}{float(amount):.2f}€ « {txn.label} » le {txn.date.strftime('%d/%m/%Y')}",
+        request=request,
+    )
+    await db.commit()
+    return RedirectResponse(url=f"/finance/transactions?year_id={txn.fiscal_year_id}", status_code=303)
+
+
 @router.post("/transactions/{txn_id}/delete")
 async def delete_transaction(
     request: Request,

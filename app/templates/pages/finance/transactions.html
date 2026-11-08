@@ -261,9 +261,12 @@
                 </td>
 
                 {% if can_manage %}
-                <td class="px-3 py-2.5">
+                <td class="px-3 py-2.5 whitespace-nowrap">
+                  <button type="button"
+                          onclick='openEditTxn({{ t.id }}, {{ t.date.isoformat()|tojson }}, {{ t.label|tojson }}, {{ t.amount|float }}, {{ t.type.value|tojson }}, {{ t.category_id|tojson }})'
+                          class="text-gray-300 hover:text-loge-600 transition-opacity text-xs mr-1" title="Modifier">✎</button>
                   <form method="post" action="/finance/transactions/{{ t.id }}/delete"
-                        onsubmit="return confirm('Supprimer ce mouvement ?')">
+                        onsubmit="return confirm('Supprimer ce mouvement ?')" class="inline">
                     <button type="submit"
                             class="text-gray-300 hover:text-red-500 transition-opacity text-xs">✕</button>
                   </form>
@@ -303,4 +306,94 @@
   </div>
 
 </div>
+
+{% if can_manage %}
+<!-- ── Modal édition mouvement ── -->
+<div id="modal-edit-txn" class="hidden fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
+    <h2 class="text-lg font-bold text-gray-900 mb-4">Modifier le mouvement</h2>
+    <form method="post" id="edit-txn-form" class="space-y-3" x-data="{ newCat: false }">
+      <div class="flex gap-2">
+        <label class="flex-1 cursor-pointer">
+          <input type="radio" name="txn_type" value="EXPENSE" id="edit-txn-type-expense" class="sr-only peer">
+          <div class="text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600
+                      peer-checked:border-red-400 peer-checked:bg-red-50 peer-checked:text-red-700 transition-colors">
+            − Dépense
+          </div>
+        </label>
+        <label class="flex-1 cursor-pointer">
+          <input type="radio" name="txn_type" value="INCOME" id="edit-txn-type-income" class="sr-only peer">
+          <div class="text-center py-2 rounded-lg border border-gray-200 text-sm font-medium text-gray-600
+                      peer-checked:border-green-400 peer-checked:bg-green-50 peer-checked:text-green-700 transition-colors">
+            + Recette
+          </div>
+        </label>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Date</label>
+        <input type="date" name="txn_date" id="edit-txn-date" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-1">
+          <label class="text-xs font-medium text-gray-700">Catégorie</label>
+          <button type="button" @click="newCat = !newCat" class="text-xs text-loge-600 hover:underline">
+            <span x-text="newCat ? 'Choisir existante' : '+ Nouvelle'"></span>
+          </button>
+        </div>
+        <div x-show="!newCat">
+          <select name="category_id" id="edit-txn-category"
+                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+            <option value="">— Aucune catégorie —</option>
+            {% if categories %}
+            <optgroup label="Dépenses">
+              {% for c in categories if c.type.value == 'EXPENSE' %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </optgroup>
+            <optgroup label="Recettes">
+              {% for c in categories if c.type.value == 'INCOME' %}
+              <option value="{{ c.id }}">{{ c.name }}</option>
+              {% endfor %}
+            </optgroup>
+            {% endif %}
+          </select>
+        </div>
+        <div x-show="newCat" x-cloak>
+          <input type="text" name="new_category" placeholder="Nom de la catégorie…"
+                 class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Libellé</label>
+        <input type="text" name="label" id="edit-txn-label" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">Montant (€)</label>
+        <input type="number" name="amount" id="edit-txn-amount" step="0.01" min="0" required
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+      </div>
+      <div class="flex gap-3 pt-2">
+        <button type="submit" class="flex-1 bg-loge-700 text-white py-2 rounded-xl text-sm font-semibold hover:bg-loge-800">Enregistrer</button>
+        <button type="button" onclick="document.getElementById('modal-edit-txn').classList.add('hidden')"
+                class="px-4 py-2 border border-gray-200 rounded-xl text-sm text-gray-600 hover:bg-gray-50">Annuler</button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script>
+function openEditTxn(id, txnDate, label, amount, txnType, categoryId) {
+  document.getElementById('edit-txn-form').action = '/finance/transactions/' + id + '/edit';
+  document.getElementById('edit-txn-date').value = txnDate;
+  document.getElementById('edit-txn-label').value = label;
+  document.getElementById('edit-txn-amount').value = amount;
+  document.getElementById('edit-txn-type-' + (txnType === 'INCOME' ? 'income' : 'expense')).checked = true;
+  document.getElementById('edit-txn-category').value = categoryId || '';
+  document.getElementById('modal-edit-txn').classList.remove('hidden');
+}
+</script>
+{% endif %}
+
 {% endblock %}
