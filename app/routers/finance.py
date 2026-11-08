@@ -1917,6 +1917,7 @@ async def transactions_view(
     categories = []
     total_income = Decimal("0")
     total_expense = Decimal("0")
+    total_capitation_transit = Decimal("0")
 
     if selected_year:
         # ── Auto-synchronisation : catégories budget → BudgetCategory ───────
@@ -1979,6 +1980,13 @@ async def transactions_view(
             amt = Decimal(str(t.amount))
             if t.type == TransactionType.INCOME:
                 total_income += amt
+            elif _capitation_bucket(t.category.name if t.category else None):
+                # Virement de capitation au GODF/CAALA : flux de transit, pas
+                # une dépense de l'association — exclu du solde, sinon il
+                # paraît déficitaire alors que les cotisations qui l'ont
+                # financé (hors Mouvements) ne sont jamais comptées en recette
+                # ici.
+                total_capitation_transit += amt
             else:
                 total_expense += amt
 
@@ -1991,6 +1999,7 @@ async def transactions_view(
         "categories": categories,
         "total_income": total_income,
         "total_expense": total_expense,
+        "total_capitation_transit": total_capitation_transit,
         "solde": total_income - total_expense,
         "TransactionType": TransactionType,
         "filter_type": txn_type,
