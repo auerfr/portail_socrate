@@ -217,6 +217,32 @@
     {% endif %}
   </div>
 
+  <!-- Reste à payer / reste à encaisser -->
+  {% if reste_a_payer_budget > 0.5 or reste_a_encaisser_total > 0.5 %}
+  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à payer sur le budget</div>
+      <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_payer_budget) }} €</div>
+      <div class="text-xs text-gray-400 mt-1">
+        Charges votées ({{ "%.2f"|format(total_budget) }} €) pas encore engagées
+        ({{ "%.2f"|format(total_charges) }} € dépensés à ce jour)
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à encaisser</div>
+      <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_encaisser_total) }} €</div>
+      <div class="text-xs text-gray-400 mt-1 space-y-0.5">
+        {% if reste_a_encaisser_cotisations > 0.5 %}
+        <div>{{ "%.2f"|format(reste_a_encaisser_cotisations) }} € de cotisations dues (part loge)</div>
+        {% endif %}
+        {% if reste_a_encaisser_recettes > 0.5 %}
+        <div>{{ "%.2f"|format(reste_a_encaisser_recettes) }} € de recettes prévisionnelles non versées</div>
+        {% endif %}
+      </div>
+    </div>
+  </div>
+  {% endif %}
+
   <!-- ═══ Capitation — flux de transit (séparé du fonctionnement) ═══ -->
   {% if total_capitation_encaissee > 0 %}
   <div class="bg-slate-50 border border-slate-200 rounded-xl p-5 mb-8">

@@ -2585,6 +2585,16 @@ async def _compute_bilan(
     produits_previsionnel = max(total_produits, total_budget_income)
     resultat_previsionnel = total_cotisations_due_net + produits_previsionnel - total_budget
 
+    # ── Reste à payer / reste à encaisser (vision synthétique) ────────────────
+    # Reste à payer = part du budget voté pas encore dépensée (0 si déjà
+    # dépassé — ce n'est alors plus un "reste", mais un dépassement, affiché
+    # ailleurs). Reste à encaisser = cotisations encore dues (part loge) +
+    # recettes budgétées pas encore perçues (ex. subvention actée non versée).
+    reste_a_payer_budget = max(budget_restant, Decimal("0"))
+    reste_a_encaisser_cotisations = max(creances_nettes, Decimal("0"))
+    reste_a_encaisser_recettes = max(total_budget_income - total_produits, Decimal("0"))
+    reste_a_encaisser_total = reste_a_encaisser_cotisations + reste_a_encaisser_recettes
+
     return {
         "charges_by_cat": dict(sorted(charges_by_cat.items())),
         "total_charges": total_charges,
@@ -2611,6 +2621,10 @@ async def _compute_bilan(
         "total_cotisations_due_net": total_cotisations_due_net,
         "creances_nettes": creances_nettes,
         "budget_restant": budget_restant,
+        "reste_a_payer_budget": reste_a_payer_budget,
+        "reste_a_encaisser_cotisations": reste_a_encaisser_cotisations,
+        "reste_a_encaisser_recettes": reste_a_encaisser_recettes,
+        "reste_a_encaisser_total": reste_a_encaisser_total,
         "budget_by_cat": dict(sorted(budget_by_cat.items())),
         "total_budget": total_budget,
         "budget_income_by_cat": dict(sorted(budget_income_by_cat.items())),
