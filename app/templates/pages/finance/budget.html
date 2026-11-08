@@ -157,7 +157,9 @@
                 <span class="{% if ecart < 0 %}text-red-500{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
                   {% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €
                 </span>
-                {% if line.closed %}
+                {% if line.estimated_remaining is not none %}
+                <span class="text-loge-600">· Estimation trésorier : {{ "%.2f"|format(line.estimated_remaining) }} €</span>
+                {% elif line.closed %}
                 <span class="text-gray-400 italic">(non comptée dans le Bilan)</span>
                 {% endif %}
               </div>
@@ -165,7 +167,7 @@
             <div class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <button type="button"
-                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }}, {{ line.closed|tojson }})'
+                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }}, {{ line.closed|tojson }}, {{ line.estimated_remaining if line.estimated_remaining is not none else "null" }})'
                     class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
                   onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
@@ -209,7 +211,7 @@
             <div class="text-sm font-semibold text-emerald-700 tabular-nums shrink-0">+{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <button type="button"
-                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }}, {{ line.closed|tojson }})'
+                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }}, {{ line.closed|tojson }}, null)'
                     class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
                   onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
@@ -594,6 +596,17 @@
         <input type="text" name="notes" id="edit-notes"
                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-700 mb-1">
+          Estimation trésorier du reste à payer (€) <span class="text-gray-400 font-normal">— optionnel, remplace le calcul prévu − réalisé</span>
+        </label>
+        <input type="number" name="estimated_remaining" id="edit-estimated-remaining" step="0.01" min="0"
+               placeholder="Laisser vide pour garder le calcul automatique"
+               class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
+        <p class="text-[11px] text-gray-400 mt-1">
+          Ex. le déplacement ne sera finalement pas remboursé → 0. Prioritaire sur « Clôturée » ci-dessous.
+        </p>
+      </div>
       <label class="flex items-start gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
         <input type="checkbox" name="closed" value="1" id="edit-closed" class="rounded border-gray-300 text-loge-600 mt-0.5">
         <span>
@@ -659,7 +672,7 @@
 {% endif %}
 
 <script>
-function openEditLine(id, label, category, amount, notes, direction, closed) {
+function openEditLine(id, label, category, amount, notes, direction, closed, estimatedRemaining) {
   document.getElementById('edit-line-form').action = '/finance/budget/' + id + '/edit';
   document.getElementById('edit-label').value = label;
   document.getElementById('edit-category').value = category || '';
@@ -667,6 +680,7 @@ function openEditLine(id, label, category, amount, notes, direction, closed) {
   document.getElementById('edit-notes').value = notes || '';
   document.getElementById('edit-line-direction-' + (direction === 'INCOME' ? 'income' : 'expense')).checked = true;
   document.getElementById('edit-closed').checked = !!closed;
+  document.getElementById('edit-estimated-remaining').value = (estimatedRemaining === null || estimatedRemaining === undefined) ? '' : estimatedRemaining;
   document.getElementById('modal-edit-line').classList.remove('hidden');
 }
 </script>

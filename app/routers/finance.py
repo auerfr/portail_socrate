@@ -761,6 +761,7 @@ async def budget_edit(
     notes: Annotated[str, Form()] = "",
     direction: Annotated[str, Form()] = "EXPENSE",
     closed: Annotated[str, Form()] = "",
+    estimated_remaining: Annotated[str, Form()] = "",
 ):
     user, member = ctx
     if not (user.is_admin or can_manage_finance(member)):
@@ -775,12 +776,18 @@ async def budget_edit(
     line.notes = notes.strip() or None
     line.direction = TransactionType(direction)
     line.closed = bool(closed)
+    est = estimated_remaining.strip()
+    line.estimated_remaining = max(float(est), 0.0) if est else None
+    details_suffix = ""
+    if line.closed:
+        details_suffix = " — marquée clôturée"
+    elif line.estimated_remaining is not None:
+        details_suffix = f" — estimation trésorier : {line.estimated_remaining:.2f}€ restant"
     await log_audit(
         db, actor_id=member.id if member else None,
         action="FINANCE_BUDGET_LINE_EDIT",
         target_type="budget_line", target_id=line.id, target_label=line.label,
-        details=f"« {before_label} » {before_amount:.2f}€ → « {line.label} » {amount:.2f}€"
-                + (" — marquée clôturée" if line.closed else ""),
+        details=f"« {before_label} » {before_amount:.2f}€ → « {line.label} » {amount:.2f}€" + details_suffix,
         request=request,
     )
     await db.commit()
@@ -2686,11 +2693,19 @@ async def _compute_bilan(
     # TOUTES ses lignes EXPENSE le sont — n'affecte que reste_a_payer_budget
     # / depassements_budget plus bas, jamais le T3 ni le résultat prévisionnel.
     closed_by_cat: dict[str, bool] = {}
+    # Estimation du trésorier (somme des lignes de la catégorie qui en ont
+    # une) — prioritaire sur "closed" et sur le calcul mécanique dès qu'au
+    # moins une ligne de la catégorie en a une.
+    estimate_by_cat: dict[str, Decimal] = {}
+    has_estimate_by_cat: dict[str, bool] = {}
     for bl in budget_lines:
         if bl.direction != TransactionType.EXPENSE:
             continue
         cat = bl.category_label or bl.label
         closed_by_cat[cat] = closed_by_cat.get(cat, True) and bl.closed
+        if bl.estimated_remaining is not None:
+            has_estimate_by_cat[cat] = True
+            estimate_by_cat[cat] = estimate_by_cat.get(cat, Decimal("0")) + Decimal(str(bl.estimated_remaining))
 
     # ── Capitation à reverser (nationale + régionale) ────────────────────────
     # Somme des capitations de toutes les cotisations de l'année
@@ -2784,17 +2799,26 @@ async def _compute_bilan(
     # exclue des deux totaux ci-dessous : lui seul juge si le solde restant
     # est réellement encore à dépenser, l'écart mécanique prévu/réalisé n'est
     # pas toujours fiable (économies sur un poste compensant un dépassement
-    # ailleurs, décision de ne pas consommer le reste, etc.).
-    reste_a_payer_budget = sum(
-        (max(prevu - charges_by_cat.get(cat, Decimal("0")), Decimal("0"))
-         for cat, prevu in budget_by_cat.items() if not closed_by_cat.get(cat)),
-        Decimal("0"),
-    )
-    depassements_budget = sum(
-        (max(charges_by_cat.get(cat, Decimal("0")) - prevu, Decimal("0"))
-         for cat, prevu in budget_by_cat.items() if not closed_by_cat.get(cat)),
-        Decimal("0"),
-    )
+    # ailleurs, décision de ne pas consommer le reste, etc.). Une estimation
+    # chiffrée (estimate_by_cat) est encore plus précise que "clôturée" :
+    # elle remplace directement le calcul mécanique par le jugement du
+    # trésorier, ex. "ce déplacement ne sera finalement pas remboursé" (0 €
+    # au lieu des 500 € encore prévus) — priorité : estimation > clôturée >
+    # calcul mécanique.
+    reste_a_payer_budget = Decimal("0")
+    depassements_budget = Decimal("0")
+    for cat, prevu in budget_by_cat.items():
+        if has_estimate_by_cat.get(cat):
+            reste_a_payer_budget += max(estimate_by_cat.get(cat, Decimal("0")), Decimal("0"))
+            continue
+        if closed_by_cat.get(cat):
+            continue
+        realise = charges_by_cat.get(cat, Decimal("0"))
+        ecart = prevu - realise
+        if ecart > 0:
+            reste_a_payer_budget += ecart
+        elif ecart < 0:
+            depassements_budget += -ecart
     # Reste à encaisser = cotisations encore dues, en BRUT (ce que le membre
     # va effectivement verser — capitation comprise, puisqu'elle transite par
     # le compte de la loge avant d'être reversée) + recettes budgétées pas
@@ -2833,6 +2857,8 @@ async def _compute_bilan(
         "reste_a_payer_budget": reste_a_payer_budget,
         "depassements_budget": depassements_budget,
         "closed_by_cat": closed_by_cat,
+        "estimate_by_cat": estimate_by_cat,
+        "has_estimate_by_cat": has_estimate_by_cat,
         "reste_a_encaisser_cotisations": reste_a_encaisser_cotisations,
         "reste_a_encaisser_recettes": reste_a_encaisser_recettes,
         "reste_a_encaisser_total": reste_a_encaisser_total,

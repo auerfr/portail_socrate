@@ -95,6 +95,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE budget_lines ADD COLUMN closed BOOLEAN NOT NULL DEFAULT 0"
             )
+        if "estimated_remaining" not in cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE budget_lines ADD COLUMN estimated_remaining NUMERIC(10,2)"
+            )
 
         # contribution_configs.initial_treasury
         r2 = await conn.exec_driver_sql("PRAGMA table_info(contribution_configs)")

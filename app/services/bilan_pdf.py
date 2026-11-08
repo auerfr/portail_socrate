@@ -346,6 +346,8 @@ def build_bilan_pdf(
     if data["budget_by_cat"]:
         all_cats = sorted(set(list(data["budget_by_cat"].keys()) + list(data["charges_by_cat"].keys())))
         closed_by_cat = data.get("closed_by_cat") or {}
+        has_estimate_by_cat = data.get("has_estimate_by_cat") or {}
+        estimate_by_cat = data.get("estimate_by_cat") or {}
         th = ParagraphStyle("th", parent=styles["Normal"], fontSize=8.5, textColor=GRAY, fontName="Helvetica-Bold")
         td = ParagraphStyle("td", parent=styles["Normal"], fontSize=9)
         td_r = ParagraphStyle("tdr", parent=td, alignment=TA_RIGHT)
@@ -360,18 +362,25 @@ def build_bilan_pdf(
             prevu = data["budget_by_cat"].get(cat_name, Decimal("0"))
             realise = data["charges_by_cat"].get(cat_name, Decimal("0"))
             hors_budget = cat_name not in data["budget_by_cat"]
-            cloturee = bool(closed_by_cat.get(cat_name)) and not hors_budget
-            exclu = hors_budget or cloturee
+            a_estimation = bool(has_estimate_by_cat.get(cat_name)) and not hors_budget
+            cloturee = bool(closed_by_cat.get(cat_name)) and not hors_budget and not a_estimation
+            exclu = hors_budget or cloturee or a_estimation
             ecart = prevu - realise
             ecart_color = RED_TXT if ecart < 0 else (GREEN_TXT if ecart > 0 else GRAY)
             ecart_str = f"{'+' if ecart > 0 else ''}{_eur(ecart)}"
-            suffix = " (hors budget)" if hors_budget else (" (clôturée)" if cloturee else "")
+            suffix = " (hors budget)" if hors_budget else (" (clôturée)" if cloturee else (" (estimation trésorier)" if a_estimation else ""))
+            if a_estimation:
+                compte_str = _eur(estimate_by_cat.get(cat_name, Decimal("0")))
+                compte_color = colors.HexColor("#5a3fa8")  # teinte dédiée estimation trésorier
+            else:
+                compte_str = "—" if exclu else ecart_str
+                compte_color = GRAY
             rows.append([
                 Paragraph(cat_name + suffix, ParagraphStyle("catn", parent=td, textColor=(GRAY if exclu else DARK))),
                 Paragraph(_eur(prevu), ParagraphStyle("tdp", parent=td_r, textColor=(GRAY if exclu else DARK))),
                 Paragraph(_eur(realise), ParagraphStyle("tdr2", parent=td_r, textColor=(GRAY if exclu else DARK))),
                 Paragraph(ecart_str, ParagraphStyle("ec", parent=td_r, textColor=ecart_color)),
-                Paragraph("—" if exclu else ecart_str, ParagraphStyle("ecc", parent=td_r, textColor=GRAY)),
+                Paragraph(compte_str, ParagraphStyle("ecc", parent=td_r, textColor=compte_color)),
             ])
 
         reste = data.get("reste_a_payer_budget", Decimal("0"))
@@ -408,10 +417,11 @@ def build_bilan_pdf(
                 textColor=DARK, spaceAfter=3,
             )),
             Paragraph(
-                "Un écart positif (vert) signifie que la dépense réalisée est restée en-deçà du budget voté ; "
-                "négatif (rouge), qu'elle l'a dépassé. Les lignes « hors budget » (aucun montant voté, ex. un "
-                "évènement autofinancé par ses propres recettes) et « clôturées » (déclarées réglées par le "
-                "trésorier) n'entrent dans aucun des deux totaux.", note_style,
+                "La colonne « Écart » est le calcul mécanique prévu − réalisé, toujours affiché. La colonne "
+                "« Compté dans le Bilan » est ce qui entre réellement dans les totaux ci-dessous : les lignes "
+                "« hors budget » (aucun montant voté) et « clôturées » (déclarées réglées par le trésorier) n'y "
+                "comptent pas, et une ligne avec une « estimation trésorier » y affiche ce montant à la place du "
+                "calcul mécanique.", note_style,
             ),
             Spacer(1, 0.15 * cm),
             budget_table,

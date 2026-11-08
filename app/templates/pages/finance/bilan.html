@@ -339,13 +339,15 @@
           {% set realise = charges_by_cat.get(cat, 0) %}
           {% set ecart = prevu - realise %}
           {% set hors_budget = cat not in budget_by_cat %}
-          {% set clôturée = closed_by_cat.get(cat) and not hors_budget %}
-          {% set exclu = hors_budget or clôturée %}
+          {% set a_estimation = has_estimate_by_cat.get(cat) and not hors_budget %}
+          {% set clôturée = closed_by_cat.get(cat) and not hors_budget and not a_estimation %}
+          {% set exclu = hors_budget or clôturée or a_estimation %}
           <tr class="hover:bg-gray-50 {% if exclu %}bg-gray-50/50{% endif %}">
             <td class="px-5 py-2.5 text-gray-800">
               {{ cat }}
               {% if hors_budget %}<span class="text-xs text-gray-400 italic">(hors budget)</span>{% endif %}
               {% if clôturée %}<span class="text-xs text-green-600 italic">(clôturée par le trésorier)</span>{% endif %}
+              {% if a_estimation %}<span class="text-xs text-loge-600 italic">(estimation trésorier)</span>{% endif %}
             </td>
             <td class="px-4 py-2.5 text-right tabular-nums text-gray-600">{{ "%.2f"|format(prevu) }} €</td>
             <td class="px-4 py-2.5 text-right tabular-nums font-medium">{{ "%.2f"|format(realise) }} €</td>
@@ -353,8 +355,10 @@
                        {% if ecart < 0 %}text-red-600{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
               {% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €
             </td>
-            <td class="px-5 py-2.5 text-right tabular-nums font-semibold text-gray-400">
-              {% if exclu %}—{% else %}{% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €{% endif %}
+            <td class="px-5 py-2.5 text-right tabular-nums font-semibold {% if a_estimation %}text-loge-600{% else %}text-gray-400{% endif %}">
+              {% if a_estimation %}{{ "%.2f"|format(estimate_by_cat.get(cat, 0)) }} €
+              {% elif exclu %}—
+              {% else %}{% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €{% endif %}
             </td>
           </tr>
           {% endfor %}

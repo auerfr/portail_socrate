@@ -98,6 +98,14 @@ class BudgetLine(Base):
     # à payer" du Bilan (reste_a_payer_budget / depassements_budget) — ne
     # touche jamais le T3 ni le résultat prévisionnel.
     closed: Mapped[bool]                  = mapped_column(Boolean, default=False)
+    # Estimation du trésorier du montant RÉELLEMENT encore à payer sur cette
+    # ligne, quand il diffère du calcul mécanique (prévu − réalisé) — ex. "le
+    # déplacement ne sera finalement pas remboursé" (0 au lieu du prévu
+    # restant) ou "il reste encore ~X € de frais bancaires à venir". None =
+    # pas d'estimation, on garde le calcul mécanique. Prioritaire sur
+    # "closed" dans le Bilan ; ne touche jamais le T3 ni le résultat
+    # prévisionnel.
+    estimated_remaining: Mapped[Optional[float]] = mapped_column(Numeric(10, 2), nullable=True)
 
     def __repr__(self) -> str:
         return f"<BudgetLine {self.label} {self.amount}€>"
