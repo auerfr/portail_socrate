@@ -201,6 +201,18 @@
         {% if resultat >= 0 %}+{% endif %}{{ "%.2f"|format(resultat) }} €
       </div>
     </div>
+    {% if creances_nettes > 0.5 or budget_restant|abs > 0.5 %}
+    <div class="mt-3 pt-3 border-t {% if resultat >= 0 %}border-loge-200{% else %}border-orange-200{% endif %} flex items-center justify-between flex-wrap gap-2">
+      <div class="text-xs {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
+        <strong>Prévisionnel</strong> — si les {{ "%.2f"|format(creances_nettes) }} € de cotisations encore dues
+        (part loge) sont encaissés et le budget voté ({{ "%.2f"|format(total_budget) }} €) intégralement
+        consommé :
+      </div>
+      <div class="text-lg font-bold {% if resultat_previsionnel >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
+        {% if resultat_previsionnel >= 0 %}+{% endif %}{{ "%.2f"|format(resultat_previsionnel) }} €
+      </div>
+    </div>
+    {% endif %}
   </div>
 
   <!-- ═══ Capitation — flux de transit (séparé du fonctionnement) ═══ -->

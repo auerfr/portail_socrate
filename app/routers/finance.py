@@ -2477,6 +2477,16 @@ async def _compute_bilan(
     # ── Cotisations dues (toujours sur l'année complète) ─────────────────────
     total_cotisations_due = total_cotisations_due_brut
 
+    # ── Résultat prévisionnel ─────────────────────────────────────────────────
+    # Si toutes les cotisations encore dues étaient encaissées, et si le
+    # budget voté était intégralement dépensé (ni plus ni moins) — utile pour
+    # anticiper, ex. une subvention mairie déjà actée au budget mais pas
+    # encore versée/payée en totalité.
+    total_cotisations_due_net = total_cotisations_due - total_capitation_due
+    creances_nettes = total_cotisations_due_net - total_cotisations_nettes
+    budget_restant = total_budget - total_charges
+    resultat_previsionnel = total_cotisations_due_net + total_produits - total_budget
+
     return {
         "charges_by_cat": dict(sorted(charges_by_cat.items())),
         "total_charges": total_charges,
@@ -2499,6 +2509,10 @@ async def _compute_bilan(
         "total_produits_global": total_produits_global,
         "resultat": resultat_net,           # résultat réel loge (sans capitation)
         "resultat_brut": resultat_brut,     # pour info
+        "resultat_previsionnel": resultat_previsionnel,
+        "total_cotisations_due_net": total_cotisations_due_net,
+        "creances_nettes": creances_nettes,
+        "budget_restant": budget_restant,
         "budget_by_cat": dict(sorted(budget_by_cat.items())),
         "total_budget": total_budget,
         "total_cotisations_due": total_cotisations_due,
