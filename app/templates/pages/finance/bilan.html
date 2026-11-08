@@ -345,31 +345,42 @@
           {% set prevu = budget_by_cat.get(cat, 0) %}
           {% set realise = charges_by_cat.get(cat, 0) %}
           {% set ecart = prevu - realise %}
-          <tr class="hover:bg-gray-50">
-            <td class="px-5 py-2.5 text-gray-800">{{ cat }}</td>
+          {% set hors_budget = cat not in budget_by_cat %}
+          <tr class="hover:bg-gray-50 {% if hors_budget %}bg-gray-50/50{% endif %}">
+            <td class="px-5 py-2.5 text-gray-800">
+              {{ cat }}
+              {% if hors_budget %}<span class="text-xs text-gray-400 italic">(hors budget)</span>{% endif %}
+            </td>
             <td class="px-4 py-2.5 text-right tabular-nums text-gray-600">{{ "%.2f"|format(prevu) }} €</td>
             <td class="px-4 py-2.5 text-right tabular-nums font-medium">{{ "%.2f"|format(realise) }} €</td>
             <td class="px-5 py-2.5 text-right tabular-nums font-semibold
-                       {% if ecart < 0 %}text-red-600{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
-              {% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €
+                       {% if hors_budget %}text-gray-400
+                       {% elif ecart < 0 %}text-red-600{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+              {% if hors_budget %}—{% else %}{% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €{% endif %}
             </td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
           <tr>
-            <td class="px-5 py-3 text-gray-800">Total</td>
+            <td class="px-5 py-3 text-gray-800">Total (lignes budgétées uniquement)</td>
             <td class="px-4 py-3 text-right tabular-nums text-gray-700">{{ "%.2f"|format(total_budget) }} €</td>
-            <td class="px-4 py-3 text-right tabular-nums">{{ "%.2f"|format(total_charges) }} €</td>
-            {% set ecart_total = total_budget - total_charges %}
-            <td class="px-5 py-3 text-right tabular-nums
-                       {% if ecart_total < 0 %}text-red-600{% elif ecart_total > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
-              {% if ecart_total > 0 %}+{% endif %}{{ "%.2f"|format(ecart_total) }} €
+            <td class="px-4 py-3 text-right tabular-nums">{{ "%.2f"|format(total_budget - reste_a_payer_budget + depassements_budget) }} €</td>
+            <td class="px-5 py-3 text-right tabular-nums">
+              <div class="text-green-600">+{{ "%.2f"|format(reste_a_payer_budget) }} € reste</div>
+              {% if depassements_budget > 0.5 %}
+              <div class="text-red-600">−{{ "%.2f"|format(depassements_budget) }} € dépassé</div>
+              {% endif %}
             </td>
           </tr>
         </tfoot>
       </table>
     </div>
+    <p class="px-5 py-2.5 text-[11px] text-gray-400 border-t border-gray-100">
+      Les lignes « hors budget » (aucun montant voté, ex. un évènement autofinancé par ses propres recettes)
+      n'entrent dans aucun des totaux ci-dessus ni dans les tuiles « Reste à payer »/« Dépassement » plus haut sur
+      la page.
+    </p>
   </div>
   {% endif %}
 
