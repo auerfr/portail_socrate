@@ -61,6 +61,13 @@
     « argent de l'association uniquement » (hors capitation), voir le <a href="/finance/bilan{% if selected_year %}?year_id={{ selected_year.id }}{% endif %}" class="text-loge-600 hover:underline">Bilan</a>.
   </p>
 
+  {% if debit_credit_chart %}
+  <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5 mb-6">
+    <h2 class="text-sm font-semibold text-gray-800">Débit / Crédit par mois</h2>
+    <div class="relative" style="height:240px;"><canvas id="debitCreditChart" aria-label="Débit et crédit par mois"></canvas></div>
+  </div>
+  {% endif %}
+
   <div class="grid lg:grid-cols-3 gap-6">
 
     <!-- ── Formulaire saisie (admin) — en premier sur mobile ─────────────── -->
@@ -481,6 +488,44 @@ function openRenameCategory(id, currentName) {
   document.getElementById('rename-cat-name').value = currentName;
   document.getElementById('modal-rename-cat').classList.remove('hidden');
 }
+</script>
+{% endif %}
+
+{% if debit_credit_chart %}
+<script src="/static/js/chart.umd.min.js"></script>
+<script>
+(function() {
+  var el = document.getElementById('debitCreditChart');
+  if (!el) return;
+  Chart.defaults.font.family = "system-ui, -apple-system, 'Segoe UI', sans-serif";
+  Chart.defaults.font.size = 11;
+  Chart.defaults.color = '#6b7280';
+  new Chart(el.getContext('2d'), {
+    type: 'bar',
+    data: {
+      labels: {{ debit_credit_chart.labels | tojson }},
+      datasets: [
+        { label: 'Crédit (recettes)', data: {{ debit_credit_chart.credit | tojson }}, backgroundColor: '#008300', borderRadius: 4, maxBarThickness: 28 },
+        { label: 'Débit (dépenses)', data: {{ debit_credit_chart.debit | tojson }}, backgroundColor: '#e34948', borderRadius: 4, maxBarThickness: 28 },
+      ],
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false, animation: false,
+      interaction: { mode: 'index', intersect: false },
+      plugins: {
+        legend: { position: 'bottom', labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 2 } },
+        tooltip: {
+          backgroundColor: '#1f2937', padding: 10,
+          callbacks: { label: function (c) { return c.dataset.label + ' : ' + c.formattedValue + ' €'; } },
+        },
+      },
+      scales: {
+        x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
+        y: { beginAtZero: true, grid: { color: '#eef0ee', drawTicks: false }, border: { display: false } },
+      },
+    },
+  });
+})();
 </script>
 {% endif %}
 

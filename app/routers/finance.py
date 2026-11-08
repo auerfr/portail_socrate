@@ -1361,6 +1361,79 @@ async def cotisations_view(
         for c in rc.scalars().all():
             contributions_map[c.member_id] = c
 
+    # ── Graphique : cumul des cotisations encaissées vs obligations fixes ────
+    # Montre si l'argent rentre assez vite pour couvrir les échéances connues :
+    # capitation en 3 tiers (29/01, 26/04, 27/07) et Immobilier par trimestre
+    # (31/03, 30/06, 30/09, 31/12) — les autres charges (banque ~5€/mois,
+    # reste réparti dans l'année) ne sont volontairement pas trackées ici.
+    cumul_chart = None
+    if selected_year:
+        py = await db.execute(
+            select(Payment.payment_date, func.sum(Payment.amount))
+            .join(MemberContribution, Payment.member_contribution_id == MemberContribution.id)
+            .where(MemberContribution.fiscal_year_id == selected_year.id)
+            .group_by(Payment.payment_date)
+            .order_by(Payment.payment_date)
+        )
+        payments_by_date = [(d, float(amt)) for d, amt in py.all() if d]
+
+        cap_due_r = await db.execute(
+            select(func.sum(MemberContribution.capitation_amount))
+            .where(MemberContribution.fiscal_year_id == selected_year.id)
+        )
+        total_capitation_due = float(cap_due_r.scalar_one() or 0)
+
+        immo_r = await db.execute(
+            select(func.sum(BudgetLine.amount)).where(
+                BudgetLine.fiscal_year_id == selected_year.id,
+                BudgetLine.direction == TransactionType.EXPENSE,
+                BudgetLine.category_label == "Immobilier",
+            )
+        )
+        total_immobilier = float(immo_r.scalar_one() or 0)
+
+        yr = selected_year.start_date.year
+        obligations_events = []
+        if total_capitation_due > 0:
+            obligations_events += [
+                (date(yr, 1, 29), total_capitation_due / 3, "Capitation 1/3"),
+                (date(yr, 4, 26), total_capitation_due / 3, "Capitation 2/3"),
+                (date(yr, 7, 27), total_capitation_due / 3, "Capitation 3/3"),
+            ]
+        if total_immobilier > 0:
+            obligations_events += [
+                (date(yr, 3, 31), total_immobilier / 4, "Immobilier T1"),
+                (date(yr, 6, 30), total_immobilier / 4, "Immobilier T2"),
+                (date(yr, 9, 30), total_immobilier / 4, "Immobilier T3"),
+                (date(yr, 12, 31), total_immobilier / 4, "Immobilier T4"),
+            ]
+        obligations_events.sort(key=lambda e: e[0])
+
+        if payments_by_date or obligations_events:
+            checkpoints = sorted({d for d, _ in payments_by_date} | {e[0] for e in obligations_events})
+            cumul_cot, cumul_obl = [], []
+            running_cot = running_obl = 0.0
+            pay_map: dict = {}
+            for d, amt in payments_by_date:
+                pay_map[d] = pay_map.get(d, 0.0) + amt
+            obl_map: dict = {}
+            for d, amt, _label in obligations_events:
+                obl_map[d] = obl_map.get(d, 0.0) + amt
+            for cp in checkpoints:
+                running_cot += pay_map.get(cp, 0.0)
+                running_obl += obl_map.get(cp, 0.0)
+                cumul_cot.append(round(running_cot, 2))
+                cumul_obl.append(round(running_obl, 2))
+            cumul_chart = {
+                "labels": [cp.strftime("%d/%m/%Y") for cp in checkpoints],
+                "cotisations": cumul_cot,
+                "obligations": cumul_obl,
+                "obligation_events": [
+                    {"date": e[0].strftime("%d/%m"), "label": e[2], "amount": round(e[1], 2)}
+                    for e in obligations_events
+                ],
+            }
+
     return templates.TemplateResponse(request, "pages/finance/cotisations.html", {
         "current_member": member,
         "current_user": user,
@@ -1379,6 +1452,7 @@ async def cotisations_view(
         "is_admin": user.is_admin,
         "can_manage": user.is_admin or can_manage_finance(member),
         "now": datetime.now(),
+        "cumul_chart": cumul_chart,
     })
 
 
@@ -2139,6 +2213,7 @@ async def transactions_view(
     budget_status_by_cat_id = {}
     total_income = Decimal("0")
     total_expense = Decimal("0")
+    debit_credit_chart = None
 
     if selected_year:
         # ── Auto-synchronisation : catégories budget → BudgetCategory ───────
@@ -2287,6 +2362,30 @@ async def transactions_view(
             else:
                 total_expense += amt
 
+        # ── Graphique débit/crédit par mois ───────────────────────────────────
+        MOIS_FR_SHORT = ["", "janv.", "févr.", "mars", "avr.", "mai", "juin",
+                          "juil.", "août", "sept.", "oct.", "nov.", "déc."]
+        month_keys = []
+        y0, m0 = selected_year.start_date.year, selected_year.start_date.month
+        for i in range(12):
+            total_m = y0 * 12 + (m0 - 1) + i
+            month_keys.append((total_m // 12, total_m % 12 + 1))
+        credit_by_month = {k: Decimal("0") for k in month_keys}
+        debit_by_month = {k: Decimal("0") for k in month_keys}
+        for r in rows:
+            key = (r.date.year, r.date.month)
+            if key not in credit_by_month:
+                continue
+            if r.type == TransactionType.INCOME:
+                credit_by_month[key] += Decimal(str(r.amount))
+            else:
+                debit_by_month[key] += Decimal(str(r.amount))
+        debit_credit_chart = {
+            "labels": [f"{MOIS_FR_SHORT[m]} {y}" for y, m in month_keys],
+            "credit": [float(credit_by_month[k]) for k in month_keys],
+            "debit": [float(debit_by_month[k]) for k in month_keys],
+        }
+
     return templates.TemplateResponse(request, "pages/finance/transactions.html", {
         "current_member": member,
         "current_user": user,
@@ -2298,6 +2397,7 @@ async def transactions_view(
         "total_income": total_income,
         "total_expense": total_expense,
         "solde": total_income - total_expense,
+        "debit_credit_chart": debit_credit_chart,
         "TransactionType": TransactionType,
         "filter_type": txn_type,
         "is_admin": user.is_admin,
