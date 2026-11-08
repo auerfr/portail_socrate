@@ -864,6 +864,128 @@ async def budget_delete(
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
 
+async def _compute_budget_comparison(db: AsyncSession, year: FiscalYear, compare_year: Optional[FiscalYear]):
+    """Comparatif du budget prévisionnel d'une année face à l'année précédente
+    (budget voté N-1 et réalisé N-1 à date), pour présentation en assemblée
+    (ex. vote du budget N+1 fin d'année, face au bilan de l'année en cours)."""
+    data_year = await _compute_bilan(db, year, None, None)
+    data_compare = (
+        await _compute_bilan(db, compare_year, None, None) if compare_year else None
+    )
+
+    def build_rows(budget_key: str, realised_key: str):
+        vote_compare = data_compare[budget_key] if data_compare else {}
+        realise_compare = data_compare[realised_key] if data_compare else {}
+        vote_year = data_year[budget_key]
+        all_cats = sorted(set(vote_compare) | set(realise_compare) | set(vote_year))
+        rows = []
+        for cat in all_cats:
+            vc = vote_compare.get(cat, Decimal("0"))
+            rc = realise_compare.get(cat, Decimal("0"))
+            vy = vote_year.get(cat, Decimal("0"))
+            rows.append({
+                "cat": cat, "vote_compare": vc, "realise_compare": rc, "vote_year": vy,
+                "ecart_vs_vote": vy - vc, "ecart_vs_realise": vy - rc,
+            })
+        return rows
+
+    charges_rows = build_rows("budget_by_cat", "charges_by_cat")
+    income_rows = build_rows("budget_income_by_cat", "produits_by_cat")
+
+    return {
+        "year": year,
+        "compare_year": compare_year,
+        "charges_rows": charges_rows,
+        "charges_totals": {
+            "vote_compare": data_compare["total_budget"] if data_compare else Decimal("0"),
+            "realise_compare": data_compare["total_charges"] if data_compare else Decimal("0"),
+            "vote_year": data_year["total_budget"],
+        },
+        "income_rows": income_rows,
+        "income_totals": {
+            "vote_compare": data_compare["total_budget_income"] if data_compare else Decimal("0"),
+            "realise_compare": data_compare["total_produits"] if data_compare else Decimal("0"),
+            "vote_year": data_year["total_budget_income"],
+        },
+    }
+
+
+async def _resolve_comparison_years(db: AsyncSession, year_id: Optional[int], compare_year_id: Optional[int]):
+    r = await db.execute(select(FiscalYear).order_by(FiscalYear.start_date.desc()))
+    years = r.scalars().all()
+    year = None
+    if year_id:
+        year = await db.get(FiscalYear, year_id)
+    if not year:
+        year = next((y for y in years if y.is_current), years[0] if years else None)
+    compare_year = None
+    if compare_year_id:
+        compare_year = await db.get(FiscalYear, compare_year_id)
+    elif year:
+        # Par défaut : l'année civile précédente (la plus récente dont le
+        # début est antérieur à l'année présentée).
+        earlier = [y for y in years if y.id != year.id and y.start_date < year.start_date]
+        compare_year = max(earlier, key=lambda y: y.start_date, default=None)
+    return years, year, compare_year
+
+
+@router.get("/budget/print", response_class=HTMLResponse)
+async def budget_print(
+    request: Request,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: Optional[int] = None,
+    compare_year_id: Optional[int] = None,
+):
+    """Vue imprimable du budget prévisionnel, avec comparatif à l'année
+    précédente (voté et réalisé) — pour présentation en assemblée."""
+    from app.models.lodge import LodgeSettings
+
+    years, year, compare_year = await _resolve_comparison_years(db, year_id, compare_year_id)
+    if not year:
+        raise HTTPException(404, "Aucune année configurée")
+
+    comparison = await _compute_budget_comparison(db, year, compare_year)
+
+    ls_r = await db.execute(select(LodgeSettings).limit(1))
+    lodge = ls_r.scalar_one_or_none()
+
+    return templates.TemplateResponse(request, "pages/finance/budget_print.html", {
+        "lodge": lodge,
+        "years": years,
+        "generated_on": date.today().strftime("%d/%m/%Y"),
+        **comparison,
+    })
+
+
+@router.get("/budget/export-pdf")
+async def budget_export_pdf(
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: Optional[int] = None,
+    compare_year_id: Optional[int] = None,
+):
+    """Export PDF du budget prévisionnel, avec comparatif à l'année
+    précédente (voté et réalisé) — pour présentation en assemblée."""
+    from app.config import get_settings
+    from app.services.budget_pdf import build_budget_pdf
+
+    years, year, compare_year = await _resolve_comparison_years(db, year_id, compare_year_id)
+    if not year:
+        raise HTTPException(404, "Aucune année configurée")
+
+    comparison = await _compute_budget_comparison(db, year, compare_year)
+
+    settings = get_settings()
+    pdf = build_budget_pdf(settings.lodge_name, comparison)
+
+    filename = f"budget_{year.label.replace(' ', '_')}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf), media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 @router.post("/config/undo-recalc")
 async def config_undo_recalc(
     request: Request,

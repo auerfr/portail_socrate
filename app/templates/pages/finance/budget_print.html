@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <title>Budget prévisionnel {{ year.label }} — {{ lodge.name if lodge else 'Loge' }}</title>
+  <style>
+    @page { size: A4 landscape; margin: 1.5cm; }
+    * { box-sizing: border-box; }
+    body { font-family: Georgia, 'Times New Roman', serif; font-size: 11pt; color: #111; margin: 0; }
+    .header { text-align: center; border-bottom: 2px solid #2c7a7b; padding-bottom: 1rem; margin-bottom: 1.5rem; }
+    .header h1 { margin: 0 0 .25rem; font-size: 18pt; color: #2c7a7b; }
+    .header h2 { margin: 0; font-size: 12pt; font-weight: normal; color: #555; }
+    .section-title { background: #4b5563; color: #fff; padding: .5rem .75rem; font-size: 11pt; font-weight: bold;
+                      text-transform: uppercase; letter-spacing: .03em; margin-top: 1.5rem; }
+    table { width: 100%; border-collapse: collapse; margin-bottom: .5rem; font-size: 10pt; }
+    th { background: #e6f4f1; text-align: right; padding: .4rem .6rem; font-size: 9pt; text-transform: uppercase;
+         letter-spacing: .03em; color: #2c7a7b; border-bottom: 1px solid #b3d4cf; }
+    th:first-child { text-align: left; }
+    td { padding: .4rem .6rem; border-bottom: 1px solid #e5e7eb; text-align: right; }
+    td:first-child { text-align: left; }
+    tr.total td { font-weight: bold; border-top: 2px solid #9ca3af; border-bottom: none; }
+    .ecart-pos { color: #15803d; }
+    .ecart-neg { color: #b91c1c; }
+    .ecart-zero { color: #9ca3af; }
+    .empty-row td { color: #9ca3af; font-style: italic; }
+    .footer { margin-top: 2rem; font-size: 9pt; color: #6b7280; text-align: center; }
+    @media print { .no-print { display: none !important; } }
+    .no-print { text-align: center; margin: 1rem 0; display: flex; justify-content: center; align-items: center; gap: .75rem; }
+    .no-print button { background: #2c7a7b; color: white; border: none; padding: .5rem 1rem; border-radius: .5rem; cursor: pointer; font-size: 11pt; }
+    .no-print select { padding: .4rem .6rem; border-radius: .5rem; border: 1px solid #d1d5db; font-size: 10.5pt; }
+  </style>
+</head>
+<body>
+
+  <div class="no-print">
+    <form method="get">
+      <label>Année présentée
+        <select name="year_id" onchange="this.form.submit()">
+          {% for y in years %}
+          <option value="{{ y.id }}" {% if y.id == year.id %}selected{% endif %}>{{ y.label }}{% if y.is_current %} ★{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+      <label>Comparée à
+        <select name="compare_year_id" onchange="this.form.submit()">
+          <option value="">— Aucune —</option>
+          {% for y in years if y.id != year.id %}
+          <option value="{{ y.id }}" {% if compare_year and y.id == compare_year.id %}selected{% endif %}>{{ y.label }}{% if y.is_current %} ★{% endif %}</option>
+          {% endfor %}
+        </select>
+      </label>
+    </form>
+    <button onclick="window.print()">🖨️ Imprimer / Enregistrer en PDF</button>
+    <a href="/finance/budget/export-pdf?year_id={{ year.id }}{% if compare_year %}&compare_year_id={{ compare_year.id }}{% endif %}">⬇ PDF (mise en page paysage)</a>
+  </div>
+
+  <div class="header">
+    <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
+    <h2>
+      Budget prévisionnel — {{ year.label }}
+      {% if compare_year %}· comparé à {{ compare_year.label }}{% endif %}
+    </h2>
+  </div>
+
+  {% macro ecart_class(v) -%}
+    {%- if v > 0.005 %}ecart-pos{% elif v < -0.005 %}ecart-neg{% else %}ecart-zero{% endif -%}
+  {%- endmacro %}
+
+  {% macro comparison_table(rows, totals, compare_label) %}
+  <table>
+    <thead>
+      <tr>
+        <th>Catégorie</th>
+        <th>Voté {{ compare_label }}</th>
+        <th>Réalisé {{ compare_label }}</th>
+        <th>Voté {{ year.label }}</th>
+        <th>Écart / voté</th>
+        <th>Écart / réalisé</th>
+      </tr>
+    </thead>
+    <tbody>
+      {% if rows %}
+      {% for r in rows %}
+      <tr>
+        <td>{{ r.cat }}</td>
+        <td>{{ "%.2f"|format(r.vote_compare) }} €</td>
+        <td>{{ "%.2f"|format(r.realise_compare) }} €</td>
+        <td>{{ "%.2f"|format(r.vote_year) }} €</td>
+        <td class="{{ ecart_class(r.ecart_vs_vote) }}">{% if r.ecart_vs_vote > 0 %}+{% endif %}{{ "%.2f"|format(r.ecart_vs_vote) }} €</td>
+        <td class="{{ ecart_class(r.ecart_vs_realise) }}">{% if r.ecart_vs_realise > 0 %}+{% endif %}{{ "%.2f"|format(r.ecart_vs_realise) }} €</td>
+      </tr>
+      {% endfor %}
+      {% else %}
+      <tr class="empty-row"><td colspan="6">Aucune ligne</td></tr>
+      {% endif %}
+      <tr class="total">
+        <td>Total</td>
+        <td>{{ "%.2f"|format(totals.vote_compare) }} €</td>
+        <td>{{ "%.2f"|format(totals.realise_compare) }} €</td>
+        <td>{{ "%.2f"|format(totals.vote_year) }} €</td>
+        {% set tev = totals.vote_year - totals.vote_compare %}
+        {% set ter = totals.vote_year - totals.realise_compare %}
+        <td class="{{ ecart_class(tev) }}">{% if tev > 0 %}+{% endif %}{{ "%.2f"|format(tev) }} €</td>
+        <td class="{{ ecart_class(ter) }}">{% if ter > 0 %}+{% endif %}{{ "%.2f"|format(ter) }} €</td>
+      </tr>
+    </tbody>
+  </table>
+  {% endmacro %}
+
+  {% set compare_label = compare_year.label if compare_year else '—' %}
+
+  <div class="section-title">Charges</div>
+  {{ comparison_table(charges_rows, charges_totals, compare_label) }}
+
+  <div class="section-title">Recettes prévisionnelles</div>
+  {{ comparison_table(income_rows, income_totals, compare_label) }}
+
+  <div class="footer">
+    Document généré le {{ generated_on }} — Portail Socrate
+  </div>
+
+</body>
+</html>
