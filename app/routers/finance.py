@@ -1953,6 +1953,7 @@ async def transactions_view(
 
     transactions = []
     categories = []
+    budget_status_by_cat_id = {}
     total_income = Decimal("0")
     total_expense = Decimal("0")
 
@@ -1999,6 +2000,44 @@ async def transactions_view(
             .order_by(BudgetCategory.type, BudgetCategory.name)
         )
         categories = rc.scalars().all()
+
+        # ── Rattachement suggéré à une ligne budgétée ────────────────────────
+        # Pour chaque catégorie de dépense qui correspond à une ligne du budget
+        # (par le libellé de catégorie), calcule prévu / déjà engagé / reste —
+        # affiché au moment de la saisie pour que le trésorier rattache
+        # naturellement sa dépense à la bonne ligne déjà votée.
+        rb_prevu = await db.execute(
+            select(BudgetLine.category_label, func.sum(BudgetLine.amount))
+            .where(
+                BudgetLine.fiscal_year_id == selected_year.id,
+                BudgetLine.direction == TransactionType.EXPENSE,
+                BudgetLine.category_label.is_not(None),
+            )
+            .group_by(BudgetLine.category_label)
+        )
+        budget_prevu_by_cat_name = {row[0]: float(row[1]) for row in rb_prevu.all()}
+
+        realise_by_cat_name: dict[str, float] = {}
+        if budget_prevu_by_cat_name:
+            re_realise = await db.execute(
+                select(BudgetCategory.name, func.sum(Transaction.amount))
+                .join(Transaction, Transaction.category_id == BudgetCategory.id)
+                .where(
+                    Transaction.fiscal_year_id == selected_year.id,
+                    Transaction.type == TransactionType.EXPENSE,
+                )
+                .group_by(BudgetCategory.name)
+            )
+            realise_by_cat_name = {row[0]: float(row[1]) for row in re_realise.all()}
+
+        budget_status_by_cat_id = {}
+        for cat in categories:
+            if cat.type == TransactionType.EXPENSE and cat.name in budget_prevu_by_cat_name:
+                prevu = budget_prevu_by_cat_name[cat.name]
+                realise = realise_by_cat_name.get(cat.name, 0.0)
+                budget_status_by_cat_id[cat.id] = {
+                    "prevu": prevu, "realise": realise, "reste": prevu - realise,
+                }
 
         # Transactions (filtrées si nécessaire)
         q = (
@@ -2072,6 +2111,7 @@ async def transactions_view(
         "selected_year": selected_year,
         "transactions": rows,
         "categories": categories,
+        "budget_status_by_cat_id": budget_status_by_cat_id,
         "total_income": total_income,
         "total_expense": total_expense,
         "solde": total_income - total_expense,

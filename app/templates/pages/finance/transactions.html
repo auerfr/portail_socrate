@@ -102,13 +102,17 @@
               </button>
             </div>
             <div x-show="!newCat">
-              <select name="category_id" :disabled="newCat"
+              <select name="category_id" id="add-txn-category" :disabled="newCat"
+                      onchange="updateBudgetHint(this)"
                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 <option value="">— Aucune catégorie —</option>
                 {% if categories %}
                 <optgroup label="Dépenses">
                   {% for c in categories if c.type.value == 'EXPENSE' %}
-                  <option value="{{ c.id }}">{{ c.name }}</option>
+                  <option value="{{ c.id }}"
+                          {% if budget_status_by_cat_id.get(c.id) %}data-budget='{{ budget_status_by_cat_id[c.id] | tojson }}'{% endif %}>
+                    {{ c.name }}{% if budget_status_by_cat_id.get(c.id) %} — reste {{ "%.0f"|format(budget_status_by_cat_id[c.id].reste) }} €{% endif %}
+                  </option>
                   {% endfor %}
                 </optgroup>
                 <optgroup label="Recettes">
@@ -118,6 +122,7 @@
                 </optgroup>
                 {% endif %}
               </select>
+              <div id="add-txn-budget-hint" class="hidden text-xs rounded-lg px-3 py-2 mt-1.5"></div>
             </div>
             <div x-show="newCat" x-cloak>
               <input type="text" name="new_category" placeholder="Nom de la catégorie…"
@@ -437,6 +442,28 @@
 </div>
 
 <script>
+function updateBudgetHint(select) {
+  const hint = document.getElementById('add-txn-budget-hint');
+  const opt = select.options[select.selectedIndex];
+  const raw = opt && opt.getAttribute('data-budget');
+  if (!raw) {
+    hint.classList.add('hidden');
+    hint.textContent = '';
+    return;
+  }
+  const b = JSON.parse(raw);
+  const fmt = (n) => n.toLocaleString('fr-FR', { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + ' €';
+  hint.classList.remove('hidden');
+  if (b.reste < 0) {
+    hint.className = 'text-xs rounded-lg px-3 py-2 mt-1.5 text-amber-700 bg-amber-50 border border-amber-100';
+    hint.textContent = '📊 Ligne budgétée : ' + fmt(b.prevu) + ' prévus, ' + fmt(b.realise) +
+      ' déjà engagés — dépassement de ' + fmt(-b.reste) + '.';
+  } else {
+    hint.className = 'text-xs rounded-lg px-3 py-2 mt-1.5 text-blue-800 bg-blue-50 border border-blue-200';
+    hint.textContent = '📊 Rattachée à la ligne budgétée : ' + fmt(b.prevu) + ' prévus, ' + fmt(b.realise) +
+      ' déjà engagés, ' + fmt(b.reste) + ' restants.';
+  }
+}
 function openEditTxn(id, txnDate, label, amount, txnType, categoryId) {
   const form = document.getElementById('edit-txn-form');
   form.action = '/finance/transactions/' + id + '/edit';
