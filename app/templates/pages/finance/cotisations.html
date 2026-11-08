@@ -181,8 +181,9 @@
 
   <!-- Tableau -->
   <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+    <p class="sm:hidden text-[11px] text-gray-400 px-5 pt-2">👉 Faites glisser le tableau pour voir toutes les colonnes</p>
     <div class="overflow-x-auto">
-      <table class="w-full text-sm">
+      <table class="w-full min-w-[760px] text-sm">
         <thead>
           <tr class="border-b border-gray-100 bg-gray-50">
             <th class="text-left px-5 py-3 font-medium text-xs text-gray-500">Frère</th>
@@ -425,7 +426,7 @@
                   <p class="text-gray-500 font-medium mb-1">Paiements enregistrés</p>
                   {% for p in contrib.payments %}
                   <div class="border border-gray-100 rounded bg-white p-2 mb-1">
-                    <div x-show="editPayId !== {{ p.id }}" class="flex items-center gap-2">
+                    <div x-show="editPayId !== {{ p.id }}" class="flex flex-wrap items-center gap-2">
                       <span class="font-semibold text-gray-800">{{ "%.2f"|format(p.amount|float) }} €</span>
                       <span class="text-gray-500">{{ p.payment_date.strftime('%d/%m/%Y') if p.payment_date else '' }}</span>
                       <span class="text-gray-400">{{ method_labels.get(p.method.value, p.method.value) }}</span>

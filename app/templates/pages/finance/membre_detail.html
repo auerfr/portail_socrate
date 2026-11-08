@@ -123,7 +123,7 @@
       {% for p in contrib.payments %}
       <div class="border border-gray-100 rounded-lg mb-2 bg-gray-50">
         <!-- Vue normale -->
-        <div x-show="editPayId !== {{ p.id }}" class="flex items-center gap-3 px-3 py-2 text-sm">
+        <div x-show="editPayId !== {{ p.id }}" class="flex flex-wrap items-center gap-2 px-3 py-2 text-sm">
           <span class="font-semibold text-gray-800 w-20 tabular-nums">{{ "%.2f"|format(p.amount|float) }} €</span>
           <span class="text-gray-500 w-24">{{ p.payment_date.strftime('%d/%m/%Y') if p.payment_date else '—' }}</span>
           <span class="text-gray-400">{{ method_labels.get(p.method.value, p.method.value) }}</span>
