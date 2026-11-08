@@ -56,12 +56,9 @@
     </div>
   </div>
   <p class="text-xs text-gray-400 mb-6">
-    Ces totaux ne comptent que l'argent de l'association (hors capitation, et hors cotisations qui ne sont pas des
-    Mouvements — voir le Bilan pour la vue complète).
-    {% if total_capitation_transit > 0 %}
-    Capitation en transit vers le GODF/CAALA (non comptée ci-dessus) :
-    <strong class="text-gray-600">{{ "%.2f"|format(total_capitation_transit) }} €</strong>.
-    {% endif %}
+    Vue complète des entrées/sorties réelles (y compris les virements de capitation au GODF/CAALA, et les
+    cotisations encaissées — regroupées par mois, lecture seule, à gérer depuis « Cotisations »). Pour la vue
+    « argent de l'association uniquement » (hors capitation), voir le <a href="/finance/bilan{% if selected_year %}?year_id={{ selected_year.id }}{% endif %}" class="text-loge-600 hover:underline">Bilan</a>.
   </p>
 
   <div class="grid lg:grid-cols-3 gap-6">
@@ -222,7 +219,14 @@
                   </span>
                   {% endif %}
                 </td>
-                <td class="px-4 py-2.5 text-gray-800">{{ t.label }}</td>
+                <td class="px-4 py-2.5 text-gray-800">
+                  {% if t.synthetic %}
+                  <span class="italic text-gray-500">{{ t.label }}</span>
+                  <a href="/finance/cotisations?year_id={{ selected_year.id }}" class="text-xs text-loge-600 hover:underline ml-1">(détail →)</a>
+                  {% else %}
+                  {{ t.label }}
+                  {% endif %}
+                </td>
                 <td class="px-4 py-2.5 text-right tabular-nums">
                   {% if t.type.value == 'INCOME' %}
                   <span class="font-semibold text-green-600">+{{ "%.2f"|format(t.amount) }} €</span>
@@ -236,7 +240,9 @@
 
                 <!-- Pièce jointe -->
                 <td class="px-3 py-2.5 text-center hidden sm:table-cell">
-                  {% if t.attachment_url %}
+                  {% if t.synthetic %}
+                  <span class="text-xs text-gray-200" title="Agrégat mensuel — pas de justificatif unique">—</span>
+                  {% elif t.attachment_url %}
                   <a href="{{ t.attachment_url }}" target="_blank"
                      class="inline-flex items-center gap-1 text-xs text-loge-700 hover:underline font-medium">
                     📎 Voir
@@ -256,7 +262,7 @@
                   {% endif %}
 
                   <!-- Mini formulaire upload (visible au clic) -->
-                  {% if can_manage and not t.attachment_url %}
+                  {% if can_manage and not t.synthetic and not t.attachment_url %}
                   <div x-show="showUpload" x-cloak class="mt-1">
                     <form method="post" action="/finance/transactions/{{ t.id }}/attach"
                           enctype="multipart/form-data" class="flex items-center gap-1">
@@ -270,6 +276,9 @@
 
                 {% if can_manage %}
                 <td class="px-3 py-2.5 whitespace-nowrap">
+                  {% if t.synthetic %}
+                  <span class="text-xs text-gray-200">—</span>
+                  {% else %}
                   <button type="button"
                           onclick='openEditTxn({{ t.id }}, {{ t.date.isoformat()|tojson }}, {{ t.label|tojson }}, {{ t.amount|float }}, {{ t.type.value|tojson }}, {{ t.category_id|tojson }})'
                           class="text-gray-300 hover:text-loge-600 transition-opacity text-xs mr-1" title="Modifier">✎</button>
@@ -278,6 +287,7 @@
                     <button type="submit"
                             class="text-gray-300 hover:text-red-500 transition-opacity text-xs">✕</button>
                   </form>
+                  {% endif %}
                 </td>
                 {% endif %}
               </tr>

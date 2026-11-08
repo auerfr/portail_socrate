@@ -6,6 +6,7 @@ import shutil
 import uuid
 from decimal import Decimal, ROUND_HALF_UP
 from datetime import date, datetime, timedelta
+from types import SimpleNamespace
 from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
@@ -1917,7 +1918,6 @@ async def transactions_view(
     categories = []
     total_income = Decimal("0")
     total_expense = Decimal("0")
-    total_capitation_transit = Decimal("0")
 
     if selected_year:
         # ── Auto-synchronisation : catégories budget → BudgetCategory ───────
@@ -1976,17 +1976,55 @@ async def transactions_view(
         rt = await db.execute(q)
         transactions = rt.scalars().all()
 
-        for t in transactions:
-            amt = Decimal(str(t.amount))
-            if t.type == TransactionType.INCOME:
+        rows = [
+            SimpleNamespace(
+                id=t.id, date=t.date, label=t.label, amount=t.amount, type=t.type,
+                category=t.category, category_id=t.category_id,
+                attachment_url=t.attachment_url, synthetic=False,
+            )
+            for t in transactions
+        ]
+
+        # Cotisations réellement encaissées, agrégées par mois (date du
+        # virement) — ce ne sont pas des Mouvements à proprement parler
+        # (elles vivent dans Cotisations/Paiements), mais les laisser hors de
+        # cette page donnait un solde artificiellement déficitaire dès qu'un
+        # virement de capitation était saisi en dépense. Montant brut (part
+        # loge + capitation), pour refléter l'argent réellement encaissé en
+        # banque — cohérent avec les dépenses de capitation, elles aussi
+        # affichées en entier ci-dessous.
+        if txn_type != "EXPENSE":
+            MOIS_FR = ["", "janvier", "février", "mars", "avril", "mai", "juin",
+                       "juillet", "août", "septembre", "octobre", "novembre", "décembre"]
+            pay_q = (
+                select(
+                    func.strftime("%Y-%m", Payment.payment_date).label("ym"),
+                    func.sum(Payment.amount).label("total"),
+                )
+                .join(MemberContribution, Payment.member_contribution_id == MemberContribution.id)
+                .where(MemberContribution.fiscal_year_id == selected_year.id)
+                .group_by("ym")
+            )
+            pay_rows = (await db.execute(pay_q)).all()
+            cat_cotis = SimpleNamespace(name="Cotisations membres")
+            for ym, total in pay_rows:
+                if not ym or not total:
+                    continue
+                y_i, m_i = (int(x) for x in ym.split("-"))
+                rows.append(SimpleNamespace(
+                    id=None, date=date(y_i, m_i, 1),
+                    label=f"Cotisations encaissées — {MOIS_FR[m_i]} {y_i}",
+                    amount=total, type=TransactionType.INCOME,
+                    category=cat_cotis, category_id=None,
+                    attachment_url=None, synthetic=True,
+                ))
+
+        rows.sort(key=lambda r: (r.date, r.id or 0), reverse=True)
+
+        for r in rows:
+            amt = Decimal(str(r.amount))
+            if r.type == TransactionType.INCOME:
                 total_income += amt
-            elif _capitation_bucket(t.category.name if t.category else None):
-                # Virement de capitation au GODF/CAALA : flux de transit, pas
-                # une dépense de l'association — exclu du solde, sinon il
-                # paraît déficitaire alors que les cotisations qui l'ont
-                # financé (hors Mouvements) ne sont jamais comptées en recette
-                # ici.
-                total_capitation_transit += amt
             else:
                 total_expense += amt
 
@@ -1995,11 +2033,10 @@ async def transactions_view(
         "current_user": user,
         "years": years,
         "selected_year": selected_year,
-        "transactions": transactions,
+        "transactions": rows,
         "categories": categories,
         "total_income": total_income,
         "total_expense": total_expense,
-        "total_capitation_transit": total_capitation_transit,
         "solde": total_income - total_expense,
         "TransactionType": TransactionType,
         "filter_type": txn_type,
