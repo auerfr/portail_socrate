@@ -243,6 +243,17 @@ def build_bilan_pdf(
 
     # ── Capitation collectée pour l'obédience (nationale / régionale) ──────
     cap_header_style = ParagraphStyle("caph", parent=section_title, textColor=colors.white)
+    def _reconcile_row(label, paid_key, restant_key):
+        paid = float(data.get(paid_key) or 0)
+        restant = float(data.get(restant_key) or 0)
+        color = RED_TXT if restant > 0.005 else GREEN_TXT
+        return [
+            Paragraph(label, ParagraphStyle("capr", parent=cat_label, fontName="Helvetica-Oblique", fontSize=8.5)),
+            "",
+            Paragraph(_eur(paid), ParagraphStyle("caprp", parent=cat_amount, fontSize=8.5)),
+            Paragraph(_eur(restant), ParagraphStyle("caprr", parent=cat_amount, fontSize=8.5, textColor=color)),
+        ]
+
     cap_rows = [
         [Paragraph("Capitation collectée pour l'obédience", cap_header_style), "", "", ""],
         [Paragraph("", cat_label),
@@ -251,30 +262,22 @@ def build_bilan_pdf(
          Paragraph("Encaissée", ParagraphStyle("cth3", parent=cat_label, fontName="Helvetica-Bold", alignment=TA_RIGHT))],
         [Paragraph("Capitation nationale (GODF)", cat_label), Paragraph(_eur(nat_rate), cat_amount),
          Paragraph(_eur(cap_nat_due), cat_amount), Paragraph(_eur(cap_nat_enc), cat_amount)],
-        [Paragraph("Capitation régionale", cat_label), Paragraph(_eur(reg_rate), cat_amount),
+        _reconcile_row("↳ effectivement reversé / reste (GODF)", "total_capitation_paid_nationale", "capitation_restant_nationale"),
+        [Paragraph("Capitation régionale (CAALA)", cat_label), Paragraph(_eur(reg_rate), cat_amount),
          Paragraph(_eur(cap_reg_due), cat_amount), Paragraph(_eur(cap_reg_enc), cat_amount)],
+        _reconcile_row("↳ effectivement reversé / reste (CAALA)", "total_capitation_paid_regionale", "capitation_restant_regionale"),
         [Paragraph("Total à reverser", ParagraphStyle("capt", parent=cat_label, fontName="Helvetica-Bold")),
          Paragraph(_eur(rate_total), ParagraphStyle("captr", parent=cat_amount)),
          Paragraph(_eur(cap_due_total), ParagraphStyle("captd", parent=cat_amount)),
          Paragraph(_eur(cap_enc_total), ParagraphStyle("capte", parent=cat_amount, textColor=AMBER_TXT))],
     ]
-    cap_paid_actual = float(data.get("total_capitation_paid_actual") or 0)
-    cap_restant = float(data.get("capitation_restant_a_reverser") or 0)
-    restant_color = RED_TXT if cap_restant > 0.005 else GREEN_TXT
-    cap_rows.append([
-        Paragraph("Effectivement reversé / reste à reverser", ParagraphStyle("capr", parent=cat_label, fontName="Helvetica-Oblique", fontSize=8.5)),
-        "",
-        Paragraph(_eur(cap_paid_actual), ParagraphStyle("caprp", parent=cat_amount, fontSize=8.5)),
-        Paragraph(_eur(cap_restant), ParagraphStyle("caprr", parent=cat_amount, fontSize=8.5, textColor=restant_color)),
-    ])
     cap_table = Table(cap_rows, colWidths=[6.4 * cm, 3.6 * cm, 3.6 * cm, 3.8 * cm])
     cap_table.setStyle(TableStyle([
         ("SPAN", (0, 0), (-1, 0)),
         ("BACKGROUND", (0, 0), (-1, 0), SLATE_BG),
-        ("BACKGROUND", (0, 4), (-1, 4), AMBER_BG),
+        ("BACKGROUND", (0, 6), (-1, 6), AMBER_BG),
         ("LINEBELOW", (0, 1), (-1, 1), 0.75, colors.HexColor("#e5e7eb")),
-        ("LINEBELOW", (0, 2), (-1, 3), 0.4, colors.HexColor("#f3f4f6")),
-        ("LINEABOVE", (0, 5), (-1, 5), 0.4, colors.HexColor("#e5e7eb")),
+        ("LINEBELOW", (0, 2), (-1, 5), 0.4, colors.HexColor("#f3f4f6")),
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("LEFTPADDING", (0, 0), (0, -1), 8), ("RIGHTPADDING", (-1, 0), (-1, -1), 8),
     ]))

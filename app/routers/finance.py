@@ -2243,24 +2243,37 @@ async def _compute_bilan(
     total_charges = Decimal("0")
     produits_by_cat: dict[str, Decimal] = {}
     total_produits = Decimal("0")
-    total_capitation_paid_actual = Decimal("0")
+    total_capitation_paid_nationale = Decimal("0")
+    total_capitation_paid_regionale = Decimal("0")
+    total_capitation_paid_autre = Decimal("0")
 
     for t in all_txns:
         amt = Decimal(str(t.amount))
         cat_name = t.category.name if t.category else ("Divers" if t.type == TransactionType.EXPENSE else "Recettes diverses")
         if t.type == TransactionType.EXPENSE:
-            if t.category and "capitation" in t.category.name.lower():
-                # Virement effectif à l'obédience (GODF/régional) : c'est un
-                # flux de transit déjà déduit des cotisations nettes plus bas —
-                # on ne le recompte pas comme charge propre de la loge, sinon
-                # le résultat serait diminué deux fois pour la même somme.
-                total_capitation_paid_actual += amt
+            bucket = _capitation_bucket(t.category.name if t.category else None)
+            if bucket:
+                # Virement effectif à une obédience (GODF national / CAALA
+                # régional) : c'est un flux de transit déjà déduit des
+                # cotisations nettes plus bas — on ne le recompte pas comme
+                # charge propre de la loge, sinon le résultat serait diminué
+                # deux fois pour la même somme.
+                if bucket == "nationale":
+                    total_capitation_paid_nationale += amt
+                elif bucket == "regionale":
+                    total_capitation_paid_regionale += amt
+                else:
+                    total_capitation_paid_autre += amt
             else:
                 charges_by_cat[cat_name] = charges_by_cat.get(cat_name, Decimal("0")) + amt
                 total_charges += amt
         else:
             produits_by_cat[cat_name] = produits_by_cat.get(cat_name, Decimal("0")) + amt
             total_produits += amt
+
+    total_capitation_paid_actual = (
+        total_capitation_paid_nationale + total_capitation_paid_regionale + total_capitation_paid_autre
+    )
 
     # ── Cotisations encaissées ────────────────────────────────────────────────
     cot_q = (
@@ -2320,9 +2333,25 @@ async def _compute_bilan(
     # Cotisations nettes (part associative seule, sans capitation)
     total_cotisations_nettes = total_cotisations - total_capitation_encaissee
 
-    # Reste à reverser à l'obédience = capitation collectée auprès des membres
-    # moins ce qui a effectivement été viré (Mouvements catégorie "capitation").
+    # Répartition nationale (GODF) / régionale (CAALA) de la capitation
+    # encaissée, au prorata des taux configurés — deux obédiences distinctes,
+    # suivies séparément.
+    nat_rate = float(contrib_cfg.national_capitation_rate) if contrib_cfg else 0.0
+    reg_rate = float(contrib_cfg.regional_capitation_rate) if contrib_cfg else 0.0
+    rate_total = nat_rate + reg_rate
+    if rate_total > 0:
+        nat_ratio_d = Decimal(str(nat_rate / rate_total))
+    else:
+        nat_ratio_d = Decimal("0")
+    total_capitation_encaissee_nationale = (total_capitation_encaissee * nat_ratio_d).quantize(Decimal("0.01"))
+    # Reste calculé par différence pour que nat + rég == total exactement.
+    total_capitation_encaissee_regionale = total_capitation_encaissee - total_capitation_encaissee_nationale
+
+    # Reste à reverser à chaque obédience = capitation collectée auprès des
+    # membres moins ce qui a effectivement été viré (Mouvements catégorisés).
     capitation_restant_a_reverser = total_capitation_encaissee - total_capitation_paid_actual
+    capitation_restant_nationale = total_capitation_encaissee_nationale - total_capitation_paid_nationale
+    capitation_restant_regionale = total_capitation_encaissee_regionale - total_capitation_paid_regionale
 
     # Produits globaux et résultat
     # Le résultat réel de la loge = produits divers + cotisations NETTES - charges
@@ -2346,6 +2375,13 @@ async def _compute_bilan(
         "total_capitation_due": total_capitation_due,
         "total_capitation_paid_actual": total_capitation_paid_actual,
         "capitation_restant_a_reverser": capitation_restant_a_reverser,
+        "total_capitation_paid_nationale": total_capitation_paid_nationale,
+        "total_capitation_paid_regionale": total_capitation_paid_regionale,
+        "total_capitation_paid_autre": total_capitation_paid_autre,
+        "total_capitation_encaissee_nationale": total_capitation_encaissee_nationale,
+        "total_capitation_encaissee_regionale": total_capitation_encaissee_regionale,
+        "capitation_restant_nationale": capitation_restant_nationale,
+        "capitation_restant_regionale": capitation_restant_regionale,
         "contrib_cfg": contrib_cfg,
         "total_produits_global": total_produits_global,
         "resultat": resultat_net,           # résultat réel loge (sans capitation)
@@ -2457,10 +2493,16 @@ async def bilan_export_csv(
     w.writerow(["Créances (impayés)", f"{float(data['creances']):.2f}"])
     w.writerow([])
 
-    w.writerow(["CAPITATION (GODF/régional)", "Montant (€)"])
-    w.writerow(["Collectée auprès des membres", f"{float(data['total_capitation_encaissee']):.2f}"])
-    w.writerow(["Effectivement reversée", f"{float(data['total_capitation_paid_actual']):.2f}"])
-    w.writerow(["Reste à reverser", f"{float(data['capitation_restant_a_reverser']):.2f}"])
+    w.writerow(["CAPITATION NATIONALE (GODF)", "Montant (€)"])
+    w.writerow(["Collectée auprès des membres", f"{float(data['total_capitation_encaissee_nationale']):.2f}"])
+    w.writerow(["Effectivement reversée", f"{float(data['total_capitation_paid_nationale']):.2f}"])
+    w.writerow(["Reste à reverser", f"{float(data['capitation_restant_nationale']):.2f}"])
+    w.writerow([])
+
+    w.writerow(["CAPITATION RÉGIONALE (CAALA)", "Montant (€)"])
+    w.writerow(["Collectée auprès des membres", f"{float(data['total_capitation_encaissee_regionale']):.2f}"])
+    w.writerow(["Effectivement reversée", f"{float(data['total_capitation_paid_regionale']):.2f}"])
+    w.writerow(["Reste à reverser", f"{float(data['capitation_restant_regionale']):.2f}"])
 
     output.seek(0)
     period_str = f"_{date_from}_{date_to}" if (date_from or date_to) else ""
