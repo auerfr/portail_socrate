@@ -1001,6 +1001,7 @@ async def cotisations_view(
         "method_labels": METHOD_LABELS,
         "PaymentMethod": PaymentMethod,
         "is_admin": user.is_admin,
+        "can_manage": user.is_admin or can_manage_finance(member),
         "now": datetime.now(),
     })
 
