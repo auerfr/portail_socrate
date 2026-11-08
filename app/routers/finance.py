@@ -306,7 +306,15 @@ async def finance_dashboard(
     all_contribs = [c for c in contributions_map.values() if c.member_id in _member_ids]
     total_due   = sum(float(c.total_amount) for c in all_contribs)
     total_paid  = sum(float(c.amount_paid)  for c in all_contribs)
-    total_remaining = max(0.0, total_due - total_paid)
+    # Somme des soldes dus par les membres en retard, sans compensation par
+    # les avances d'autres membres (l'avance d'un membre ne règle pas la
+    # dette d'un autre) — cohérent avec le badge "X membres en retard" et
+    # avec le détail "Top retardataires" affichés juste à côté.
+    total_remaining = sum(
+        max(0.0, float(c.total_amount) - float(c.amount_paid))
+        for c in all_contribs
+        if c.status not in (ContributionStatus.PAID, ContributionStatus.EXEMPT)
+    )
     total_advances  = sum(
         max(0.0, float(c.amount_paid) - float(c.total_amount))
         for c in all_contribs
