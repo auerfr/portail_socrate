@@ -95,12 +95,14 @@
           <div>
             <div class="flex items-center justify-between mb-1">
               <label class="text-xs font-medium text-gray-700">Catégorie</label>
-              <button type="button" @click="newCat = !newCat" class="text-xs text-loge-600 hover:underline">
+              <button type="button"
+                      @click="newCat = !newCat"
+                      class="text-xs text-loge-600 hover:underline">
                 <span x-text="newCat ? 'Choisir existante' : '+ Nouvelle'"></span>
               </button>
             </div>
             <div x-show="!newCat">
-              <select name="category_id"
+              <select name="category_id" :disabled="newCat"
                       class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
                 <option value="">— Aucune catégorie —</option>
                 {% if categories %}
@@ -119,6 +121,7 @@
             </div>
             <div x-show="newCat" x-cloak>
               <input type="text" name="new_category" placeholder="Nom de la catégorie…"
+                     :disabled="!newCat"
                      class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             </div>
           </div>
@@ -361,12 +364,16 @@
       <div>
         <div class="flex items-center justify-between mb-1">
           <label class="text-xs font-medium text-gray-700">Catégorie</label>
-          <button type="button" @click="newCat = !newCat" class="text-xs text-loge-600 hover:underline">
+          <button type="button"
+                  @click="newCat = !newCat;
+                          if (newCat) { document.getElementById('edit-txn-category').value = ''; }
+                          else { document.getElementById('edit-txn-new-category').value = ''; }"
+                  class="text-xs text-loge-600 hover:underline">
             <span x-text="newCat ? 'Choisir existante' : '+ Nouvelle'"></span>
           </button>
         </div>
         <div x-show="!newCat">
-          <select name="category_id" id="edit-txn-category"
+          <select name="category_id" id="edit-txn-category" :disabled="newCat"
                   class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             <option value="">— Aucune catégorie —</option>
             {% if categories %}
@@ -384,7 +391,8 @@
           </select>
         </div>
         <div x-show="newCat" x-cloak>
-          <input type="text" name="new_category" placeholder="Nom de la catégorie…"
+          <input type="text" name="new_category" id="edit-txn-new-category" placeholder="Nom de la catégorie…"
+                 :disabled="!newCat"
                  class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
         </div>
       </div>
@@ -430,12 +438,15 @@
 
 <script>
 function openEditTxn(id, txnDate, label, amount, txnType, categoryId) {
-  document.getElementById('edit-txn-form').action = '/finance/transactions/' + id + '/edit';
+  const form = document.getElementById('edit-txn-form');
+  form.action = '/finance/transactions/' + id + '/edit';
+  if (window.Alpine) { Alpine.$data(form).newCat = false; }
   document.getElementById('edit-txn-date').value = txnDate;
   document.getElementById('edit-txn-label').value = label;
   document.getElementById('edit-txn-amount').value = amount;
   document.getElementById('edit-txn-type-' + (txnType === 'INCOME' ? 'income' : 'expense')).checked = true;
   document.getElementById('edit-txn-category').value = categoryId || '';
+  document.getElementById('edit-txn-new-category').value = '';
   document.getElementById('modal-edit-txn').classList.remove('hidden');
 }
 function openRenameCategory(id, currentName) {

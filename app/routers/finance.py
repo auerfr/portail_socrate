@@ -2192,8 +2192,11 @@ async def edit_transaction(
 
     before = f"{'+' if txn.type == TransactionType.INCOME else '-'}{float(txn.amount):.2f}€ « {txn.label} » le {txn.date.strftime('%d/%m/%Y')}"
 
-    cat_id = category_id or None
-    if not cat_id and new_category.strip():
+    if new_category.strip():
+        # Le champ "nouvelle catégorie" saisi par l'utilisateur prime toujours
+        # sur category_id : le <select> caché par x-show garde la valeur de
+        # l'ancienne catégorie et reste soumis avec le formulaire, donc se fier
+        # à category_id ici ignorerait silencieusement la nouvelle saisie.
         cat = BudgetCategory(
             fiscal_year_id=txn.fiscal_year_id,
             masonic_year_id=await _legacy_masonic_year_id(db),
@@ -2204,6 +2207,8 @@ async def edit_transaction(
         db.add(cat)
         await db.flush()
         cat_id = cat.id
+    else:
+        cat_id = category_id or None
 
     txn.date = date.fromisoformat(txn_date)
     txn.label = label.strip()
