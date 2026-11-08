@@ -191,9 +191,10 @@ def _status_label(s: MemberStatus) -> str:
 
 # ── Liste des membres ─────────────────────────────────────────────────────────
 
-def _filtered_members_query(search: str = "", grade: str = "", status_filter: str = "", is_manager: bool = False):
+def _filtered_members_query(search: str = "", grade: str = "", status_filter: str = "",
+                             is_manager: bool = False, membership_type_filter: str = ""):
     """Construit la requête Membre filtrée, partagée par la liste, l'export CSV
-    et la vue imprimable (mêmes critères : recherche/grade/statut)."""
+    et la vue imprimable (mêmes critères : recherche/grade/statut/type d'adhésion)."""
     admin_member_ids = select(User.member_id).where(
         User.is_admin == True, User.member_id.isnot(None)
     )
@@ -220,6 +221,8 @@ def _filtered_members_query(search: str = "", grade: str = "", status_filter: st
             query = query.where(member_active_now_condition())
         else:
             query = query.where(Member.status == status_filter)
+    if membership_type_filter:
+        query = query.where(Member.membership_type == membership_type_filter)
     return query
 
 
@@ -231,11 +234,15 @@ async def members_list(
     search: str = "",
     grade: str = "",
     status_filter: str = "",
+    membership_type_filter: str = "",
 ):
     user, member = ctx
 
     is_manager = can_manage_members(member) or user.is_admin
-    result = await db.execute(_filtered_members_query(search, grade, status_filter, is_manager=is_manager))
+    result = await db.execute(_filtered_members_query(
+        search, grade, status_filter, is_manager=is_manager,
+        membership_type_filter=membership_type_filter,
+    ))
     members = result.scalars().all()
 
     # Construire un dict member_id → label d'office
@@ -249,6 +256,7 @@ async def members_list(
         "search": search,
         "grade_filter": grade,
         "status_filter": status_filter,
+        "membership_type_filter": membership_type_filter,
         "grade_label": _grade_label,
         "status_label": _status_label,
         "MasonicGrade": MasonicGrade,
@@ -266,24 +274,28 @@ async def members_export_csv(
     search: str = "",
     grade: str = "",
     status_filter: str = "",
+    membership_type_filter: str = "",
 ):
     """Export CSV de l'annuaire, avec les mêmes filtres que la liste affichée."""
     import csv
     import io
     from fastapi.responses import StreamingResponse
 
-    result = await db.execute(_filtered_members_query(search, grade, status_filter))
+    result = await db.execute(_filtered_members_query(
+        search, grade, status_filter, membership_type_filter=membership_type_filter,
+    ))
     members = result.scalars().all()
 
     office_by_member = await _office_by_member(db)
 
     output = io.StringIO()
     writer = csv.writer(output, delimiter=";")
-    writer.writerow(["Nom", "Prénom", "Grade", "Office", "Email", "Téléphone", "Statut"])
+    writer.writerow(["Nom", "Prénom", "Grade", "Office", "Email", "Téléphone", "Statut", "Type d'adhésion"])
     for m in members:
         writer.writerow([
             m.last_name, m.first_name, _grade_label(m.masonic_grade, m.civility),
             office_by_member.get(m.id, ""), m.email, m.phone or "", _status_label(m.status),
+            "Affiliation" if m.membership_type == MembershipType.AFFILIATION else "Appartenance",
         ])
     output.seek(0)
     return StreamingResponse(
@@ -301,11 +313,14 @@ async def members_print(
     search: str = "",
     grade: str = "",
     status_filter: str = "",
+    membership_type_filter: str = "",
 ):
     """Vue imprimable de l'annuaire (Ctrl+P / enregistrer en PDF), mêmes filtres."""
     from app.models.lodge import LodgeSettings
 
-    result = await db.execute(_filtered_members_query(search, grade, status_filter))
+    result = await db.execute(_filtered_members_query(
+        search, grade, status_filter, membership_type_filter=membership_type_filter,
+    ))
     members = result.scalars().all()
 
     office_by_member = await _office_by_member(db)
