@@ -17,7 +17,7 @@ from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.documents import DocFolder, Document
-from app.models.identity import LODGE_FOUNDING_DATE, Member, MemberStatus, User
+from app.models.identity import LODGE_FOUNDING_DATE, Member, MemberStatus, MembershipType, User
 from app.models.lodge import MasonicYear
 from app.models.meetings import (
     Attendance, AttendanceStatus, Meeting, MeetingVisitor, Visitor, VisitorStatus,
@@ -161,6 +161,10 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
     masonic_dist = buckets(seniority_masonic, [3, 10, 20, 30],
                            ["< 3 ans", "3-9 ans", "10-19 ans", "20-29 ans", "30 ans et +"])
     grades_now = Counter(_grade_at(m, today) for m in current)
+    membership_type_now = Counter(
+        "AFFILIATION" if m.membership_type == MembershipType.AFFILIATION else "APPARTENANCE"
+        for m in current
+    )
 
     # ── Par année maçonnique ───────────────────────────────────────────────
     per_year = []
@@ -322,6 +326,10 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
             "planches": sum(sum(c.values()) for c in planches_by_year.values()),
         },
         "grades_now": [grades_now.get("APPRENTI", 0), grades_now.get("COMPAGNON", 0), grades_now.get("MAITRE", 0)],
+        "membership_type_dist": {
+            "labels": ["Appartenance", "Affiliation"],
+            "values": [membership_type_now.get("APPARTENANCE", 0), membership_type_now.get("AFFILIATION", 0)],
+        },
         "age_dist": age_dist,
         "masonic_dist": masonic_dist,
         "per_year": per_year,

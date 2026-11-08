@@ -140,6 +140,16 @@
           <div style="width:{{ g[2] * 100 / total }}%; background:#1d5f5c;" title="Maîtres : {{ g[2] }}"></div>
         </div>
 
+        {% set mt = membership_type_dist['values'] %}
+        <div class="text-xs text-gray-500 mb-1 flex justify-between">
+          <span>Appartenance {{ mt[0] }} ({{ (mt[0] * 100 / total) | round | int }}%)</span>
+          <span>Affiliation {{ mt[1] }} ({{ (mt[1] * 100 / total) | round | int }}%)</span>
+        </div>
+        <div class="flex h-3 rounded-full overflow-hidden mb-5" style="gap:2px;">
+          <div style="width:{{ mt[0] * 100 / total }}%; background:#8a6fc4;" title="Appartenance : {{ mt[0] }}"></div>
+          <div style="width:{{ mt[1] * 100 / total }}%; background:#c4a46f;" title="Affiliation : {{ mt[1] }}"></div>
+        </div>
+
         <details class="text-xs text-gray-500">
           <summary class="cursor-pointer text-loge-700">Voir les données année par année</summary>
           <div class="overflow-x-auto mt-2">
