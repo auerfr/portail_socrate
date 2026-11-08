@@ -11,7 +11,7 @@ from typing import Annotated, Optional
 
 from fastapi import APIRouter, Depends, Form, Request, HTTPException, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, StreamingResponse
-from sqlalchemy import select, func, and_
+from sqlalchemy import select, func, and_, update
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
@@ -2066,7 +2066,7 @@ async def rename_category(
     if not new_name:
         raise HTTPException(400, "Le nom de la catégorie ne peut pas être vide")
 
-    dup = await db.execute(
+    dup_r = await db.execute(
         select(BudgetCategory).where(
             BudgetCategory.fiscal_year_id == cat.fiscal_year_id,
             BudgetCategory.type == cat.type,
@@ -2074,18 +2074,34 @@ async def rename_category(
             BudgetCategory.id != cat.id,
         )
     )
-    if dup.scalar_one_or_none():
-        raise HTTPException(400, f"Une catégorie « {new_name} » existe déjà pour ce type — fusion non prise en charge ici")
-
+    dup_cat = dup_r.scalar_one_or_none()
     old_name = cat.name
-    cat.name = new_name
-    await log_audit(
-        db, actor_id=rec_member.id if rec_member else None,
-        action="FINANCE_CATEGORY_RENAME",
-        target_type="budget_category", target_id=cat.id, target_label=new_name,
-        details=f"« {old_name} » → « {new_name} »",
-        request=request,
-    )
+
+    if dup_cat:
+        # Doublon déjà existant avec ce nom (même type) : fusion plutôt que
+        # rejet — on bascule tous les Mouvements de l'ancienne catégorie vers
+        # celle-ci, puis on supprime le doublon désormais vide.
+        await db.execute(
+            update(Transaction).where(Transaction.category_id == cat.id).values(category_id=dup_cat.id)
+        )
+        await db.delete(cat)
+        await log_audit(
+            db, actor_id=rec_member.id if rec_member else None,
+            action="FINANCE_CATEGORY_MERGE",
+            target_type="budget_category", target_id=dup_cat.id, target_label=dup_cat.name,
+            details=f"« {old_name} » fusionnée dans « {dup_cat.name} » (doublon)",
+            request=request,
+        )
+    else:
+        cat.name = new_name
+        await log_audit(
+            db, actor_id=rec_member.id if rec_member else None,
+            action="FINANCE_CATEGORY_RENAME",
+            target_type="budget_category", target_id=cat.id, target_label=new_name,
+            details=f"« {old_name} » → « {new_name} »",
+            request=request,
+        )
+
     await db.commit()
     return RedirectResponse(url=f"/finance/transactions?year_id={year_id}", status_code=303)
 
