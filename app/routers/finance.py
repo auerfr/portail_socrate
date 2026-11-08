@@ -547,6 +547,8 @@ async def budget_view(
     cfg = None
     total_charges = Decimal("0")
     total_budget_income = Decimal("0")
+    charges_by_cat: dict[str, Decimal] = {}
+    produits_by_cat: dict[str, Decimal] = {}
 
     if selected_year:
         r2 = await db.execute(
@@ -568,6 +570,14 @@ async def budget_view(
         )
         cfg = await _get_or_create_config(db, selected_year.id)
         await db.refresh(cfg, ["tiers"])
+
+        # Réalisé par catégorie (réutilise le calcul du Bilan, même source de
+        # vérité) — pour afficher directement sur la page Budget ce qui a déjà
+        # été dépensé/encaissé face à ce qui a été voté, sans devoir aller sur
+        # le Bilan.
+        bilan_data = await _compute_bilan(db, selected_year, None, None)
+        charges_by_cat = bilan_data["charges_by_cat"]
+        produits_by_cat = bilan_data["produits_by_cat"]
 
     can_edit = user.is_admin or can_manage_finance(member)
 
@@ -610,6 +620,8 @@ async def budget_view(
         "budget_type_labels": BUDGET_TYPE_LABELS,
         "total_charges": total_charges,
         "total_budget_income": total_budget_income,
+        "charges_by_cat": charges_by_cat,
+        "produits_by_cat": produits_by_cat,
         "cfg": cfg,
         "BudgetLineType": BudgetLineType,
         "TransactionType": TransactionType,

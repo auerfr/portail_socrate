@@ -89,36 +89,43 @@
 
   {% set total_produits_fonctionnement = total_produits + total_cotisations_nettes %}
 
-  <!-- ═══ Fonctionnement de la loge (hors transit capitation) ═══ -->
+  <!-- ═══ Synthèse : où on en est, à date ═══ -->
   <div class="mb-3">
-    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">💼 Fonctionnement de la loge</h2>
+    <h2 class="text-sm font-semibold text-gray-500 uppercase tracking-wide">📊 Synthèse — où on en est à date</h2>
     <p class="text-xs text-gray-400">
       L'argent qui appartient réellement à la loge — la capitation (collectée pour le GODF et CAALA, puis
       intégralement reversée) n'y figure pas, voir la section dédiée plus bas.
     </p>
   </div>
 
-  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-6">
-    <div class="bg-green-50 border border-green-200 rounded-xl p-5 text-center">
-      <div class="text-xs text-green-600 uppercase tracking-wide mb-1">Produits</div>
-      <div class="text-2xl font-bold text-green-700">{{ "%.2f"|format(total_produits_fonctionnement) }} €</div>
-      <div class="text-xs text-green-500 mt-1">dont {{ "%.2f"|format(total_cotisations_nettes) }} € de cotisations nettes</div>
-    </div>
-    <div class="bg-red-50 border border-red-200 rounded-xl p-5 text-center">
-      <div class="text-xs text-red-600 uppercase tracking-wide mb-1">Charges</div>
-      <div class="text-2xl font-bold text-red-700">{{ "%.2f"|format(total_charges) }} €</div>
-      <div class="text-xs text-red-400 mt-1">Budget prévu : {{ "%.2f"|format(total_budget) }} €</div>
-    </div>
-    <div class="rounded-xl p-5 text-center border
+  <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-8">
+    <div class="rounded-xl p-5 border
                 {% if resultat >= 0 %}bg-loge-50 border-loge-200{% else %}bg-orange-50 border-orange-200{% endif %}">
       <div class="text-xs uppercase tracking-wide mb-1
                   {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
-        {% if resultat >= 0 %}Excédent{% else %}Déficit{% endif %}
+        {% if resultat >= 0 %}Excédent{% else %}Déficit{% endif %} de l'exercice (compte de résultat)
       </div>
       <div class="text-2xl font-bold {% if resultat >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
-        {{ "%.2f"|format(resultat|abs) }} €
+        {% if resultat >= 0 %}+{% endif %}{{ "%.2f"|format(resultat) }} €
       </div>
-      <div class="text-xs mt-1 {% if resultat >= 0 %}text-loge-400{% else %}text-orange-400{% endif %}">Produits − charges</div>
+      <div class="text-xs mt-1 {% if resultat >= 0 %}text-loge-400{% else %}text-orange-400{% endif %}">
+        Produits ({{ "%.2f"|format(total_produits_fonctionnement) }} €) − Charges ({{ "%.2f"|format(total_charges) }} €)
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à encaisser</div>
+      <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_encaisser_total) }} €</div>
+      <div class="text-xs text-gray-400 mt-1">
+        Cotisations dues (capitation comprise) + recettes prévisionnelles pas encore versées
+      </div>
+    </div>
+    <div class="bg-white rounded-xl border border-gray-200 p-5">
+      <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à payer</div>
+      <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_payer_budget) }} €</div>
+      <div class="text-xs text-gray-400 mt-1">
+        Lignes de budget encore ouvertes (non clôturées) — détail dans le tableau plus bas
+        {% if depassements_budget > 0.5 %}<span class="text-amber-600">· {{ "%.2f"|format(depassements_budget) }} € de dépassement par ailleurs</span>{% endif %}
+      </div>
     </div>
   </div>
 
@@ -186,70 +193,15 @@
 
   </div>
 
-  <!-- Résultat encadré -->
-  <div class="border-2 {% if resultat >= 0 %}border-loge-300 bg-loge-50{% else %}border-orange-300 bg-orange-50{% endif %} rounded-xl p-5 mb-8">
-    <div class="flex items-center justify-between">
-      <div>
-        <div class="text-lg font-bold {% if resultat >= 0 %}text-loge-800{% else %}text-orange-800{% endif %}">
-          {% if resultat >= 0 %}Excédent de l'exercice{% else %}Déficit de l'exercice{% endif %}
-        </div>
-        <div class="text-sm {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %} mt-0.5">
-          Produits ({{ "%.2f"|format(total_produits_fonctionnement) }} €) − Charges ({{ "%.2f"|format(total_charges) }} €)
-        </div>
-      </div>
-      <div class="text-3xl font-bold {% if resultat >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
-        {% if resultat >= 0 %}+{% endif %}{{ "%.2f"|format(resultat) }} €
-      </div>
-    </div>
-    {% if creances_nettes > 0.5 or budget_restant|abs > 0.5 %}
-    <div class="mt-3 pt-3 border-t {% if resultat >= 0 %}border-loge-200{% else %}border-orange-200{% endif %} flex items-center justify-between flex-wrap gap-2">
-      <div class="text-xs {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
-        <strong>Prévisionnel</strong> — si les {{ "%.2f"|format(creances) }} € de cotisations encore dues
-        (voir « Créances » ci-dessous — dont {{ "%.2f"|format(creances_nettes) }} € resteront à la loge, le
-        reste étant de la capitation à reverser) sont intégralement encaissées, le budget voté
-        ({{ "%.2f"|format(total_budget) }} €) intégralement
-        consommé{% if total_budget_income > 0.5 %}, et les {{ "%.2f"|format(total_budget_income) }} € de recettes
-        prévisionnelles ({{ "%.2f"|format(produits_previsionnel) }} € en tenant compte du déjà-réalisé) intégralement
-        reçues{% endif %} — résultat net (part loge) projeté :
-      </div>
-      <div class="text-lg font-bold {% if resultat_previsionnel >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
-        {% if resultat_previsionnel >= 0 %}+{% endif %}{{ "%.2f"|format(resultat_previsionnel) }} €
-      </div>
-    </div>
-    {% endif %}
-  </div>
-
-  <!-- Reste à payer / reste à encaisser -->
-  {% if reste_a_payer_budget > 0.5 or reste_a_encaisser_total > 0.5 or depassements_budget > 0.5 %}
-  <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-8">
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à payer sur le budget</div>
-      <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_payer_budget) }} €</div>
-      <div class="text-xs text-gray-400 mt-1">
-        Marge encore disponible, ligne de budget votée par ligne de budget votée
-        (hors dépenses non budgétées, ex. un évènement autofinancé par ses propres recettes)
-      </div>
-      {% if depassements_budget > 0.5 %}
-      <div class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-2.5 py-1.5 mt-2">
-        ⚠ {{ "%.2f"|format(depassements_budget) }} € de dépassement cumulé sur des lignes déjà budgétées
-        (voir le détail dans le tableau « Budget prévisionnel vs Réalisé » plus bas)
-      </div>
-      {% endif %}
-    </div>
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
-      <div class="text-xs text-gray-500 uppercase tracking-wide mb-1">Reste à encaisser</div>
-      <div class="text-2xl font-bold text-gray-800">{{ "%.2f"|format(reste_a_encaisser_total) }} €</div>
-      <div class="text-xs text-gray-400 mt-1 space-y-0.5">
-        {% if reste_a_encaisser_cotisations > 0.5 %}
-        <div>{{ "%.2f"|format(reste_a_encaisser_cotisations) }} € de cotisations dues (capitation comprise —
-          voir « Créances » ci-dessous)</div>
-        {% endif %}
-        {% if reste_a_encaisser_recettes > 0.5 %}
-        <div>{{ "%.2f"|format(reste_a_encaisser_recettes) }} € de recettes prévisionnelles non versées</div>
-        {% endif %}
-      </div>
-    </div>
-  </div>
+  <!-- Projection fin d'année — secondaire, hypothèse "tout rentre / tout est dépensé" -->
+  {% if creances_nettes > 0.5 or budget_restant|abs > 0.5 %}
+  <p class="text-xs text-gray-400 mb-8 -mt-4">
+    <strong>Projection fin d'année</strong> — si les {{ "%.2f"|format(creances) }} € de cotisations encore dues sont
+    intégralement encaissées et le budget voté intégralement consommé : résultat net projeté
+    <strong class="{% if resultat_previsionnel >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
+      {% if resultat_previsionnel >= 0 %}+{% endif %}{{ "%.2f"|format(resultat_previsionnel) }} €
+    </strong>.
+  </p>
   {% endif %}
 
   <!-- ═══ Capitation — flux de transit (séparé du fonctionnement) ═══ -->
@@ -376,7 +328,8 @@
             <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Catégorie</th>
             <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Prévu</th>
             <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Réalisé</th>
-            <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-500">Écart</th>
+            <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Écart</th>
+            <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-500">Compté dans le Bilan</th>
           </tr>
         </thead>
         <tbody class="divide-y divide-gray-50">
@@ -387,7 +340,8 @@
           {% set ecart = prevu - realise %}
           {% set hors_budget = cat not in budget_by_cat %}
           {% set clôturée = closed_by_cat.get(cat) and not hors_budget %}
-          <tr class="hover:bg-gray-50 {% if hors_budget or clôturée %}bg-gray-50/50{% endif %}">
+          {% set exclu = hors_budget or clôturée %}
+          <tr class="hover:bg-gray-50 {% if exclu %}bg-gray-50/50{% endif %}">
             <td class="px-5 py-2.5 text-gray-800">
               {{ cat }}
               {% if hors_budget %}<span class="text-xs text-gray-400 italic">(hors budget)</span>{% endif %}
@@ -395,19 +349,26 @@
             </td>
             <td class="px-4 py-2.5 text-right tabular-nums text-gray-600">{{ "%.2f"|format(prevu) }} €</td>
             <td class="px-4 py-2.5 text-right tabular-nums font-medium">{{ "%.2f"|format(realise) }} €</td>
-            <td class="px-5 py-2.5 text-right tabular-nums font-semibold
-                       {% if hors_budget or clôturée %}text-gray-400
-                       {% elif ecart < 0 %}text-red-600{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
-              {% if hors_budget or clôturée %}—{% else %}{% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €{% endif %}
+            <td class="px-4 py-2.5 text-right tabular-nums font-semibold
+                       {% if ecart < 0 %}text-red-600{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+              {% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €
+            </td>
+            <td class="px-5 py-2.5 text-right tabular-nums font-semibold text-gray-400">
+              {% if exclu %}—{% else %}{% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €{% endif %}
             </td>
           </tr>
           {% endfor %}
         </tbody>
         <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
           <tr>
-            <td class="px-5 py-3 text-gray-800">Total (lignes budgétées uniquement)</td>
+            <td class="px-5 py-3 text-gray-800">Total</td>
             <td class="px-4 py-3 text-right tabular-nums text-gray-700">{{ "%.2f"|format(total_budget) }} €</td>
-            <td class="px-4 py-3 text-right tabular-nums">{{ "%.2f"|format(total_budget - reste_a_payer_budget + depassements_budget) }} €</td>
+            <td class="px-4 py-3 text-right tabular-nums">{{ "%.2f"|format(total_charges) }} €</td>
+            {% set ecart_total_brut = total_budget - total_charges %}
+            <td class="px-4 py-3 text-right tabular-nums
+                       {% if ecart_total_brut < 0 %}text-red-600{% elif ecart_total_brut > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+              {% if ecart_total_brut > 0 %}+{% endif %}{{ "%.2f"|format(ecart_total_brut) }} €
+            </td>
             <td class="px-5 py-3 text-right tabular-nums">
               <div class="text-green-600">+{{ "%.2f"|format(reste_a_payer_budget) }} € reste</div>
               {% if depassements_budget > 0.5 %}

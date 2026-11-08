@@ -141,12 +141,27 @@
           </div>
           {% endif %}
           {% endif %}
-          <div class="flex items-center gap-3 px-5 py-2.5 group">
-            <div class="flex-1 text-sm text-gray-800 min-w-0">
-            {{ line.label }}
-            {% if line.category_label %}<span class="text-xs text-gray-400 ml-1">· {{ line.category_label }}</span>{% endif %}
-            {% if line.closed %}<span class="text-xs text-green-600 ml-1">✓ Clôturée</span>{% endif %}
-          </div>
+          {% set cat_key = line.category_label or line.label %}
+          {% set realise = charges_by_cat.get(cat_key, 0) %}
+          {% set ecart = line.amount - realise %}
+          <div class="flex items-center gap-3 px-5 py-2.5 group flex-wrap">
+            <div class="flex-1 min-w-0 basis-full sm:basis-auto">
+              <div class="text-sm text-gray-800">
+                {{ line.label }}
+                {% if line.category_label %}<span class="text-xs text-gray-400 ml-1">· {{ line.category_label }}</span>{% endif %}
+                {% if line.closed %}<span class="text-xs text-green-600 ml-1">✓ Clôturée</span>{% endif %}
+              </div>
+              <div class="text-xs text-gray-400 tabular-nums">
+                Réalisé {{ "%.2f"|format(realise) }} €
+                · Écart
+                <span class="{% if ecart < 0 %}text-red-500{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
+                  {% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €
+                </span>
+                {% if line.closed %}
+                <span class="text-gray-400 italic">(non comptée dans le Bilan)</span>
+                {% endif %}
+              </div>
+            </div>
             <div class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <button type="button"

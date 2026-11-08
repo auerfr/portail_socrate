@@ -243,16 +243,24 @@ def build_bilan_pdf(
 
     # ── Capitation collectée pour l'obédience (nationale / régionale) ──────
     cap_header_style = ParagraphStyle("caph", parent=section_title, textColor=colors.white)
-    def _reconcile_row(label, paid_key, restant_key):
+    def _reconcile_row(label, paid_key, restant_key, closed=False):
         paid = float(data.get(paid_key) or 0)
         restant = float(data.get(restant_key) or 0)
-        color = RED_TXT if restant > 0.005 else GREEN_TXT
+        if closed:
+            restant_display = "✓ Soldée"
+            color = GREEN_TXT
+        else:
+            restant_display = _eur(restant)
+            color = RED_TXT if restant > 0.005 else GREEN_TXT
         return [
             Paragraph(label, ParagraphStyle("capr", parent=cat_label, fontName="Helvetica-Oblique", fontSize=8.5)),
             "",
             Paragraph(_eur(paid), ParagraphStyle("caprp", parent=cat_amount, fontSize=8.5)),
-            Paragraph(_eur(restant), ParagraphStyle("caprr", parent=cat_amount, fontSize=8.5, textColor=color)),
+            Paragraph(restant_display, ParagraphStyle("caprr", parent=cat_amount, fontSize=8.5, textColor=color)),
         ]
+
+    nat_closed = bool(cfg and cfg.capitation_nationale_closed)
+    reg_closed = bool(cfg and cfg.capitation_regionale_closed)
 
     cap_rows = [
         [Paragraph("Capitation collectée pour l'obédience", cap_header_style), "", "", ""],
@@ -262,17 +270,26 @@ def build_bilan_pdf(
          Paragraph("Encaissée", ParagraphStyle("cth3", parent=cat_label, fontName="Helvetica-Bold", alignment=TA_RIGHT))],
         [Paragraph("Capitation nationale (GODF)", cat_label), Paragraph(_eur(nat_rate), cat_amount),
          Paragraph(_eur(cap_nat_due), cat_amount), Paragraph(_eur(cap_nat_enc), cat_amount)],
-        _reconcile_row("↳ effectivement reversé / reste (GODF)", "total_capitation_paid_nationale", "capitation_restant_nationale"),
+        _reconcile_row("↳ effectivement reversé / reste (GODF)", "total_capitation_paid_nationale", "capitation_restant_nationale", nat_closed),
         [Paragraph("Capitation régionale (CAALA)", cat_label), Paragraph(_eur(reg_rate), cat_amount),
          Paragraph(_eur(cap_reg_due), cat_amount), Paragraph(_eur(cap_reg_enc), cat_amount)],
-        _reconcile_row("↳ effectivement reversé / reste (CAALA)", "total_capitation_paid_regionale", "capitation_restant_regionale"),
+        _reconcile_row("↳ effectivement reversé / reste (CAALA)", "total_capitation_paid_regionale", "capitation_restant_regionale", reg_closed),
         [Paragraph("Total à reverser", ParagraphStyle("capt", parent=cat_label, fontName="Helvetica-Bold")),
          Paragraph(_eur(rate_total), ParagraphStyle("captr", parent=cat_amount)),
          Paragraph(_eur(cap_due_total), ParagraphStyle("captd", parent=cat_amount)),
          Paragraph(_eur(cap_enc_total), ParagraphStyle("capte", parent=cat_amount, textColor=AMBER_TXT))],
     ]
+    if nat_closed or reg_closed:
+        closed_note = []
+        if nat_closed: closed_note.append("GODF")
+        if reg_closed: closed_note.append("CAALA")
+        cap_rows.append([
+            Paragraph(f"ℹ️ {' et '.join(closed_note)} déclarée(s) soldée(s) par le trésorier — le calcul ci-dessus reste affiché pour référence.",
+                      ParagraphStyle("capnote", parent=cat_label, fontSize=7.5, textColor=GRAY, fontName="Helvetica-Oblique")),
+            "", "", "",
+        ])
     cap_table = Table(cap_rows, colWidths=[6.4 * cm, 3.6 * cm, 3.6 * cm, 3.8 * cm])
-    cap_table.setStyle(TableStyle([
+    cap_table_style = [
         ("SPAN", (0, 0), (-1, 0)),
         ("BACKGROUND", (0, 0), (-1, 0), SLATE_BG),
         ("BACKGROUND", (0, 6), (-1, 6), AMBER_BG),
@@ -280,7 +297,10 @@ def build_bilan_pdf(
         ("LINEBELOW", (0, 2), (-1, 5), 0.4, colors.HexColor("#f3f4f6")),
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("LEFTPADDING", (0, 0), (0, -1), 8), ("RIGHTPADDING", (-1, 0), (-1, -1), 8),
-    ]))
+    ]
+    if len(cap_rows) > 7:
+        cap_table_style.append(("SPAN", (0, 7), (-1, 7)))
+    cap_table.setStyle(TableStyle(cap_table_style))
     story += [cap_table, Spacer(1, 0.15 * cm),
               Paragraph(
                   "La capitation (nationale + régionale) est due pour chaque membre en Appartenance, "
@@ -318,8 +338,14 @@ def build_bilan_pdf(
     story += [cot_table, Spacer(1, 0.5 * cm)]
 
     # ── Budget vs Réalisé ───────────────────────────────────────────────────
+    # Même logique que la page Bilan : une catégorie "hors budget" (aucune
+    # ligne votée, ex. une biennale autofinancée par ses propres recettes) ou
+    # "clôturée" (déclarée réglée par le trésorier, cf. BudgetLine.closed)
+    # n'entre dans aucun des deux totaux — sinon une dépense hors budget peut
+    # gonfler artificiellement le "réalisé" et fausser l'écart total.
     if data["budget_by_cat"]:
         all_cats = sorted(set(list(data["budget_by_cat"].keys()) + list(data["charges_by_cat"].keys())))
+        closed_by_cat = data.get("closed_by_cat") or {}
         th = ParagraphStyle("th", parent=styles["Normal"], fontSize=8.5, textColor=GRAY, fontName="Helvetica-Bold")
         td = ParagraphStyle("td", parent=styles["Normal"], fontSize=9)
         td_r = ParagraphStyle("tdr", parent=td, alignment=TA_RIGHT)
@@ -328,29 +354,48 @@ def build_bilan_pdf(
             Paragraph("Catégorie", th), Paragraph("Prévu", ParagraphStyle("thr", parent=th, alignment=TA_RIGHT)),
             Paragraph("Réalisé", ParagraphStyle("thr2", parent=th, alignment=TA_RIGHT)),
             Paragraph("Écart", ParagraphStyle("thr3", parent=th, alignment=TA_RIGHT)),
+            Paragraph("Compté dans le Bilan", ParagraphStyle("thr4", parent=th, alignment=TA_RIGHT)),
         ]]
-        total_prevu = data["total_budget"]
-        total_realise = data["total_charges"]
         for cat_name in all_cats:
             prevu = data["budget_by_cat"].get(cat_name, Decimal("0"))
             realise = data["charges_by_cat"].get(cat_name, Decimal("0"))
+            hors_budget = cat_name not in data["budget_by_cat"]
+            cloturee = bool(closed_by_cat.get(cat_name)) and not hors_budget
+            exclu = hors_budget or cloturee
             ecart = prevu - realise
             ecart_color = RED_TXT if ecart < 0 else (GREEN_TXT if ecart > 0 else GRAY)
+            ecart_str = f"{'+' if ecart > 0 else ''}{_eur(ecart)}"
+            suffix = " (hors budget)" if hors_budget else (" (clôturée)" if cloturee else "")
             rows.append([
-                Paragraph(cat_name, td), Paragraph(_eur(prevu), td_r), Paragraph(_eur(realise), td_r),
-                Paragraph(f"{'+' if ecart > 0 else ''}{_eur(ecart)}", ParagraphStyle("ec", parent=td_r, textColor=ecart_color)),
+                Paragraph(cat_name + suffix, ParagraphStyle("catn", parent=td, textColor=(GRAY if exclu else DARK))),
+                Paragraph(_eur(prevu), ParagraphStyle("tdp", parent=td_r, textColor=(GRAY if exclu else DARK))),
+                Paragraph(_eur(realise), ParagraphStyle("tdr2", parent=td_r, textColor=(GRAY if exclu else DARK))),
+                Paragraph(ecart_str, ParagraphStyle("ec", parent=td_r, textColor=ecart_color)),
+                Paragraph("—" if exclu else ecart_str, ParagraphStyle("ecc", parent=td_r, textColor=GRAY)),
             ])
-        ecart_total = total_prevu - total_realise
-        ecart_total_color = RED_TXT if ecart_total < 0 else (GREEN_TXT if ecart_total > 0 else GRAY)
+
+        reste = data.get("reste_a_payer_budget", Decimal("0"))
+        depassement = data.get("depassements_budget", Decimal("0"))
+        total_prevu = data["total_budget"]
+        total_realise = data["total_charges"]
+        ecart_total_brut = total_prevu - total_realise
+        ecart_total_color = RED_TXT if ecart_total_brut < 0 else (GREEN_TXT if ecart_total_brut > 0 else GRAY)
+        ecart_lines = f"+{_eur(reste)} reste"
+        if depassement > Decimal("0.5"):
+            ecart_lines += f"<br/>−{_eur(depassement)} dépassé"
         rows.append([
             Paragraph("Total", ParagraphStyle("tl", parent=td, fontName="Helvetica-Bold")),
             Paragraph(_eur(total_prevu), ParagraphStyle("tp", parent=td_r, fontName="Helvetica-Bold")),
             Paragraph(_eur(total_realise), ParagraphStyle("tr2", parent=td_r, fontName="Helvetica-Bold")),
-            Paragraph(f"{'+' if ecart_total > 0 else ''}{_eur(ecart_total)}",
-                      ParagraphStyle("tec", parent=td_r, fontName="Helvetica-Bold", textColor=ecart_total_color)),
+            Paragraph(f"{'+' if ecart_total_brut > 0 else ''}{_eur(ecart_total_brut)}",
+                      ParagraphStyle("tecb", parent=td_r, fontName="Helvetica-Bold", textColor=ecart_total_color)),
+            Paragraph(ecart_lines, ParagraphStyle(
+                "tec", parent=td_r, fontName="Helvetica-Bold",
+                textColor=(GREEN_TXT if depassement <= Decimal("0.5") else RED_TXT),
+            )),
         ])
 
-        budget_table = Table(rows, colWidths=[7.2 * cm, 3.4 * cm, 3.4 * cm, 3.4 * cm])
+        budget_table = Table(rows, colWidths=[6.0 * cm, 2.9 * cm, 2.9 * cm, 2.9 * cm, 3.5 * cm])
         budget_table.setStyle(TableStyle([
             ("LINEBELOW", (0, 0), (-1, 0), 0.75, colors.HexColor("#e5e7eb")),
             ("LINEBELOW", (0, 1), (-1, -2), 0.4, colors.HexColor("#f3f4f6")),
@@ -364,7 +409,9 @@ def build_bilan_pdf(
             )),
             Paragraph(
                 "Un écart positif (vert) signifie que la dépense réalisée est restée en-deçà du budget voté ; "
-                "négatif (rouge), qu'elle l'a dépassé.", note_style,
+                "négatif (rouge), qu'elle l'a dépassé. Les lignes « hors budget » (aucun montant voté, ex. un "
+                "évènement autofinancé par ses propres recettes) et « clôturées » (déclarées réglées par le "
+                "trésorier) n'entrent dans aucun des deux totaux.", note_style,
             ),
             Spacer(1, 0.15 * cm),
             budget_table,
