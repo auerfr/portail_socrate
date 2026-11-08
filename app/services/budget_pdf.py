@@ -40,58 +40,78 @@ def build_budget_pdf(lodge_name: str, comparison: dict) -> bytes:
     year = comparison["year"]
     compare_year = comparison["compare_year"]
     compare_label = compare_year.label if compare_year else "—"
+    year_is_proposal = bool(comparison.get("year_is_proposal"))
+    year_label_col = "Proposé" if year_is_proposal else "Voté"
 
     story = [
-        Paragraph("Budget prévisionnel", h1),
+        Paragraph("Budget proposé" if year_is_proposal else "Budget prévisionnel", h1),
         Paragraph(f"{lodge_name} — {year.label}" + (f" · comparé à {compare_label}" if compare_year else ""), subtitle),
-        Paragraph(
-            f"Comparatif entre le budget voté pour {year.label}, le budget voté pour {compare_label} et le "
-            f"réalisé {compare_label} à ce jour — pour présentation en assemblée.",
-            note_style,
-        ),
     ]
+    if year_is_proposal:
+        story.append(Paragraph(
+            f"Proposition soumise au vote de l'assemblée — le budget {year.label} n'est pas encore adopté.",
+            ParagraphStyle("warn", parent=note_style, textColor=colors.HexColor("#b45309"), fontName="Helvetica-Bold"),
+        ))
+    story.append(Paragraph(
+        f"Comparatif entre le budget {year_label_col.lower()} pour {year.label}, le budget voté pour "
+        f"{compare_label} et le réalisé {compare_label} à ce jour — pour présentation en assemblée.",
+        note_style,
+    ))
 
-    def section(title, rows, totals):
+    def section(title, rows, totals, show_projection):
         th = ParagraphStyle("th", parent=styles["Normal"], fontSize=8.5, textColor=GRAY, fontName="Helvetica-Bold")
         th_r = ParagraphStyle("thr", parent=th, alignment=TA_RIGHT)
         td = ParagraphStyle("td", parent=styles["Normal"], fontSize=9)
         td_r = ParagraphStyle("tdr", parent=td, alignment=TA_RIGHT)
+        ecart_ref_label = "Écart / projeté" if show_projection else "Écart / réalisé"
 
-        header_row = [
-            Paragraph("Catégorie", th),
-            Paragraph(f"Voté {compare_label}", th_r),
-            Paragraph(f"Réalisé {compare_label}", th_r),
-            Paragraph(f"Voté {year.label}", th_r),
-            Paragraph("Écart / voté", th_r),
-            Paragraph("Écart / réalisé", th_r),
-        ]
+        header_row = [Paragraph("Catégorie", th), Paragraph(f"Voté {compare_label}", th_r),
+                      Paragraph(f"Réalisé {compare_label}\n(à ce jour)", th_r)]
+        if show_projection:
+            header_row.append(Paragraph(f"Projeté {compare_label}\n(fin d'année)", th_r))
+        header_row += [Paragraph(f"{year_label_col} {year.label}", th_r),
+                       Paragraph("Écart / voté", th_r), Paragraph(ecart_ref_label, th_r)]
+        n_cols = len(header_row)
         table_rows = [header_row]
         for r in rows:
             ev = r["ecart_vs_vote"]
-            er = r["ecart_vs_realise"]
-            table_rows.append([
+            er = r["ecart_vs_projete"] if show_projection else r["ecart_vs_realise"]
+            row_cells = [
                 Paragraph(r["cat"], td),
                 Paragraph(_eur(r["vote_compare"]), td_r),
                 Paragraph(_eur(r["realise_compare"]), td_r),
+            ]
+            if show_projection:
+                row_cells.append(Paragraph(_eur(r["projete_compare"]), td_r))
+            row_cells += [
                 Paragraph(_eur(r["vote_year"]), td_r),
                 Paragraph(f"{'+' if ev > 0 else ''}{_eur(ev)}", ParagraphStyle("ev", parent=td_r, textColor=(GREEN_TXT if ev > 0 else (RED_TXT if ev < 0 else GRAY)))),
                 Paragraph(f"{'+' if er > 0 else ''}{_eur(er)}", ParagraphStyle("er", parent=td_r, textColor=(GREEN_TXT if er > 0 else (RED_TXT if er < 0 else GRAY)))),
-            ])
+            ]
+            table_rows.append(row_cells)
         tv, tr, ty = totals["vote_compare"], totals["realise_compare"], totals["vote_year"]
-        tev, ter = ty - tv, ty - tr
-        table_rows.append([
+        tp = totals.get("projete_compare", tr)
+        tev = ty - tv
+        ter = ty - (tp if show_projection else tr)
+        total_cells = [
             Paragraph("Total", ParagraphStyle("tl", parent=td, fontName="Helvetica-Bold")),
-            Paragraph(_eur(tv), ParagraphStyle("tp", parent=td_r, fontName="Helvetica-Bold")),
+            Paragraph(_eur(tv), ParagraphStyle("tp0", parent=td_r, fontName="Helvetica-Bold")),
             Paragraph(_eur(tr), ParagraphStyle("tp2", parent=td_r, fontName="Helvetica-Bold")),
+        ]
+        if show_projection:
+            total_cells.append(Paragraph(_eur(tp), ParagraphStyle("tp2b", parent=td_r, fontName="Helvetica-Bold")))
+        total_cells += [
             Paragraph(_eur(ty), ParagraphStyle("tp3", parent=td_r, fontName="Helvetica-Bold")),
             Paragraph(f"{'+' if tev > 0 else ''}{_eur(tev)}", ParagraphStyle("tev", parent=td_r, fontName="Helvetica-Bold", textColor=(GREEN_TXT if tev > 0 else (RED_TXT if tev < 0 else GRAY)))),
             Paragraph(f"{'+' if ter > 0 else ''}{_eur(ter)}", ParagraphStyle("ter", parent=td_r, fontName="Helvetica-Bold", textColor=(GREEN_TXT if ter > 0 else (RED_TXT if ter < 0 else GRAY)))),
-        ])
+        ]
+        table_rows.append(total_cells)
 
         if not rows:
-            table_rows = [header_row, [Paragraph("Aucune ligne", ParagraphStyle("e", parent=td, textColor=GRAY)), "", "", "", "", ""]]
+            table_rows = [header_row, [Paragraph("Aucune ligne", ParagraphStyle("e", parent=td, textColor=GRAY))] + [""] * (n_cols - 1)]
 
-        t = Table(table_rows, colWidths=[6.2 * cm, 3.6 * cm, 3.6 * cm, 3.6 * cm, 3.6 * cm, 3.6 * cm])
+        col_width = 24.2 * cm / n_cols
+        t = Table(table_rows, colWidths=[col_width] * n_cols)
         t.setStyle(TableStyle([
             ("LINEBELOW", (0, 0), (-1, 0), 0.75, colors.HexColor("#e5e7eb")),
             ("LINEBELOW", (0, 1), (-1, -2), 0.4, colors.HexColor("#f3f4f6")),
@@ -108,11 +128,19 @@ def build_budget_pdf(lodge_name: str, comparison: dict) -> bytes:
             ("TOPPADDING", (0, 0), (-1, -1), 6), ("BOTTOMPADDING", (0, 0), (-1, -1), 6),
             ("LEFTPADDING", (0, 0), (-1, -1), 8),
         ]))
-        return KeepTogether([header_table, Spacer(1, 0.15 * cm), t])
+        elements = [header_table, Spacer(1, 0.15 * cm), t]
+        if show_projection:
+            elements.append(Spacer(1, 0.1 * cm))
+            elements.append(Paragraph(
+                f"« Projeté {compare_label} » = réalisé à ce jour + reste à payer estimé d'ici fin d'année "
+                f"(estimation du trésorier quand elle existe, sinon calcul prévu − réalisé).",
+                ParagraphStyle("projnote", parent=note_style, fontSize=7.5, spaceAfter=0),
+            ))
+        return KeepTogether(elements)
 
-    story.append(section("CHARGES", comparison["charges_rows"], comparison["charges_totals"]))
+    story.append(section("CHARGES", comparison["charges_rows"], comparison["charges_totals"], True))
     story.append(Spacer(1, 0.6 * cm))
-    story.append(section("RECETTES PRÉVISIONNELLES", comparison["income_rows"], comparison["income_totals"]))
+    story.append(section("RECETTES PRÉVISIONNELLES", comparison["income_rows"], comparison["income_totals"], False))
     story.append(Spacer(1, 0.6 * cm))
 
     story.append(Paragraph(

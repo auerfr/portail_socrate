@@ -57,7 +57,8 @@
   <div class="header">
     <h1>{{ lodge.name if lodge else 'Loge' }}</h1>
     <h2>
-      Budget prévisionnel — {{ year.label }}
+      Budget {{ 'proposé' if year_is_proposal else 'prévisionnel' }} — {{ year.label }}
+      {% if year_is_proposal %}<span style="color:#b45309;">(proposition soumise au vote — pas encore adopté)</span>{% endif %}
       {% if compare_year %}· comparé à {{ compare_year.label }}{% endif %}
     </h2>
   </div>
@@ -66,16 +67,19 @@
     {%- if v > 0.005 %}ecart-pos{% elif v < -0.005 %}ecart-neg{% else %}ecart-zero{% endif -%}
   {%- endmacro %}
 
-  {% macro comparison_table(rows, totals, compare_label) %}
+  {% set year_label_col = 'Proposé' if year_is_proposal else 'Voté' %}
+
+  {% macro comparison_table(rows, totals, compare_label, show_projection) %}
   <table>
     <thead>
       <tr>
         <th>Catégorie</th>
         <th>Voté {{ compare_label }}</th>
-        <th>Réalisé {{ compare_label }}</th>
-        <th>Voté {{ year.label }}</th>
+        <th>Réalisé {{ compare_label }}<br>(à ce jour)</th>
+        {% if show_projection %}<th>Projeté {{ compare_label }}<br>(fin d'année)</th>{% endif %}
+        <th>{{ year_label_col }} {{ year.label }}</th>
         <th>Écart / voté</th>
-        <th>Écart / réalisé</th>
+        <th>Écart / {% if show_projection %}projeté{% else %}réalisé{% endif %}</th>
       </tr>
     </thead>
     <tbody>
@@ -85,23 +89,26 @@
         <td>{{ r.cat }}</td>
         <td>{{ "%.2f"|format(r.vote_compare) }} €</td>
         <td>{{ "%.2f"|format(r.realise_compare) }} €</td>
+        {% if show_projection %}<td>{{ "%.2f"|format(r.projete_compare) }} €</td>{% endif %}
         <td>{{ "%.2f"|format(r.vote_year) }} €</td>
         <td class="{{ ecart_class(r.ecart_vs_vote) }}">{% if r.ecart_vs_vote > 0 %}+{% endif %}{{ "%.2f"|format(r.ecart_vs_vote) }} €</td>
-        <td class="{{ ecart_class(r.ecart_vs_realise) }}">{% if r.ecart_vs_realise > 0 %}+{% endif %}{{ "%.2f"|format(r.ecart_vs_realise) }} €</td>
+        {% set ecart_ref = r.ecart_vs_projete if show_projection else r.ecart_vs_realise %}
+        <td class="{{ ecart_class(ecart_ref) }}">{% if ecart_ref > 0 %}+{% endif %}{{ "%.2f"|format(ecart_ref) }} €</td>
       </tr>
       {% endfor %}
       {% else %}
-      <tr class="empty-row"><td colspan="6">Aucune ligne</td></tr>
+      <tr class="empty-row"><td colspan="{{ 6 if show_projection else 5 }}">Aucune ligne</td></tr>
       {% endif %}
       <tr class="total">
         <td>Total</td>
         <td>{{ "%.2f"|format(totals.vote_compare) }} €</td>
         <td>{{ "%.2f"|format(totals.realise_compare) }} €</td>
+        {% if show_projection %}<td>{{ "%.2f"|format(totals.projete_compare) }} €</td>{% endif %}
         <td>{{ "%.2f"|format(totals.vote_year) }} €</td>
         {% set tev = totals.vote_year - totals.vote_compare %}
-        {% set ter = totals.vote_year - totals.realise_compare %}
+        {% set tref = totals.vote_year - (totals.projete_compare if show_projection else totals.realise_compare) %}
         <td class="{{ ecart_class(tev) }}">{% if tev > 0 %}+{% endif %}{{ "%.2f"|format(tev) }} €</td>
-        <td class="{{ ecart_class(ter) }}">{% if ter > 0 %}+{% endif %}{{ "%.2f"|format(ter) }} €</td>
+        <td class="{{ ecart_class(tref) }}">{% if tref > 0 %}+{% endif %}{{ "%.2f"|format(tref) }} €</td>
       </tr>
     </tbody>
   </table>
@@ -110,10 +117,16 @@
   {% set compare_label = compare_year.label if compare_year else '—' %}
 
   <div class="section-title">Charges</div>
-  {{ comparison_table(charges_rows, charges_totals, compare_label) }}
+  {{ comparison_table(charges_rows, charges_totals, compare_label, true) }}
+  <p style="font-size: 8pt; color: #9ca3af; margin: -0.5rem 0 1rem;">
+    « Projeté {{ compare_label }} » = réalisé à ce jour + reste à payer estimé d'ici fin d'année (estimation du
+    trésorier quand elle existe, sinon calcul prévu − réalisé). Comparer le budget voté {{ year.label }} (année
+    pleine) au seul réalisé {{ compare_label }} à ce jour serait trompeur tant que {{ compare_label }} n'est pas
+    terminée.
+  </p>
 
   <div class="section-title">Recettes prévisionnelles</div>
-  {{ comparison_table(income_rows, income_totals, compare_label) }}
+  {{ comparison_table(income_rows, income_totals, compare_label, false) }}
 
   <div class="footer">
     Document généré le {{ generated_on }} — Portail Socrate

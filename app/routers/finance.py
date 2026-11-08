@@ -896,7 +896,14 @@ async def _compute_budget_comparison(db: AsyncSession, year: FiscalYear, compare
         await _compute_bilan(db, compare_year, None, None) if compare_year else None
     )
 
-    def build_rows(budget_key: str, realised_key: str):
+    # Catégories "clôturées" / avec une estimation du trésorier, pour l'année
+    # de comparaison — mêmes champs que _compute_bilan, utilisés ici pour
+    # projeter un total de fin d'année fiable (voir build_rows ci-dessous).
+    closed_by_cat_compare = data_compare.get("closed_by_cat", {}) if data_compare else {}
+    estimate_by_cat_compare = data_compare.get("estimate_by_cat", {}) if data_compare else {}
+    has_estimate_by_cat_compare = data_compare.get("has_estimate_by_cat", {}) if data_compare else {}
+
+    def build_rows(budget_key: str, realised_key: str, projected: bool = False):
         vote_compare = data_compare[budget_key] if data_compare else {}
         realise_compare = data_compare[realised_key] if data_compare else {}
         vote_year = data_year[budget_key]
@@ -906,28 +913,58 @@ async def _compute_budget_comparison(db: AsyncSession, year: FiscalYear, compare
             vc = vote_compare.get(cat, Decimal("0"))
             rc = realise_compare.get(cat, Decimal("0"))
             vy = vote_year.get(cat, Decimal("0"))
+            if projected:
+                # Projection de fin d'année pour l'année de comparaison : priorité
+                # à l'estimation chiffrée du trésorier, puis "clôturée" (rien de
+                # plus), sinon calcul mécanique du reste (prévu − réalisé,
+                # jamais négatif) — même logique que reste_a_payer_budget dans
+                # _compute_bilan. Sans ça, comparer un budget voté sur l'année
+                # pleine (N+1) au réalisé À CE JOUR de l'année en cours (N,
+                # encore incomplète) est trompeur.
+                if has_estimate_by_cat_compare.get(cat):
+                    remaining = max(estimate_by_cat_compare.get(cat, Decimal("0")), Decimal("0"))
+                elif closed_by_cat_compare.get(cat):
+                    remaining = Decimal("0")
+                else:
+                    remaining = max(vc - rc, Decimal("0"))
+                projete = rc + remaining
+            else:
+                projete = rc
             rows.append({
-                "cat": cat, "vote_compare": vc, "realise_compare": rc, "vote_year": vy,
-                "ecart_vs_vote": vy - vc, "ecart_vs_realise": vy - rc,
+                "cat": cat, "vote_compare": vc, "realise_compare": rc, "projete_compare": projete,
+                "vote_year": vy, "ecart_vs_vote": vy - vc, "ecart_vs_realise": vy - rc,
+                "ecart_vs_projete": vy - projete,
             })
         return rows
 
-    charges_rows = build_rows("budget_by_cat", "charges_by_cat")
-    income_rows = build_rows("budget_income_by_cat", "produits_by_cat")
+    charges_rows = build_rows("budget_by_cat", "charges_by_cat", projected=True)
+    income_rows = build_rows("budget_income_by_cat", "produits_by_cat", projected=False)
+
+    total_projete_charges = sum((r["projete_compare"] for r in charges_rows), Decimal("0"))
+
+    # Un exercice qui n'a pas encore commencé n'a pas encore été voté en
+    # assemblée — ce document le présente alors comme une PROPOSITION, pas
+    # un budget déjà adopté. Dès que l'année a démarré (actuelle ou passée),
+    # son budget a nécessairement été voté (c'est la condition pour
+    # l'activer comme année courante).
+    year_is_proposal = year.start_date > date.today()
 
     return {
         "year": year,
+        "year_is_proposal": year_is_proposal,
         "compare_year": compare_year,
         "charges_rows": charges_rows,
         "charges_totals": {
             "vote_compare": data_compare["total_budget"] if data_compare else Decimal("0"),
             "realise_compare": data_compare["total_charges"] if data_compare else Decimal("0"),
+            "projete_compare": total_projete_charges,
             "vote_year": data_year["total_budget"],
         },
         "income_rows": income_rows,
         "income_totals": {
             "vote_compare": data_compare["total_budget_income"] if data_compare else Decimal("0"),
             "realise_compare": data_compare["total_produits"] if data_compare else Decimal("0"),
+            "projete_compare": data_compare["total_produits"] if data_compare else Decimal("0"),
             "vote_year": data_year["total_budget_income"],
         },
     }
