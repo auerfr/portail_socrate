@@ -102,18 +102,25 @@ CAPITATION_REGIONALE_CATEGORY_NAME = "Capitation régionale (CAALA)"
 def _capitation_bucket(category_name: Optional[str]) -> Optional[str]:
     """Classe une catégorie de Mouvement en 'nationale' (GODF), 'regionale'
     (CAALA) ou 'autre' (capitation non classifiée) — ou None si la catégorie
-    n'a rien à voir avec la capitation. GODF (national) et CAALA (régional)
-    sont deux obédiences/destinataires distincts, à ne jamais confondre."""
+    n'a rien à voir avec la capitation.
+
+    Exige explicitement le mot "capitation" dans le nom : une catégorie
+    nommée juste "GODF" ou "CAALA" peut aussi servir à d'autres frais payés
+    à l'obédience (taxes, formations, etc.) qui sont de vraies charges de la
+    loge — seule une catégorie dédiée à la capitation (ex. "Capitation
+    nationale (GODF)") doit être traitée comme un flux de transit exclu des
+    charges. GODF (national) et CAALA (régional) sont deux destinataires
+    distincts, à ne jamais confondre."""
     if not category_name:
         return None
     n = category_name.lower()
+    if "capitation" not in n:
+        return None
     if "godf" in n or "national" in n:
         return "nationale"
     if "caala" in n or "région" in n or "regional" in n or "régional" in n:
         return "regionale"
-    if "capitation" in n:
-        return "autre"
-    return None
+    return "autre"
 
 
 async def _get_or_create_config(db: AsyncSession, year_id: int) -> ContributionConfig:
