@@ -94,6 +94,17 @@
     <strong>⚠ Capitation à reverser :</strong>
     {{ "%.2f"|format(total_capitation_encaissee) }} € (nationale {{ "%.2f"|format(contrib_cfg.national_capitation_rate if contrib_cfg else 0) }} € + régionale {{ "%.2f"|format(contrib_cfg.regional_capitation_rate if contrib_cfg else 0) }} € × membres Appartenance).
     Ce montant est collecté pour le compte de l'obédience — il est <strong>déduit du résultat net</strong> ci-dessous.
+    <div class="mt-2 pt-2 border-t border-amber-200 flex flex-wrap gap-x-6 gap-y-1 text-xs">
+      <span>Déjà reversé (Mouvements « capitation ») : <strong>{{ "%.2f"|format(total_capitation_paid_actual) }} €</strong></span>
+      <span class="{% if capitation_restant_a_reverser > 0.005 %}text-red-700 font-bold{% else %}text-green-700 font-bold{% endif %}">
+        {% if capitation_restant_a_reverser > 0.005 %}Reste à reverser{% else %}✓ À jour{% endif %}
+        : {{ "%.2f"|format(capitation_restant_a_reverser) }} €
+      </span>
+    </div>
+    <p class="text-[11px] text-amber-600 mt-1">
+      Pour que ce suivi fonctionne, enregistrez le virement au GODF/région comme un Mouvement dont la
+      catégorie contient le mot « capitation ».
+    </p>
   </div>
   {% endif %}
 

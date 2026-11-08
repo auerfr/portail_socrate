@@ -258,13 +258,23 @@ def build_bilan_pdf(
          Paragraph(_eur(cap_due_total), ParagraphStyle("captd", parent=cat_amount)),
          Paragraph(_eur(cap_enc_total), ParagraphStyle("capte", parent=cat_amount, textColor=AMBER_TXT))],
     ]
+    cap_paid_actual = float(data.get("total_capitation_paid_actual") or 0)
+    cap_restant = float(data.get("capitation_restant_a_reverser") or 0)
+    restant_color = RED_TXT if cap_restant > 0.005 else GREEN_TXT
+    cap_rows.append([
+        Paragraph("Effectivement reversé / reste à reverser", ParagraphStyle("capr", parent=cat_label, fontName="Helvetica-Oblique", fontSize=8.5)),
+        "",
+        Paragraph(_eur(cap_paid_actual), ParagraphStyle("caprp", parent=cat_amount, fontSize=8.5)),
+        Paragraph(_eur(cap_restant), ParagraphStyle("caprr", parent=cat_amount, fontSize=8.5, textColor=restant_color)),
+    ])
     cap_table = Table(cap_rows, colWidths=[6.4 * cm, 3.6 * cm, 3.6 * cm, 3.8 * cm])
     cap_table.setStyle(TableStyle([
         ("SPAN", (0, 0), (-1, 0)),
         ("BACKGROUND", (0, 0), (-1, 0), SLATE_BG),
-        ("BACKGROUND", (0, -1), (-1, -1), AMBER_BG),
+        ("BACKGROUND", (0, 4), (-1, 4), AMBER_BG),
         ("LINEBELOW", (0, 1), (-1, 1), 0.75, colors.HexColor("#e5e7eb")),
         ("LINEBELOW", (0, 2), (-1, 3), 0.4, colors.HexColor("#f3f4f6")),
+        ("LINEABOVE", (0, 5), (-1, 5), 0.4, colors.HexColor("#e5e7eb")),
         ("TOPPADDING", (0, 0), (-1, -1), 5), ("BOTTOMPADDING", (0, 0), (-1, -1), 5),
         ("LEFTPADDING", (0, 0), (0, -1), 8), ("RIGHTPADDING", (-1, 0), (-1, -1), 8),
     ]))
