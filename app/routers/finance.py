@@ -344,6 +344,12 @@ async def finance_dashboard(
     initial_treasury = float(cfg.initial_treasury or 0)
     theoretical_treasury = initial_treasury + total_paid + other_income - total_expense
 
+    # Budget prévu vs dépenses déjà engagées (distinct de la trésorerie :
+    # sert à surveiller un dépassement du budget voté, indépendamment des
+    # recettes encaissées).
+    budget_balance = total_budget - total_expense
+    budget_consumed_pct = (total_expense / total_budget * 100) if total_budget > 0 else 0.0
+
     # Capitations GODF — simple indicateur de suivi, non-bloquant (pas de
     # gestion automatisée : la loge reverse les capitations collectées au
     # GODF, pas de calendrier d'échéances à automatiser). Juste un repère
@@ -369,6 +375,8 @@ async def finance_dashboard(
         "paid_count":     paid_count,
         "unassigned":     unassigned,
         "total_budget":   total_budget,
+        "budget_balance": budget_balance,
+        "budget_consumed_pct": budget_consumed_pct,
         "active_count":   len(all_members),
         "initial_treasury": initial_treasury,
         "other_income":   other_income,

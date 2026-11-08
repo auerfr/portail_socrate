@@ -96,13 +96,30 @@
 
   <!-- Ligne 2 KPIs -->
   <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-6 text-sm">
-    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-2">
-      <span class="text-gray-500 min-w-0 text-xs sm:text-sm">Budget prévu</span>
-      <span class="font-semibold text-gray-800 shrink-0">{{ "%.2f"|format(stats.total_budget) }} €</span>
-    </div>
-    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-2">
-      <span class="text-gray-500 min-w-0 text-xs sm:text-sm">Dépenses</span>
-      <span class="font-semibold text-red-600 shrink-0">{{ "%.2f"|format(stats.total_expense) }} €</span>
+    <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 sm:col-span-2 lg:col-span-2">
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <span class="text-gray-500 text-xs sm:text-sm">Budget prévu vs Dépenses engagées</span>
+        {% if stats.total_budget > 0 %}
+        <span class="text-xs font-semibold shrink-0 {{ 'text-red-600' if stats.budget_balance < 0 else 'text-gray-500' }}">
+          {{ stats.budget_consumed_pct|round|int }}%
+        </span>
+        {% endif %}
+      </div>
+      <div class="flex items-center justify-between gap-2 mb-1.5">
+        <span class="text-gray-600">
+          <span class="font-semibold text-red-600">{{ "%.2f"|format(stats.total_expense) }} €</span>
+          dépensés sur
+          <span class="font-semibold text-gray-800">{{ "%.2f"|format(stats.total_budget) }} €</span>
+          prévus
+        </span>
+        <span class="font-semibold shrink-0 {{ 'text-red-600' if stats.budget_balance < 0 else 'text-green-600' }}">
+          {{ "%.2f"|format(stats.budget_balance|abs) }} € {{ 'de dépassement' if stats.budget_balance < 0 else 'disponibles' }}
+        </span>
+      </div>
+      <div class="w-full h-2 bg-gray-200 rounded-full overflow-hidden">
+        <div class="h-full rounded-full {{ 'bg-red-500' if stats.budget_balance < 0 else 'bg-loge-600' }}"
+             style="width: {{ [stats.budget_consumed_pct, 100]|min }}%;"></div>
+      </div>
     </div>
     <div class="bg-gray-50 rounded-xl border border-gray-100 px-4 py-3 flex items-center justify-between gap-2">
       <span class="text-gray-500 min-w-0 text-xs sm:text-sm">Avances</span>
