@@ -205,8 +205,10 @@
     <div class="mt-3 pt-3 border-t {% if resultat >= 0 %}border-loge-200{% else %}border-orange-200{% endif %} flex items-center justify-between flex-wrap gap-2">
       <div class="text-xs {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
         <strong>Prévisionnel</strong> — si les {{ "%.2f"|format(creances_nettes) }} € de cotisations encore dues
-        (part loge) sont encaissés et le budget voté ({{ "%.2f"|format(total_budget) }} €) intégralement
-        consommé :
+        (part loge) sont encaissés, le budget voté ({{ "%.2f"|format(total_budget) }} €) intégralement
+        consommé{% if total_budget_income > 0.5 %}, et les {{ "%.2f"|format(total_budget_income) }} € de recettes
+        prévisionnelles ({{ "%.2f"|format(produits_previsionnel) }} € en tenant compte du déjà-réalisé) intégralement
+        reçues{% endif %} :
       </div>
       <div class="text-lg font-bold {% if resultat_previsionnel >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
         {% if resultat_previsionnel >= 0 %}+{% endif %}{{ "%.2f"|format(resultat_previsionnel) }} €
@@ -335,6 +337,62 @@
         </tfoot>
       </table>
     </div>
+  </div>
+  {% endif %}
+
+  <!-- Comparaison Recettes prévisionnelles / Réalisé -->
+  {% if budget_income_by_cat %}
+  <div class="bg-white rounded-xl shadow-sm border border-gray-100 mb-6">
+    <div class="px-5 py-3 border-b border-gray-100 bg-emerald-50 flex items-center justify-between">
+      <h2 class="font-semibold text-emerald-800">Recettes prévisionnelles vs Réalisé</h2>
+      <a href="/finance/budget{% if selected_year %}?year_id={{ selected_year.id }}{% endif %}"
+         class="text-xs text-loge-700 hover:underline">Modifier le budget →</a>
+    </div>
+    <div class="overflow-x-auto">
+      <table class="w-full text-sm">
+        <thead>
+          <tr class="border-b border-gray-100">
+            <th class="text-left px-5 py-2.5 text-xs font-medium text-gray-500">Catégorie</th>
+            <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Prévu</th>
+            <th class="text-right px-4 py-2.5 text-xs font-medium text-gray-500">Réalisé</th>
+            <th class="text-right px-5 py-2.5 text-xs font-medium text-gray-500">Reste à percevoir</th>
+          </tr>
+        </thead>
+        <tbody class="divide-y divide-gray-50">
+          {% set all_income_cats = (budget_income_by_cat.keys() | list + produits_by_cat.keys() | list) | unique | sort %}
+          {% for cat in all_income_cats %}
+          {% set prevu = budget_income_by_cat.get(cat, 0) %}
+          {% set realise = produits_by_cat.get(cat, 0) %}
+          {% set reste = prevu - realise %}
+          <tr class="hover:bg-gray-50">
+            <td class="px-5 py-2.5 text-gray-800">{{ cat }}</td>
+            <td class="px-4 py-2.5 text-right tabular-nums text-gray-600">{{ "%.2f"|format(prevu) }} €</td>
+            <td class="px-4 py-2.5 text-right tabular-nums font-medium text-emerald-700">{{ "%.2f"|format(realise) }} €</td>
+            <td class="px-5 py-2.5 text-right tabular-nums font-semibold
+                       {% if reste > 0.005 %}text-amber-600{% elif reste < -0.005 %}text-green-600{% else %}text-gray-400{% endif %}">
+              {% if reste > 0.005 %}{{ "%.2f"|format(reste) }} €{% elif reste < -0.005 %}+{{ "%.2f"|format(-reste) }} €{% else %}✓{% endif %}
+            </td>
+          </tr>
+          {% endfor %}
+        </tbody>
+        <tfoot class="border-t-2 border-gray-200 bg-gray-50 font-semibold">
+          <tr>
+            <td class="px-5 py-3 text-gray-800">Total</td>
+            <td class="px-4 py-3 text-right tabular-nums text-gray-700">{{ "%.2f"|format(total_budget_income) }} €</td>
+            <td class="px-4 py-3 text-right tabular-nums text-emerald-700">{{ "%.2f"|format(total_produits) }} €</td>
+            {% set reste_total = total_budget_income - total_produits %}
+            <td class="px-5 py-3 text-right tabular-nums
+                       {% if reste_total > 0.005 %}text-amber-600{% elif reste_total < -0.005 %}text-green-600{% else %}text-gray-400{% endif %}">
+              {% if reste_total > 0.005 %}{{ "%.2f"|format(reste_total) }} €{% elif reste_total < -0.005 %}+{{ "%.2f"|format(-reste_total) }} €{% else %}✓{% endif %}
+            </td>
+          </tr>
+        </tfoot>
+      </table>
+    </div>
+    <p class="px-5 py-2 text-[11px] text-gray-400 border-t border-gray-100">
+      Comparaison informative par libellé de catégorie — une recette non encore catégorisée pareillement au
+      budget peut apparaître séparément ci-dessus.
+    </p>
   </div>
   {% endif %}
 

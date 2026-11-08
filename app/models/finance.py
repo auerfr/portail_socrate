@@ -82,6 +82,12 @@ class BudgetLine(Base):
     fiscal_year_id: Mapped[Optional[int]]  = mapped_column(ForeignKey("fiscal_years.id"), index=True)
     label: Mapped[str]                    = mapped_column(String(300))
     type: Mapped[BudgetLineType]          = mapped_column(Enum(BudgetLineType))
+    # Sens de la ligne : EXPENSE (charge, comportement historique — seul cas
+    # avant l'ajout de ce champ) ou INCOME (rentrée prévisionnelle, ex. une
+    # subvention mairie actée mais pas encore versée). Ne JAMAIS inclure les
+    # lignes INCOME dans le calcul de T3 (_compute_t3_from_budget) : T3 ne
+    # doit dépendre que des charges propres de la loge.
+    direction: Mapped[TransactionType]    = mapped_column(Enum(TransactionType), default=TransactionType.EXPENSE)
     category_label: Mapped[Optional[str]] = mapped_column(String(200))  # catégorie libre
     amount: Mapped[float]                 = mapped_column(Numeric(10, 2))
     order_position: Mapped[int]           = mapped_column(Integer, default=0)

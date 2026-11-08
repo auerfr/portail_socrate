@@ -197,10 +197,15 @@ async def _compute_t3_from_budget(db: AsyncSession, year_id: int,
     négatif et on aboutirait à 0 dans le cas fréquent où charges ≈ capitations
     cumulées).
     """
-    # Total charges
+    # Total charges — exclut explicitement les lignes direction=INCOME
+    # (rentrées prévisionnelles) : le T3 ne doit dépendre que des charges
+    # propres de la loge, jamais des recettes attendues.
     r = await db.execute(
         select(func.sum(BudgetLine.amount))
-        .where(BudgetLine.fiscal_year_id == year_id)
+        .where(
+            BudgetLine.fiscal_year_id == year_id,
+            BudgetLine.direction == TransactionType.EXPENSE,
+        )
     )
     total_charges = float(r.scalar_one() or 0)
 
@@ -382,11 +387,24 @@ async def finance_dashboard(
         ContributionStatus.PAID, ContributionStatus.EXEMPT))
     unassigned  = len(all_members) - len(all_contribs)
 
-    # Budget total
+    # Budget total (charges uniquement — l'indicateur "Budget prévu vs
+    # dépenses engagées" ne doit pas être gonflé par des rentrées
+    # prévisionnelles, qui ne sont pas des charges).
     rb = await db.execute(
-        select(func.sum(BudgetLine.amount)).where(BudgetLine.fiscal_year_id == year.id)
+        select(func.sum(BudgetLine.amount)).where(
+            BudgetLine.fiscal_year_id == year.id,
+            BudgetLine.direction == TransactionType.EXPENSE,
+        )
     )
     total_budget = float(rb.scalar_one() or 0)
+
+    rb_income = await db.execute(
+        select(func.sum(BudgetLine.amount)).where(
+            BudgetLine.fiscal_year_id == year.id,
+            BudgetLine.direction == TransactionType.INCOME,
+        )
+    )
+    total_budget_income = float(rb_income.scalar_one() or 0)
 
     # Trésorerie théorique = initiale + encaissé + autres recettes - dépenses
     # (la capitation payée à l'obédience est une vraie sortie de caisse, elle
@@ -456,6 +474,7 @@ async def finance_dashboard(
         "paid_count":     paid_count,
         "unassigned":     unassigned,
         "total_budget":   total_budget,
+        "total_budget_income": total_budget_income,
         "budget_balance": budget_balance,
         "budget_consumed_pct": budget_consumed_pct,
         "active_count":   len(all_members),
@@ -527,6 +546,7 @@ async def budget_view(
     budget_lines: list[BudgetLine] = []
     cfg = None
     total_charges = Decimal("0")
+    total_budget_income = Decimal("0")
 
     if selected_year:
         r2 = await db.execute(
@@ -535,7 +555,17 @@ async def budget_view(
             .order_by(BudgetLine.order_position, BudgetLine.id)
         )
         budget_lines = r2.scalars().all()
-        total_charges = sum((Decimal(str(l.amount)) for l in budget_lines), Decimal("0"))
+        # total_charges = seules les lignes EXPENSE : c'est ce montant qui sert
+        # de base au calcul du T3 (_compute_t3_from_budget), les rentrées
+        # prévisionnelles (direction=INCOME) n'y entrent jamais.
+        total_charges = sum(
+            (Decimal(str(l.amount)) for l in budget_lines if l.direction == TransactionType.EXPENSE),
+            Decimal("0"),
+        )
+        total_budget_income = sum(
+            (Decimal(str(l.amount)) for l in budget_lines if l.direction == TransactionType.INCOME),
+            Decimal("0"),
+        )
         cfg = await _get_or_create_config(db, selected_year.id)
         await db.refresh(cfg, ["tiers"])
 
@@ -579,8 +609,10 @@ async def budget_view(
         "budget_lines": budget_lines,
         "budget_type_labels": BUDGET_TYPE_LABELS,
         "total_charges": total_charges,
+        "total_budget_income": total_budget_income,
         "cfg": cfg,
         "BudgetLineType": BudgetLineType,
+        "TransactionType": TransactionType,
         "tier_labels": TIER_LABELS,
         "tier_coefficients": TIER_COEFFICIENTS,
         "is_admin": user.is_admin,
@@ -608,6 +640,7 @@ async def budget_add(
     amount: Annotated[float, Form()],
     category_label: Annotated[str, Form()] = "",
     notes: Annotated[str, Form()] = "",
+    direction: Annotated[str, Form()] = "EXPENSE",
 ):
     _, actor_member = ctx
     r = await db.execute(
@@ -620,6 +653,7 @@ async def budget_add(
         masonic_year_id=await _legacy_masonic_year_id(db),
         label=label.strip(),
         type=BudgetLineType(btype),
+        direction=TransactionType(direction),
         category_label=category_label.strip() or None,
         amount=amount,
         order_position=pos,
@@ -631,7 +665,8 @@ async def budget_add(
         db, actor_id=actor_member.id if actor_member else None,
         action="FINANCE_BUDGET_LINE_ADD",
         target_type="budget_line", target_id=line.id, target_label=line.label,
-        details=f"{amount:.2f}€" + (f" — {category_label.strip()}" if category_label.strip() else ""),
+        details=(f"+{amount:.2f}€ (recette prévisionnelle)" if line.direction == TransactionType.INCOME else f"{amount:.2f}€")
+                + (f" — {category_label.strip()}" if category_label.strip() else ""),
         request=request,
     )
     await db.commit()
@@ -711,6 +746,7 @@ async def budget_edit(
     amount: Annotated[float, Form()],
     category_label: Annotated[str, Form()] = "",
     notes: Annotated[str, Form()] = "",
+    direction: Annotated[str, Form()] = "EXPENSE",
 ):
     user, member = ctx
     if not (user.is_admin or can_manage_finance(member)):
@@ -723,6 +759,7 @@ async def budget_edit(
     line.amount = amount
     line.category_label = category_label.strip() or None
     line.notes = notes.strip() or None
+    line.direction = TransactionType(direction)
     await log_audit(
         db, actor_id=member.id if member else None,
         action="FINANCE_BUDGET_LINE_EDIT",
@@ -2413,11 +2450,21 @@ async def _compute_bilan(
         .order_by(BudgetLine.category_label, BudgetLine.order_position)
     )
     budget_lines = rb.scalars().all()
-    total_budget = sum(Decimal(str(bl.amount)) for bl in budget_lines)
+    # total_budget = charges votées uniquement (direction=EXPENSE) — les
+    # rentrées prévisionnelles (direction=INCOME) sont suivies à part et ne
+    # doivent jamais gonfler le budget de charges ni fausser le T3.
+    total_budget = sum(
+        Decimal(str(bl.amount)) for bl in budget_lines if bl.direction == TransactionType.EXPENSE
+    )
+    total_budget_income = sum(
+        Decimal(str(bl.amount)) for bl in budget_lines if bl.direction == TransactionType.INCOME
+    )
     budget_by_cat: dict[str, Decimal] = {}
+    budget_income_by_cat: dict[str, Decimal] = {}
     for bl in budget_lines:
         cat = bl.category_label or bl.label
-        budget_by_cat[cat] = budget_by_cat.get(cat, Decimal("0")) + Decimal(str(bl.amount))
+        target = budget_income_by_cat if bl.direction == TransactionType.INCOME else budget_by_cat
+        target[cat] = target.get(cat, Decimal("0")) + Decimal(str(bl.amount))
 
     # ── Capitation à reverser (nationale + régionale) ────────────────────────
     # Somme des capitations de toutes les cotisations de l'année
@@ -2490,7 +2537,13 @@ async def _compute_bilan(
     total_cotisations_due_net = total_cotisations_due - total_capitation_due
     creances_nettes = total_cotisations_due_net - total_cotisations_nettes
     budget_restant = total_budget - total_charges
-    resultat_previsionnel = total_cotisations_due_net + total_produits - total_budget
+    # Produits prévisionnels : on suppose qu'au moins le montant budgété sera
+    # réalisé d'ici la fin de l'exercice (ex. subvention mairie actée mais pas
+    # encore versée). Si le réalisé dépasse déjà le budgété (recettes hors
+    # budget en plus), on garde le réalisé pour ne pas compter de l'argent en
+    # double.
+    produits_previsionnel = max(total_produits, total_budget_income)
+    resultat_previsionnel = total_cotisations_due_net + produits_previsionnel - total_budget
 
     return {
         "charges_by_cat": dict(sorted(charges_by_cat.items())),
@@ -2520,6 +2573,9 @@ async def _compute_bilan(
         "budget_restant": budget_restant,
         "budget_by_cat": dict(sorted(budget_by_cat.items())),
         "total_budget": total_budget,
+        "budget_income_by_cat": dict(sorted(budget_income_by_cat.items())),
+        "total_budget_income": total_budget_income,
+        "produits_previsionnel": produits_previsionnel,
         "total_cotisations_due": total_cotisations_due,
         "creances": total_cotisations_due - total_cotisations,
     }

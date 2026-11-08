@@ -118,11 +118,12 @@
           <span class="text-sm font-bold text-gray-800 shrink-0 ml-2">{{ "%.2f"|format(total_charges) }} €</span>
         </div>
 
-        {% if budget_lines %}
+        {% set expense_lines = budget_lines | selectattr('direction.value', 'equalto', 'EXPENSE') | list %}
+        {% if expense_lines %}
         {# Grouper par category_label #}
         {% set ns = namespace(cur_cat=None) %}
         <div class="divide-y divide-gray-50">
-          {% for line in budget_lines %}
+          {% for line in expense_lines %}
           {% set cat = line.category_label or '' %}
           {% if cat != ns.cur_cat %}
           {% set ns.cur_cat = cat %}
@@ -140,7 +141,7 @@
             <div class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <button type="button"
-                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }})'
+                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }})'
                     class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
                   onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
@@ -157,13 +158,48 @@
         {% endif %}
 
         <!-- Total -->
-        {% if budget_lines %}
+        {% if expense_lines %}
         <div class="px-5 py-3 bg-gray-50 border-t border-gray-200 flex justify-between">
           <span class="text-sm font-semibold text-gray-700">Total charges</span>
           <span class="text-sm font-bold text-gray-900">{{ "%.2f"|format(total_charges) }} €</span>
         </div>
         {% endif %}
       </div>
+
+      <!-- Recettes prévisionnelles -->
+      {% set income_lines = budget_lines | selectattr('direction.value', 'equalto', 'INCOME') | list %}
+      {% if income_lines %}
+      <div class="bg-white rounded-xl shadow-sm border border-gray-100">
+        <div class="px-5 py-3 border-b border-gray-100 bg-emerald-50 flex items-center justify-between">
+          <h2 class="text-sm font-semibold text-emerald-800">Recettes prévisionnelles</h2>
+          <span class="text-sm font-bold text-emerald-800 shrink-0 ml-2">+{{ "%.2f"|format(total_budget_income) }} €</span>
+        </div>
+        <div class="divide-y divide-gray-50">
+          {% for line in income_lines %}
+          <div class="flex items-center gap-3 px-5 py-2.5 group">
+            <div class="flex-1 text-sm text-gray-800 min-w-0">
+              {{ line.label }}
+              {% if line.category_label %}<span class="text-xs text-gray-400 ml-1">· {{ line.category_label }}</span>{% endif %}
+              {% if line.notes %}<span class="text-xs text-gray-400 ml-1">({{ line.notes }})</span>{% endif %}
+            </div>
+            <div class="text-sm font-semibold text-emerald-700 tabular-nums shrink-0">+{{ "%.2f"|format(line.amount) }} €</div>
+            {% if can_edit %}
+            <button type="button"
+                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }})'
+                    class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
+            <form method="post" action="/finance/budget/{{ line.id }}/delete"
+                  onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
+              <button type="submit" class="text-gray-300 hover:text-red-500 text-xs px-1 shrink-0" title="Supprimer">✕</button>
+            </form>
+            {% endif %}
+          </div>
+          {% endfor %}
+        </div>
+        <p class="px-5 py-2 text-[11px] text-gray-400 border-t border-gray-100">
+          Rentrée actée mais pas encore versée (ex. subvention) — n'entre jamais dans le calcul du T3, uniquement dans le résultat prévisionnel du Bilan.
+        </p>
+      </div>
+      {% endif %}
 
       <!-- Barème calculé -->
       {% if cfg and cfg.tiers %}
@@ -212,12 +248,28 @@
       {% if can_edit %}
       <div class="grid sm:grid-cols-2 gap-4">
 
-        <!-- Ajouter une charge -->
+        <!-- Ajouter une ligne (charge ou recette prévisionnelle) -->
         <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-          <h2 class="font-semibold text-gray-800 mb-3 text-sm">➕ Ajouter une charge</h2>
+          <h2 class="font-semibold text-gray-800 mb-3 text-sm">➕ Ajouter une ligne</h2>
           <form method="post" action="/finance/budget/add" class="space-y-2.5">
             <input type="hidden" name="year_id" value="{{ selected_year.id }}">
             <input type="hidden" name="btype" value="CHARGE_FIXE">
+            <div class="flex gap-2">
+              <label class="flex-1 cursor-pointer">
+                <input type="radio" name="direction" value="EXPENSE" checked class="sr-only peer">
+                <div class="text-center py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600
+                            peer-checked:border-red-400 peer-checked:bg-red-50 peer-checked:text-red-700 transition-colors">
+                  − Charge
+                </div>
+              </label>
+              <label class="flex-1 cursor-pointer">
+                <input type="radio" name="direction" value="INCOME" class="sr-only peer">
+                <div class="text-center py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600
+                            peer-checked:border-green-400 peer-checked:bg-green-50 peer-checked:text-green-700 transition-colors">
+                  + Recette prévisionnelle
+                </div>
+              </label>
+            </div>
             <input type="text" name="category_label" placeholder="Catégorie (ex: Immobilier)"
                    class="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
             <input type="text" name="label" required placeholder="Libellé"
@@ -482,6 +534,22 @@
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md p-6">
     <h2 class="text-lg font-bold text-gray-900 mb-4">Modifier la ligne</h2>
     <form method="post" id="edit-line-form" class="space-y-3">
+      <div class="flex gap-2">
+        <label class="flex-1 cursor-pointer">
+          <input type="radio" name="direction" value="EXPENSE" id="edit-line-direction-expense" class="sr-only peer">
+          <div class="text-center py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600
+                      peer-checked:border-red-400 peer-checked:bg-red-50 peer-checked:text-red-700 transition-colors">
+            − Charge
+          </div>
+        </label>
+        <label class="flex-1 cursor-pointer">
+          <input type="radio" name="direction" value="INCOME" id="edit-line-direction-income" class="sr-only peer">
+          <div class="text-center py-1.5 rounded-lg border border-gray-200 text-xs font-medium text-gray-600
+                      peer-checked:border-green-400 peer-checked:bg-green-50 peer-checked:text-green-700 transition-colors">
+            + Recette prévisionnelle
+          </div>
+        </label>
+      </div>
       <div>
         <label class="block text-xs font-medium text-gray-700 mb-1">Catégorie</label>
         <input type="text" name="category_label" id="edit-category"
@@ -560,12 +628,13 @@
 {% endif %}
 
 <script>
-function openEditLine(id, label, category, amount, notes) {
+function openEditLine(id, label, category, amount, notes, direction) {
   document.getElementById('edit-line-form').action = '/finance/budget/' + id + '/edit';
   document.getElementById('edit-label').value = label;
   document.getElementById('edit-category').value = category || '';
   document.getElementById('edit-amount').value = amount;
   document.getElementById('edit-notes').value = notes || '';
+  document.getElementById('edit-line-direction-' + (direction === 'INCOME' ? 'income' : 'expense')).checked = true;
   document.getElementById('modal-edit-line').classList.remove('hidden');
 }
 </script>

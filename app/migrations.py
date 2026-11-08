@@ -87,6 +87,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE budget_lines ADD COLUMN category_label VARCHAR(200)"
             )
+        if "direction" not in cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE budget_lines ADD COLUMN direction VARCHAR(20) NOT NULL DEFAULT 'EXPENSE'"
+            )
 
         # contribution_configs.initial_treasury
         r2 = await conn.exec_driver_sql("PRAGMA table_info(contribution_configs)")
