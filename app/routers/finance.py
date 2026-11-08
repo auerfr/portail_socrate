@@ -2135,6 +2135,43 @@ async def bilan_export_csv(
     )
 
 
+@router.get("/bilan/export-pdf")
+async def bilan_export_pdf(
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: Optional[int] = None,
+    date_from: Optional[str] = None,
+    date_to: Optional[str] = None,
+):
+    """Export PDF mis en forme du bilan (charges/produits par catégorie,
+    résultat, cotisations, budget vs réalisé)."""
+    from app.config import get_settings
+    from app.services.bilan_pdf import build_bilan_pdf
+
+    year = None
+    if year_id:
+        year = await db.get(FiscalYear, year_id)
+    if not year:
+        r = await db.execute(select(FiscalYear).where(FiscalYear.is_current == True).limit(1))
+        year = r.scalar_one_or_none()
+    if not year:
+        raise HTTPException(404, "Aucune année configurée")
+
+    d_from = date.fromisoformat(date_from) if date_from else None
+    d_to   = date.fromisoformat(date_to)   if date_to   else None
+    data = await _compute_bilan(db, year, d_from, d_to)
+
+    settings = get_settings()
+    pdf = build_bilan_pdf(settings.lodge_name, year.label, data, d_from, d_to)
+
+    period_str = f"_{date_from}_{date_to}" if (date_from or date_to) else ""
+    filename = f"bilan_{year.label.replace(' ', '_')}{period_str}.pdf"
+    return StreamingResponse(
+        io.BytesIO(pdf), media_type="application/pdf",
+        headers={"Content-Disposition": f'inline; filename="{filename}"'},
+    )
+
+
 # ── Gestion individuelle des paiements ──────────────────────────────────────
 
 @router.post("/payments/{payment_id}/delete")

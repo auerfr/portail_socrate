@@ -70,9 +70,14 @@
         ✕ Réinitialiser
       </a>
       {% endif %}
-      <a href="/finance/bilan/export-csv?year_id={{ selected_year.id }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+      <a href="/finance/bilan/export-pdf?year_id={{ selected_year.id }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+         target="_blank"
          class="ml-auto inline-flex items-center gap-1.5 border border-loge-200 text-loge-700 px-3 py-1.5 rounded-lg text-sm hover:bg-loge-50 font-medium">
-        ⬇ Export CSV
+        ⬇ Export PDF
+      </a>
+      <a href="/finance/bilan/export-csv?year_id={{ selected_year.id }}{% if date_from %}&date_from={{ date_from }}{% endif %}{% if date_to %}&date_to={{ date_to }}{% endif %}"
+         class="inline-flex items-center gap-1.5 border border-gray-200 text-gray-600 px-3 py-1.5 rounded-lg text-sm hover:bg-gray-50 font-medium">
+        ⬇ CSV
       </a>
     </form>
   </div>
