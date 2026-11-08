@@ -2046,6 +2046,50 @@ async def transactions_view(
     })
 
 
+@router.post("/categories/{category_id}/rename")
+async def rename_category(
+    request: Request,
+    category_id: int,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    name: Annotated[str, Form()],
+    year_id: Annotated[int, Form()],
+):
+    """Corrige le libellé d'une catégorie (ex. faute de frappe) — s'applique
+    automatiquement à tous les Mouvements déjà saisis avec cette catégorie,
+    puisqu'ils la référencent par id et non par copie du nom."""
+    _, rec_member = ctx
+    cat = await db.get(BudgetCategory, category_id)
+    if not cat:
+        raise HTTPException(404)
+    new_name = name.strip()
+    if not new_name:
+        raise HTTPException(400, "Le nom de la catégorie ne peut pas être vide")
+
+    dup = await db.execute(
+        select(BudgetCategory).where(
+            BudgetCategory.fiscal_year_id == cat.fiscal_year_id,
+            BudgetCategory.type == cat.type,
+            func.lower(BudgetCategory.name) == new_name.lower(),
+            BudgetCategory.id != cat.id,
+        )
+    )
+    if dup.scalar_one_or_none():
+        raise HTTPException(400, f"Une catégorie « {new_name} » existe déjà pour ce type — fusion non prise en charge ici")
+
+    old_name = cat.name
+    cat.name = new_name
+    await log_audit(
+        db, actor_id=rec_member.id if rec_member else None,
+        action="FINANCE_CATEGORY_RENAME",
+        target_type="budget_category", target_id=cat.id, target_label=new_name,
+        details=f"« {old_name} » → « {new_name} »",
+        request=request,
+    )
+    await db.commit()
+    return RedirectResponse(url=f"/finance/transactions?year_id={year_id}", status_code=303)
+
+
 @router.post("/transactions/add")
 async def add_transaction(
     request: Request,
