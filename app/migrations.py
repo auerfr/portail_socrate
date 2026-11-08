@@ -91,6 +91,10 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE budget_lines ADD COLUMN direction VARCHAR(20) NOT NULL DEFAULT 'EXPENSE'"
             )
+        if "closed" not in cols:
+            await conn.exec_driver_sql(
+                "ALTER TABLE budget_lines ADD COLUMN closed BOOLEAN NOT NULL DEFAULT 0"
+            )
 
         # contribution_configs.initial_treasury
         r2 = await conn.exec_driver_sql("PRAGMA table_info(contribution_configs)")
@@ -122,6 +126,14 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         if "tier_selection_closed_at" not in cols2:
             await conn.exec_driver_sql(
                 "ALTER TABLE contribution_configs ADD COLUMN tier_selection_closed_at DATETIME"
+            )
+        if "capitation_nationale_closed" not in cols2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs ADD COLUMN capitation_nationale_closed BOOLEAN NOT NULL DEFAULT 0"
+            )
+        if "capitation_regionale_closed" not in cols2:
+            await conn.exec_driver_sql(
+                "ALTER TABLE contribution_configs ADD COLUMN capitation_regionale_closed BOOLEAN NOT NULL DEFAULT 0"
             )
 
         # ── Messagerie interne ──────────────────────────────────────────────

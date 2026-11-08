@@ -92,6 +92,12 @@ class BudgetLine(Base):
     amount: Mapped[float]                 = mapped_column(Numeric(10, 2))
     order_position: Mapped[int]           = mapped_column(Integer, default=0)
     notes: Mapped[Optional[str]]          = mapped_column(Text)
+    # Décision du trésorier : "je considère cette ligne réglée", quel que
+    # soit l'écart prévu/réalisé (ex. on a économisé sur un poste pour
+    # compenser un dépassement ailleurs). N'affecte QUE l'indicateur "reste
+    # à payer" du Bilan (reste_a_payer_budget / depassements_budget) — ne
+    # touche jamais le T3 ni le résultat prévisionnel.
+    closed: Mapped[bool]                  = mapped_column(Boolean, default=False)
 
     def __repr__(self) -> str:
         return f"<BudgetLine {self.label} {self.amount}€>"
@@ -134,6 +140,14 @@ class ContributionConfig(Base):
     tier_selection_closes_at: Mapped[Optional[date]] = mapped_column(Date)
     # Date à laquelle l'appel a été clos (auto à closes_at + 1 j ou manuel)
     tier_selection_closed_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
+
+    # Décision du trésorier : "j'ai réglé la facture GODF/CAALA de l'année,
+    # il n'y a plus rien à reverser" — indépendant du calcul mécanique
+    # collecté/reversé du Bilan (qui peut diverger du montant réel facturé
+    # par l'obédience, ex. nombre d'Affiliation/Appartenance pris en compte
+    # différemment). N'affecte que l'affichage du Bilan.
+    capitation_nationale_closed: Mapped[bool] = mapped_column(Boolean, default=False)
+    capitation_regionale_closed: Mapped[bool] = mapped_column(Boolean, default=False)
 
     tiers: Mapped[list["ContributionTier"]] = relationship(back_populates="config")
 

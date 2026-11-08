@@ -145,11 +145,12 @@
             <div class="flex-1 text-sm text-gray-800 min-w-0">
             {{ line.label }}
             {% if line.category_label %}<span class="text-xs text-gray-400 ml-1">· {{ line.category_label }}</span>{% endif %}
+            {% if line.closed %}<span class="text-xs text-green-600 ml-1">✓ Clôturée</span>{% endif %}
           </div>
             <div class="text-sm font-semibold text-gray-900 tabular-nums shrink-0">{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <button type="button"
-                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }})'
+                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }}, {{ line.closed|tojson }})'
                     class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
                   onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
@@ -193,7 +194,7 @@
             <div class="text-sm font-semibold text-emerald-700 tabular-nums shrink-0">+{{ "%.2f"|format(line.amount) }} €</div>
             {% if can_edit %}
             <button type="button"
-                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }})'
+                    onclick='openEditLine({{ line.id }}, {{ line.label|tojson }}, {{ line.category_label|tojson if line.category_label else "null" }}, {{ line.amount }}, {{ line.notes|tojson if line.notes else "null" }}, {{ line.direction.value|tojson }}, {{ line.closed|tojson }})'
                     class="text-gray-400 hover:text-loge-600 text-xs px-1 shrink-0" title="Modifier">✏</button>
             <form method="post" action="/finance/budget/{{ line.id }}/delete"
                   onsubmit="return confirm('Supprimer « {{ line.label }} » ?')">
@@ -578,6 +579,13 @@
         <input type="text" name="notes" id="edit-notes"
                class="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500">
       </div>
+      <label class="flex items-start gap-2 text-xs text-gray-600 cursor-pointer bg-gray-50 border border-gray-200 rounded-lg px-3 py-2">
+        <input type="checkbox" name="closed" value="1" id="edit-closed" class="rounded border-gray-300 text-loge-600 mt-0.5">
+        <span>
+          <strong>Clôturée</strong> — j'estime cette ligne réglée (quel que soit l'écart). Exclut cette ligne du
+          « reste à payer » et des « dépassements » affichés dans le Bilan.
+        </span>
+      </label>
       <div class="flex gap-3 pt-2">
         <button type="submit" class="flex-1 bg-loge-700 text-white py-2 rounded-xl text-sm font-semibold hover:bg-loge-800">Enregistrer</button>
         <button type="button" onclick="document.getElementById('modal-edit-line').classList.add('hidden')"
@@ -636,13 +644,14 @@
 {% endif %}
 
 <script>
-function openEditLine(id, label, category, amount, notes, direction) {
+function openEditLine(id, label, category, amount, notes, direction, closed) {
   document.getElementById('edit-line-form').action = '/finance/budget/' + id + '/edit';
   document.getElementById('edit-label').value = label;
   document.getElementById('edit-category').value = category || '';
   document.getElementById('edit-amount').value = amount;
   document.getElementById('edit-notes').value = notes || '';
   document.getElementById('edit-line-direction-' + (direction === 'INCOME' ? 'income' : 'expense')).checked = true;
+  document.getElementById('edit-closed').checked = !!closed;
   document.getElementById('modal-edit-line').classList.remove('hidden');
 }
 </script>

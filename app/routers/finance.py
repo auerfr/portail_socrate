@@ -658,6 +658,7 @@ async def budget_add(
         amount=amount,
         order_position=pos,
         notes=notes.strip() or None,
+        closed=False,
     )
     db.add(line)
     await db.flush()
@@ -747,6 +748,7 @@ async def budget_edit(
     category_label: Annotated[str, Form()] = "",
     notes: Annotated[str, Form()] = "",
     direction: Annotated[str, Form()] = "EXPENSE",
+    closed: Annotated[str, Form()] = "",
 ):
     user, member = ctx
     if not (user.is_admin or can_manage_finance(member)):
@@ -760,11 +762,13 @@ async def budget_edit(
     line.category_label = category_label.strip() or None
     line.notes = notes.strip() or None
     line.direction = TransactionType(direction)
+    line.closed = bool(closed)
     await log_audit(
         db, actor_id=member.id if member else None,
         action="FINANCE_BUDGET_LINE_EDIT",
         target_type="budget_line", target_id=line.id, target_label=line.label,
-        details=f"« {before_label} » {before_amount:.2f}€ → « {line.label} » {amount:.2f}€",
+        details=f"« {before_label} » {before_amount:.2f}€ → « {line.label} » {amount:.2f}€"
+                + (" — marquée clôturée" if line.closed else ""),
         request=request,
     )
     await db.commit()
@@ -1196,6 +1200,44 @@ async def config_adjust_treasury(
 
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
+
+
+@router.post("/config/toggle-capitation-closed")
+async def config_toggle_capitation_closed(
+    request: Request,
+    ctx: Annotated[object, Depends(require_finance_manager)],
+    db: Annotated[AsyncSession, Depends(get_db)],
+    year_id: Annotated[int, Form()],
+    which: Annotated[str, Form()],  # "nationale" | "regionale"
+    closed: Annotated[str, Form()] = "",
+):
+    """Déclare (ou annule) que la capitation nationale (GODF) ou régionale
+    (CAALA) de l'année est soldée selon le trésorier — indépendant du calcul
+    mécanique collecté/reversé du Bilan, qui peut diverger du montant réel
+    facturé par l'obédience. N'affecte que l'affichage, jamais le T3."""
+    user, member = ctx
+    if which not in ("nationale", "regionale"):
+        raise HTTPException(400, "Paramètre 'which' invalide")
+
+    cfg = await _get_or_create_config(db, year_id)
+    is_closed = bool(closed)
+    if which == "nationale":
+        cfg.capitation_nationale_closed = is_closed
+    else:
+        cfg.capitation_regionale_closed = is_closed
+
+    from app.services.audit import log_audit
+    label = "GODF (nationale)" if which == "nationale" else "CAALA (régionale)"
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_CAPITATION_CLOSED_TOGGLE",
+        target_type="contribution_config", target_id=cfg.id,
+        target_label=f"Année {year_id}",
+        details=f"Capitation {label} marquée {'soldée' if is_closed else 'non soldée'} par le trésorier",
+        request=request,
+    )
+    await db.commit()
+    return RedirectResponse(url=f"/finance/bilan?year_id={year_id}", status_code=303)
 
 
 # ── Export CSV retardataires ──────────────────────────────────────────────────
@@ -2628,6 +2670,16 @@ async def _compute_bilan(
         target = budget_income_by_cat if bl.direction == TransactionType.INCOME else budget_by_cat
         target[cat] = target.get(cat, Decimal("0")) + Decimal(str(bl.amount))
 
+    # Catégorie (charges) considérée "clôturée" par le trésorier dès que
+    # TOUTES ses lignes EXPENSE le sont — n'affecte que reste_a_payer_budget
+    # / depassements_budget plus bas, jamais le T3 ni le résultat prévisionnel.
+    closed_by_cat: dict[str, bool] = {}
+    for bl in budget_lines:
+        if bl.direction != TransactionType.EXPENSE:
+            continue
+        cat = bl.category_label or bl.label
+        closed_by_cat[cat] = closed_by_cat.get(cat, True) and bl.closed
+
     # ── Capitation à reverser (nationale + régionale) ────────────────────────
     # Somme des capitations de toutes les cotisations de l'année
     # (quelle que soit leur statut : c'est la capitation collectée ou à collecter)
@@ -2716,12 +2768,19 @@ async def _compute_bilan(
     # autofinancé par ses propres recettes comme une biennale) sont
     # volontairement exclues : il n'y a rien "à payer" sur une ligne qui n'a
     # jamais été budgétée.
+    # Une catégorie que le trésorier a cochée "clôturée" (closed_by_cat) est
+    # exclue des deux totaux ci-dessous : lui seul juge si le solde restant
+    # est réellement encore à dépenser, l'écart mécanique prévu/réalisé n'est
+    # pas toujours fiable (économies sur un poste compensant un dépassement
+    # ailleurs, décision de ne pas consommer le reste, etc.).
     reste_a_payer_budget = sum(
-        (max(prevu - charges_by_cat.get(cat, Decimal("0")), Decimal("0")) for cat, prevu in budget_by_cat.items()),
+        (max(prevu - charges_by_cat.get(cat, Decimal("0")), Decimal("0"))
+         for cat, prevu in budget_by_cat.items() if not closed_by_cat.get(cat)),
         Decimal("0"),
     )
     depassements_budget = sum(
-        (max(charges_by_cat.get(cat, Decimal("0")) - prevu, Decimal("0")) for cat, prevu in budget_by_cat.items()),
+        (max(charges_by_cat.get(cat, Decimal("0")) - prevu, Decimal("0"))
+         for cat, prevu in budget_by_cat.items() if not closed_by_cat.get(cat)),
         Decimal("0"),
     )
     # Reste à encaisser = cotisations encore dues, en BRUT (ce que le membre
@@ -2761,6 +2820,7 @@ async def _compute_bilan(
         "budget_restant": budget_restant,
         "reste_a_payer_budget": reste_a_payer_budget,
         "depassements_budget": depassements_budget,
+        "closed_by_cat": closed_by_cat,
         "reste_a_encaisser_cotisations": reste_a_encaisser_cotisations,
         "reste_a_encaisser_recettes": reste_a_encaisser_recettes,
         "reste_a_encaisser_total": reste_a_encaisser_total,

@@ -204,11 +204,13 @@
     {% if creances_nettes > 0.5 or budget_restant|abs > 0.5 %}
     <div class="mt-3 pt-3 border-t {% if resultat >= 0 %}border-loge-200{% else %}border-orange-200{% endif %} flex items-center justify-between flex-wrap gap-2">
       <div class="text-xs {% if resultat >= 0 %}text-loge-600{% else %}text-orange-600{% endif %}">
-        <strong>Prévisionnel</strong> — si les {{ "%.2f"|format(creances_nettes) }} € de cotisations encore dues
-        (part loge) sont encaissés, le budget voté ({{ "%.2f"|format(total_budget) }} €) intégralement
+        <strong>Prévisionnel</strong> — si les {{ "%.2f"|format(creances) }} € de cotisations encore dues
+        (voir « Créances » ci-dessous — dont {{ "%.2f"|format(creances_nettes) }} € resteront à la loge, le
+        reste étant de la capitation à reverser) sont intégralement encaissées, le budget voté
+        ({{ "%.2f"|format(total_budget) }} €) intégralement
         consommé{% if total_budget_income > 0.5 %}, et les {{ "%.2f"|format(total_budget_income) }} € de recettes
         prévisionnelles ({{ "%.2f"|format(produits_previsionnel) }} € en tenant compte du déjà-réalisé) intégralement
-        reçues{% endif %} :
+        reçues{% endif %} — résultat net (part loge) projeté :
       </div>
       <div class="text-lg font-bold {% if resultat_previsionnel >= 0 %}text-loge-700{% else %}text-orange-700{% endif %}">
         {% if resultat_previsionnel >= 0 %}+{% endif %}{{ "%.2f"|format(resultat_previsionnel) }} €
@@ -262,23 +264,61 @@
       {{ "%.2f"|format(contrib_cfg.regional_capitation_rate if contrib_cfg else 0) }} € × membres Appartenance).
     </p>
     <div class="grid grid-cols-1 sm:grid-cols-2 gap-3">
+      {% set nat_closed = contrib_cfg.capitation_nationale_closed if contrib_cfg else False %}
+      {% set reg_closed = contrib_cfg.capitation_regionale_closed if contrib_cfg else False %}
       <div class="bg-white rounded-lg border border-slate-200 p-3 text-xs space-y-1">
         <div class="font-semibold text-slate-700 mb-1">GODF (nationale)</div>
         <div class="flex justify-between text-slate-500"><span>Collecté</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_encaissee_nationale) }} €</span></div>
         <div class="flex justify-between text-slate-500"><span>Reversé</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_paid_nationale) }} €</span></div>
+        {% if nat_closed %}
+        <div class="flex justify-between pt-1 border-t border-slate-100 text-green-700 font-bold">
+          <span>✓ Soldée (déclaré par le trésorier)</span>
+          <span class="tabular-nums text-slate-400 font-normal">calcul : {{ "%.2f"|format(capitation_restant_nationale) }} €</span>
+        </div>
+        {% else %}
         <div class="flex justify-between pt-1 border-t border-slate-100 {% if capitation_restant_nationale > 0.005 %}text-red-700{% else %}text-green-700{% endif %} font-bold">
           <span>{% if capitation_restant_nationale > 0.005 %}Reste à reverser{% else %}✓ À jour{% endif %}</span>
           <span class="tabular-nums">{{ "%.2f"|format(capitation_restant_nationale) }} €</span>
         </div>
+        {% endif %}
+        {% if selected_year %}
+        <form method="post" action="/finance/config/toggle-capitation-closed" class="pt-1">
+          <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+          <input type="hidden" name="which" value="nationale">
+          <label class="flex items-center gap-1.5 text-slate-500 cursor-pointer">
+            <input type="checkbox" name="closed" value="1" onchange="this.form.submit()" {% if nat_closed %}checked{% endif %}
+                   class="rounded border-gray-300 text-loge-600">
+            Facture GODF soldée pour l'année (j'ai fait les versements prévus)
+          </label>
+        </form>
+        {% endif %}
       </div>
       <div class="bg-white rounded-lg border border-slate-200 p-3 text-xs space-y-1">
         <div class="font-semibold text-slate-700 mb-1">CAALA (régionale)</div>
         <div class="flex justify-between text-slate-500"><span>Collecté</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_encaissee_regionale) }} €</span></div>
         <div class="flex justify-between text-slate-500"><span>Reversé</span><span class="font-semibold tabular-nums text-slate-700">{{ "%.2f"|format(total_capitation_paid_regionale) }} €</span></div>
+        {% if reg_closed %}
+        <div class="flex justify-between pt-1 border-t border-slate-100 text-green-700 font-bold">
+          <span>✓ Soldée (déclaré par le trésorier)</span>
+          <span class="tabular-nums text-slate-400 font-normal">calcul : {{ "%.2f"|format(capitation_restant_regionale) }} €</span>
+        </div>
+        {% else %}
         <div class="flex justify-between pt-1 border-t border-slate-100 {% if capitation_restant_regionale > 0.005 %}text-red-700{% else %}text-green-700{% endif %} font-bold">
           <span>{% if capitation_restant_regionale > 0.005 %}Reste à reverser{% else %}✓ À jour{% endif %}</span>
           <span class="tabular-nums">{{ "%.2f"|format(capitation_restant_regionale) }} €</span>
         </div>
+        {% endif %}
+        {% if selected_year %}
+        <form method="post" action="/finance/config/toggle-capitation-closed" class="pt-1">
+          <input type="hidden" name="year_id" value="{{ selected_year.id }}">
+          <input type="hidden" name="which" value="regionale">
+          <label class="flex items-center gap-1.5 text-slate-500 cursor-pointer">
+            <input type="checkbox" name="closed" value="1" onchange="this.form.submit()" {% if reg_closed %}checked{% endif %}
+                   class="rounded border-gray-300 text-loge-600">
+            Facture CAALA soldée pour l'année (j'ai fait les versements prévus)
+          </label>
+        </form>
+        {% endif %}
       </div>
     </div>
     {% if total_capitation_paid_autre > 0 %}
@@ -346,17 +386,19 @@
           {% set realise = charges_by_cat.get(cat, 0) %}
           {% set ecart = prevu - realise %}
           {% set hors_budget = cat not in budget_by_cat %}
-          <tr class="hover:bg-gray-50 {% if hors_budget %}bg-gray-50/50{% endif %}">
+          {% set clôturée = closed_by_cat.get(cat) and not hors_budget %}
+          <tr class="hover:bg-gray-50 {% if hors_budget or clôturée %}bg-gray-50/50{% endif %}">
             <td class="px-5 py-2.5 text-gray-800">
               {{ cat }}
               {% if hors_budget %}<span class="text-xs text-gray-400 italic">(hors budget)</span>{% endif %}
+              {% if clôturée %}<span class="text-xs text-green-600 italic">(clôturée par le trésorier)</span>{% endif %}
             </td>
             <td class="px-4 py-2.5 text-right tabular-nums text-gray-600">{{ "%.2f"|format(prevu) }} €</td>
             <td class="px-4 py-2.5 text-right tabular-nums font-medium">{{ "%.2f"|format(realise) }} €</td>
             <td class="px-5 py-2.5 text-right tabular-nums font-semibold
-                       {% if hors_budget %}text-gray-400
+                       {% if hors_budget or clôturée %}text-gray-400
                        {% elif ecart < 0 %}text-red-600{% elif ecart > 0 %}text-green-600{% else %}text-gray-400{% endif %}">
-              {% if hors_budget %}—{% else %}{% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €{% endif %}
+              {% if hors_budget or clôturée %}—{% else %}{% if ecart > 0 %}+{% endif %}{{ "%.2f"|format(ecart) }} €{% endif %}
             </td>
           </tr>
           {% endfor %}
@@ -377,7 +419,8 @@
       </table>
     </div>
     <p class="px-5 py-2.5 text-[11px] text-gray-400 border-t border-gray-100">
-      Les lignes « hors budget » (aucun montant voté, ex. un évènement autofinancé par ses propres recettes)
+      Les lignes « hors budget » (aucun montant voté, ex. un évènement autofinancé par ses propres recettes) et
+      « clôturées » (marquées réglées par le trésorier, cf. <a href="/finance/budget{% if selected_year %}?year_id={{ selected_year.id }}{% endif %}" class="underline">Budget</a>)
       n'entrent dans aucun des totaux ci-dessus ni dans les tuiles « Reste à payer »/« Dépassement » plus haut sur
       la page.
     </p>
