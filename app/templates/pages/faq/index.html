@@ -518,6 +518,13 @@
           (calculé automatiquement depuis le budget, ou saisi manuellement) : les tranches T1 à T5
           sont des coefficients (0.4 à 1.6) appliqués à ce montant de référence.
         </p>
+        <p class="text-gray-600 mt-2">
+          <strong>Attention :</strong> enregistrer ce formulaire recalcule le montant dû et
+          resynchronise <strong>toutes</strong> les cotisations non soldées de l'année — y compris si
+          vous ne modifiez qu'une date ou la trésorerie, et le nombre de membres actifs utilisé est
+          celui du moment de l'enregistrement (pas celui du début d'année). Une confirmation explicite
+          s'affiche avant tout envoi pour éviter un clic accidentel.
+        </p>
       </details>
 
       <details class="group border-b border-gray-100 py-2">
@@ -552,7 +559,31 @@
         </summary>
         <p class="text-gray-600 mt-2">
           Dans « Mouvements », ajoutez une entrée avec date, catégorie et justificatif (PDF ou image).
-          Les catégories utilisées alimentent automatiquement le budget.
+          Les catégories utilisées alimentent automatiquement le budget. Pour corriger une erreur de
+          saisie (montant, date, catégorie…), utilisez le bouton ✎ sur la ligne concernée — inutile de
+          supprimer et ressaisir.
+        </p>
+      </details>
+
+      <details class="group border-b border-gray-100 py-2">
+        <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
+          Comment suivre les virements de capitation au GODF (national) et à CAALA (régional) ?
+          <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
+        </summary>
+        <p class="text-gray-600 mt-2">
+          La capitation collectée auprès des membres (avec leur cotisation) doit être intégralement
+          reversée à l'obédience — c'est un flux de transit, pas une recette de la loge. Pour que le
+          Bilan affiche correctement « effectivement reversé / reste à reverser » (par obédience,
+          séparément), enregistrez le virement comme un Mouvement dont la catégorie contient
+          explicitement le mot <strong>« capitation »</strong> — les catégories <strong>« Capitation
+          nationale (GODF) »</strong> et <strong>« Capitation régionale (CAALA) »</strong> sont créées
+          automatiquement et proposées dans le menu déroulant.
+        </p>
+        <p class="text-gray-600 mt-2">
+          <strong>Attention :</strong> une catégorie nommée juste « GODF » ou « CAALA » (sans le mot
+          « capitation ») reste volontairement comptée comme une charge normale de la loge — utile si
+          vous payez autre chose à l'obédience (taxe, formation…) que de la capitation. Ne mélangez pas
+          les deux dans la même catégorie, sous peine de fausser le résultat net du Bilan.
         </p>
       </details>
 
