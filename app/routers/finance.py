@@ -2767,6 +2767,17 @@ async def _compute_bilan(
     # Résultat net après déduction capitation à reverser
     resultat_net = total_produits + total_cotisations_nettes - total_charges
 
+    # ── Compte de résultat total (tous mouvements comptables de l'année) ─────
+    # Reprend EXACTEMENT les mêmes totaux que la page Mouvements (Recettes /
+    # Dépenses / Solde) : tout l'argent qui est réellement passé par le
+    # compte de la loge, capitation collectée ET reversée comprise — à la
+    # différence du résultat net ci-dessus (qui exclut la capitation comme
+    # un simple transit). Permet un bilan comptable complet, pas seulement
+    # "argent de la loge".
+    total_recettes_complet = total_produits_global
+    total_depenses_complet = total_charges + total_capitation_paid_actual
+    solde_complet = total_recettes_complet - total_depenses_complet
+
     # ── Cotisations dues (toujours sur l'année complète) ─────────────────────
     total_cotisations_due = total_cotisations_due_brut
 
@@ -2851,6 +2862,9 @@ async def _compute_bilan(
         "resultat": resultat_net,           # résultat réel loge (sans capitation)
         "resultat_brut": resultat_brut,     # pour info
         "resultat_previsionnel": resultat_previsionnel,
+        "total_recettes_complet": total_recettes_complet,
+        "total_depenses_complet": total_depenses_complet,
+        "solde_complet": solde_complet,
         "total_cotisations_due_net": total_cotisations_due_net,
         "creances_nettes": creances_nettes,
         "budget_restant": budget_restant,

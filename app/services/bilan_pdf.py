@@ -105,12 +105,12 @@ def build_bilan_pdf(
     def fmt_signed(v):
         return f"{'+ ' if v >= 0 else '− '}{_eur(abs(v))}"
 
-    def card(bg, border, label_color, label, amount, amount_color, sub):
+    def card(bg, border, label_color, label, amount, amount_color, sub, width=4.2 * cm):
         t = Table(
             [[Paragraph(label, ParagraphStyle("l", parent=card_label, textColor=label_color))],
              [Paragraph(amount, ParagraphStyle("a", parent=card_amount, textColor=amount_color))],
              [Paragraph(sub, ParagraphStyle("s", parent=card_sub, textColor=label_color))]],
-            colWidths=[4.2 * cm],
+            colWidths=[width],
         )
         t.setStyle(TableStyle([
             ("BACKGROUND", (0, 0), (-1, -1), bg),
@@ -141,7 +141,28 @@ def build_bilan_pdf(
         colWidths=[4.35 * cm, 4.35 * cm, 4.35 * cm, 4.35 * cm],
     )
     cards.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3)]))
-    story += [cards, Spacer(1, 0.5 * cm)]
+    story += [cards, Spacer(1, 0.3 * cm)]
+
+    # ── Synthèse : reste à encaisser / reste à payer ────────────────────────
+    # Même synthèse que le haut de la page Bilan : où on en est à date.
+    reste_a_payer = float(data.get("reste_a_payer_budget") or 0)
+    reste_a_encaisser = float(data.get("reste_a_encaisser_total") or 0)
+    depassement = float(data.get("depassements_budget") or 0)
+    GRAY_BG = colors.HexColor("#f9fafb")
+    GRAY_BORDER = colors.HexColor("#e5e7eb")
+    payer_sub = "Lignes de budget encore ouvertes (non clôturées)"
+    if depassement > 0.5:
+        payer_sub += f" · {_eur(depassement)} de dépassement par ailleurs"
+    synth_cards = Table(
+        [[
+            card(GRAY_BG, GRAY_BORDER, GRAY, "RESTE À ENCAISSER", _eur(reste_a_encaisser), DARK,
+                 "Cotisations dues (capitation comprise) + recettes prévisionnelles non versées", width=8.5 * cm),
+            card(GRAY_BG, GRAY_BORDER, GRAY, "RESTE À PAYER", _eur(reste_a_payer), DARK, payer_sub, width=8.5 * cm),
+        ]],
+        colWidths=[8.7 * cm, 8.7 * cm],
+    )
+    synth_cards.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3)]))
+    story += [synth_cards, Spacer(1, 0.5 * cm)]
 
     # ── CHARGES / PRODUITS deux colonnes ───────────────────────────────────
     def section_header(title, total, bg, txt_color):
@@ -309,6 +330,39 @@ def build_bilan_pdf(
                   "résultat net ci-dessus.",
                   note_style),
               Spacer(1, 0.45 * cm)]
+
+    # ── Compte de résultat total (tous mouvements comptables de l'année) ────
+    # Reprend l'intégralité des mouvements — fonctionnement de la loge ET
+    # capitation réunis — correspond exactement aux totaux de la page
+    # Mouvements (Recettes / Dépenses / Solde).
+    solde_complet = float(data.get("solde_complet") or 0)
+    solde_color = GREEN_TXT if solde_complet >= 0 else ORANGE_TXT
+    total_cards = Table(
+        [[
+            card(GREEN_BG, colors.HexColor("#bbf7d0"), GREEN_TXT, "RECETTES",
+                 _eur(data.get("total_recettes_complet") or 0), GREEN_TXT, "", width=5.6 * cm),
+            card(RED_BG, colors.HexColor("#fecaca"), RED_TXT, "DÉPENSES",
+                 _eur(data.get("total_depenses_complet") or 0), RED_TXT, "", width=5.6 * cm),
+            card(GREEN_BG if solde_complet >= 0 else ORANGE_BG,
+                 colors.HexColor("#bbf7d0") if solde_complet >= 0 else colors.HexColor("#fed7aa"),
+                 solde_color, "SOLDE", fmt_signed(solde_complet), solde_color, "", width=5.6 * cm),
+        ]],
+        colWidths=[5.8 * cm, 5.8 * cm, 5.8 * cm],
+    )
+    total_cards.setStyle(TableStyle([("LEFTPADDING", (0, 0), (-1, -1), 3), ("RIGHTPADDING", (0, 0), (-1, -1), 3)]))
+    story += [
+        Paragraph("Compte de résultat total", ParagraphStyle(
+            "crt", parent=styles["Normal"], fontSize=11, fontName="Helvetica-Bold", textColor=DARK, spaceAfter=3,
+        )),
+        Paragraph(
+            "Reprend l'intégralité des mouvements comptables de l'année — fonctionnement de la loge ET capitation "
+            "(collectée et reversée) réunis en un seul solde. Correspond exactement aux totaux de la page Mouvements.",
+            note_style,
+        ),
+        Spacer(1, 0.15 * cm),
+        total_cards,
+        Spacer(1, 0.5 * cm),
+    ]
 
     # ── Situation des cotisations ───────────────────────────────────────────
     creances = data["creances"]
