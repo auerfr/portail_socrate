@@ -26,6 +26,7 @@ from app.models.finance import (
 )
 from app.models.identity import Member, MemberStatus, MembershipType, User, member_liable_for_year_condition
 from app.models.lodge import MasonicYear
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/finance", tags=["finance"])
 from app.template_engine import templates
@@ -507,12 +508,13 @@ async def budget_add(
     category_label: Annotated[str, Form()] = "",
     notes: Annotated[str, Form()] = "",
 ):
+    _, actor_member = ctx
     r = await db.execute(
         select(func.count(BudgetLine.id)).where(BudgetLine.fiscal_year_id == year_id)
     )
     pos = r.scalar_one() or 0
 
-    db.add(BudgetLine(
+    line = BudgetLine(
         fiscal_year_id=year_id,
         masonic_year_id=await _legacy_masonic_year_id(db),
         label=label.strip(),
@@ -521,7 +523,16 @@ async def budget_add(
         amount=amount,
         order_position=pos,
         notes=notes.strip() or None,
-    ))
+    )
+    db.add(line)
+    await db.flush()
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_BUDGET_LINE_ADD",
+        target_type="budget_line", target_id=line.id, target_label=line.label,
+        details=f"{amount:.2f}€" + (f" — {category_label.strip()}" if category_label.strip() else ""),
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
@@ -535,6 +546,7 @@ async def budget_import_csv(
     csvfile: UploadFile = File(...),
 ):
     """Import CSV : colonnes Catégorie,Libellé,Montant (séparateur ; ou ,)."""
+    _, actor_member = ctx
     content = await csvfile.read()
     text = content.decode("utf-8-sig")  # gère le BOM Excel
     dialect = "excel" if "," in text.split("\n")[0] else "excel-tab"
@@ -550,6 +562,7 @@ async def budget_import_csv(
     )
     pos = r.scalar_one() or 0
     legacy_my_id = await _legacy_masonic_year_id(db)
+    n_imported = 0
 
     for row in reader:
         # Accepte différents noms de colonnes
@@ -573,13 +586,23 @@ async def budget_import_csv(
             order_position=pos,
         ))
         pos += 1
+        n_imported += 1
 
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_BUDGET_IMPORT_CSV",
+        target_type="fiscal_year", target_id=year_id,
+        target_label=f"Année {year_id}",
+        details=f"{n_imported} ligne(s) importée(s) depuis {csvfile.filename}",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
 
 @router.post("/budget/{line_id}/edit")
 async def budget_edit(
+    request: Request,
     line_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -594,10 +617,18 @@ async def budget_edit(
     line = await db.get(BudgetLine, line_id)
     if not line:
         raise HTTPException(404)
+    before_label, before_amount = line.label, float(line.amount)
     line.label = label.strip()
     line.amount = amount
     line.category_label = category_label.strip() or None
     line.notes = notes.strip() or None
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_BUDGET_LINE_EDIT",
+        target_type="budget_line", target_id=line.id, target_label=line.label,
+        details=f"« {before_label} » {before_amount:.2f}€ → « {line.label} » {amount:.2f}€",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={line.fiscal_year_id}", status_code=303)
 
@@ -630,12 +661,20 @@ async def budget_new_year(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_YEAR_CREATE",
+        target_type="fiscal_year", target_id=new_year.id, target_label=label,
+        details=f"{start_date} → {end_date}" + (" — budget copié" if (copy_budget and source_year_id) else ""),
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={new_year.id}", status_code=303)
 
 
 @router.post("/budget/activate-year")
 async def budget_activate_year(
+    request: Request,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     year_id: Annotated[int, Form()],
@@ -652,21 +691,37 @@ async def budget_activate_year(
     except ValueError as e:
         raise HTTPException(400, str(e))
 
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_YEAR_ACTIVATE",
+        target_type="fiscal_year", target_id=year.id, target_label=year.label,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year.id}", status_code=303)
 
 
 @router.post("/budget/{line_id}/delete")
 async def budget_delete(
+    request: Request,
     line_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    _, actor_member = ctx
     line = await db.get(BudgetLine, line_id)
     if not line:
         raise HTTPException(404)
     year_id = line.fiscal_year_id
+    label, amount = line.label, float(line.amount)
     await db.delete(line)
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_BUDGET_LINE_DELETE",
+        target_type="budget_line", target_id=line_id, target_label=label,
+        details=f"{amount:.2f}€ supprimé",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
@@ -1181,6 +1236,14 @@ async def toggle_appel(
         cfg.tier_selection_closed_at = datetime.utcnow()
         await _close_appel_and_assign_defaults(db, year_id, cfg)
 
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_APPEL_TOGGLE",
+        target_type="contribution_config", target_id=cfg.id,
+        target_label=f"Année {year_id}",
+        details="Clôture de l'appel à tranche" if was_open else "Ouverture/réouverture de l'appel à tranche",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/budget?year_id={year_id}", status_code=303)
 
@@ -1196,6 +1259,7 @@ async def resync_contributions(
     Seules les cotisations PENDING et PARTIAL sont mises à jour.
     Les cotisations PAID et EXEMPT ne sont pas touchées.
     """
+    _, member = ctx
     cfg = await _get_or_create_config(db, year_id)
     await db.refresh(cfg, ["tiers"])
 
@@ -1233,6 +1297,14 @@ async def resync_contributions(
             else:
                 contrib.status = ContributionStatus.PARTIAL
 
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_COTIS_RESYNC",
+        target_type="contribution_config", target_id=cfg.id,
+        target_label=f"Année {year_id}",
+        details=f"{updated} cotisation(s) recalculée(s) sur le barème actuel",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
 
@@ -1248,6 +1320,7 @@ async def assign_contribution(
     due_date: Annotated[Optional[str], Form()] = None,
     notes: Annotated[str, Form()] = "",
 ):
+    _, actor_member = ctx
     cfg = await _get_or_create_config(db, year_id)
     await db.refresh(cfg, ["tiers"])
 
@@ -1290,7 +1363,17 @@ async def assign_contribution(
             notes=notes.strip() or None,
         )
         db.add(contrib)
+        await db.flush()
 
+    member_label = f"{member_obj.last_name} {member_obj.first_name}" if member_obj else f"Membre #{member_id}"
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_COTIS_ASSIGN",
+        target_type="member_contribution", target_id=contrib.id,
+        target_label=member_label,
+        details=f"Tranche T{tier_number} ({total:.2f}€)",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
 
@@ -1303,6 +1386,7 @@ async def assign_all_t3(
     year_id: Annotated[int, Form()],
 ):
     """Assigne T3 à tous les membres redevables sans cotisation pour cette année."""
+    _, actor_member = ctx
     cfg = await _get_or_create_config(db, year_id)
     await db.refresh(cfg, ["tiers"])
 
@@ -1328,6 +1412,7 @@ async def assign_all_t3(
     total = base + capitation
     legacy_my_id = await _legacy_masonic_year_id(db)
 
+    created = 0
     for m in all_active:
         if m.id not in already:
             db.add(MemberContribution(
@@ -1340,12 +1425,22 @@ async def assign_all_t3(
                 total_amount=total,
                 status=ContributionStatus.PENDING,
             ))
+            created += 1
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_COTIS_ASSIGN_ALL",
+        target_type="contribution_config", target_id=cfg.id,
+        target_label=f"Année {year_id}",
+        details=f"{created} membre(s) assigné(s) en T3",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
 
 
 @router.post("/cotisations/{contribution_id}/pay")
 async def record_payment(
+    request: Request,
     contribution_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1378,6 +1473,16 @@ async def record_payment(
     elif total_paid > 0:
         contrib.status = ContributionStatus.PARTIAL
 
+    target_member = await db.get(Member, contrib.member_id)
+    member_label = f"{target_member.last_name} {target_member.first_name}" if target_member else f"Membre #{contrib.member_id}"
+    await log_audit(
+        db, actor_id=member.id if member else None,
+        action="FINANCE_COTIS_PAY",
+        target_type="member_contribution", target_id=contrib.id,
+        target_label=member_label,
+        details=f"Paiement de {amount:.2f}€ ({method})" + (f" — réf. {reference.strip()}" if reference.strip() else ""),
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(
         url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303
@@ -1386,17 +1491,28 @@ async def record_payment(
 
 @router.post("/cotisations/{contribution_id}/exempt")
 async def set_exempt(
+    request: Request,
     contribution_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     notes: Annotated[str, Form()] = "",
 ):
+    _, actor_member = ctx
     contrib = await db.get(MemberContribution, contribution_id)
     if not contrib:
         raise HTTPException(404)
     contrib.status = ContributionStatus.EXEMPT
     if notes.strip():
         contrib.notes = notes.strip()
+    target_member = await db.get(Member, contrib.member_id)
+    member_label = f"{target_member.last_name} {target_member.first_name}" if target_member else f"Membre #{contrib.member_id}"
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_COTIS_EXEMPT",
+        target_type="member_contribution", target_id=contrib.id,
+        target_label=member_label,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(
         url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303
@@ -1405,10 +1521,12 @@ async def set_exempt(
 
 @router.post("/cotisations/{contribution_id}/delete")
 async def delete_contribution(
+    request: Request,
     contribution_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    _, actor_member = ctx
     r = await db.execute(
         select(MemberContribution)
         .options(selectinload(MemberContribution.payments), selectinload(MemberContribution.quitus))
@@ -1418,6 +1536,10 @@ async def delete_contribution(
     if not contrib:
         raise HTTPException(404)
     year_id = contrib.fiscal_year_id
+    n_payments = len(contrib.payments)
+    had_quitus = bool(contrib.quitus)
+    target_member = await db.get(Member, contrib.member_id)
+    member_label = f"{target_member.last_name} {target_member.first_name}" if target_member else f"Membre #{contrib.member_id}"
 
     # Supprimer quitus, paiements, puis cotisation
     if contrib.quitus:
@@ -1426,12 +1548,21 @@ async def delete_contribution(
         await db.delete(p)
     await db.flush()
     await db.delete(contrib)
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_COTIS_DELETE",
+        target_type="member_contribution", target_id=contribution_id,
+        target_label=member_label,
+        details=f"{n_payments} paiement(s)" + (" + quitus" if had_quitus else "") + " supprimés avec la cotisation",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
 
 
 @router.post("/cotisations/{contribution_id}/quitus")
 async def issue_quitus(
+    request: Request,
     contribution_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1458,6 +1589,15 @@ async def issue_quitus(
             valid_until=date.fromisoformat(valid_until) if valid_until else None,
             notes=notes.strip() or None,
         ))
+        target_member = await db.get(Member, contrib.member_id)
+        member_label = f"{target_member.last_name} {target_member.first_name}" if target_member else f"Membre #{contrib.member_id}"
+        await log_audit(
+            db, actor_id=member.id if member else None,
+            action="FINANCE_QUITUS_ISSUE",
+            target_type="member_contribution", target_id=contrib.id,
+            target_label=member_label,
+            request=request,
+        )
         await db.commit()
     return RedirectResponse(
         url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303
@@ -1815,38 +1955,58 @@ async def add_transaction(
                 shutil.copyfileobj(document.file, f)
             txn.attachment_url = f"/static/uploads/transactions/{filename}"
 
+    sign = "+" if txn.type == TransactionType.INCOME else "-"
+    await log_audit(
+        db, actor_id=rec_member.id, action="FINANCE_TXN_ADD",
+        target_type="transaction", target_id=txn.id, target_label=txn.label,
+        details=f"{sign}{float(amount):.2f}€ — {txn_type}" + (f" — pièce jointe" if txn.attachment_url else ""),
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/transactions?year_id={year_id}", status_code=303)
 
 
 @router.post("/transactions/{txn_id}/delete")
 async def delete_transaction(
+    request: Request,
     txn_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    _, rec_member = ctx
     txn = await db.get(Transaction, txn_id)
     if not txn:
         raise HTTPException(404)
     year_id = txn.fiscal_year_id
+    sign = "+" if txn.type == TransactionType.INCOME else "-"
+    label = txn.label
+    amount = float(txn.amount)
     # Supprimer le fichier joint si présent
     if txn.attachment_url:
         filepath = txn.attachment_url.lstrip("/")
         if os.path.exists(filepath):
             os.remove(filepath)
     await db.delete(txn)
+    await log_audit(
+        db, actor_id=rec_member.id, action="FINANCE_TXN_DELETE",
+        target_type="transaction", target_id=txn_id, target_label=label,
+        details=f"{sign}{amount:.2f}€ supprimé",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/transactions?year_id={year_id}", status_code=303)
 
 
 @router.post("/transactions/{txn_id}/attach")
 async def attach_document(
+    request: Request,
     txn_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     document: UploadFile = File(...),
 ):
     """Upload d'un justificatif (PDF, image) lié à un mouvement."""
+    _, rec_member = ctx
     txn = await db.get(Transaction, txn_id)
     if not txn:
         raise HTTPException(404)
@@ -1870,6 +2030,12 @@ async def attach_document(
         shutil.copyfileobj(document.file, f)
 
     txn.attachment_url = f"/static/uploads/transactions/{filename}"
+    await log_audit(
+        db, actor_id=rec_member.id, action="FINANCE_TXN_ATTACH",
+        target_type="transaction", target_id=txn.id, target_label=txn.label,
+        details=f"Pièce jointe : {document.filename}",
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(
         url=f"/finance/transactions?year_id={txn.fiscal_year_id}", status_code=303
@@ -1878,11 +2044,13 @@ async def attach_document(
 
 @router.post("/transactions/{txn_id}/detach")
 async def detach_document(
+    request: Request,
     txn_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     """Supprime le justificatif lié."""
+    _, rec_member = ctx
     txn = await db.get(Transaction, txn_id)
     if not txn:
         raise HTTPException(404)
@@ -1891,6 +2059,11 @@ async def detach_document(
         if os.path.exists(filepath):
             os.remove(filepath)
         txn.attachment_url = None
+        await log_audit(
+            db, actor_id=rec_member.id, action="FINANCE_TXN_DETACH",
+            target_type="transaction", target_id=txn.id, target_label=txn.label,
+            request=request,
+        )
         await db.commit()
     return RedirectResponse(
         url=f"/finance/transactions?year_id={txn.fiscal_year_id}", status_code=303
@@ -2176,14 +2349,17 @@ async def bilan_export_pdf(
 
 @router.post("/payments/{payment_id}/delete")
 async def delete_payment(
+    request: Request,
     payment_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    _, actor_member = ctx
     payment = await db.get(Payment, payment_id)
     if not payment:
         raise HTTPException(404)
     contrib_id = payment.member_contribution_id
+    payment_amount = float(payment.amount)
 
     r = await db.execute(
         select(MemberContribution)
@@ -2206,6 +2382,16 @@ async def delete_payment(
         else:
             contrib.status = ContributionStatus.PAID
 
+    target_member = await db.get(Member, contrib.member_id) if contrib else None
+    member_label = f"{target_member.last_name} {target_member.first_name}" if target_member else f"Cotisation #{contrib_id}"
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_PAYMENT_DELETE",
+        target_type="payment", target_id=payment_id,
+        target_label=member_label,
+        details=f"Paiement de {payment_amount:.2f}€ supprimé",
+        request=request,
+    )
     await db.commit()
     year_id = contrib.fiscal_year_id if contrib else ""
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
@@ -2213,6 +2399,7 @@ async def delete_payment(
 
 @router.post("/payments/{payment_id}/edit")
 async def edit_payment(
+    request: Request,
     payment_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -2222,10 +2409,12 @@ async def edit_payment(
     reference: Annotated[str, Form()] = "",
     notes: Annotated[str, Form()] = "",
 ):
+    _, actor_member = ctx
     payment = await db.get(Payment, payment_id)
     if not payment:
         raise HTTPException(404)
 
+    before_amount = float(payment.amount)
     payment.amount = amount
     payment.method = PaymentMethod(method)
     payment.payment_date = date.fromisoformat(payment_date)
@@ -2251,6 +2440,16 @@ async def edit_payment(
         else:
             contrib.status = ContributionStatus.PAID
 
+    target_member = await db.get(Member, contrib.member_id) if contrib else None
+    member_label = f"{target_member.last_name} {target_member.first_name}" if target_member else f"Cotisation #{contrib_id}"
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_PAYMENT_EDIT",
+        target_type="payment", target_id=payment_id,
+        target_label=member_label,
+        details=f"Montant : {before_amount:.2f}€ → {amount:.2f}€",
+        request=request,
+    )
     await db.commit()
     year_id = contrib.fiscal_year_id if contrib else ""
     return RedirectResponse(url=f"/finance/cotisations?year_id={year_id}", status_code=303)
@@ -2258,6 +2457,7 @@ async def edit_payment(
 
 @router.post("/cotisations/{contribution_id}/set-amount")
 async def set_contribution_amount(
+    request: Request,
     contribution_id: int,
     ctx: Annotated[object, Depends(require_finance_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -2265,6 +2465,7 @@ async def set_contribution_amount(
     notes: Annotated[str, Form()] = "",
 ):
     """Permet de forcer manuellement le montant dû d'une cotisation."""
+    _, actor_member = ctx
     r = await db.execute(
         select(MemberContribution)
         .options(selectinload(MemberContribution.payments))
@@ -2274,6 +2475,7 @@ async def set_contribution_amount(
     if not contrib:
         raise HTTPException(404)
 
+    before_amount = float(contrib.total_amount)
     contrib.total_amount = total_amount
     if notes.strip():
         contrib.notes = (contrib.notes or "") + f"\n[Montant modifié manuellement] {notes.strip()}"
@@ -2286,5 +2488,15 @@ async def set_contribution_amount(
     else:
         contrib.status = ContributionStatus.PAID
 
+    target_member = await db.get(Member, contrib.member_id)
+    member_label = f"{target_member.last_name} {target_member.first_name}" if target_member else f"Membre #{contrib.member_id}"
+    await log_audit(
+        db, actor_id=actor_member.id if actor_member else None,
+        action="FINANCE_COTIS_SET_AMOUNT",
+        target_type="member_contribution", target_id=contrib.id,
+        target_label=member_label,
+        details=f"Montant dû : {before_amount:.2f}€ → {total_amount:.2f}€" + (f" — motif : {notes.strip()}" if notes.strip() else ""),
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/finance/cotisations?year_id={contrib.fiscal_year_id}", status_code=303)
