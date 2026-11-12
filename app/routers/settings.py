@@ -238,7 +238,12 @@ async def settings_page(
         "confirmed": _cs[1],
         "removed": _cs[2],
         "auto_removed": _auto_removed,
-        "pending": _cs[0] - _cs[1] - _cs[2] - _auto_removed,
+        # max(0, …) : un contact peut avoir confirmé une ANCIENNE campagne
+        # (compté dans "confirmed") puis être désactivé faute de réponse à
+        # une campagne plus récente (compté aussi dans "auto_removed") — ces
+        # catégories ne sont donc pas mutuellement exclusives, la somme peut
+        # dépasser le total.
+        "pending": max(0, _cs[0] - _cs[1] - _cs[2] - _auto_removed),
     }
 
     from app.dependencies import can_manage_members

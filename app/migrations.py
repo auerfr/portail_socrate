@@ -1508,11 +1508,14 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
 
     # ── external_contacts.confirmation_sent_at — sans cette date, impossible
     # de savoir quand le délai de 60 jours "sans réponse" doit réellement
-    # démarrer pour un contact donné (deactivate_unconfirmed ne pouvait donc
-    # jamais tourner automatiquement sans risquer de désinscrire des contacts
-    # jamais sollicités). Backfill best-effort depuis email_logs pour les
-    # campagnes déjà envoyées avant l'ajout de cette colonne — idempotent,
-    # ne touche que les lignes encore NULL.
+    # démarrer pour un contact donné. Pas de backfill depuis email_logs ici :
+    # un premier backfill basé sur un email historique (parfois envoyé une
+    # seule fois, il y a longtemps, à titre de test) a fait croire que la
+    # quasi-totalité des contacts étaient "sans réponse depuis 60 jours" et
+    # en a désactivé 273 sur 286 d'un coup (incident du 12/11/2026, réparé par
+    # scripts/fix_contact_confirmation_rollback.py). Le champ ne doit plus
+    # être renseigné qu'au moment d'un VRAI envoi (send_confirmation_email),
+    # pour que le délai de 60 jours démarre d'une campagne réellement récente.
     async with engine.begin() as conn:
         r_ec2 = await conn.exec_driver_sql("PRAGMA table_info(external_contacts)")
         cols_ec2 = [row[1] for row in r_ec2.fetchall()]
@@ -1520,18 +1523,3 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE external_contacts ADD COLUMN confirmation_sent_at DATETIME"
             )
-        if cols_ec2:
-            await conn.exec_driver_sql("""
-                UPDATE external_contacts
-                SET confirmation_sent_at = (
-                    SELECT MAX(el.created_at) FROM email_logs el
-                    WHERE LOWER(el.recipient) = LOWER(external_contacts.email)
-                      AND el.subject LIKE '%Souhaitez-vous continuer%'
-                )
-                WHERE confirmation_sent_at IS NULL
-                  AND EXISTS (
-                    SELECT 1 FROM email_logs el2
-                    WHERE LOWER(el2.recipient) = LOWER(external_contacts.email)
-                      AND el2.subject LIKE '%Souhaitez-vous continuer%'
-                  )
-            """)
