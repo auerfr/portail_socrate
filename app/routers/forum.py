@@ -447,18 +447,15 @@ async def forum_create_subject(
     theme_id: int = Form(...),
     title: str = Form(...),
     content: str = Form(...),
-    files: Union[list[UploadFile], UploadFile, None] = File(default_factory=list),
+    # list[UploadFile] simple, jamais Union[list[UploadFile], UploadFile] :
+    # avec l'Union, FastAPI ne garde que le DERNIER fichier posté sous ce nom
+    # de champ quand il y en a plusieurs (même bug corrigé dans
+    # app/routers/messages.py::send_message et app/routers/mailing.py::compose_save).
+    files: Annotated[list[UploadFile], File()] = [],
     links: str = Form(""),
     document_ids: str = Form(""),
 ):
     user, member = ctx
-
-    # <input type="file" multiple> soumis sans fichier envoie une seule partie
-    # vide — Starlette la remonte comme un UploadFile isolé, pas une liste.
-    if files is None:
-        files = []
-    elif not isinstance(files, list):
-        files = [files]
 
     th = (await db.execute(
         select(ForumTheme).where(ForumTheme.id == theme_id)
@@ -508,18 +505,15 @@ async def forum_post(
     db: Annotated[AsyncSession, Depends(get_db)],
     content: str = Form(...),
     parent_id: Optional[int] = Form(None),
-    files: Union[list[UploadFile], UploadFile, None] = File(default_factory=list),
+    # list[UploadFile] simple, jamais Union[list[UploadFile], UploadFile] :
+    # avec l'Union, FastAPI ne garde que le DERNIER fichier posté sous ce nom
+    # de champ quand il y en a plusieurs (même bug corrigé dans
+    # app/routers/messages.py::send_message et app/routers/mailing.py::compose_save).
+    files: Annotated[list[UploadFile], File()] = [],
     links: str = Form(""),
     document_ids: str = Form(""),
 ):
     user, member = ctx
-
-    # <input type="file" multiple> soumis sans fichier envoie une seule partie
-    # vide — Starlette la remonte comme un UploadFile isolé, pas une liste.
-    if files is None:
-        files = []
-    elif not isinstance(files, list):
-        files = [files]
 
     s = (await db.execute(
         select(ForumSubject).options(selectinload(ForumSubject.theme)).where(ForumSubject.id == subject_id)

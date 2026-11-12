@@ -1017,7 +1017,16 @@
       <div x-show="tab==='file'">
         <form method="post" action="/documents/folder/{{ folder.id }}/upload"
               enctype="multipart/form-data"
-              x-data="{ files: [], dragging: false }"
+              x-data="{
+                files: [],
+                dragging: false,
+                removeFile(idx) {
+                  this.files.splice(idx, 1);
+                  const dt = new DataTransfer();
+                  this.files.forEach(f => dt.items.add(f));
+                  this.$refs.fileInput.files = dt.files;
+                },
+              }"
               @dragover.prevent="dragging = true"
               @dragleave.prevent="dragging = false"
               @drop.prevent="dragging = false; files = Array.from($event.dataTransfer.files); $refs.fileInput.files = $event.dataTransfer.files">
@@ -1037,11 +1046,25 @@
             </div>
             <div x-show="files.length > 0" class="text-xs text-gray-700">
               <span x-text="files.length + ' fichier' + (files.length > 1 ? 's' : '') + ' sélectionné' + (files.length > 1 ? 's' : '')"></span>
-              <template x-for="f in files" :key="f.name">
-                <div class="text-gray-400 truncate" x-text="f.name"></div>
-              </template>
+              <span class="text-loge-700">· cliquez pour changer la sélection</span>
             </div>
           </label>
+
+          <!-- Liste des fichiers sélectionnés, avec retrait possible avant envoi —
+               hors du <label> pour que le clic sur « × » ne rouvre pas le sélecteur. -->
+          <div x-show="files.length > 0" x-cloak class="mt-1.5 space-y-1">
+            <template x-for="(f, idx) in files" :key="f.name + f.size">
+              <div class="flex items-center justify-between gap-2 text-xs text-gray-600 bg-white border border-gray-100 rounded-lg px-2.5 py-1.5">
+                <span class="truncate" x-text="f.name"></span>
+                <button type="button" @click.stop.prevent="removeFile(idx)"
+                        class="shrink-0 text-gray-300 hover:text-red-500 transition-colors" title="Retirer ce fichier">
+                  <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" d="M6 18L18 6M6 6l12 12"/>
+                  </svg>
+                </button>
+              </div>
+            </template>
+          </div>
 
           <div x-show="files.length === 1" x-cloak class="mt-2">
             <input name="doc_name" placeholder="Nom affiché (laisser vide = nom du fichier)"

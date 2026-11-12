@@ -621,19 +621,16 @@ async def documents_upload(
     folder_id: int,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
-    files: Union[List[UploadFile], UploadFile, None] = File(None),
+    # List[UploadFile] simple, jamais Union[List[UploadFile], UploadFile] :
+    # avec l'Union, FastAPI ne garde que le DERNIER fichier posté sous ce nom
+    # de champ quand il y en a plusieurs (même bug corrigé dans
+    # app/routers/messages.py::send_message et app/routers/mailing.py::compose_save).
+    files: Annotated[List[UploadFile], File()] = [],
     doc_name: str = Form(""),
     notify_members: str = Form(""),
     notify_target: str = Form(""),
 ):
     user, member = ctx
-
-    # <input type="file" multiple> soumis sans fichier envoie une seule partie
-    # vide — Starlette la remonte comme un UploadFile isolé, pas une liste.
-    if files is None:
-        files = []
-    elif not isinstance(files, list):
-        files = [files]
 
     folder = await db.get(DocFolder, folder_id)
     if not folder or not await _can_write(member, user, folder, db):
