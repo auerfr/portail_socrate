@@ -13,6 +13,7 @@ from app.dependencies import require_auth, has_fine_permission
 from app.models.content import Poll, PollOption, PollVote
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.identity import Member, MasonicGrade, LodgeFunction, MemberStatus
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/polls", tags=["polls"])
 from app.template_engine import templates
@@ -381,6 +382,11 @@ async def polls_create(
         for i, label in enumerate(labels):
             db.add(PollOption(poll_id=poll.id, label=label, order_position=i))
 
+    await log_audit(
+        db, actor_id=member.id, action="POLL_CREATE",
+        target_type="poll", target_id=poll.id, target_label=poll.title,
+        request=request,
+    )
     await db.commit()
 
     if notify_members:
@@ -607,6 +613,7 @@ async def poll_edit_form(
 @router.post("/{poll_id}/edit")
 async def poll_edit(
     poll_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     title: str = Form(""),
@@ -619,6 +626,8 @@ async def poll_edit(
         raise HTTPException(status_code=404)
     if not _can_edit_poll(poll, member, user.is_admin):
         raise HTTPException(status_code=403)
+
+    old_title = poll.title
 
     title = title.strip()
     if not title:
@@ -634,6 +643,12 @@ async def poll_edit(
     else:
         poll.ends_at = None
 
+    await log_audit(
+        db, actor_id=member.id, action="POLL_EDIT",
+        target_type="poll", target_id=poll.id, target_label=poll.title,
+        details={"old_title": old_title} if old_title != poll.title else None,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
 
@@ -862,6 +877,7 @@ async def poll_vote_delete(
 @router.post("/{poll_id}/close")
 async def poll_close(
     poll_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -872,6 +888,11 @@ async def poll_close(
     if not _can_edit_poll(poll, member, user.is_admin):
         raise HTTPException(status_code=403)
     poll.ends_at = datetime.now()
+    await log_audit(
+        db, actor_id=member.id, action="POLL_CLOSE",
+        target_type="poll", target_id=poll.id, target_label=poll.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
 
@@ -879,15 +900,25 @@ async def poll_close(
 @router.post("/{poll_id}/delete")
 async def poll_delete(
     poll_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    poll = await db.get(Poll, poll_id)
+    poll = await db.get(Poll, poll_id, options=[selectinload(Poll.votes)])
     if not poll:
         raise HTTPException(status_code=404)
     if not _can_edit_poll(poll, member, user.is_admin):
         raise HTTPException(status_code=403)
+    # Journalisé AVANT la suppression effective — titre et nb de votes
+    # capturés ici, sinon plus rien à montrer dans le journal d'audit après
+    # le db.delete(poll) (cf. incident du sondage disparu sans trace).
+    await log_audit(
+        db, actor_id=member.id, action="POLL_DELETE",
+        target_type="poll", target_id=poll.id, target_label=poll.title,
+        details={"created_by_id": poll.created_by_id, "votes": len(poll.votes)},
+        request=request,
+    )
     await db.execute(delete(PollVote).where(PollVote.poll_id == poll_id))
     await db.execute(delete(PollOption).where(PollOption.poll_id == poll_id))
     await db.delete(poll)
