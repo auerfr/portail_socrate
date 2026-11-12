@@ -12,6 +12,7 @@ from app.database import get_db
 from app.dependencies import require_auth, require_finance_manager, can_manage_finance, has_fine_permission
 from app.models.groups import LodgeGroup as Group, GroupMembership, GroupType, SYSTEM_GROUPS
 from app.models.identity import Member, MemberStatus, LodgeFunction, MasonicGrade
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/groups", tags=["groups"])
 from app.template_engine import templates
@@ -176,6 +177,12 @@ async def create_group(
         created_by_id=member.id,
     )
     db.add(g)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="GROUP_CREATE",
+        target_type="group", target_id=g.id, target_label=g.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/groups/{g.id}", status_code=303)
 
@@ -212,6 +219,7 @@ async def group_detail(
 @router.post("/{group_id}/add-member")
 async def add_member(
     group_id: int,
+    request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     member_id: Annotated[int, Form()],
@@ -237,6 +245,11 @@ async def add_member(
             member_id=member_id,
             added_by_id=member.id,
         ))
+        await log_audit(
+            db, actor_id=member.id, action="GROUP_ADD_MEMBER",
+            target_type="group", target_id=group.id, target_label=group.name,
+            details={"member_id": member_id}, request=request,
+        )
         await db.commit()
 
     return RedirectResponse(url=f"/groups/{group_id}", status_code=303)
@@ -245,6 +258,7 @@ async def add_member(
 @router.post("/{group_id}/remove-member")
 async def remove_member(
     group_id: int,
+    request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     member_id: Annotated[int, Form()],
@@ -261,7 +275,13 @@ async def remove_member(
     )
     gm = r.scalar_one_or_none()
     if gm:
+        group = await db.get(Group, group_id)
         await db.delete(gm)
+        await log_audit(
+            db, actor_id=member.id, action="GROUP_REMOVE_MEMBER",
+            target_type="group", target_id=group_id, target_label=group.name if group else None,
+            details={"member_id": member_id}, request=request,
+        )
         await db.commit()
 
     return RedirectResponse(url=f"/groups/{group_id}", status_code=303)
@@ -270,6 +290,7 @@ async def remove_member(
 @router.post("/{group_id}/delete")
 async def delete_group(
     group_id: int,
+    request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -283,6 +304,11 @@ async def delete_group(
     if group.is_system:
         raise HTTPException(400, "Les groupes système ne peuvent pas être supprimés")
 
+    await log_audit(
+        db, actor_id=member.id, action="GROUP_DELETE",
+        target_type="group", target_id=group.id, target_label=group.name,
+        request=request,
+    )
     await db.delete(group)
     await db.commit()
     return RedirectResponse(url="/groups/", status_code=303)
@@ -291,6 +317,7 @@ async def delete_group(
 @router.post("/{group_id}/edit")
 async def edit_group(
     group_id: int,
+    request: Request,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: Annotated[str, Form()],
@@ -308,5 +335,10 @@ async def edit_group(
     group.name = name.strip()
     group.description = description.strip() or None
     group.color = color
+    await log_audit(
+        db, actor_id=member.id, action="GROUP_EDIT",
+        target_type="group", target_id=group.id, target_label=group.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/groups/{group_id}", status_code=303)

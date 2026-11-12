@@ -21,6 +21,7 @@ from app.services.pdf_render import render_html_to_pdf
 from app.models.documents import (
     DocSpace, DocFolder, Document, DocStatus, MinGrade, DocAccessMode
 )
+from app.services.audit import log_audit
 
 logger = logging.getLogger(__name__)
 router = APIRouter(prefix="/planches", tags=["planches"])
@@ -371,6 +372,11 @@ async def planche_create(
     _apply_author(p, user, member, author_mode, author_member_id, author_name, author_lodge)
     db.add(p)
     await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="PLANCHE_CREATE",
+        target_type="planche", target_id=p.id, target_label=p.title,
+        request=request,
+    )
     if p.status == PlancheStatus.PUBLIE:
         try:
             await _archive_planche_to_ged(p, db)
@@ -584,6 +590,11 @@ async def planche_edit_save(
         except Exception as e:
             logger.warning("Archivage GED planche échoué : %s", e, exc_info=True)
 
+    await log_audit(
+        db, actor_id=member.id, action="PLANCHE_EDIT",
+        target_type="planche", target_id=planche.id, target_label=planche.title,
+        request=request,
+    )
     await db.commit()
     if publish_now:
         await _push_publish_planche(planche, db, member.id)
@@ -628,6 +639,7 @@ async def planche_download(
 @router.post("/{planche_id}/delete")
 async def planche_delete(
     planche_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -645,6 +657,11 @@ async def planche_delete(
     if planche.file_path:
         try: Path(planche.file_path).unlink(missing_ok=True)
         except Exception: pass
+    await log_audit(
+        db, actor_id=member.id, action="PLANCHE_DELETE",
+        target_type="planche", target_id=planche.id, target_label=planche.title,
+        request=request,
+    )
     await db.delete(planche)
     await db.commit()
     return RedirectResponse(url="/planches/", status_code=303)

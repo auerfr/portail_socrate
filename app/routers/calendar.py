@@ -19,6 +19,7 @@ from app.models.meetings import Meeting
 from app.models.groups import LodgeGroup, GroupType
 from app.routers.groups import resolve_group_member_ids, ensure_system_groups
 from app.services.anniversaires import compute_anniversaires
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/calendar", tags=["calendar"])
 from app.template_engine import templates
@@ -751,6 +752,11 @@ async def calendar_create_event(
         )
         db.add(event)
         await db.flush()
+        await log_audit(
+            db, actor_id=member.id, action="CALENDAR_EVENT_CREATE",
+            target_type="calendar_event", target_id=event.id, target_label=event.title,
+            request=request,
+        )
         await _notify_new_event(event, member, db)
         return RedirectResponse(url="/calendar/", status_code=302)
 
@@ -803,6 +809,11 @@ async def calendar_create_event(
         if first_occurrence is None:
             first_occurrence = occ_event
     await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="CALENDAR_EVENT_CREATE_SERIES",
+        target_type="calendar_event_series", target_id=first_occurrence.id if first_occurrence else None,
+        target_label=title, details={"occurrences": len(occurrence_dates)}, request=request,
+    )
 
     # Une seule notification pour toute la série (pas une par occurrence)
     if first_occurrence is not None:
@@ -900,6 +911,7 @@ async def calendar_event_detail(
 @router.post("/events/{event_id}/edit")
 async def calendar_event_edit(
     event_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     title: str = Form(...),
@@ -962,6 +974,11 @@ async def calendar_event_edit(
     event.visibility_group_id = visibility_group_id if vis == EventVisibility.GROUP else None
     event.visibility_member_ids = mbr_ids_str if vis == EventVisibility.MEMBERS else None
 
+    await log_audit(
+        db, actor_id=member.id, action="CALENDAR_EVENT_EDIT",
+        target_type="calendar_event", target_id=event.id, target_label=event.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/calendar/events/{event_id}", status_code=303)
 
@@ -999,6 +1016,7 @@ async def calendar_notify_event(
 @router.post("/events/{event_id}/delete")
 async def calendar_delete_event(
     event_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -1013,6 +1031,11 @@ async def calendar_delete_event(
     if not user.is_admin and event.created_by_id != member.id:
         raise HTTPException(status_code=403, detail="Accès refusé")
 
+    await log_audit(
+        db, actor_id=member.id, action="CALENDAR_EVENT_DELETE",
+        target_type="calendar_event", target_id=event.id, target_label=event.title,
+        request=request,
+    )
     await db.delete(event)
     return RedirectResponse(url="/calendar/", status_code=302)
 
@@ -1022,6 +1045,7 @@ async def calendar_delete_event(
 @router.post("/events/{event_id}/delete-series")
 async def calendar_delete_series(
     event_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -1040,7 +1064,13 @@ async def calendar_delete_series(
     series_r = await db.execute(
         select(LodgeEvent).where(LodgeEvent.recurrence_group_id == event.recurrence_group_id)
     )
-    for e in series_r.scalars().all():
+    series_events = series_r.scalars().all()
+    await log_audit(
+        db, actor_id=member.id, action="CALENDAR_EVENT_DELETE_SERIES",
+        target_type="calendar_event_series", target_id=event.id, target_label=event.title,
+        details={"occurrences": len(series_events)}, request=request,
+    )
+    for e in series_events:
         await db.delete(e)
 
     return RedirectResponse(url="/calendar/", status_code=302)

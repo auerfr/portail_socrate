@@ -22,6 +22,7 @@ from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.dependencies import require_auth, require_admin, has_fine_permission, can_manage_meeting
 from app.models.programs import Program, ProgramMeeting
+from app.services.audit import log_audit
 from app.models.identity import LodgeFunction
 from app.models.meetings import Meeting, MeetingType, MeetingGrade, MeetingStatus
 from app.models.lodge import MasonicYear, LodgeSettings, ExternalContact
@@ -565,6 +566,11 @@ async def programs_create(
             registration_url=reg_url,
         ))
 
+    await log_audit(
+        db, actor_id=member.id, action="PROGRAM_CREATE",
+        target_type="program", target_id=program.id, target_label=program.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/programs/{program.id}", status_code=303)
 
@@ -763,6 +769,11 @@ async def program_edit_save(
         )
         db.add(pm)
 
+    await log_audit(
+        db, actor_id=member.id, action="PROGRAM_EDIT",
+        target_type="program", target_id=program.id, target_label=program.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/programs/{program_id}", status_code=303)
 
@@ -774,12 +785,19 @@ async def program_edit_save(
 @router.post("/{program_id}/delete")
 async def program_delete(
     program_id: int,
+    request: Request,
     ctx: Annotated[object, Depends(_require_program_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    user, member = ctx
     program = await db.get(Program, program_id)
     if not program:
         raise HTTPException(404)
+    await log_audit(
+        db, actor_id=member.id, action="PROGRAM_DELETE",
+        target_type="program", target_id=program.id, target_label=program.title,
+        request=request,
+    )
     from sqlalchemy import delete as sql_delete
     await db.execute(sql_delete(ProgramMeeting).where(ProgramMeeting.program_id == program_id))
     await db.delete(program)
