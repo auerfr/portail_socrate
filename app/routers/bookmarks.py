@@ -11,6 +11,7 @@ from app.database import get_db
 from app.dependencies import require_auth
 from app.models.bookmarks import Bookmark
 from app.models.identity import Member
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/bookmarks", tags=["bookmarks"])
 from app.template_engine import templates
@@ -64,6 +65,7 @@ async def bookmarks_index(
 
 @router.post("/new")
 async def bookmark_create(
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     url: str = Form(...),
@@ -83,6 +85,12 @@ async def bookmark_create(
         added_by_id=member.id,
     )
     db.add(bk)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="BOOKMARK_CREATE",
+        target_type="bookmark", target_id=bk.id, target_label=bk.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/bookmarks/", status_code=303)
 
@@ -90,6 +98,7 @@ async def bookmark_create(
 @router.post("/{bk_id}/delete")
 async def bookmark_delete(
     bk_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -99,6 +108,11 @@ async def bookmark_delete(
         raise HTTPException(404)
     if bk.added_by_id != member.id and not user.is_admin:
         raise HTTPException(403)
+    await log_audit(
+        db, actor_id=member.id, action="BOOKMARK_DELETE",
+        target_type="bookmark", target_id=bk.id, target_label=bk.title,
+        request=request,
+    )
     await db.delete(bk)
     await db.commit()
     return RedirectResponse(url="/bookmarks/", status_code=303)

@@ -13,6 +13,7 @@ from app.models.content import NewsArticle
 from app.utils.html_sanitizer import text_to_html
 from app.models.groups import LodgeGroup, GroupMembership, GroupType
 from app.models.identity import Member, MasonicGrade, LodgeFunction
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/news", tags=["news"])
 from app.template_engine import templates
@@ -191,6 +192,12 @@ async def news_create(
         created_by_id=member.id,
     )
     db.add(article)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="NEWS_CREATE",
+        target_type="news_article", target_id=article.id, target_label=article.title,
+        request=request,
+    )
     await db.commit()
     await db.refresh(article)
 
@@ -256,6 +263,7 @@ async def news_edit_form(
 @router.post("/{article_id}/edit")
 async def news_update(
     article_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     title: str = Form(""),
@@ -289,6 +297,11 @@ async def news_update(
     article.min_grade = min_grade
     article.target_group_id = target_group_id
     article.publish_until = pu
+    await log_audit(
+        db, actor_id=member.id, action="NEWS_EDIT",
+        target_type="news_article", target_id=article.id, target_label=article.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/news/", status_code=303)
 
@@ -296,6 +309,7 @@ async def news_update(
 @router.post("/{article_id}/delete")
 async def news_delete(
     article_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -305,6 +319,11 @@ async def news_delete(
     article = await db.get(NewsArticle, article_id)
     if not article:
         raise HTTPException(status_code=404)
+    await log_audit(
+        db, actor_id=member.id, action="NEWS_DELETE",
+        target_type="news_article", target_id=article.id, target_label=article.title,
+        request=request,
+    )
     await db.delete(article)
     await db.commit()
     return RedirectResponse(url="/news/", status_code=303)

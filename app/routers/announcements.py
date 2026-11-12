@@ -12,6 +12,7 @@ from app.database import get_db
 from app.dependencies import require_auth, can_manage_members, has_fine_permission
 from app.models.identity import Member
 from app.models.communication import Announcement, AnnouncementRead
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/announcements", tags=["announcements"])
 from app.template_engine import templates
@@ -89,6 +90,12 @@ async def create_announcement(
         expires_at=exp,
     )
     db.add(ann)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="ANNOUNCEMENT_CREATE",
+        target_type="announcement", target_id=ann.id, target_label=ann.title,
+        request=request,
+    )
     await db.commit()
     await db.refresh(ann)
 
@@ -117,6 +124,7 @@ async def create_announcement(
 @router.post("/{ann_id}/pin")
 async def toggle_pin(
     ann_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -129,6 +137,11 @@ async def toggle_pin(
         raise HTTPException(status_code=404)
 
     ann.is_pinned = not ann.is_pinned
+    await log_audit(
+        db, actor_id=member.id, action="ANNOUNCEMENT_PIN" if ann.is_pinned else "ANNOUNCEMENT_UNPIN",
+        target_type="announcement", target_id=ann.id, target_label=ann.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/announcements/", status_code=303)
 
@@ -138,6 +151,7 @@ async def toggle_pin(
 @router.post("/{ann_id}/delete")
 async def delete_announcement(
     ann_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -149,6 +163,11 @@ async def delete_announcement(
     if not ann:
         raise HTTPException(status_code=404)
 
+    await log_audit(
+        db, actor_id=member.id, action="ANNOUNCEMENT_DELETE",
+        target_type="announcement", target_id=ann.id, target_label=ann.title,
+        request=request,
+    )
     await db.delete(ann)
     await db.commit()
     return RedirectResponse(url="/announcements/", status_code=303)

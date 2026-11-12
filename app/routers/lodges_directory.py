@@ -12,6 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_auth, can_manage_members, has_fine_permission
 from app.models.lodges_directory import NeighboringLodge
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/loges-voisines", tags=["lodges_directory"])
 from app.template_engine import templates
@@ -398,6 +399,12 @@ async def lodge_create(
         created_by_id=member.id,
     )
     db.add(lodge)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="NEIGHBORING_LODGE_CREATE",
+        target_type="neighboring_lodge", target_id=lodge.id, target_label=lodge.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/loges-voisines/", status_code=303)
 
@@ -462,6 +469,11 @@ async def lodge_edit(
     lodge.schedule = _parse_schedule(form) or None
     lodge.notes = notes.strip() or None
     lodge.active = active
+    await log_audit(
+        db, actor_id=member.id, action="NEIGHBORING_LODGE_EDIT",
+        target_type="neighboring_lodge", target_id=lodge.id, target_label=lodge.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/loges-voisines/", status_code=303)
 
@@ -481,6 +493,12 @@ async def lodge_toggle_active(
     if not lodge:
         raise HTTPException(404)
     lodge.active = not lodge.active
+    await log_audit(
+        db, actor_id=member.id,
+        action="NEIGHBORING_LODGE_ACTIVATE" if lodge.active else "NEIGHBORING_LODGE_DEACTIVATE",
+        target_type="neighboring_lodge", target_id=lodge.id, target_label=lodge.name,
+        request=request,
+    )
     await db.commit()
     referer = request.headers.get("referer") or "/loges-voisines/"
     return RedirectResponse(url=referer, status_code=303)
@@ -489,6 +507,7 @@ async def lodge_toggle_active(
 @router.post("/{lodge_id}/delete")
 async def lodge_delete(
     lodge_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -498,6 +517,11 @@ async def lodge_delete(
     lodge = await db.get(NeighboringLodge, lodge_id)
     if not lodge:
         raise HTTPException(404)
+    await log_audit(
+        db, actor_id=member.id, action="NEIGHBORING_LODGE_DELETE",
+        target_type="neighboring_lodge", target_id=lodge.id, target_label=lodge.name,
+        request=request,
+    )
     await db.delete(lodge)
     await db.commit()
     return RedirectResponse(url="/loges-voisines/", status_code=303)
