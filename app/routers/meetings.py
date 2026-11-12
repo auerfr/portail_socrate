@@ -33,6 +33,7 @@ from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOff
 from app.models.associative import OfficerAssignment
 from app.models.documents import DocSpace, DocFolder, Document, DocumentVersion, DocStatus, MinGrade, DocAccessMode
 from app.services.pdf_render import render_html_to_pdf as _render_trace_pdf
+from app.services.audit import log_audit
 
 logger = logging.getLogger(__name__)
 TRACE_ARCHIVE_UPLOAD_DIR = "uploads/documents"
@@ -1041,6 +1042,11 @@ async def trace_submit(
     report.rejected_at = None
     if not report.author_id:
         report.author_id = member.id
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_TRACE_SUBMIT",
+        target_type="meeting", target_id=meeting.id,
+        target_label=f"Tenue du {meeting.meeting_date}", request=request,
+    )
     await db.commit()
 
     await _notify_vm_trace(meeting, report, member, db, is_reminder=False)
@@ -1165,6 +1171,11 @@ async def trace_approve(
     await db.flush()
     report.archived_doc_id = doc.id
 
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_TRACE_APPROVE",
+        target_type="meeting", target_id=meeting.id,
+        target_label=f"Tenue du {meeting.meeting_date}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?approved=1", status_code=303)
 
@@ -1227,6 +1238,7 @@ async def trace_export_pdf(
 
 @router.post("/{meeting_id}/trace/adopt")
 async def trace_adopt(
+    request: Request,
     meeting_id: int,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1247,6 +1259,10 @@ async def trace_adopt(
     report.status = ReportStatus.ADOPTE
     report.adopted_at = datetime.now()
     report.adopted_by_id = member.id
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_TRACE_ADOPT",
+        target_type="meeting", target_id=meeting_id, request=request,
+    )
     await db.commit()
 
     return RedirectResponse(url=f"/meetings/{meeting_id}/trace?adopted=1", status_code=303)
@@ -1421,6 +1437,12 @@ async def trace_reject(
     report.rejected_at = datetime.now()
     report.viewed_by_vm_at = None
     report.viewed_by_vm_id = None
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_TRACE_REJECT",
+        target_type="meeting", target_id=meeting.id,
+        target_label=f"Tenue du {meeting.meeting_date}",
+        details={"motif": motif}, request=request,
+    )
     await db.commit()
 
     if report.author_id:
@@ -2235,6 +2257,11 @@ async def meeting_officiers_save(
                 substitute_member_id=sub_id,
                 notes=notes or None,
             ))
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_OFFICERS_SAVE",
+        target_type="meeting", target_id=meeting.id,
+        target_label=f"Tenue du {meeting.meeting_date}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/meetings/{meeting_id}/officiers?_saved=1", status_code=303)
 
@@ -2402,6 +2429,11 @@ async def meeting_create(
             )
             db.add(deg)
 
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_CREATE",
+        target_type="meeting", target_id=new_meeting.id,
+        target_label=f"Tenue du {new_meeting.meeting_date}", request=request,
+    )
     await db.commit()
 
     if new_meeting.status == MeetingStatus.PUBLISHED and bool(notify_members):
@@ -2552,6 +2584,11 @@ async def meeting_edit_save(
                 description=desc or None,
             ))
 
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_EDIT",
+        target_type="meeting", target_id=meeting.id,
+        target_label=f"Tenue du {meeting.meeting_date}", request=request,
+    )
     await db.commit()
 
     # Notification seulement au moment où le brouillon devient publié — pas
@@ -2581,6 +2618,11 @@ async def meeting_delete(
     if not meeting:
         raise HTTPException(status_code=404)
 
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_DELETE",
+        target_type="meeting", target_id=meeting.id,
+        target_label=f"Tenue du {meeting.meeting_date}", request=request,
+    )
     await db.delete(meeting)
     await db.commit()
     return RedirectResponse(url="/meetings/", status_code=302)
@@ -2951,5 +2993,10 @@ async def meeting_lock(
         meeting.locked_by_id = None
         meeting.locked_at = None
 
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_LOCK" if meeting.is_locked else "MEETING_UNLOCK",
+        target_type="meeting", target_id=meeting.id,
+        target_label=f"Tenue du {meeting.meeting_date}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/meetings/{meeting_id}", status_code=302)
