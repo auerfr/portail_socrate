@@ -21,6 +21,7 @@ from app.models.meetings import (
     MeetingVisitor, VisitorStatus, Visitor, MeetingDegree,
 )
 from app.models.system import TracingSection, TracingSectionType
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/attendance", tags=["attendance"])
 from app.template_engine import templates
@@ -376,6 +377,7 @@ async def emargement_save(
             mm.masonic_grade.value if hasattr(mm.masonic_grade, "value") else str(mm.masonic_grade), 0
         ) >= _grade_order_s.get(_mtg_grade, 0)]
     )
+    _changed_count = 0
     for m in _save_members:
         status_val = form.get(f"status_{m.id}", "")
         if not status_val:
@@ -409,6 +411,7 @@ async def emargement_save(
             if changed:
                 att.recorded_by_id = member.id
                 att.recorded_at = datetime.now()
+                _changed_count += 1
         else:
             db.add(Attendance(
                 meeting_id=meeting_id,
@@ -419,6 +422,7 @@ async def emargement_save(
                 recorded_by_id=member.id,
                 recorded_at=datetime.now(),
             ))
+            _changed_count += 1
 
     # ── Maçons passants (présents / no-show) ────────────────────────────────
     mv_r = await db.execute(
@@ -431,6 +435,13 @@ async def emargement_save(
             else VisitorStatus.CANCELLED
         )
 
+    if _changed_count:
+        await log_audit(
+            db, actor_id=member.id, action="ATTENDANCE_SAVE",
+            target_type="meeting", target_id=meeting_id,
+            target_label=f"Tenue #{meeting_id}",
+            details={"lines_changed": _changed_count}, request=request,
+        )
     await db.commit()
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
 
@@ -561,6 +572,11 @@ async def add_visitor_to_meeting(
             agape_guests=max(0, agape_guests),
         ))
 
+    await log_audit(
+        db, actor_id=member.id, action="MEETING_VISITOR_ADD",
+        target_type="meeting", target_id=meeting_id,
+        target_label=f"{visitor.first_name} {visitor.last_name}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
 
@@ -570,6 +586,7 @@ async def add_visitor_to_meeting(
 @router.post("/meeting/{meeting_id}/edit-visitor/{mv_id}")
 async def edit_visitor_on_meeting(
     meeting_id: int,
+    request: Request,
     mv_id: int,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -610,6 +627,11 @@ async def edit_visitor_on_meeting(
             mv.visitor.obedience = obedience.strip() or None
             mv.visitor.masonic_grade = masonic_grade.strip() or None
             mv.visitor.is_vm = bool(is_vm)
+        await log_audit(
+            db, actor_id=member.id, action="MEETING_VISITOR_EDIT",
+            target_type="meeting", target_id=meeting_id,
+            target_label=f"{mv.visitor.first_name} {mv.visitor.last_name}", request=request,
+        )
         await db.commit()
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
 
@@ -620,19 +642,28 @@ async def edit_visitor_on_meeting(
 async def remove_visitor_from_meeting(
     meeting_id: int,
     mv_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
     _require_attendance_mgr(user, member)
     mv_r = await db.execute(
-        select(MeetingVisitor).where(
+        select(MeetingVisitor)
+        .options(selectinload(MeetingVisitor.visitor))
+        .where(
             MeetingVisitor.id == mv_id,
             MeetingVisitor.meeting_id == meeting_id,
         )
     )
     mv = mv_r.scalar_one_or_none()
     if mv:
+        await log_audit(
+            db, actor_id=member.id, action="MEETING_VISITOR_REMOVE",
+            target_type="meeting", target_id=meeting_id,
+            target_label=f"{mv.visitor.first_name} {mv.visitor.last_name}" if mv.visitor else None,
+            request=request,
+        )
         await db.delete(mv)
         await db.commit()
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
@@ -642,6 +673,7 @@ async def remove_visitor_from_meeting(
 
 @router.post("/visitor/add")
 async def add_visitor_standalone(
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     civility: str = Form("F"),
@@ -700,6 +732,12 @@ async def add_visitor_standalone(
     from app.services.visitor_optin import sync_visitor_program_optin
     await sync_visitor_program_optin(db, visitor)
 
+    await log_audit(
+        db, actor_id=member.id,
+        action="VISITOR_EDIT" if existing else "VISITOR_CREATE",
+        target_type="visitor", target_id=visitor.id,
+        target_label=f"{visitor.first_name} {visitor.last_name}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/attendance/visitors", status_code=303)
 
@@ -709,6 +747,7 @@ async def add_visitor_standalone(
 @router.post("/visitor/{visitor_id}/edit")
 async def edit_visitor(
     visitor_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     civility: str = Form("F"),
@@ -743,6 +782,11 @@ async def edit_visitor(
     from app.services.visitor_optin import sync_visitor_program_optin
     await sync_visitor_program_optin(db, visitor)
 
+    await log_audit(
+        db, actor_id=member.id, action="VISITOR_EDIT",
+        target_type="visitor", target_id=visitor.id,
+        target_label=f"{visitor.first_name} {visitor.last_name}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/attendance/visitors", status_code=303)
 
@@ -752,6 +796,7 @@ async def edit_visitor(
 @router.post("/visitor/{visitor_id}/delete")
 async def delete_visitor(
     visitor_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -760,6 +805,11 @@ async def delete_visitor(
     vis_r = await db.execute(select(Visitor).where(Visitor.id == visitor_id))
     visitor = vis_r.scalar_one_or_none()
     if visitor:
+        await log_audit(
+            db, actor_id=member.id, action="VISITOR_DELETE",
+            target_type="visitor", target_id=visitor.id,
+            target_label=f"{visitor.first_name} {visitor.last_name}", request=request,
+        )
         # Supprimer d'abord les MeetingVisitor liés
         mv_r = await db.execute(select(MeetingVisitor).where(MeetingVisitor.visitor_id == visitor_id))
         for mv in mv_r.scalars().all():
