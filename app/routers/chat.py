@@ -23,6 +23,7 @@ from app.models.chat import (
 from app.models.groups import LodgeGroup
 from app.models.documents import DocSpace, DocFolder, Document, DocAccessMode, DocStatus, MinGrade
 from app.utils.tz import to_paris
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/chat", tags=["chat"])
 from app.template_engine import templates
@@ -726,6 +727,7 @@ async def delete_message(
 @router.post("/channels/{channel_id}/members/add")
 async def channel_add_member(
     channel_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     member_id: int = Form(...),
@@ -745,6 +747,15 @@ async def channel_add_member(
     )).scalar_one_or_none()
     if not exists:
         db.add(ChatChannelMember(channel_id=channel_id, member_id=member_id))
+        # DM exclues : canal strictement privé entre 2 personnes, même
+        # principe que messages.py — pas de contenu privé dans un journal
+        # d'audit visible par les admins.
+        if channel.type != ChannelType.DIRECT:
+            await log_audit(
+                db, actor_id=member.id, action="CHAT_CHANNEL_ADD_MEMBER",
+                target_type="chat_channel", target_id=channel.id, target_label=channel.name,
+                details={"member_id": member_id}, request=request,
+            )
         await db.commit()
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
@@ -755,6 +766,7 @@ async def channel_add_member(
 async def channel_toggle_admin(
     channel_id: int,
     target_member_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     is_admin: str = Form("0"),
@@ -774,6 +786,13 @@ async def channel_toggle_admin(
     )).scalar_one_or_none()
     if cm:
         cm.is_admin = is_admin in ("1", "true", "on")
+        if channel.type != ChannelType.DIRECT:
+            await log_audit(
+                db, actor_id=member.id,
+                action="CHAT_CHANNEL_PROMOTE_ADMIN" if cm.is_admin else "CHAT_CHANNEL_DEMOTE_ADMIN",
+                target_type="chat_channel", target_id=channel.id, target_label=channel.name,
+                details={"member_id": target_member_id}, request=request,
+            )
         await db.commit()
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
@@ -784,6 +803,7 @@ async def channel_toggle_admin(
 async def channel_remove_member(
     channel_id: int,
     target_member_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -800,6 +820,12 @@ async def channel_remove_member(
             ChatChannelMember.member_id == target_member_id,
         )
     )
+    if channel.type != ChannelType.DIRECT:
+        await log_audit(
+            db, actor_id=member.id, action="CHAT_CHANNEL_REMOVE_MEMBER",
+            target_type="chat_channel", target_id=channel.id, target_label=channel.name,
+            details={"member_id": target_member_id}, request=request,
+        )
     await db.commit()
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
@@ -809,6 +835,7 @@ async def channel_remove_member(
 @router.post("/channels/{channel_id}/edit")
 async def channel_edit(
     channel_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(""),
@@ -826,6 +853,12 @@ async def channel_edit(
         channel.name = name.strip()
     channel.description = description.strip() or None
     channel.lodge_group_id = lodge_group_id if lodge_group_id and lodge_group_id > 0 else None
+    if channel.type != ChannelType.DIRECT:
+        await log_audit(
+            db, actor_id=member.id, action="CHAT_CHANNEL_EDIT",
+            target_type="chat_channel", target_id=channel.id, target_label=channel.name,
+            request=request,
+        )
     await db.commit()
     return RedirectResponse(url=f"/chat/{channel_id}", status_code=303)
 
@@ -836,6 +869,7 @@ async def channel_edit(
 @router.post("/channels/{channel_id}/delete")
 async def delete_channel(
     channel_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -856,6 +890,12 @@ async def delete_channel(
     if not (can_manage or is_channel_admin or is_dm_participant):
         raise HTTPException(status_code=403)
 
+    if channel.type != ChannelType.DIRECT:
+        await log_audit(
+            db, actor_id=member.id, action="CHAT_CHANNEL_DELETE",
+            target_type="chat_channel", target_id=channel.id, target_label=channel.name,
+            request=request,
+        )
     await db.execute(delete(ChatRead).where(ChatRead.channel_id == channel_id))
     await db.execute(delete(ChatMessage).where(ChatMessage.channel_id == channel_id))
     await db.execute(delete(ChatChannelMember).where(ChatChannelMember.channel_id == channel_id))
@@ -908,6 +948,12 @@ async def create_channel(
     if ch_type in (ChannelType.COMMISSION, ChannelType.DIRECT):
         db.add(ChatChannelMember(channel_id=channel.id, member_id=member.id))
 
+    if ch_type != ChannelType.DIRECT:
+        await log_audit(
+            db, actor_id=member.id, action="CHAT_CHANNEL_CREATE",
+            target_type="chat_channel", target_id=channel.id, target_label=channel.name,
+            request=request,
+        )
     await db.commit()
     await _notify_new_channel(channel, member, db)
     return RedirectResponse(url=f"/chat/{channel.id}", status_code=303)
@@ -950,6 +996,11 @@ async def create_group(
                 seen.add(mid)
                 db.add(ChatChannelMember(channel_id=channel.id, member_id=mid))
 
+    await log_audit(
+        db, actor_id=member.id, action="CHAT_CHANNEL_CREATE",
+        target_type="chat_channel", target_id=channel.id, target_label=channel.name,
+        request=request,
+    )
     await db.commit()
     await _notify_new_channel(channel, member, db)
     return RedirectResponse(url=f"/chat/{channel.id}", status_code=303)

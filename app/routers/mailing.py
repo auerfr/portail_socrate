@@ -20,6 +20,7 @@ from app.models.mailing import (
 )
 from app.models.lodge import ExternalContact
 from app.models.documents import Document
+from app.services.audit import log_audit
 from app.services.mailing import (
     resolve_recipients, send_campaign_async, launch_send_task,
     verify_unsubscribe_token, make_unsubscribe_token,
@@ -130,6 +131,12 @@ async def list_create(
         created_by_id=member.id,
     )
     db.add(ml)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="MAILING_LIST_CREATE",
+        target_type="mailing_list", target_id=ml.id, target_label=ml.name,
+        request=request,
+    )
     await db.commit()
     await db.refresh(ml)
     return RedirectResponse(url=f"/mailing/lists/{ml.id}", status_code=303)
@@ -252,6 +259,7 @@ async def list_detail(
 @router.post("/lists/{list_id}/members/add")
 async def list_member_add(
     list_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     member_id: Annotated[int, Form()],
@@ -274,6 +282,11 @@ async def list_member_add(
         existing.unsubscribed_at = None  # réabonnement
     else:
         db.add(MailingListMember(list_id=list_id, member_id=member_id))
+    await log_audit(
+        db, actor_id=member.id, action="MAILING_LIST_ADD_MEMBER",
+        target_type="mailing_list", target_id=list_id, target_label=ml.name,
+        details={"member_id": member_id}, request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/mailing/lists/{list_id}", status_code=303)
 
@@ -281,6 +294,7 @@ async def list_member_add(
 @router.post("/lists/{list_id}/members/{member_id}/remove")
 async def list_member_remove(
     list_id: int, member_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -301,6 +315,11 @@ async def list_member_remove(
             row.unsubscribed_at = datetime.utcnow()
         else:
             await db.delete(row)
+        await log_audit(
+            db, actor_id=member.id, action="MAILING_LIST_REMOVE_MEMBER",
+            target_type="mailing_list", target_id=list_id, target_label=ml.name if ml else None,
+            details={"member_id": member_id}, request=request,
+        )
         await db.commit()
     return RedirectResponse(url=f"/mailing/lists/{list_id}", status_code=303)
 
@@ -308,6 +327,7 @@ async def list_member_remove(
 @router.post("/lists/{list_id}/edit")
 async def list_edit(
     list_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: Annotated[str, Form()],
@@ -341,6 +361,11 @@ async def list_edit(
             ml.criteria = crit or None
         else:
             ml.criteria = None
+    await log_audit(
+        db, actor_id=member.id, action="MAILING_LIST_EDIT",
+        target_type="mailing_list", target_id=ml.id, target_label=ml.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/mailing/lists/{list_id}?_msg=edited", status_code=303)
 
@@ -348,6 +373,7 @@ async def list_edit(
 @router.post("/lists/{list_id}/delete")
 async def list_delete(
     list_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     confirm: Annotated[str, Form()] = "",
@@ -360,6 +386,11 @@ async def list_delete(
         raise HTTPException(404)
     if ml.is_system and confirm != "YES":
         raise HTTPException(400, "Suppression d'une liste système : confirmation explicite requise (confirm=YES)")
+    await log_audit(
+        db, actor_id=member.id, action="MAILING_LIST_DELETE",
+        target_type="mailing_list", target_id=ml.id, target_label=ml.name,
+        request=request,
+    )
     await db.delete(ml)
     await db.commit()
     return RedirectResponse(url="/mailing/", status_code=303)
@@ -658,6 +689,7 @@ async def list_external_import_csv(
 @router.post("/campaigns/{campaign_id}/delete")
 async def campaign_delete(
     campaign_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -671,6 +703,11 @@ async def campaign_delete(
     if campaign.status not in (CampaignStatus.DRAFT, CampaignStatus.FAILED, CampaignStatus.CANCELLED):
         raise HTTPException(400, "Seuls les brouillons et campagnes en échec peuvent être supprimés")
     list_id = campaign.list_id
+    await log_audit(
+        db, actor_id=member.id, action="MAILING_CAMPAIGN_DELETE",
+        target_type="mailing_campaign", target_id=campaign.id, target_label=campaign.subject,
+        request=request,
+    )
     await db.delete(campaign)
     await db.commit()
     return RedirectResponse(url=f"/mailing/lists/{list_id}", status_code=303)
@@ -679,6 +716,7 @@ async def campaign_delete(
 @router.post("/campaigns/{campaign_id}/retry")
 async def campaign_retry(
     campaign_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -697,6 +735,11 @@ async def campaign_retry(
         raise HTTPException(400, "Cette campagne n'a jamais été envoyée — utilisez Envoyer")
     # Remet en SENDING + worker
     campaign.status = CampaignStatus.SENDING
+    await log_audit(
+        db, actor_id=member.id, action="MAILING_CAMPAIGN_RETRY",
+        target_type="mailing_campaign", target_id=campaign.id, target_label=campaign.subject,
+        request=request,
+    )
     await db.commit()
     launch_send_task(campaign.id)
     return RedirectResponse(url=f"/mailing/campaigns/{campaign_id}?_msg=retrying", status_code=303)
@@ -762,6 +805,7 @@ async def track_click(
 @router.post("/campaigns/{campaign_id}/schedule")
 async def campaign_schedule(
     campaign_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     scheduled_at: Annotated[str, Form()],
@@ -779,6 +823,11 @@ async def campaign_schedule(
         raise HTTPException(400, "Format datetime invalide")
     campaign.scheduled_at = dt
     campaign.status = CampaignStatus.DRAFT
+    await log_audit(
+        db, actor_id=member.id, action="MAILING_CAMPAIGN_SCHEDULE",
+        target_type="mailing_campaign", target_id=campaign.id, target_label=campaign.subject,
+        details={"scheduled_at": scheduled_at}, request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/mailing/campaigns/{campaign_id}?_msg=scheduled", status_code=303)
 
@@ -896,6 +945,7 @@ async def compose_new(
 @router.post("/lists/{list_id}/compose")
 async def compose_save(
     list_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     subject: Annotated[str, Form()],
@@ -1071,6 +1121,12 @@ async def compose_save(
         )
 
     if action == "send":
+        await log_audit(
+            db, actor_id=member.id, action="MAILING_CAMPAIGN_SEND",
+            target_type="mailing_campaign", target_id=campaign.id, target_label=campaign.subject,
+            request=request,
+        )
+        await db.commit()
         # Lancer le worker async avec rétention de la task (anti-GC)
         launch_send_task(campaign.id)
         return RedirectResponse(
