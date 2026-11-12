@@ -30,6 +30,7 @@ from app.models.forum import (
 )
 from app.models.documents import Document, DocStatus, DocFolder
 from app.utils.tz import to_paris
+from app.services.audit import log_audit
 
 UPLOAD_DIR = Path("uploads/forum")
 MAX_UPLOAD_SIZE = 25 * 1024 * 1024  # 25 Mo
@@ -442,6 +443,7 @@ async def forum_new_form(
 
 @router.post("/new")
 async def forum_create_subject(
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     theme_id: int = Form(...),
@@ -490,6 +492,11 @@ async def forum_create_subject(
         subject_id=s.id, member_id=member.id, notify_by_email=True,
     ))
 
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_SUBJECT_CREATE",
+        target_type="forum_subject", target_id=s.id, target_label=s.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/forum/t/{s.id}", status_code=303)
 
@@ -611,6 +618,7 @@ async def forum_message_edit_form(
 @router.post("/messages/{message_id}/edit")
 async def forum_message_edit(
     message_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     content: str = Form(...),
@@ -625,6 +633,11 @@ async def forum_message_edit(
     if not text:
         raise HTTPException(400, "Message vide")
     msg.content_html = text
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_MESSAGE_EDIT",
+        target_type="forum_message", target_id=msg.id,
+        target_label=f"Sujet #{msg.subject_id}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/forum/t/{msg.subject_id}#m-{msg.id}", status_code=303)
 
@@ -632,6 +645,7 @@ async def forum_message_edit(
 @router.post("/messages/{message_id}/delete")
 async def forum_message_delete(
     message_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -643,6 +657,11 @@ async def forum_message_delete(
         raise HTTPException(403)
     subject_id = msg.subject_id
     msg.deleted_at = datetime.utcnow()
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_MESSAGE_DELETE",
+        target_type="forum_message", target_id=msg.id,
+        target_label=f"Sujet #{subject_id}", request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/forum/t/{subject_id}", status_code=303)
 
@@ -654,6 +673,7 @@ async def forum_message_delete(
 @router.post("/t/{subject_id}/decision")
 async def forum_propose_decision(
     subject_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     title: str = Form(...),
@@ -685,6 +705,12 @@ async def forum_propose_decision(
     )
     db.add(d)
     s.last_message_at = datetime.utcnow()
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_DECISION_CREATE",
+        target_type="forum_decision", target_id=d.id, target_label=d.title,
+        request=request,
+    )
     await db.commit()
     await db.refresh(d)
 
@@ -768,6 +794,7 @@ async def forum_set_stance(
 @router.post("/decisions/{decision_id}/close")
 async def forum_close_decision(
     decision_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     outcome: str = Form(""),
@@ -784,6 +811,11 @@ async def forum_close_decision(
     d.closed_at = datetime.utcnow()
     if outcome.strip():
         d.outcome_html = outcome.strip()
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_DECISION_CLOSE",
+        target_type="forum_decision", target_id=d.id, target_label=d.title,
+        request=request,
+    )
     await db.commit()
 
     # Push aux abonnés
@@ -815,6 +847,7 @@ async def forum_close_decision(
 
 @router.post("/themes/new")
 async def forum_create_theme(
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
@@ -838,6 +871,12 @@ async def forum_create_theme(
         group_id=target_group_id,
     )
     db.add(th)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_THEME_CREATE",
+        target_type="forum_theme", target_id=th.id, target_label=th.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/forum/", status_code=303)
 
@@ -867,6 +906,7 @@ async def forum_theme_edit_form(
 @router.post("/themes/{theme_id}/edit")
 async def forum_theme_edit(
     theme_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
@@ -889,6 +929,11 @@ async def forum_theme_edit(
     th.order_position = order_position
     th.min_grade = min_grade
     th.group_id = target_group_id
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_THEME_EDIT",
+        target_type="forum_theme", target_id=th.id, target_label=th.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/forum/", status_code=303)
 
@@ -896,6 +941,7 @@ async def forum_theme_edit(
 @router.post("/themes/{theme_id}/delete")
 async def forum_delete_theme(
     theme_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -907,6 +953,11 @@ async def forum_delete_theme(
     )).scalar_one_or_none()
     if not th:
         raise HTTPException(404)
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_THEME_DELETE",
+        target_type="forum_theme", target_id=th.id, target_label=th.name,
+        request=request,
+    )
     await db.delete(th)
     await db.commit()
     return RedirectResponse(url="/forum/", status_code=303)
@@ -919,6 +970,7 @@ async def forum_delete_theme(
 @router.post("/t/{subject_id}/pin")
 async def forum_toggle_pin(
     subject_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -931,6 +983,11 @@ async def forum_toggle_pin(
     if not s:
         raise HTTPException(404)
     s.is_pinned = not s.is_pinned
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_SUBJECT_PIN" if s.is_pinned else "FORUM_SUBJECT_UNPIN",
+        target_type="forum_subject", target_id=s.id, target_label=s.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/forum/t/{subject_id}", status_code=303)
 
@@ -938,6 +995,7 @@ async def forum_toggle_pin(
 @router.post("/t/{subject_id}/lock")
 async def forum_toggle_lock(
     subject_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -950,6 +1008,11 @@ async def forum_toggle_lock(
     if not s:
         raise HTTPException(404)
     s.is_locked = not s.is_locked
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_SUBJECT_LOCK" if s.is_locked else "FORUM_SUBJECT_UNLOCK",
+        target_type="forum_subject", target_id=s.id, target_label=s.title,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/forum/t/{subject_id}", status_code=303)
 
@@ -957,6 +1020,7 @@ async def forum_toggle_lock(
 @router.post("/t/{subject_id}/delete")
 async def forum_delete_subject(
     subject_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -969,6 +1033,11 @@ async def forum_delete_subject(
     if not (_is_admin_or_manager(user, member) or s.created_by_id == member.id):
         raise HTTPException(403)
     theme_id = s.theme_id
+    await log_audit(
+        db, actor_id=member.id, action="FORUM_SUBJECT_DELETE",
+        target_type="forum_subject", target_id=s.id, target_label=s.title,
+        request=request,
+    )
 
     # Suppression manuelle des dépendances (évite la composite PK + FK
     # qui pose problème avec le cascade ORM).
