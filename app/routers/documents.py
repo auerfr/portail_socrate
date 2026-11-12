@@ -24,6 +24,7 @@ from sqlalchemy import select as _select_stmt
 router = APIRouter(prefix="/documents", tags=["documents"])
 from app.template_engine import templates
 from app.services.planche_importer import ESPACE_NOM as PLANCHES_ESPACE_NOM
+from app.services.audit import log_audit
 
 UPLOAD_DIR = Path("uploads/documents")
 UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
@@ -673,6 +674,13 @@ async def documents_upload(
 
     await db.flush()  # pour avoir les IDs
 
+    if added_docs:
+        await log_audit(
+            db, actor_id=member.id, action="DOCUMENT_UPLOAD",
+            target_type="doc_folder", target_id=folder_id, target_label=folder.name,
+            details={"files": added_docs}, request=request,
+        )
+
     # ── Indexation FTS5 (best-effort) ─────────────────────────────────────
     try:
         from app.services.doc_index import index_document, extract_text as _xt
@@ -879,6 +887,12 @@ async def documents_add_link(
         author_id=member.id,
     )
     db.add(doc)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_ADD_LINK",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        request=request,
+    )
     await db.commit()
 
     return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
@@ -889,6 +903,7 @@ async def documents_add_link(
 
 @router.post("/folder/{folder_id}/new-subfolder")
 async def documents_new_subfolder(
+    request: Request,
     folder_id: int,
     ctx: Annotated[object, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -915,6 +930,12 @@ async def documents_new_subfolder(
         created_by_id=member.id,
     )
     db.add(sub)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="DOC_FOLDER_CREATE",
+        target_type="doc_folder", target_id=sub.id, target_label=sub.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
 
@@ -1279,6 +1300,12 @@ async def admin_create_space(
         created_by_id=member.id,
     )
     db.add(space)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="DOC_SPACE_CREATE",
+        target_type="doc_space", target_id=space.id, target_label=space.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/documents/?saved=1", status_code=303)
 
@@ -1287,6 +1314,7 @@ async def admin_create_space(
 
 @router.post("/admin/space/{space_id}/edit")
 async def admin_edit_space(
+    request: Request,
     space_id: int,
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1297,6 +1325,7 @@ async def admin_edit_space(
     order_position: int = Form(0),
     icon: str = Form(""),
 ):
+    user, member = ctx
     space = await db.get(DocSpace, space_id)
     if not space:
         raise HTTPException(status_code=404)
@@ -1306,6 +1335,11 @@ async def admin_edit_space(
     space.group_id = int(group_id) if group_id.strip().isdigit() else None
     space.order_position = order_position
     space.icon = icon.strip() or None
+    await log_audit(
+        db, actor_id=member.id, action="DOC_SPACE_EDIT",
+        target_type="doc_space", target_id=space.id, target_label=space.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/documents/space/{space_id}?saved=1", status_code=303)
 
@@ -1361,6 +1395,7 @@ async def space_delegate_revoke(
 
 @router.post("/admin/space/{space_id}/merge")
 async def admin_merge_space(
+    request: Request,
     space_id: int,
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1373,6 +1408,7 @@ async def admin_merge_space(
     (min_grade, group_id, délégués) ne changent pas ; seuls les réglages de
     l'espace lui-même (et ses délégués d'espace) sont perdus avec sa
     suppression."""
+    user, member = ctx
     if space_id == target_space_id:
         raise HTTPException(status_code=400, detail="Un espace ne peut pas fusionner avec lui-même")
     source = await db.get(DocSpace, space_id)
@@ -1382,6 +1418,11 @@ async def admin_merge_space(
 
     await db.execute(
         update(DocFolder).where(DocFolder.space_id == space_id).values(space_id=target_space_id)
+    )
+    await log_audit(
+        db, actor_id=member.id, action="DOC_SPACE_MERGE",
+        target_type="doc_space", target_id=space_id, target_label=source.name,
+        details={"merged_into": target.name, "merged_into_id": target_space_id}, request=request,
     )
     await db.delete(source)
     await db.commit()
@@ -1413,6 +1454,12 @@ async def admin_create_folder(
         created_by_id=member.id,
     )
     db.add(folder)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="DOC_FOLDER_CREATE",
+        target_type="doc_folder", target_id=folder.id, target_label=folder.name,
+        request=request,
+    )
     await db.commit()
     if parent_id:
         return RedirectResponse(url=f"/documents/folder/{parent_id}?saved=1", status_code=303)
@@ -1423,10 +1470,12 @@ async def admin_create_folder(
 
 @router.post("/admin/file/{doc_id}/delete")
 async def admin_delete_file(
+    request: Request,
     doc_id: int,
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    user, member = ctx
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404)
@@ -1435,6 +1484,11 @@ async def admin_delete_file(
         Path(doc.storage_path).unlink(missing_ok=True)
     except Exception:
         pass
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_DELETE",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        request=request,
+    )
     await db.delete(doc)
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
@@ -1477,16 +1531,23 @@ async def _folder_subtree_ids(db: AsyncSession, folder_id: int) -> list[int]:
 
 @router.post("/admin/folder/{folder_id}/delete")
 async def admin_delete_folder(
+    request: Request,
     folder_id: int,
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    user, member = ctx
     folder = await db.get(DocFolder, folder_id)
     if not folder:
         raise HTTPException(status_code=404)
     parent_id = folder.parent_id
     space_id = folder.space_id
     subtree_ids = await _folder_subtree_ids(db, folder_id)
+    await log_audit(
+        db, actor_id=member.id, action="DOC_FOLDER_DELETE",
+        target_type="doc_folder", target_id=folder.id, target_label=folder.name,
+        details={"subtree_folders": len(subtree_ids)}, request=request,
+    )
     await _delete_documents_in(db, subtree_ids)
     await db.execute(sa_delete(DocFolder).where(DocFolder.id.in_(subtree_ids)))
     await db.commit()
@@ -1499,16 +1560,23 @@ async def admin_delete_folder(
 
 @router.post("/admin/space/{space_id}/delete")
 async def admin_delete_space(
+    request: Request,
     space_id: int,
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    user, member = ctx
     space = await db.get(DocSpace, space_id)
     if not space:
         raise HTTPException(status_code=404)
     folder_ids = [r[0] for r in (await db.execute(
         select(DocFolder.id).where(DocFolder.space_id == space_id)
     )).all()]
+    await log_audit(
+        db, actor_id=member.id, action="DOC_SPACE_DELETE",
+        target_type="doc_space", target_id=space.id, target_label=space.name,
+        details={"folders": len(folder_ids)}, request=request,
+    )
     await _delete_documents_in(db, folder_ids)
     await db.execute(sa_delete(DocFolder).where(DocFolder.space_id == space_id))
     await db.execute(sa_delete(DocSpaceDelegate).where(DocSpaceDelegate.space_id == space_id))
@@ -1553,6 +1621,7 @@ async def folder_edit_form(
 
 @router.post("/folder/{folder_id}/edit")
 async def folder_edit_save(
+    request: Request,
     folder_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1571,6 +1640,7 @@ async def folder_edit_save(
     # Suppression automatique
     auto_delete_after_days: str = Form(""),
 ):
+    user, member = ctx
     folder = await db.get(DocFolder, folder_id)
     if not folder:
         raise HTTPException(status_code=404)
@@ -1602,6 +1672,11 @@ async def folder_edit_save(
                 if space:
                     folder.parent_id = None
                     folder.space_id = target_id
+    await log_audit(
+        db, actor_id=member.id, action="DOC_FOLDER_EDIT",
+        target_type="doc_folder", target_id=folder.id, target_label=folder.name,
+        request=request,
+    )
     await db.commit()
     back = f"/documents/folder/{folder.parent_id}" if folder.parent_id else f"/documents/space/{folder.space_id}"
     return RedirectResponse(url=f"{back}?saved=1", status_code=303)
@@ -1611,12 +1686,14 @@ async def folder_edit_save(
 
 @router.post("/folder/{folder_id}/move")
 async def folder_move(
+    request: Request,
     folder_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     target_type: str = Form(...),       # "folder" or "space"
     target_id: int = Form(...),
 ):
+    user, member = ctx
     folder = await db.get(DocFolder, folder_id)
     if not folder:
         raise HTTPException(status_code=404)
@@ -1634,6 +1711,11 @@ async def folder_move(
             raise HTTPException(status_code=404)
         folder.parent_id = None
         folder.space_id  = target_id
+    await log_audit(
+        db, actor_id=member.id, action="DOC_FOLDER_MOVE",
+        target_type="doc_folder", target_id=folder.id, target_label=folder.name,
+        request=request,
+    )
     await db.commit()
     if old_parent_id:
         return RedirectResponse(url=f"/documents/folder/{old_parent_id}?saved=1", status_code=303)
@@ -1666,41 +1748,57 @@ async def documents_trash(
 
 @router.post("/file/{doc_id}/trash")
 async def document_trash(
+    request: Request,
     doc_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     from datetime import datetime
+    user, member = ctx
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404)
     folder_id = doc.folder_id
     doc.deleted_at = datetime.now()
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_TRASH",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{folder_id}?saved=1", status_code=303)
 
 
 @router.post("/file/{doc_id}/restore")
 async def document_restore(
+    request: Request,
     doc_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    user, member = ctx
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404)
     doc.deleted_at = None
     doc.auto_deleted = False
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_RESTORE",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
 
 
 @router.post("/file/{doc_id}/destroy")
 async def document_destroy(
+    request: Request,
     doc_id: int,
     ctx: Annotated[object, Depends(require_admin)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
+    user, member = ctx
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404)
@@ -1709,6 +1807,11 @@ async def document_destroy(
             Path(doc.storage_path).unlink(missing_ok=True)
         except Exception:
             pass
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_DESTROY",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        request=request,
+    )
     await db.delete(doc)
     await db.commit()
     return RedirectResponse(url="/documents/trash?saved=1", status_code=303)
@@ -1716,11 +1819,13 @@ async def document_destroy(
 
 @router.post("/file/{doc_id}/move")
 async def document_move(
+    request: Request,
     doc_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     target_folder_id: Annotated[int, Form()],
 ):
+    user, member = ctx
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404)
@@ -1729,6 +1834,11 @@ async def document_move(
         raise HTTPException(status_code=404, detail="Dossier cible introuvable")
     old_folder_id = doc.folder_id
     doc.folder_id = target_folder_id
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_MOVE",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{old_folder_id}?saved=1", status_code=303)
 
@@ -1737,15 +1847,23 @@ async def document_move(
 
 @router.post("/file/{doc_id}/rename")
 async def document_rename(
+    request: Request,
     doc_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
 ):
+    user, member = ctx
     doc = await db.get(Document, doc_id)
     if not doc:
         raise HTTPException(status_code=404)
+    old_name = doc.name
     doc.name = name.strip()
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_RENAME",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        details={"old_name": old_name}, request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
 
@@ -1921,6 +2039,7 @@ async def documents_picker(
 
 @router.post("/file/{doc_id}/new-version")
 async def document_new_version(
+    request: Request,
     doc_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
     db: Annotated[AsyncSession, Depends(get_db)],
@@ -1965,12 +2084,18 @@ async def document_new_version(
     doc.mime_type = file.content_type
     doc.updated_at = datetime.now()
 
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_NEW_VERSION",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        details={"version": version_number}, request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
 
 
 @router.post("/file/{doc_id}/version/{version_id}/restore")
 async def document_version_restore(
+    request: Request,
     doc_id: int,
     version_id: int,
     ctx: Annotated[object, Depends(require_doc_manager)],
@@ -2003,6 +2128,11 @@ async def document_version_restore(
     doc.file_size = target_version.file_size
     doc.updated_at = datetime.now()
 
+    await log_audit(
+        db, actor_id=member.id, action="DOCUMENT_VERSION_RESTORE",
+        target_type="document", target_id=doc.id, target_label=doc.name,
+        details={"restored_version": target_version.version_number}, request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/documents/folder/{doc.folder_id}?saved=1", status_code=303)
 
@@ -2032,6 +2162,18 @@ async def documents_bulk(
 
     docs_r = await db.execute(select(Document).where(Document.id.in_(doc_ids)))
     docs = docs_r.scalars().all()
+
+    action_names = {
+        "trash": "DOCUMENT_BULK_TRASH", "restore": "DOCUMENT_BULK_RESTORE",
+        "destroy": "DOCUMENT_BULK_DESTROY", "move": "DOCUMENT_BULK_MOVE",
+    }
+    if action in action_names:
+        await log_audit(
+            db, actor_id=member.id, action=action_names[action],
+            target_type="document", target_id=None,
+            target_label=f"{len(docs)} document(s)",
+            details={"doc_ids": doc_ids}, request=request,
+        )
 
     if action == "trash":
         now = datetime.now()
