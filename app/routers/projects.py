@@ -21,6 +21,7 @@ from app.models.projects import (
 )
 from app.models.forum import ForumSubject
 from app.utils.tz import to_paris
+from app.services.audit import log_audit
 
 router = APIRouter(prefix="/projects", tags=["projects"])
 from app.template_engine import templates
@@ -183,6 +184,7 @@ async def dashboard(
 
 @router.post("/new")
 async def project_create(
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
@@ -208,6 +210,12 @@ async def project_create(
         created_by_id=member.id,
     )
     db.add(p)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="PROJECT_CREATE",
+        target_type="project", target_id=p.id, target_label=p.name,
+        request=request,
+    )
     await db.commit()
     await db.refresh(p)
     return RedirectResponse(url=f"/projects/{p.id}", status_code=303)
@@ -216,6 +224,7 @@ async def project_create(
 @router.post("/{project_id}/edit")
 async def project_edit(
     project_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
@@ -238,6 +247,11 @@ async def project_edit(
         p.status = ProjectStatus(status)
     p.start_date = _parse_date(start_date)
     p.end_date = _parse_date(end_date)
+    await log_audit(
+        db, actor_id=member.id, action="PROJECT_EDIT",
+        target_type="project", target_id=p.id, target_label=p.name,
+        request=request,
+    )
     await db.commit()
     return RedirectResponse(url=f"/projects/{project_id}", status_code=303)
 
@@ -245,6 +259,7 @@ async def project_edit(
 @router.post("/{project_id}/delete")
 async def project_delete(
     project_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
@@ -254,6 +269,11 @@ async def project_delete(
         raise HTTPException(404)
     if not (_is_manager(user, member) or p.owner_id == member.id or p.created_by_id == member.id):
         raise HTTPException(403)
+    await log_audit(
+        db, actor_id=member.id, action="PROJECT_DELETE",
+        target_type="project", target_id=p.id, target_label=p.name,
+        request=request,
+    )
     # Suppression manuelle des tâches puis du projet
     await db.execute(delete(Task).where(Task.project_id == project_id))
     await db.execute(delete(Project).where(Project.id == project_id))
@@ -1139,6 +1159,7 @@ async def project_export_pdf(
 
 @router.post("/templates/new")
 async def template_create(
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
     name: str = Form(...),
@@ -1157,6 +1178,12 @@ async def template_create(
         created_by_id=member.id,
     )
     db.add(tpl)
+    await db.flush()
+    await log_audit(
+        db, actor_id=member.id, action="PROJECT_TEMPLATE_CREATE",
+        target_type="project_template", target_id=tpl.id, target_label=tpl.name,
+        request=request,
+    )
     await db.commit()
     await db.refresh(tpl)
     return RedirectResponse(url=f"/projects/templates/{tpl.id}", status_code=303)
@@ -1228,12 +1255,20 @@ async def template_task_delete(
 @router.post("/templates/{tpl_id}/delete")
 async def template_delete(
     tpl_id: int,
+    request: Request,
     ctx: Annotated[tuple, Depends(require_auth)],
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
     if not _is_manager(user, member):
         raise HTTPException(403)
+    tpl = await db.get(ProjectTemplate, tpl_id)
+    if tpl:
+        await log_audit(
+            db, actor_id=member.id, action="PROJECT_TEMPLATE_DELETE",
+            target_type="project_template", target_id=tpl.id, target_label=tpl.name,
+            request=request,
+        )
     await db.execute(delete(ProjectTemplateTask).where(ProjectTemplateTask.template_id == tpl_id))
     await db.execute(delete(ProjectTemplate).where(ProjectTemplate.id == tpl_id))
     await db.commit()
