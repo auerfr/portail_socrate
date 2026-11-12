@@ -155,6 +155,19 @@ def _can_manage(member: Member, is_admin: bool) -> bool:
     return True  # Tous les membres actifs peuvent créer un sondage
 
 
+def _can_edit_poll(poll: Poll, member: Member, is_admin: bool) -> bool:
+    """Modifier / clôturer / supprimer UN sondage précis : réservé à son
+    créateur et aux admins (+ délégation "Sondages"). Contrairement à
+    _can_manage — délibérément large pour la CRÉATION, ouverte à tout
+    membre actif — un ciblage mal choisi ne doit jamais permettre à
+    n'importe qui de modifier ou supprimer le sondage d'un autre."""
+    if is_admin:
+        return True
+    if has_fine_permission(member, "can_manage_polls"):
+        return True
+    return member.id == poll.created_by_id
+
+
 async def _eligible_members(poll: Poll, db: AsyncSession) -> list[Member]:
     """Membres actifs concernés par ce sondage (même ciblage que _can_access,
     sans le contournement admin) — sert à savoir qui relancer."""
@@ -497,14 +510,14 @@ async def poll_detail(
     author = await db.get(Member, poll.created_by_id) if poll.created_by_id else None
 
     is_creator = bool(member and poll.created_by_id == member.id)
-    can_manage_poll = _can_manage(member, user.is_admin)
+    can_manage_poll = _can_edit_poll(poll, member, user.is_admin)
 
     # Qui a voté / qui relancer — indépendant de is_anonymous (qui ne protège
     # que le CONTENU du vote, pas le fait d'avoir participé). Réservé au
-    # créateur du sondage et aux admins : can_manage est délibérément large
-    # (tout membre actif peut modifier/clôturer un sondage), mais exposer
-    # à tous "qui n'a pas encore voté" serait trop intrusif pour un simple
-    # outil de relance destiné à l'organisateur.
+    # créateur du sondage et aux admins (même périmètre que can_manage_poll
+    # ci-dessus, qui gouverne Modifier/Clôturer/Supprimer) — exposer à tous
+    # "qui n'a pas encore voté" serait trop intrusif pour un simple outil de
+    # relance destiné à l'organisateur.
     voted_members, not_voted_members = [], []
     if is_creator or user.is_admin:
         voter_ids = {v.member_id for v in poll.votes if v.member_id is not None}
@@ -550,8 +563,7 @@ async def poll_notify_remaining(
     if not poll:
         raise HTTPException(status_code=404)
 
-    is_creator = bool(member and poll.created_by_id == member.id)
-    if not (is_creator or user.is_admin):
+    if not _can_edit_poll(poll, member, user.is_admin):
         raise HTTPException(status_code=403)
 
     voter_ids = {v.member_id for v in poll.votes if v.member_id is not None}
@@ -579,11 +591,11 @@ async def poll_edit_form(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not _can_manage(member, user.is_admin):
-        raise HTTPException(status_code=403)
     poll = await db.get(Poll, poll_id, options=[selectinload(Poll.votes)])
     if not poll:
         raise HTTPException(status_code=404)
+    if not _can_edit_poll(poll, member, user.is_admin):
+        raise HTTPException(status_code=403)
     return templates.TemplateResponse(request, "pages/polls/edit_form.html", {
         "current_member": member,
         "current_user": user,
@@ -602,11 +614,11 @@ async def poll_edit(
     ends_at: str = Form(""),
 ):
     user, member = ctx
-    if not _can_manage(member, user.is_admin):
-        raise HTTPException(status_code=403)
     poll = await db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404)
+    if not _can_edit_poll(poll, member, user.is_admin):
+        raise HTTPException(status_code=403)
 
     title = title.strip()
     if not title:
@@ -854,11 +866,11 @@ async def poll_close(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not _can_manage(member, user.is_admin):
-        raise HTTPException(status_code=403)
     poll = await db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404)
+    if not _can_edit_poll(poll, member, user.is_admin):
+        raise HTTPException(status_code=403)
     poll.ends_at = datetime.now()
     await db.commit()
     return RedirectResponse(url=f"/polls/{poll_id}", status_code=303)
@@ -871,11 +883,11 @@ async def poll_delete(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not _can_manage(member, user.is_admin):
-        raise HTTPException(status_code=403)
     poll = await db.get(Poll, poll_id)
     if not poll:
         raise HTTPException(status_code=404)
+    if not _can_edit_poll(poll, member, user.is_admin):
+        raise HTTPException(status_code=403)
     await db.execute(delete(PollVote).where(PollVote.poll_id == poll_id))
     await db.execute(delete(PollOption).where(PollOption.poll_id == poll_id))
     await db.delete(poll)
