@@ -170,3 +170,8 @@ class ExternalContact(Base):
     last_confirmed_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
     # Demande de désinscription reçue via le lien dans l'email de confirmation
     removal_requested_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)
+    # Date du dernier envoi de l'email de confirmation annuelle — sans cette
+    # date, impossible de savoir quand le délai de 60 jours "sans réponse"
+    # doit réellement démarrer pour CE contact (cf. deactivate_unconfirmed
+    # dans app/services/contact_confirmation.py).
+    confirmation_sent_at: Mapped[Optional[datetime]] = mapped_column(DateTime, nullable=True)

@@ -155,6 +155,13 @@ async def lifespan(app: FastAPI):
     from app.services.doc_retention import daily_retention_loop
     _doc_retention_task = asyncio.ensure_future(daily_retention_loop())
 
+    # ── Correspondants externes : désactivation auto après 60j sans réponse ──
+    # Service écrit mais jamais réellement automatique jusqu'ici — seul un
+    # bouton manuel dans Paramètres appliquait ce délai, alors que l'email de
+    # confirmation promet une désactivation "automatique".
+    from app.services.contact_confirmation import daily_contact_confirmation_loop
+    _contact_confirmation_task = asyncio.ensure_future(daily_contact_confirmation_loop())
+
     # ── Rappels J-3 avant clôture de l'appel à tranche ───────────────────────
     from app.services.contribution_reminders import daily_contribution_reminder_loop
     _contrib_reminder_task = asyncio.ensure_future(daily_contribution_reminder_loop())
@@ -201,6 +208,7 @@ async def lifespan(app: FastAPI):
     _contrib_reminder_task.cancel()
     _mailing_sched_task.cancel()
     _planche_import_task.cancel()
+    _contact_confirmation_task.cancel()
     await engine.dispose()
 
 

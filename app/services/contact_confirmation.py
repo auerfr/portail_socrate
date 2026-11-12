@@ -1,7 +1,10 @@
 """Confirmation annuelle des correspondants externes (F∴/S∴ passant·e·s
 réguliers, loges amies…) : email avec lien unique pour mettre à jour ses
 informations (ce qui vaut confirmation) ou demander sa désinscription.
-Déclenché manuellement par un admin, cf. app/routers/settings.py.
+L'envoi de la campagne reste déclenché manuellement par un admin (cf.
+app/routers/settings.py) — mais la désactivation après 60 jours sans
+réponse, elle, est désormais automatique (cf. daily_contact_confirmation_loop
+plus bas, démarrée depuis app/main.py), conformément à ce que l'email promet.
 """
 import asyncio
 import hashlib
@@ -217,6 +220,12 @@ async def send_confirmation_email(db, contact: ExternalContact, portal_url: str)
     log_id = await create_pending_log(contact.email, subject)
     html, text = _confirmation_email_content(contact, portal_url)
     ok, err = await _send_raw(to=contact.email, subject=subject, html=html, text=text, log_id=log_id)
+    if ok:
+        # Point de départ du délai de 60 jours pour CE contact — sans cette
+        # date, deactivate_unconfirmed() ne peut pas savoir si on lui a déjà
+        # laissé le temps de répondre.
+        contact.confirmation_sent_at = datetime.utcnow()
+        await db.commit()
     return ok, err
 
 
@@ -251,18 +260,59 @@ async def run_confirmation_campaign(
 
 
 async def deactivate_unconfirmed(db, older_than_days: int = 60) -> int:
-    """Désactive (is_active=False) les contacts actifs jamais confirmés ou
-    dont la dernière confirmation date de plus de `older_than_days` jours.
-    Ne supprime jamais rien — réversible en un clic depuis Paramètres."""
+    """Désactive (is_active=False) les contacts à qui une campagne de
+    confirmation a été envoyée il y a plus de `older_than_days` jours, et qui
+    n'ont pas confirmé depuis cet envoi (ou jamais).
+
+    confirmation_sent_at IS NOT NULL est essentiel : sans lui, un contact
+    jamais sollicité (last_confirmed_at NULL par simple absence de campagne,
+    pas par non-réponse) serait désactivé dès sa création — ce délai de
+    60 jours "sans réponse" ne peut courir qu'à partir du jour où on lui a
+    réellement posé la question. Ne supprime jamais rien — réversible en un
+    clic depuis Paramètres."""
     cutoff = datetime.utcnow() - timedelta(days=max(1, older_than_days))
     result = await db.execute(
         update(ExternalContact)
         .where(
             ExternalContact.is_active == True,  # noqa: E712
             ExternalContact.removal_requested_at.is_(None),
-            (ExternalContact.last_confirmed_at.is_(None)) | (ExternalContact.last_confirmed_at < cutoff),
+            ExternalContact.confirmation_sent_at.is_not(None),
+            ExternalContact.confirmation_sent_at < cutoff,
+            (ExternalContact.last_confirmed_at.is_(None))
+            | (ExternalContact.last_confirmed_at < ExternalContact.confirmation_sent_at),
         )
         .values(is_active=False)
     )
     await db.commit()
     return result.rowcount or 0
+
+
+async def daily_contact_confirmation_loop():
+    """Boucle asyncio : chaque jour à ~4h20 du matin, désactive les
+    correspondants externes dont la campagne de confirmation annuelle est
+    restée sans réponse plus de 60 jours — même patron que
+    daily_retention_loop (app/services/doc_retention.py), décalé de 20 min
+    pour ne pas tourner en même temps."""
+
+    async def _sleep_until_420am():
+        now = datetime.utcnow()
+        next_run = now.replace(hour=4, minute=20, second=0, microsecond=0)
+        if now >= next_run:
+            next_run += timedelta(days=1)
+        wait = (next_run - now).total_seconds()
+        logger.info(
+            "Prochaine désactivation auto des contacts non confirmés dans %.0f s (%s)",
+            wait, next_run.strftime("%d/%m %H:%M"),
+        )
+        await asyncio.sleep(wait)
+
+    await asyncio.sleep(50)  # petit délai au démarrage
+    while True:
+        await _sleep_until_420am()
+        try:
+            async with AsyncSessionLocal() as db:
+                count = await deactivate_unconfirmed(db, older_than_days=60)
+                if count:
+                    logger.info("%d correspondant(s) externe(s) désactivé(s) (60j sans réponse)", count)
+        except Exception as exc:
+            logger.error("Erreur boucle désactivation contacts non confirmés : %s", exc, exc_info=True)
