@@ -28,7 +28,9 @@ from app.models.meetings import (
     Visitor, MeetingVisitor, MeetingGuest, MeetingWaitlist,
     DietaryRestriction, GuestStatus, VisitorStatus,
 )
-from app.models.identity import Member, LodgeFunction, MemberStatus
+from app.models.identity import (
+    Member, LodgeFunction, MemberStatus, MemberResponsibility, ResponsibilityType,
+)
 from app.models.lodge import MasonicYear, LodgeSettings, LodgeOffice, MeetingOffice
 from app.models.associative import OfficerAssignment
 from app.models.documents import DocSpace, DocFolder, Document, DocumentVersion, DocStatus, MinGrade, DocAccessMode
@@ -479,8 +481,7 @@ async def agapes_export_excel(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    if not (can_manage_meeting(member) or user.is_admin
-            or member.lodge_function == LodgeFunction.MAITRE_BANQUETS):
+    if not await _can_manage_banquet(db, user, member):
         raise HTTPException(status_code=403, detail="Accès refusé")
 
     result = await db.execute(
@@ -1487,11 +1488,7 @@ async def meeting_banquet(
     db: Annotated[AsyncSession, Depends(get_db)],
 ):
     user, member = ctx
-    can_banquet = (
-        user.is_admin
-        or can_manage_meeting(member)
-        or member.lodge_function == LodgeFunction.MAITRE_BANQUETS
-    )
+    can_banquet = await _can_manage_banquet(db, user, member)
     if not can_banquet:
         raise HTTPException(status_code=403, detail="Accès réservé au Maître des Banquets")
 
@@ -1509,7 +1506,7 @@ async def meeting_banquet(
     if not meeting:
         raise HTTPException(status_code=404)
 
-    can_manage = _can_manage_banquet(user, member)
+    can_manage = await _can_manage_banquet(db, user, member)
 
     agape_members  = sorted([a for a in meeting.attendances if a.agape],
                             key=lambda a: a.member.last_name)
@@ -1608,12 +1605,22 @@ async def meeting_banquet(
 
 # ── Gestion agapes (Maître des Banquets / Admin / VM) ────────────────────────
 
-def _can_manage_banquet(user, member) -> bool:
-    return (
-        user.is_admin
-        or can_manage_meeting(member)
-        or member.lodge_function == LodgeFunction.MAITRE_BANQUETS
+async def _can_manage_banquet(db: AsyncSession, user, member) -> bool:
+    """Un frère peut cumuler Maître des Banquets comme office SECONDAIRE
+    (MemberResponsibility.type == OFFICE_SECOND) sans que ce soit son
+    lodge_function principal — il faut donc aussi vérifier cette table,
+    sinon l'accès à la page agapes casse dès qu'il cumule un autre office."""
+    if user.is_admin or can_manage_meeting(member) or member.lodge_function == LodgeFunction.MAITRE_BANQUETS:
+        return True
+    r = await db.execute(
+        select(MemberResponsibility.id).where(
+            MemberResponsibility.member_id == member.id,
+            MemberResponsibility.type == ResponsibilityType.OFFICE_SECOND,
+            MemberResponsibility.lodge_function == LodgeFunction.MAITRE_BANQUETS,
+            MemberResponsibility.is_active == True,  # noqa: E712
+        )
     )
+    return r.scalar_one_or_none() is not None
 
 
 @router.post("/{meeting_id}/banquet/member/{member_id}/agape")
@@ -1625,7 +1632,7 @@ async def banquet_toggle_member(
     guests: int = Form(0),
 ):
     user, member = ctx
-    if not _can_manage_banquet(user, member):
+    if not await _can_manage_banquet(db, user, member):
         raise HTTPException(403)
     r = await db.execute(
         select(Attendance).where(Attendance.meeting_id == meeting_id, Attendance.member_id == member_id)
@@ -1660,7 +1667,7 @@ async def banquet_toggle_visitor(
     guests: int = Form(0),
 ):
     user, member = ctx
-    if not _can_manage_banquet(user, member):
+    if not await _can_manage_banquet(db, user, member):
         raise HTTPException(403)
     mv = await db.get(MeetingVisitor, mv_id)
     if not mv or mv.meeting_id != meeting_id:
@@ -1687,7 +1694,7 @@ async def banquet_add_member(
     guests: int = Form(0),
 ):
     user, member = ctx
-    if not _can_manage_banquet(user, member):
+    if not await _can_manage_banquet(db, user, member):
         raise HTTPException(403)
     r = await db.execute(
         select(Attendance).where(Attendance.meeting_id == meeting_id, Attendance.member_id == member_id)
@@ -1718,7 +1725,7 @@ async def banquet_add_visitor(
     lodge_name: str = Form(""),
 ):
     user, member = ctx
-    if not _can_manage_banquet(user, member):
+    if not await _can_manage_banquet(db, user, member):
         raise HTTPException(403)
 
     if visitor_id:
@@ -1778,11 +1785,7 @@ async def my_agapes(
 ):
     """Vue dédiée Maître des Banquets : prochaines tenues avec agapes."""
     user, member = ctx
-    is_mdb = (
-        user.is_admin
-        or can_manage_meeting(member)
-        or (member and member.lodge_function == LodgeFunction.MAITRE_BANQUETS)
-    )
+    is_mdb = member and await _can_manage_banquet(db, user, member)
     if not is_mdb:
         raise HTTPException(403, "Accès réservé au Maître des Banquets")
 
