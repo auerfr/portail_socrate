@@ -248,9 +248,16 @@ class MeetingVisitor(Base):
     comment: Mapped[Optional[str]] = mapped_column(Text)
     token_used: Mapped[Optional[str]] = mapped_column(String(200))  # quel lien utilisé
     registered_at: Mapped[datetime]   = mapped_column(DateTime, server_default=func.now())
+    # Officier qui l'a inscrit lui-même depuis Émarger — NULL si le passant
+    # s'est inscrit tout seul via le lien public (pas d'identité à tracer
+    # dans ce cas, le lien est désormais partageable par tout le monde).
+    registered_by_id: Mapped[Optional[int]] = mapped_column(
+        ForeignKey("members.id"), nullable=True
+    )
 
     meeting: Mapped["Meeting"]  = relationship(back_populates="meeting_visitors")
     visitor: Mapped["Visitor"]  = relationship(back_populates="meeting_visits")
+    registered_by: Mapped[Optional["Member"]] = relationship(foreign_keys=[registered_by_id])
 
 
 class MeetingGuest(Base):

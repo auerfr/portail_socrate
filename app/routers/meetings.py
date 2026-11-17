@@ -1497,6 +1497,7 @@ async def meeting_banquet(
         .options(
             selectinload(Meeting.attendances).selectinload(Attendance.member),
             selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.registered_by),
             selectinload(Meeting.meeting_guests),
             selectinload(Meeting.waitlist),
         )
@@ -2945,6 +2946,7 @@ async def public_register_submit(
         )
     )
     mv = existing_mv.scalar_one_or_none()
+    was_agape = mv.agape if mv else False
     if mv:
         mv.agape = agape_bool
         mv.agape_guests = agape_guests_int
@@ -2960,6 +2962,13 @@ async def public_register_submit(
             comment=comment.strip() or None,
         ))
     await db.commit()
+
+    if agape_bool and not was_agape and meeting.agape_enabled:
+        from app.services.banquet_notify import notify_new_agape_registration
+        await notify_new_agape_registration(
+            db, meeting, f"{visitor.first_name} {visitor.last_name} (passant, auto-inscription)",
+            str(request.base_url),
+        )
 
     return templates.TemplateResponse(request, "pages/meetings/register_success.html", {
         "meeting": meeting, "visitor_type": "visitor",

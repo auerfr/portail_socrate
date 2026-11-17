@@ -178,6 +178,7 @@ async def emargement_page(
             selectinload(Meeting.attendances).selectinload(Attendance.member),
             selectinload(Meeting.attendances).selectinload(Attendance.recorded_by),
             selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.visitor),
+            selectinload(Meeting.meeting_visitors).selectinload(MeetingVisitor.registered_by),
         )
         .where(Meeting.id == meeting_id)
     )
@@ -520,7 +521,8 @@ async def add_visitor_to_meeting(
     _require_attendance_mgr(user, member)
 
     mtg_r = await db.execute(select(Meeting).where(Meeting.id == meeting_id))
-    if not mtg_r.scalar_one_or_none():
+    meeting = mtg_r.scalar_one_or_none()
+    if not meeting:
         raise HTTPException(status_code=404)
 
     if visitor_id:
@@ -558,8 +560,10 @@ async def add_visitor_to_meeting(
         )
     )
     mv = existing_r.scalar_one_or_none()
+    was_agape = False
     if mv:
         # Déjà inscrit : mettre à jour agape si demandé
+        was_agape = mv.agape
         if agape:
             mv.agape = True
             mv.agape_guests = max(0, agape_guests)
@@ -570,6 +574,7 @@ async def add_visitor_to_meeting(
             status=VisitorStatus.CONFIRMED,
             agape=agape,
             agape_guests=max(0, agape_guests),
+            registered_by_id=member.id,
         ))
 
     await log_audit(
@@ -578,6 +583,14 @@ async def add_visitor_to_meeting(
         target_label=f"{visitor.first_name} {visitor.last_name}", request=request,
     )
     await db.commit()
+
+    if agape and not was_agape and meeting.agape_enabled:
+        from app.services.banquet_notify import notify_new_agape_registration
+        await notify_new_agape_registration(
+            db, meeting, f"{visitor.first_name} {visitor.last_name} (passant)",
+            str(request.base_url), actor_member_id=member.id,
+        )
+
     return RedirectResponse(url=f"/attendance/meeting/{meeting_id}?saved=1", status_code=303)
 
 

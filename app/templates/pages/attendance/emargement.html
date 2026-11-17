@@ -223,6 +223,12 @@
             🍽 Agapes{% if mv.agape_guests %} +{{ mv.agape_guests }} invité{{ 's' if mv.agape_guests > 1 }}{% endif %}
           </div>
           {% endif %}
+          {% if mv.registered_by %}
+          <div class="text-[11px] text-amber-600 mt-0.5 flex items-center gap-1">
+            <i class="ti ti-user-edit"></i>
+            <span>Inscrit par {{ mv.registered_by.last_name }} {{ mv.registered_by.first_name }}</span>
+          </div>
+          {% endif %}
         </div>
 
         <!-- Toggle présent / no-show -->

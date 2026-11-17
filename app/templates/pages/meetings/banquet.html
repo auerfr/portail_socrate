@@ -146,6 +146,10 @@
           </span>
           <span class="text-xs text-gray-400 ml-1">— {{ mv.visitor.lodge_name or 'Passant' }}</span>
           {% if mv.agape_guests %}<span class="text-xs text-gray-400 ml-1">+{{ mv.agape_guests }} invité{{ 's' if mv.agape_guests > 1 }}</span>{% endif %}
+          <div class="text-[11px] text-gray-400 mt-0.5">
+            {% if mv.registered_by %}Inscrit par {{ mv.registered_by.last_name }} {{ mv.registered_by.first_name }}
+            {% else %}Auto-inscription (lien public){% endif %}
+          </div>
         </div>
         <span class="text-xs font-semibold text-blue-600 bg-blue-50 rounded-full px-2 py-0.5">{{ 1 + mv.agape_guests }} couvert{{ 's' if (1 + mv.agape_guests) > 1 }}</span>
         {% if can_manage %}

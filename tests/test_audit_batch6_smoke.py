@@ -22,12 +22,21 @@ async def _last_action(db: AsyncSession, after_id: int) -> str:
 
 @pytest.mark.asyncio
 async def test_meeting_create_edit_lock_delete_logged(admin_client: AsyncClient, db: AsyncSession):
-    year = MasonicYear(
-        label="test-year-batch6", start_date=date.today() - timedelta(days=30),
-        end_date=date.today() + timedelta(days=300), is_current=True,
-    )
-    db.add(year)
-    await db.commit()
+    # Un commit() direct via la fixture `db` persiste réellement dans le même
+    # moteur que les requêtes HTTP (NullPool + get_db surchargé, cf.
+    # conftest.py) : si un autre test a déjà créé une année "is_current=True"
+    # avant celui-ci dans la même exécution de suite, elle survit au
+    # rollback() de fin de test. meeting_create() (scalar_one_or_none sur
+    # is_current==True) casse dès qu'il y en a plus d'une — on réutilise donc
+    # l'année courante existante plutôt que d'en recréer une à l'aveugle.
+    existing = (await db.execute(select(MasonicYear).where(MasonicYear.is_current == True))).scalars().first()  # noqa: E712
+    if not existing:
+        year = MasonicYear(
+            label="test-year-batch6", start_date=date.today() - timedelta(days=30),
+            end_date=date.today() + timedelta(days=300), is_current=True,
+        )
+        db.add(year)
+        await db.commit()
 
     meeting_date = date.today() + timedelta(days=7)
     after_id = await _max_audit_id(db)

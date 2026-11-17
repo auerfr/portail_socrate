@@ -1523,3 +1523,14 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
             await conn.exec_driver_sql(
                 "ALTER TABLE external_contacts ADD COLUMN confirmation_sent_at DATETIME"
             )
+
+    # ── meeting_visitors.registered_by_id — traçabilité : qui a inscrit un
+    # passant depuis Émarger (NULL = auto-inscription via le lien public,
+    # désormais partageable par tout membre).
+    async with engine.begin() as conn:
+        r_mv = await conn.exec_driver_sql("PRAGMA table_info(meeting_visitors)")
+        cols_mv = [row[1] for row in r_mv.fetchall()]
+        if cols_mv and "registered_by_id" not in cols_mv:
+            await conn.exec_driver_sql(
+                "ALTER TABLE meeting_visitors ADD COLUMN registered_by_id INTEGER REFERENCES members(id)"
+            )
