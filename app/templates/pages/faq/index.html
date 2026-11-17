@@ -486,7 +486,7 @@
         </p>
       </details>
 
-      <details class="group py-2">
+      <details id="visiteur-inscription" class="group py-2 scroll-mt-4">
         <summary class="cursor-pointer font-medium text-gray-800 list-none flex items-center justify-between">
           J'invite un F∴/S∴ passant (ou une loge amie) à une tenue : comment l'inscrire ?
           <i class="ti ti-chevron-down text-gray-400 group-open:rotate-180 transition-transform"></i>
@@ -959,4 +959,19 @@
   </p>
 
 </div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+  // Un lien externe (actualité, email…) peut pointer vers une question précise
+  // via son ancre (ex: /faq#visiteur-inscription) — <details> étant fermé par
+  // défaut, on l'ouvre et on y re-scrolle une fois la page chargée.
+  if (window.location.hash) {
+    const target = document.getElementById(window.location.hash.slice(1));
+    if (target && target.tagName === 'DETAILS') {
+      target.open = true;
+      target.scrollIntoView();
+    }
+  }
+</script>
 {% endblock %}
