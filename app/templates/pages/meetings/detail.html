@@ -187,11 +187,17 @@
       </div>
       {% endif %}
 
-      <!-- Lien d'inscription -->
-      {% if can_manage and not meeting.is_locked %}
+      <!-- Lien d'inscription — visible de tout frère/sœur : chacun peut le
+           transmettre directement à un visiteur qu'il invite personnellement,
+           pas seulement l'officier qui prépare le programme PDF. -->
+      {% if not meeting.is_locked %}
       <div class="bg-white rounded-xl shadow-sm border border-gray-100 p-5">
-        <h2 class="text-sm font-semibold text-gray-700 mb-3">🔗 Lien d'inscription public</h2>
-        <p class="text-xs text-gray-500 mb-2">À insérer dans le programme PDF :</p>
+        <h2 class="text-sm font-semibold text-gray-700 mb-3">🔗 Lien d'inscription pour un visiteur</h2>
+        <p class="text-xs text-gray-500 mb-2">
+          {% if can_manage %}À insérer dans le programme PDF, ou à transmettre directement à un visiteur que vous invitez :
+          {% else %}Vous invitez un F∴/S∴ passant ou une loge amie à cette tenue ? Transmettez-lui ce lien pour qu'il s'inscrive lui-même :
+          {% endif %}
+        </p>
         <div class="flex gap-2">
           <input type="text" value="{{ registration_url }}" readonly
                  class="flex-1 text-xs bg-gray-50 border border-gray-200 rounded-lg px-3 py-2 text-gray-700 font-mono"
