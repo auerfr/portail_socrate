@@ -21,62 +21,103 @@
   </div>
 
   <!-- ── Engagement email ─────────────────────────────────────────── -->
-  <div>
-    <h2 class="text-sm font-semibold text-gray-700 mb-3 flex items-center gap-1.5">
-      <i class="ti ti-mail"></i> Emails envoyés par le portail
-    </h2>
+  <div class="space-y-6">
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+        <i class="ti ti-users"></i> Membres — notifications &amp; emails internes
+      </h2>
+      <p class="text-xs text-gray-400 mb-3">
+        Les membres consultent-ils au moins leurs notifications ? (messages, tenues, agapes, tracés…)
+      </p>
+      {% if member_stats.sent == 0 %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-6 text-center text-gray-400 text-sm">
+        Aucun email aux membres sur cette période.
+      </div>
+      {% else %}
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+          <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Envoyés</div>
+          <div class="text-3xl font-bold text-gray-800">{{ member_stats.sent }}</div>
+          <div class="text-xs text-gray-400 mt-1">sur {{ days }} jours</div>
+        </div>
+        <div class="bg-white rounded-xl border border-loge-100 shadow-sm px-5 py-4">
+          <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux d'ouverture</div>
+          <div class="text-3xl font-bold text-loge-700">{{ member_stats.open_rate }}%</div>
+          <div class="text-xs text-loge-600 mt-1">{{ member_stats.opened }} ouverts</div>
+        </div>
+        <div class="bg-white rounded-xl border border-amber-100 shadow-sm px-5 py-4">
+          <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux de clic</div>
+          <div class="text-3xl font-bold text-amber-600">{{ member_stats.click_rate }}%</div>
+          <div class="text-xs text-amber-500 mt-1">{{ member_stats.clicked }} clics</div>
+        </div>
+      </div>
+      {% endif %}
+    </div>
 
-    {% if email_sent == 0 %}
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-8 text-center text-gray-400 text-sm">
-      Aucun email envoyé sur cette période.
+    <div>
+      <h2 class="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
+        <i class="ti ti-world"></i> Externes — programme &amp; confirmations
+      </h2>
+      <p class="text-xs text-gray-400 mb-3">
+        Correspondants externes et F∴/S∴ passants (envoi du programme, campagne de confirmation annuelle).
+      </p>
+      {% if external_stats.sent == 0 %}
+      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-6 text-center text-gray-400 text-sm">
+        Aucun email externe sur cette période.
+      </div>
+      {% else %}
+      <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
+          <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Envoyés</div>
+          <div class="text-3xl font-bold text-gray-800">{{ external_stats.sent }}</div>
+          <div class="text-xs text-gray-400 mt-1">sur {{ days }} jours</div>
+        </div>
+        <div class="bg-white rounded-xl border border-loge-100 shadow-sm px-5 py-4">
+          <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux d'ouverture</div>
+          <div class="text-3xl font-bold text-loge-700">{{ external_stats.open_rate }}%</div>
+          <div class="text-xs text-loge-600 mt-1">{{ external_stats.opened }} ouverts</div>
+        </div>
+        <div class="bg-white rounded-xl border border-amber-100 shadow-sm px-5 py-4">
+          <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux de clic</div>
+          <div class="text-3xl font-bold text-amber-600">{{ external_stats.click_rate }}%</div>
+          <div class="text-xs text-amber-500 mt-1">{{ external_stats.clicked }} clics</div>
+        </div>
+      </div>
+      {% endif %}
+      <p class="text-xs text-gray-400 mt-2">
+        Les campagnes de diffusion par liste (Mailing) ont leur propre suivi, par campagne :
+        <a href="/mailing/" class="text-loge-700 hover:underline">voir les listes de diffusion →</a>
+      </p>
     </div>
-    {% else %}
-    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
-      <div class="bg-white rounded-xl border border-gray-100 shadow-sm px-5 py-4">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Envoyés</div>
-        <div class="text-3xl font-bold text-gray-800">{{ email_sent }}</div>
-        <div class="text-xs text-gray-400 mt-1">sur {{ days }} jours</div>
-      </div>
-      <div class="bg-white rounded-xl border border-loge-100 shadow-sm px-5 py-4">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux d'ouverture</div>
-        <div class="text-3xl font-bold text-loge-700">{{ open_rate }}%</div>
-        <div class="text-xs text-loge-600 mt-1">{{ email_opened }} ouverts</div>
-      </div>
-      <div class="bg-white rounded-xl border border-amber-100 shadow-sm px-5 py-4">
-        <div class="text-xs text-gray-400 uppercase tracking-wider mb-1">Taux de clic</div>
-        <div class="text-3xl font-bold text-amber-600">{{ click_rate }}%</div>
-        <div class="text-xs text-amber-500 mt-1">{{ email_clicked }} clics</div>
-      </div>
-    </div>
-    {% endif %}
 
     {% if email_trend %}
-    <div class="bg-white rounded-xl border border-gray-100 shadow-sm mt-4 overflow-x-auto">
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm overflow-x-auto">
       <table class="w-full text-sm">
         <thead>
           <tr class="text-left text-xs text-gray-400 uppercase tracking-wider border-b border-gray-100">
             <th class="px-4 py-2 font-medium">Mois</th>
-            <th class="px-4 py-2 font-medium text-right">Envoyés</th>
-            <th class="px-4 py-2 font-medium text-right">Ouverts</th>
-            <th class="px-4 py-2 font-medium text-right">Taux</th>
+            <th class="px-4 py-2 font-medium text-right">Membres envoyés</th>
+            <th class="px-4 py-2 font-medium text-right">Membres ouverts</th>
+            <th class="px-4 py-2 font-medium text-right">Externes envoyés</th>
+            <th class="px-4 py-2 font-medium text-right">Externes ouverts</th>
           </tr>
         </thead>
         <tbody>
           {% for row in email_trend %}
           <tr class="border-b border-gray-50 last:border-0">
             <td class="px-4 py-2 text-gray-700">{{ row.month }}</td>
-            <td class="px-4 py-2 text-right text-gray-600">{{ row.sent }}</td>
-            <td class="px-4 py-2 text-right text-gray-600">{{ row.opened }}</td>
-            <td class="px-4 py-2 text-right font-semibold text-loge-700">
-              {{ (row.opened * 100 / row.sent) | round | int if row.sent else 0 }}%
-            </td>
+            <td class="px-4 py-2 text-right text-gray-600">{{ row.member_sent }}</td>
+            <td class="px-4 py-2 text-right font-semibold text-loge-700">{{ row.member_opened }}</td>
+            <td class="px-4 py-2 text-right text-gray-600">{{ row.external_sent }}</td>
+            <td class="px-4 py-2 text-right font-semibold text-loge-700">{{ row.external_opened }}</td>
           </tr>
           {% endfor %}
         </tbody>
       </table>
     </div>
     {% endif %}
-    <p class="text-xs text-gray-400 mt-2">
+    <p class="text-xs text-gray-400">
+      {% if other_count %}{{ other_count }} email(s) de test/diagnostic exclu(s) de ces statistiques.{% endif %}
       <a href="/admin/comm" class="text-loge-700 hover:underline">Voir le journal détaillé des emails →</a>
     </p>
   </div>

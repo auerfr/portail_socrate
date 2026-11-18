@@ -1111,6 +1111,7 @@ async def compose_save(
                 await _send_raw(
                     to=to_email, subject=subj, html=html, text=body_md_r,
                     attachments=atts or None,
+                    track=False,  # test de campagne : déjà son propre suivi de clic/désinscription
                 )
             except Exception:
                 pass

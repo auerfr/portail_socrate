@@ -9,8 +9,6 @@ import secrets
 import unicodedata
 from datetime import datetime, timedelta
 from typing import Optional
-from urllib.parse import quote
-
 from sqlalchemy import select
 
 from app.config import get_settings
@@ -271,19 +269,12 @@ def build_guide_pdf(lodge_name: str, portal_url: str) -> bytes:
 
 def _access_email_content(
     member: Member, user: User, token: str, portal_url: str, lodge_name: str,
-    log_id: Optional[int] = None,
 ) -> tuple[str, str]:
-    raw_reset_url = f"{portal_url}/auth/reset-password/{token}"
+    # Pixel d'ouverture + réécriture des liens de clic : désormais injectés
+    # automatiquement par app.services.email._send_raw pour tout email
+    # journalisé (log_id fourni), plus besoin de les construire ici à la main.
+    reset_url = f"{portal_url}/auth/reset-password/{token}"
     guide_url = f"{portal_url}/guide"
-
-    if log_id is not None:
-        click_token = make_access_track_token(log_id, "c")
-        reset_url = f"{portal_url}/access/click/{click_token}?url={quote(raw_reset_url, safe='')}"
-        open_token = make_access_track_token(log_id, "o")
-        open_pixel = f'<img src="{portal_url}/access/open/{open_token}" width="1" height="1" alt="" style="display:none">'
-    else:
-        reset_url = raw_reset_url
-        open_pixel = ""
 
     text = f"""Bonjour {member.first_name},
 
@@ -325,7 +316,7 @@ vous pouvez l'ignorer et vous connecter directement sur <a href="{portal_url}/au
 sur <a href="{guide_url}">{guide_url}</a>). Il précise notamment que le bureau affiché est celui de l'année
 <strong>2025-2026</strong> (mise à jour en septembre lors de l'installation) et qu'une <strong>formation aux outils</strong>
 sera prochainement organisée par visioconférence, avec plusieurs créneaux au choix.</p>
-<hr><p style="color:#888;font-size:12px">Portail {lodge_name}</p>{open_pixel}"""
+<hr><p style="color:#888;font-size:12px">Portail {lodge_name}</p>"""
 
     return html, text
 
@@ -344,10 +335,10 @@ async def send_access_email(db, member: Member, portal_url: str, guide_pdf: byte
     await db.commit()
 
     subject = f"[{settings.lodge_name}] {ACCESS_EMAIL_SUBJECT}"
-    log_id = await create_pending_log(member.email, subject, has_attachment=True)
+    log_id = await create_pending_log(member.email, subject, has_attachment=True, recipient_type="MEMBER")
 
     html, text = _access_email_content(
-        member, user, user.reset_token, portal_url, settings.lodge_name, log_id=log_id,
+        member, user, user.reset_token, portal_url, settings.lodge_name,
     )
     ok, err = await _send_raw(
         to=member.email,
@@ -356,6 +347,7 @@ async def send_access_email(db, member: Member, portal_url: str, guide_pdf: byte
         text=text,
         attachments=[("guide-utilisateur-portail.pdf", guide_pdf, "application/pdf")],
         log_id=log_id,
+        recipient_type="MEMBER",
     )
     return ok, err
 

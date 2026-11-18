@@ -571,7 +571,8 @@ async def reset_password_request(
 </a></p>
 <p style="color:#6b7280;font-size:13px;">Ce lien est valable 2 heures. Si vous n'avez pas fait cette demande, ignorez cet email.</p>"""
         text = f"Bonjour {prenom},\n\nRéinitialisez votre mot de passe ici (valable 2h) :\n{reset_url}\n\nSi vous n'avez pas fait cette demande, ignorez cet email."
-        await _send_raw(member.email, "[Portail Loge] Réinitialisation de mot de passe", html, text)
+        await _send_raw(member.email, "[Portail Loge] Réinitialisation de mot de passe", html, text,
+                         recipient_type="MEMBER")
 
     return templates.TemplateResponse(request, "pages/auth/reset_password.html", {
         "lodge": lodge,

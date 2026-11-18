@@ -1296,6 +1296,7 @@ async def admin_comm_test_email(
         subject="[Portail Socrate] Test email",
         html="<p>Cet email est un <strong>test</strong> émis depuis la console d'administration.</p>",
         text="Cet email est un test émis depuis la console d'administration.",
+        track=False,  # diagnostic — exclu des statistiques d'engagement
     )
     await log_audit(
         db, actor_id=actor_member.id,

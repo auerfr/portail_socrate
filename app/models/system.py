@@ -112,6 +112,9 @@ class EmailLog(Base):
     opened_at: Mapped[Optional[datetime]]  = mapped_column(DateTime)
     clicked_at: Mapped[Optional[datetime]] = mapped_column(DateTime)
     has_attachment: Mapped[bool] = mapped_column(Boolean, default=False)
+    # "MEMBER" | "EXTERNAL" | NULL (emails de test/diagnostic, exclus des
+    # statistiques du tableau de bord d'engagement) — cf. app/services/email.py
+    recipient_type: Mapped[Optional[str]] = mapped_column(String(20), index=True)
     created_at: Mapped[datetime] = mapped_column(DateTime, server_default=func.now(), index=True)
 
 

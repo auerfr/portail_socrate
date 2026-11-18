@@ -217,7 +217,7 @@ Fraternellement,
 async def send_confirmation_email(db, contact: ExternalContact, portal_url: str) -> tuple[bool, Optional[str]]:
     settings = get_settings()
     subject = f"[{LODGE_SHORT_NAME}] {CONFIRMATION_EMAIL_SUBJECT}"
-    log_id = await create_pending_log(contact.email, subject)
+    log_id = await create_pending_log(contact.email, subject, recipient_type="EXTERNAL")
     html, text = _confirmation_email_content(contact, portal_url)
     ok, err = await _send_raw(to=contact.email, subject=subject, html=html, text=text, log_id=log_id)
     if ok:

@@ -1110,6 +1110,7 @@ identifiant propre au portail, du type « prenom.nom ». Vous pouvez aussi vous 
             subject=subject,
             html=html_body,
             text=text_body,
+            recipient_type="MEMBER",
         )
         return RedirectResponse(
             url=f"/members/{member_id}/edit?credentials_sent=1",

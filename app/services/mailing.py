@@ -531,6 +531,7 @@ async def send_campaign_async(campaign_id: int, base_url: Optional[str] = None):
                     ok, err = await _send_raw(
                         to=r.email, subject=subj, html=html, text=text,
                         attachments=attachments or None, client=smtp_client,
+                        track=False,  # suivi déjà géré par MailingDelivery (pixel/liens ci-dessus)
                     )
                     if not ok and smtp_client is not None and not smtp_client.is_connected:
                         # Connexion SMTP coupée en cours de campagne : on rouvre
@@ -543,6 +544,7 @@ async def send_campaign_async(campaign_id: int, base_url: Optional[str] = None):
                         ok, err = await _send_raw(
                             to=r.email, subject=subj, html=html, text=text,
                             attachments=attachments or None, client=smtp_client,
+                            track=False,
                         )
                     if ok:
                         d.status = DeliveryStatus.SENT

@@ -1181,6 +1181,7 @@ async def _send_program_external_emails(
                 email, subject, html_str, text,
                 attachments=attachments or None,
                 inline_images=inline_images or None,
+                recipient_type="EXTERNAL",
             )
         except Exception:
             logger.exception("Échec envoi programme → %s", email)

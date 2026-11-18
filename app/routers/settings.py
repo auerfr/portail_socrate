@@ -669,6 +669,7 @@ async def settings_test_smtp(
         subject="[Portail Socrate] Test de configuration SMTP",
         html=html,
         text=text,
+        track=False,  # diagnostic — exclu des statistiques d'engagement
     )
     if ok:
         enc = quote(recipient)

@@ -38,10 +38,15 @@ async def open_smtp_client() -> Optional[aiosmtplib.SMTP]:
     return client
 
 
-async def create_pending_log(to: str, subject: str, has_attachment: bool = False) -> Optional[int]:
+async def create_pending_log(
+    to: str, subject: str, has_attachment: bool = False,
+    recipient_type: Optional[str] = None,
+) -> Optional[int]:
     """Pré-crée un EmailLog en statut PENDING et retourne son id — utile quand
     le corps de l'email a besoin de connaître l'id avant l'envoi (liens de
-    suivi ouverture/clic). Best-effort : retourne None si l'insertion échoue."""
+    suivi ouverture/clic). Best-effort : retourne None si l'insertion échoue.
+    recipient_type : "MEMBER" | "EXTERNAL" | None (email de test/diagnostic,
+    exclu des statistiques du tableau de bord d'engagement)."""
     try:
         from app.database import AsyncSessionLocal
         from app.models.system import EmailLog, EmailStatus
@@ -51,6 +56,7 @@ async def create_pending_log(to: str, subject: str, has_attachment: bool = False
                 subject=subject[:500],
                 status=EmailStatus.PENDING,
                 has_attachment=has_attachment,
+                recipient_type=recipient_type,
             )
             s.add(log)
             await s.commit()
@@ -69,6 +75,8 @@ async def _send_raw(
     inline_images: Optional[list[tuple[str, bytes, str]]] = None,
     log_id: Optional[int] = None,
     client: Optional[aiosmtplib.SMTP] = None,
+    recipient_type: Optional[str] = None,
+    track: bool = True,
 ) -> tuple[bool, Optional[str]]:
     """
     Envoie un email brut. Retourne (True, None) si succès.
@@ -80,8 +88,31 @@ async def _send_raw(
     client : connexion SMTP déjà ouverte (via `open_smtp_client`) à réutiliser
              pour plusieurs envois (ex : campagne) ; si absent, ouvre/ferme une
              connexion dédiée avec nouvelles tentatives sur erreur transitoire.
+    recipient_type : "MEMBER" | "EXTERNAL" | None — alimente le tableau de
+             bord d'engagement (app/routers/engagement.py). Ignoré si log_id
+             est déjà fourni (la ligne existe déjà, avec son propre type).
+    track : False pour désactiver le pixel d'ouverture + la réécriture des
+             liens de clic sur CET envoi (ex : contenu déjà suivi par un autre
+             mécanisme, comme les campagnes de app.services.mailing).
     """
     settings = get_settings()
+
+    # Pré-créer la ligne EmailLog MAINTENANT (avant la construction du MIME)
+    # si elle n'existe pas déjà, pour pouvoir y référencer un pixel
+    # d'ouverture + des liens de clic suivis dans le HTML lui-même — jusqu'ici
+    # seul l'email d'accès (member_access.py) pré-créait son log pour ça ;
+    # tous les autres n'étaient journalisés qu'APRÈS l'envoi, trop tard pour
+    # y faire référence depuis le corps déjà composé.
+    effective_log_id = log_id
+    if effective_log_id is None and track and html:
+        effective_log_id = await create_pending_log(
+            to, subject, has_attachment=bool(attachments), recipient_type=recipient_type,
+        )
+
+    if track and html and effective_log_id is not None:
+        from app.services.email_tracking import inject_tracking
+        base_url = (settings.portal_url or f"https://{settings.lodge_domain}").rstrip("/")
+        html = inject_tracking(html, effective_log_id, base_url)
 
     async def _journal(ok: bool, err: Optional[str]):
         """Met à jour ou insère un EmailLog (best-effort, ne lève jamais)."""
@@ -89,8 +120,8 @@ async def _send_raw(
             from app.database import AsyncSessionLocal
             from app.models.system import EmailLog, EmailStatus
             async with AsyncSessionLocal() as s:
-                if log_id is not None:
-                    log = await s.get(EmailLog, log_id)
+                if effective_log_id is not None:
+                    log = await s.get(EmailLog, effective_log_id)
                     if log:
                         log.status = EmailStatus.SENT if ok else EmailStatus.FAILED
                         log.error = err[:2000] if err else None
@@ -102,6 +133,7 @@ async def _send_raw(
                     status=EmailStatus.SENT if ok else EmailStatus.FAILED,
                     error=(err[:2000] if err else None),
                     has_attachment=bool(attachments),
+                    recipient_type=recipient_type,
                 ))
                 await s.commit()
         except Exception:
@@ -424,6 +456,7 @@ async def notify_new_chat_channel(
         subject=f"[Portail Loge] Nouveau canal de discussion : {channel_name}",
         html=html,
         text=text,
+        recipient_type="MEMBER",
     )
     return ok
 
@@ -555,6 +588,7 @@ async def notify_new_calendar_event(
         subject=subject,
         html=html,
         text=text,
+        recipient_type="MEMBER",
     )
     return ok
 
@@ -671,6 +705,7 @@ async def notify_trace_pending_vm(
         subject=subject,
         html=html,
         text=text,
+        recipient_type="MEMBER",
     )
     return ok
 
@@ -783,6 +818,7 @@ async def notify_trace_rejected(
         subject=f"[Portail Loge] Tracé renvoyé : {meeting_title}",
         html=html,
         text=text,
+        recipient_type="MEMBER",
     )
     return ok
 
@@ -822,5 +858,6 @@ async def notify_new_message(
         subject=f"[Portail Loge] Nouveau message : {subject}",
         html=html,
         text=text,
+        recipient_type="MEMBER",
     )
     return ok

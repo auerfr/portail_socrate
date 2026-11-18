@@ -103,7 +103,7 @@ async def notify_new_agape_registration(
                     try:
                         await _send_raw(
                             to=email, subject="[Portail Loge] Nouvelle inscription aux agapes",
-                            html=html, text=text,
+                            html=html, text=text, recipient_type="MEMBER",
                         )
                     except Exception:
                         logger.exception("Échec notif agape → %s", email)

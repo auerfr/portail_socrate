@@ -31,17 +31,39 @@ async def engagement_dashboard(
     days = max(7, min(days, 365))
     since = datetime.now() - timedelta(days=days)
 
-    # ── Engagement email (fenêtre sélectionnée) ─────────────────────────
+    def _stats(logs: list[EmailLog]) -> dict:
+        sent = sum(1 for l in logs if l.status == EmailStatus.SENT)
+        opened = sum(1 for l in logs if l.opened_at is not None)
+        clicked = sum(1 for l in logs if l.clicked_at is not None)
+        return {
+            "total": len(logs), "sent": sent, "opened": opened, "clicked": clicked,
+            "open_rate": round(opened * 100 / sent) if sent else 0,
+            "click_rate": round(clicked * 100 / sent) if sent else 0,
+        }
+
+    # ── Engagement email (fenêtre sélectionnée), par type de destinataire ──
+    # MEMBER : notifications internes (messages, canaux, tenues, tracés,
+    # agapes…) — le signal d'engagement qui importe le plus : les membres
+    # consultent-ils au moins leurs notifications ?
+    # EXTERNAL : correspondants externes (programme, confirmation annuelle).
+    # None : emails de test/diagnostic (SMTP, aperçu de campagne) — jamais
+    # suivis, exclus volontairement des deux catégories ci-dessus.
     r = await db.execute(select(EmailLog).where(EmailLog.created_at >= since))
     logs = r.scalars().all()
+    member_logs = [l for l in logs if l.recipient_type == "MEMBER"]
+    external_logs = [l for l in logs if l.recipient_type == "EXTERNAL"]
+    other_logs = [l for l in logs if l.recipient_type not in ("MEMBER", "EXTERNAL")]
+
+    member_stats = _stats(member_logs)
+    external_stats = _stats(external_logs)
     total = len(logs)
-    sent = sum(1 for l in logs if l.status == EmailStatus.SENT)
-    opened = sum(1 for l in logs if l.opened_at is not None)
-    clicked = sum(1 for l in logs if l.clicked_at is not None)
+    sent = member_stats["sent"] + external_stats["sent"]
+    opened = member_stats["opened"] + external_stats["opened"]
+    clicked = member_stats["clicked"] + external_stats["clicked"]
     open_rate = round(opened * 100 / sent) if sent else 0
     click_rate = round(clicked * 100 / sent) if sent else 0
 
-    # tendance mensuelle (6 derniers mois, indépendante de "days")
+    # tendance mensuelle (6 derniers mois, indépendante de "days"), par type
     r6 = await db.execute(
         select(EmailLog).where(EmailLog.created_at >= datetime.now() - timedelta(days=180))
     )
@@ -49,11 +71,21 @@ async def engagement_dashboard(
     by_month: dict[str, dict[str, int]] = {}
     for l in logs6:
         key = to_paris(l.created_at).strftime("%Y-%m")
-        m = by_month.setdefault(key, {"sent": 0, "opened": 0})
-        if l.status == EmailStatus.SENT:
-            m["sent"] += 1
-        if l.opened_at is not None:
-            m["opened"] += 1
+        m = by_month.setdefault(key, {
+            "sent": 0, "opened": 0,
+            "member_sent": 0, "member_opened": 0,
+            "external_sent": 0, "external_opened": 0,
+        })
+        if l.status != EmailStatus.SENT:
+            continue
+        m["sent"] += 1
+        m["opened"] += 1 if l.opened_at is not None else 0
+        if l.recipient_type == "MEMBER":
+            m["member_sent"] += 1
+            m["member_opened"] += 1 if l.opened_at is not None else 0
+        elif l.recipient_type == "EXTERNAL":
+            m["external_sent"] += 1
+            m["external_opened"] += 1 if l.opened_at is not None else 0
     email_trend = [{"month": k, **v} for k, v in sorted(by_month.items())]
 
     # ── Assiduité par année maçonnique (tendance) ───────────────────────
@@ -81,6 +113,8 @@ async def engagement_dashboard(
         "days": days,
         "email_total": total, "email_sent": sent, "email_opened": opened, "email_clicked": clicked,
         "open_rate": open_rate, "click_rate": click_rate,
+        "member_stats": member_stats, "external_stats": external_stats,
+        "other_count": len(other_logs),
         "email_trend": email_trend,
         "attendance_trend": attendance_trend,
     })

@@ -515,8 +515,9 @@ async def run_lightweight_migrations(engine: AsyncEngine) -> None:
         r_el = await conn.exec_driver_sql("PRAGMA table_info(email_logs)")
         cols_el = [row[1] for row in r_el.fetchall()]
         for col, ddl in [
-            ("opened_at",  "DATETIME"),
-            ("clicked_at", "DATETIME"),
+            ("opened_at",      "DATETIME"),
+            ("clicked_at",     "DATETIME"),
+            ("recipient_type", "VARCHAR(20)"),
         ]:
             if col not in cols_el:
                 await conn.exec_driver_sql(f"ALTER TABLE email_logs ADD COLUMN {col} {ddl}")
