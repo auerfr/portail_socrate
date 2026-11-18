@@ -22,6 +22,12 @@
 
   <!-- ── Engagement email ─────────────────────────────────────────── -->
   <div class="space-y-6">
+    <div class="text-xs text-gray-400 bg-gray-50 border border-gray-100 rounded-lg px-3 py-2">
+      ⓘ Le <strong>taux d'ouverture</strong> peut être surévalué : Gmail et surtout Apple Mail
+      (« Protection de la confidentialité ») chargent souvent l'image de suivi automatiquement,
+      même sans lecture réelle. Le <strong>taux de clic</strong> est un signal plus fiable — il
+      suppose une action volontaire de la personne.
+    </div>
     <div>
       <h2 class="text-sm font-semibold text-gray-700 mb-1 flex items-center gap-1.5">
         <i class="ti ti-users"></i> Membres — notifications &amp; emails internes
@@ -98,8 +104,10 @@
             <th class="px-4 py-2 font-medium">Mois</th>
             <th class="px-4 py-2 font-medium text-right">Membres envoyés</th>
             <th class="px-4 py-2 font-medium text-right">Membres ouverts</th>
+            <th class="px-4 py-2 font-medium text-right">Membres cliqués</th>
             <th class="px-4 py-2 font-medium text-right">Externes envoyés</th>
             <th class="px-4 py-2 font-medium text-right">Externes ouverts</th>
+            <th class="px-4 py-2 font-medium text-right">Externes cliqués</th>
           </tr>
         </thead>
         <tbody>
@@ -107,9 +115,11 @@
           <tr class="border-b border-gray-50 last:border-0">
             <td class="px-4 py-2 text-gray-700">{{ row.month }}</td>
             <td class="px-4 py-2 text-right text-gray-600">{{ row.member_sent }}</td>
-            <td class="px-4 py-2 text-right font-semibold text-loge-700">{{ row.member_opened }}</td>
+            <td class="px-4 py-2 text-right text-loge-700">{{ row.member_opened }}</td>
+            <td class="px-4 py-2 text-right font-semibold text-amber-600">{{ row.member_clicked }}</td>
             <td class="px-4 py-2 text-right text-gray-600">{{ row.external_sent }}</td>
-            <td class="px-4 py-2 text-right font-semibold text-loge-700">{{ row.external_opened }}</td>
+            <td class="px-4 py-2 text-right text-loge-700">{{ row.external_opened }}</td>
+            <td class="px-4 py-2 text-right font-semibold text-amber-600">{{ row.external_clicked }}</td>
           </tr>
           {% endfor %}
         </tbody>

@@ -73,8 +73,8 @@ async def engagement_dashboard(
         key = to_paris(l.created_at).strftime("%Y-%m")
         m = by_month.setdefault(key, {
             "sent": 0, "opened": 0,
-            "member_sent": 0, "member_opened": 0,
-            "external_sent": 0, "external_opened": 0,
+            "member_sent": 0, "member_opened": 0, "member_clicked": 0,
+            "external_sent": 0, "external_opened": 0, "external_clicked": 0,
         })
         if l.status != EmailStatus.SENT:
             continue
@@ -83,9 +83,11 @@ async def engagement_dashboard(
         if l.recipient_type == "MEMBER":
             m["member_sent"] += 1
             m["member_opened"] += 1 if l.opened_at is not None else 0
+            m["member_clicked"] += 1 if l.clicked_at is not None else 0
         elif l.recipient_type == "EXTERNAL":
             m["external_sent"] += 1
             m["external_opened"] += 1 if l.opened_at is not None else 0
+            m["external_clicked"] += 1 if l.clicked_at is not None else 0
     email_trend = [{"month": k, **v} for k, v in sorted(by_month.items())]
 
     # ── Assiduité par année maçonnique (tendance) ───────────────────────

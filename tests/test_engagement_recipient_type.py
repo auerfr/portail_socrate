@@ -131,9 +131,10 @@ async def test_engagement_dashboard_splits_member_and_external(admin_client: Asy
             sum(1 for l in m if l.opened_at is not None),
             sum(1 for l in e if l.status == EmailStatus.SENT),
             sum(1 for l in e if l.opened_at is not None),
+            sum(1 for l in e if l.clicked_at is not None),
         )
 
-    before_m_sent, before_m_opened, before_e_sent, before_e_opened = await _snapshot()
+    before_m_sent, before_m_opened, before_e_sent, before_e_opened, before_e_clicked = await _snapshot()
 
     now = datetime.utcnow()
     db.add_all([
@@ -148,14 +149,17 @@ async def test_engagement_dashboard_splits_member_and_external(admin_client: Asy
     ])
     await db.commit()
 
-    after_m_sent, after_m_opened, after_e_sent, after_e_opened = await _snapshot()
+    after_m_sent, after_m_opened, after_e_sent, after_e_opened, after_e_clicked = await _snapshot()
     assert after_m_sent - before_m_sent == 2
     assert after_m_opened - before_m_opened == 1
     assert after_e_sent - before_e_sent == 1
     assert after_e_opened - before_e_opened == 1
+    assert after_e_clicked - before_e_clicked == 1
 
     resp = await admin_client.get("/engagement/?days=90")
     assert resp.status_code == 200, resp.text
     text = resp.text
     assert "Membres" in text
     assert "Externes" in text
+    assert "Membres cliqués" in text
+    assert "Externes cliqués" in text
