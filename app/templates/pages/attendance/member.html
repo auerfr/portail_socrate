@@ -77,6 +77,73 @@
     {% endif %}
   </div>
 
+  {# Courbe d'évolution — réservée au membre lui-même, au VM, au Secrétaire et à
+     l'administrateur (cf. can_see_attendance_evolution, app/routers/attendance.py) #}
+  {% if can_see_attendance_evolution and years_summary | length >= 2 %}
+  <div class="bg-white rounded-2xl border border-gray-100 shadow-sm p-5 mb-6">
+    <h2 class="font-semibold text-gray-800 text-sm mb-1">Évolution de l'assiduité</h2>
+    <p class="text-xs text-gray-400 mb-3">Taux de présence par année maçonnique, dans l'ordre chronologique</p>
+    <div class="relative" style="height:180px;"><canvas id="attEvolChart" aria-label="Évolution de l'assiduité"></canvas></div>
+  </div>
+  <script src="/static/js/chart.umd.min.js"></script>
+  <script>
+  (function () {
+    if (typeof Chart === 'undefined') return;
+    var el = document.getElementById('attEvolChart');
+    if (!el) return;
+    // years_summary contient aussi la liste des Attendance (ORM, non sérialisable) —
+    // on n'extrait ici que le label et le taux par année, dans l'ordre chronologique.
+    var labels = {{ years_summary | reverse | list | map(attribute='label') | list | tojson }};
+    var values = {{ years_summary | reverse | list | map(attribute='pct') | list | tojson }};
+
+    function linearTrend(vals) {
+      var n = vals.length;
+      if (n < 2) return vals.slice();
+      var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+      for (var i = 0; i < n; i++) { sumX += i; sumY += vals[i]; sumXY += i * vals[i]; sumXX += i * i; }
+      var denom = n * sumXX - sumX * sumX;
+      if (!denom) return vals.slice();
+      var slope = (n * sumXY - sumX * sumY) / denom;
+      var intercept = (sumY - slope * sumX) / n;
+      return vals.map(function (_, i) { return slope * i + intercept; });
+    }
+
+    new Chart(el.getContext('2d'), {
+      type: 'line',
+      data: {
+        labels: labels,
+        datasets: [
+          {
+            label: 'Taux de présence', data: values, borderColor: '#2c7a7b',
+            backgroundColor: 'rgba(44,122,123,0.1)', fill: true, tension: 0.25,
+            pointRadius: 3, pointBackgroundColor: '#2c7a7b', borderWidth: 2,
+          },
+          {
+            label: 'Tendance', data: linearTrend(values), borderColor: '#111827',
+            borderDash: [6, 4], borderWidth: 2, pointRadius: 0, tension: 0, fill: false,
+          },
+        ],
+      },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: true, position: 'bottom',
+                    labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 2 } },
+          tooltip: { backgroundColor: '#1f2937', padding: 10,
+                     callbacks: { label: function (c) { return (c.dataset.label || '') + ' : ' + c.formattedValue + ' %'; } } },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false } },
+          y: { min: 0, max: 100, grid: { color: '#eef0ee', drawTicks: false }, border: { display: false },
+               ticks: { callback: function (v) { return v + ' %'; } } },
+        },
+      },
+    });
+  })();
+  </script>
+  {% endif %}
+
   <!-- Historique des présences -->
   <div class="bg-white rounded-2xl border border-gray-100 shadow-sm overflow-hidden">
     <div class="px-5 py-4 border-b border-gray-100">

@@ -65,6 +65,23 @@ TYPE_LABELS = {
 }
 
 
+def _trend_slope(values: list[float]) -> Optional[float]:
+    """Pente d'une régression linéaire simple (moindres carrés) sur une série
+    indexée par année (0, 1, 2…) — direction et vitesse d'évolution générale,
+    moins sensible aux à-coups d'une seule année qu'une simple comparaison
+    début/fin."""
+    if len(values) < 3:
+        return None
+    n = len(values)
+    xs = list(range(n))
+    mean_x, mean_y = mean(xs), mean(values)
+    den = sum((x - mean_x) ** 2 for x in xs)
+    if not den:
+        return None
+    num = sum((x - mean_x) * (y - mean_y) for x, y in zip(xs, values))
+    return num / den
+
+
 def _years_between(d1: date, d2: date) -> float:
     return (d2 - d1).days / 365.25
 
@@ -181,6 +198,7 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
 
         snap = [m for m in members if _is_member_on(m, snapshot)]
         snap_ages = [_years_between(m.birth_date, snapshot) for m in snap if m.birth_date]
+        snap_seniority = [_years_between(m.initiation_date, snapshot) for m in snap if m.initiation_date]
         snap_grades = Counter(_grade_at(m, snapshot) for m in snap)
 
         founders = [m for m in members if _joined(m) == ALLUMAGE_DES_FEUX] if in_window(ALLUMAGE_DES_FEUX) else []
@@ -202,6 +220,7 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
             "compagnons": snap_grades.get("COMPAGNON", 0),
             "maitres": snap_grades.get("MAITRE", 0),
             "avg_age": round(mean(snap_ages), 1) if len(snap_ages) >= 3 else None,
+            "avg_masonic": round(mean(snap_seniority), 1) if len(snap_seniority) >= 3 else None,
             "founders": len(founders),
             "initiations": len(initiations),
             "affiliations": len([m for m in arrivals if m not in initiations]),
@@ -313,6 +332,33 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
     avg_yearly_arrivals = round(mean(y["initiations"] + y["affiliations"] for y in completed_years)) if completed_years else 0
     avg_yearly_departures = round(mean(y["departures"] for y in completed_years)) if completed_years else 0
 
+    # Tendances générales (régression linéaire sur les années complètes) : direction
+    # d'évolution au-delà des variations d'une année sur l'autre.
+    attendance_trend_per_year = _trend_slope([y["attendance_pct"] for y in completed_years if y["attendance_pct"] is not None])
+    age_trend_per_year = _trend_slope([y["avg_age"] for y in completed_years if y["avg_age"] is not None])
+    # L'effectif d'une année (y compris celle en cours, qui est un décompte réel à date,
+    # pas une moyenne partielle) se prête mieux à la tendance sur toutes les années.
+    members_trend_per_year = _trend_slope([y["members"] for y in per_year])
+
+    # Projection à 3 ans : simple prolongement linéaire des tendances ci-dessus —
+    # indicatif, pas une prévision statistique à proprement parler.
+    PROJECTION_HORIZON_YEARS = 3
+    current_members = len(current)
+    current_avg_attendance = round(mean(y["attendance_pct"] for y in att_years)) if att_years else None
+    current_avg_age = round(mean(ages)) if len(ages) >= 3 else None
+    proj_members_3y = (
+        round(current_members + members_trend_per_year * PROJECTION_HORIZON_YEARS)
+        if members_trend_per_year is not None else None
+    )
+    proj_attendance_3y = (
+        round(max(0, min(100, current_avg_attendance + attendance_trend_per_year * PROJECTION_HORIZON_YEARS)))
+        if current_avg_attendance is not None and attendance_trend_per_year is not None else None
+    )
+    proj_age_3y = (
+        round(current_avg_age + age_trend_per_year * PROJECTION_HORIZON_YEARS, 1)
+        if current_avg_age is not None and age_trend_per_year is not None else None
+    )
+
     return {
         "today": today,
         "allumage": ALLUMAGE_DES_FEUX,
@@ -364,6 +410,13 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
                          if per_year and per_year[-1]["is_current"] else (per_year[-1] if per_year else None),
         "avg_yearly_arrivals": avg_yearly_arrivals,
         "avg_yearly_departures": avg_yearly_departures,
+        "attendance_trend_per_year": round(attendance_trend_per_year, 1) if attendance_trend_per_year is not None else None,
+        "age_trend_per_year": round(age_trend_per_year, 1) if age_trend_per_year is not None else None,
+        "members_trend_per_year": round(members_trend_per_year, 1) if members_trend_per_year is not None else None,
+        "projection_horizon_years": PROJECTION_HORIZON_YEARS,
+        "proj_members_3y": proj_members_3y,
+        "proj_attendance_3y": proj_attendance_3y,
+        "proj_age_3y": proj_age_3y,
         "visitor_map": visitor_map,
         "founders_total": sum(1 for m in members if m.is_founder),
         "founders_active": sum(1 for m in current if m.is_founder),

@@ -13,7 +13,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.database import get_db
 from app.dependencies import require_auth, can_manage_attendance, meeting_visibility_clause
 from app.models.identity import (
-    Member, MemberStatus, member_active_now_condition,
+    Member, MemberStatus, LodgeFunction, member_active_now_condition,
 )
 from app.models.lodge import MasonicYear, LodgeSettings
 from app.models.meetings import (
@@ -968,6 +968,15 @@ async def member_attendance(
         "absent": absent,
         "pct": round(present * 100 / total) if total else 0,
         "years_summary": years_summary,
+        # La courbe d'évolution de l'assiduité d'un membre est plus exposante qu'une
+        # simple liste de dates : réservée au membre lui-même, au VM, au Secrétaire et
+        # à l'administrateur — pas aux Surveillants, qui ont par ailleurs accès à cette
+        # page pour l'émargement (cf. can_manage_attendance, volontairement plus large).
+        "can_see_attendance_evolution": (
+            member_id == current_member.id
+            or user.is_admin
+            or current_member.lodge_function in (LodgeFunction.VM, LodgeFunction.SECRETAIRE)
+        ),
     })
 
 

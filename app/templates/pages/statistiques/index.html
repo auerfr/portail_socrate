@@ -89,8 +89,54 @@
       {% if kpi.avg_lodge %}
       <li>• Ancienneté moyenne au sein de la loge : <strong>{{ kpi.avg_lodge | replace('.', ',') }} ans</strong>.</li>
       {% endif %}
+      {% if attendance_trend_per_year is not none %}
+      <li>• Tendance : l'assiduité moyenne évolue de
+        <strong>{{ ('%+.1f' % attendance_trend_per_year) | replace('.', ',') }} point{{ 's' if attendance_trend_per_year | abs > 1 }} par an</strong>
+        sur les années complètes <span class="text-gray-400">(régression linéaire)</span>.</li>
+      {% endif %}
+      {% if age_trend_per_year is not none %}
+      <li>• Tendance : l'âge moyen de la loge évolue de
+        <strong>{{ ('%+.1f' % age_trend_per_year) | replace('.', ',') }} an{{ 's' if age_trend_per_year | abs > 1 }} par an</strong>
+        sur les années complètes.</li>
+      {% endif %}
     </ul>
   </section>
+
+  <!-- ══ Projection à moyen terme ═══════════════════════════════════════ -->
+  {% if proj_members_3y is not none or proj_attendance_3y is not none or proj_age_3y is not none %}
+  <section class="bg-white border border-gray-100 rounded-xl px-5 py-4 shadow-sm">
+    <h2 class="text-sm font-semibold text-gray-800 mb-1 flex items-center gap-1.5">
+      <i class="ti ti-trending-up text-loge-600"></i> Projection à {{ projection_horizon_years }} ans
+    </h2>
+    <p class="text-xs text-gray-400 mb-3">
+      En prolongeant les tendances actuelles (régression linéaire sur les années complètes) — simple
+      extrapolation indicative, pas une prévision garantie.
+    </p>
+    <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
+      {% if proj_members_3y is not none %}
+      <div class="bg-loge-50 rounded-xl px-4 py-3">
+        <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Effectif</div>
+        <div class="text-2xl font-bold text-loge-700">{{ kpi.members }} → {{ proj_members_3y }}</div>
+        <div class="text-xs text-gray-500 mt-1">{{ ('%+.1f' % members_trend_per_year) | replace('.', ',') }} membre{{ 's' if members_trend_per_year | abs > 1 }}/an</div>
+      </div>
+      {% endif %}
+      {% if proj_attendance_3y is not none %}
+      <div class="bg-loge-50 rounded-xl px-4 py-3">
+        <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Assiduité</div>
+        <div class="text-2xl font-bold text-loge-700">{{ kpi.avg_attendance }}% → {{ proj_attendance_3y }}%</div>
+        <div class="text-xs text-gray-500 mt-1">{{ ('%+.1f' % attendance_trend_per_year) | replace('.', ',') }} point{{ 's' if attendance_trend_per_year | abs > 1 }}/an</div>
+      </div>
+      {% endif %}
+      {% if proj_age_3y is not none %}
+      <div class="bg-loge-50 rounded-xl px-4 py-3">
+        <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Âge moyen</div>
+        <div class="text-2xl font-bold text-loge-700">{{ kpi.avg_age }} → {{ proj_age_3y | replace('.', ',') }} ans</div>
+        <div class="text-xs text-gray-500 mt-1">{{ ('%+.1f' % age_trend_per_year) | replace('.', ',') }} an{{ 's' if age_trend_per_year | abs > 1 }}/an</div>
+      </div>
+      {% endif %}
+    </div>
+  </section>
+  {% endif %}
 
   <!-- ══ Effectif ═══════════════════════════════════════════════════════ -->
   <section class="space-y-4">
@@ -263,6 +309,12 @@
         <p class="text-xs text-gray-400 mb-3">Années depuis l'initiation ({{ kpi.masonic_known }} membres renseignés)</p>
         <div class="relative" style="height:224px;"><canvas id="masonicChart" aria-label="Ancienneté maçonnique"></canvas></div>
       </div>
+    </div>
+
+    <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5">
+      <h3 class="text-sm font-semibold text-gray-800">Évolution de l'âge moyen &amp; de l'ancienneté maçonnique</h3>
+      <p class="text-xs text-gray-400 mb-3">Moyennes des membres présents à chaque fin d'année — la loge vieillit-elle, rajeunit-elle ?</p>
+      <div class="relative" style="height:224px;"><canvas id="ageEvolChart" aria-label="Évolution de l'âge moyen et de l'ancienneté"></canvas></div>
     </div>
   </section>
 
@@ -494,6 +546,37 @@
     });
   }
 
+  function lineChart(id, labels, datasets, opts) {
+    var el = document.getElementById(id);
+    if (!el) return;
+    opts = opts || {};
+    datasets.forEach(function (d) {
+      d.borderWidth = d.borderWidth || 2;
+      d.pointRadius = d.pointRadius != null ? d.pointRadius : 3;
+      d.tension = d.tension != null ? d.tension : 0.25;
+      d.spanGaps = true;
+    });
+    new Chart(el.getContext('2d'), {
+      type: 'line',
+      data: { labels: labels, datasets: datasets },
+      options: {
+        responsive: true, maintainAspectRatio: false, animation: false,
+        interaction: { mode: 'index', intersect: false },
+        plugins: {
+          legend: { display: datasets.length > 1, position: 'bottom',
+                    labels: { boxWidth: 10, boxHeight: 10, useBorderRadius: true, borderRadius: 2 } },
+          tooltip: { backgroundColor: '#1f2937', padding: 10,
+                     callbacks: opts.suffix ? { label: function (c) { return (c.dataset.label ? c.dataset.label + ' : ' : '') + c.formattedValue + opts.suffix; } } : {} },
+        },
+        scales: {
+          x: { grid: { display: false }, border: { display: false }, ticks: { maxRotation: 0, autoSkip: true } },
+          y: { beginAtZero: false, grid: { color: '#eef0ee', drawTicks: false }, border: { display: false },
+               ticks: { maxTicksLimit: 6 } },
+        },
+      },
+    });
+  }
+
   var years = {{ per_year | tojson }};
   var yearLabels = years.map(function (y) { return y.label + (y.is_current ? ' (en cours)' : ''); });
   var col = function (k) { return years.map(function (y) { return y[k]; }); };
@@ -566,6 +649,11 @@
   var mas = {{ masonic_dist | tojson }};
   bar('masonicChart', mas.labels, [{ label: 'Membres', data: mas.values, backgroundColor: C.loge }]);
 
+  lineChart('ageEvolChart', yearLabels, [
+    { label: 'Âge moyen', data: col('avg_age'), borderColor: C.loge, backgroundColor: C.loge, fill: false },
+    { label: 'Ancienneté maçonnique moyenne', data: col('avg_masonic'), borderColor: C.orange, backgroundColor: C.orange, fill: false },
+  ], { suffix: ' ans' });
+
   // Tenue après tenue
   var tl = {{ timeline | tojson }};
   bar('timelineChart', tl.map(function (t) { return t.label; }), [
@@ -573,8 +661,10 @@
     { label: 'Maçons passants', data: tl.map(function (t) { return t.visitors; }), backgroundColor: C.orange },
   ], { stacked: true, thick: 14 });
 
+  var attendanceValues = col('attendance_pct').map(function (v) { return v == null ? 0 : v; });
   bar('attendanceChart', yearLabels, [
     { label: 'Présence', data: col('attendance_pct'), backgroundColor: C.loge },
+    trendDataset('Tendance', attendanceValues),
   ], { max: 100, suffix: ' %' });
 
   var typeKeys = {{ type_keys | tojson }};
