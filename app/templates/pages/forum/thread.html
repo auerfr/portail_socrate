@@ -232,7 +232,7 @@ function gedPicker() {
             ('BLOCK',    'Bloque',     '⛔', 'peer-checked:ring-2 peer-checked:ring-red-500 peer-checked:bg-red-50 peer-checked:text-red-700'),
           ] %}
           {% set is_mine = dd.my_stance and (dd.my_stance.position.value if dd.my_stance.position is not string else dd.my_stance.position) == code %}
-          <label class="cursor-pointer">
+          <label class="cursor-pointer relative block">
             <input type="radio" name="position" value="{{ code }}" class="sr-only peer"
                    {% if is_mine %}checked{% endif %}>
             <div class="text-center px-3 py-3 rounded-xl border-2 border-transparent ring-1 ring-gray-200 hover:bg-gray-50
