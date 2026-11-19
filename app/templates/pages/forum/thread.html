@@ -246,7 +246,7 @@ function gedPicker() {
         <textarea name="reason" rows="2" maxlength="500"
                   placeholder="Raison (optionnelle) — explicitez votre position…"
                   class="w-full border border-gray-200 rounded-xl px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-loge-500"
-        >{{ dd.my_stance.reason if dd.my_stance else '' }}</textarea>
+        >{{ (dd.my_stance.reason if dd.my_stance else '') or '' }}</textarea>
         <div class="flex items-center justify-between gap-2">
           <div class="text-xs text-gray-500">
             {% if dd.my_stance %}Votre position est enregistrée — vous pouvez la modifier à tout moment.{% else %}Choisissez une position.{% endif %}
