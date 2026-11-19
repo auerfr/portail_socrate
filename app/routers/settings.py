@@ -1015,7 +1015,16 @@ async def notifications_prefs_save(
     notif_forum: Optional[str] = Form(None),
 ):
     user, member = ctx
-    member.email_notifications = email_notifications == "on"
+    new_email_notif = email_notifications == "on"
+    if new_email_notif != member.email_notifications:
+        from app.services.audit import log_audit
+        await log_audit(
+            db, actor_id=member.id, action="NOTIF_EMAIL_TOGGLE",
+            target_type="member", target_id=member.id, target_label=member.full_name,
+            details={"email_notifications": new_email_notif},
+            request=request,
+        )
+    member.email_notifications = new_email_notif
     member.notif_messages = notif_messages == "on"
     member.notif_planches = notif_planches == "on"
     member.notif_polls = notif_polls == "on"
