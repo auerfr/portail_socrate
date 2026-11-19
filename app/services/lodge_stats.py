@@ -144,6 +144,12 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
     ages = [_years_between(m.birth_date, today) for m in current if m.birth_date]
     seniority_masonic = [_years_between(m.initiation_date, today) for m in current if m.initiation_date]
     seniority_lodge = [_years_between(_joined(m), today) for m in current]
+    # Âge au moment de l'initiation (tous les membres, pas seulement les actuels) :
+    # sert de valeur par défaut pour la simulation « âge moyen des nouveaux arrivants ».
+    ages_at_initiation = [
+        _years_between(m.birth_date, m.initiation_date)
+        for m in members if m.birth_date and m.initiation_date
+    ]
 
     def buckets(values, edges, labels):
         counts = [0] * len(labels)
@@ -301,6 +307,12 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
     att_years = [y for y in per_year if y["attendance_pct"] is not None]
     best_year = max(att_years, key=lambda y: y["attendance_pct"], default=None)
 
+    # Moyennes historiques (années maçonniques complètes uniquement, l'année en
+    # cours étant partielle) : valeurs par défaut de la simulation de fin d'année.
+    completed_years = [y for y in per_year if not y["is_current"]]
+    avg_yearly_arrivals = round(mean(y["initiations"] + y["affiliations"] for y in completed_years)) if completed_years else 0
+    avg_yearly_departures = round(mean(y["departures"] for y in completed_years)) if completed_years else 0
+
     return {
         "today": today,
         "allumage": ALLUMAGE_DES_FEUX,
@@ -316,6 +328,7 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
             "masonic_known": len(seniority_masonic),
             "total_masonic_years": round(sum(seniority_masonic)),
             "avg_lodge": round(mean(seniority_lodge), 1) if seniority_lodge else None,
+            "avg_age_at_initiation": round(mean(ages_at_initiation)) if len(ages_at_initiation) >= 3 else None,
             "meetings": len(meetings),
             "visits": len(visits),
             "unique_visitors": len(visits_per_visitor),
@@ -349,6 +362,8 @@ async def compute_lodge_statistics(db: AsyncSession) -> dict:
         # Base de la projection de fin d'année : effectif à la fin de l'année précédente
         "previous_year": next((y for y in reversed(per_year) if not y["is_current"]), None)
                          if per_year and per_year[-1]["is_current"] else (per_year[-1] if per_year else None),
+        "avg_yearly_arrivals": avg_yearly_arrivals,
+        "avg_yearly_departures": avg_yearly_departures,
         "visitor_map": visitor_map,
         "founders_total": sum(1 for m in members if m.is_founder),
         "founders_active": sum(1 for m in current if m.is_founder),

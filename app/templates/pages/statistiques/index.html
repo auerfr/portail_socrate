@@ -200,25 +200,37 @@
 
       {% if previous_year %}
       <div class="bg-white rounded-xl border border-gray-100 shadow-sm p-5" id="projection"
-           data-base="{{ kpi.members }}" data-previous="{{ previous_year.members }}">
+           data-base="{{ kpi.members }}" data-previous="{{ previous_year.members }}"
+           data-avg-age="{{ kpi.avg_age or '' }}" data-ages-known="{{ kpi.ages_known }}">
         <h3 class="text-sm font-semibold text-gray-800">Et d'ici la fin de l'année ?</h3>
-        <p class="text-xs text-gray-400 mb-4">
+        <p class="text-xs text-gray-400 mb-1">
           Projection à partir des {{ kpi.members }} membres d'aujourd'hui, comparée aux
           {{ previous_year.members }} membres de fin {{ previous_year.label }}. Saisissez les mouvements attendus.
         </p>
-        <div class="grid grid-cols-2 gap-4 mb-5">
+        <p class="text-xs text-gray-400 mb-4">
+          Pré-rempli d'après la moyenne historique :
+          {{ avg_yearly_arrivals }} arrivée{{ 's' if avg_yearly_arrivals > 1 }} ·
+          {{ avg_yearly_departures }} départ{{ 's' if avg_yearly_departures > 1 }} par an.
+        </p>
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-5">
           <label class="text-xs text-gray-500">
             Arrivées prévues <span class="text-gray-400">(initiations, affiliations)</span>
-            <input type="number" min="0" max="50" value="0" data-proj="in"
+            <input type="number" min="0" max="50" value="{{ avg_yearly_arrivals }}" data-proj="in"
                    class="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
           </label>
           <label class="text-xs text-gray-500">
             Départs prévus <span class="text-gray-400">(démissions…)</span>
-            <input type="number" min="0" max="50" value="0" data-proj="out"
+            <input type="number" min="0" max="50" value="{{ avg_yearly_departures }}" data-proj="out"
+                   class="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
+          </label>
+          <label class="text-xs text-gray-500">
+            Âge moyen des nouveaux <span class="text-gray-400">(à l'arrivée)</span>
+            <input type="number" min="18" max="99" value="{{ kpi.avg_age_at_initiation or '' }}"
+                   placeholder="ex : 35" data-proj="age-in"
                    class="mt-1 w-full text-sm border border-gray-200 rounded-lg px-3 py-1.5 bg-white focus:outline-none focus:ring-2 focus:ring-loge-500">
           </label>
         </div>
-        <div class="grid grid-cols-2 gap-4">
+        <div class="grid grid-cols-1 sm:grid-cols-3 gap-4">
           <div class="bg-loge-50 rounded-xl px-4 py-3">
             <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Effectif projeté</div>
             <div class="text-3xl font-bold text-loge-700" data-proj="total">{{ kpi.members }}</div>
@@ -227,7 +239,15 @@
             <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Progression sur l'année</div>
             <div class="text-3xl font-bold text-loge-700" data-proj="pct">—</div>
           </div>
+          <div class="bg-loge-50 rounded-xl px-4 py-3">
+            <div class="text-xs text-gray-500 uppercase tracking-wider mb-1">Âge moyen projeté</div>
+            <div class="text-3xl font-bold text-loge-700" data-proj="age">{% if kpi.avg_age %}{{ kpi.avg_age }} ans{% else %}—{% endif %}</div>
+          </div>
         </div>
+        <p class="text-xs text-gray-400 mt-3">
+          Simulation approximative à visée indicative, pas une donnée officielle — l'effet des départs sur
+          l'âge moyen n'est pas pris en compte (âge inconnu des membres qui partiraient).
+        </p>
       </div>
       {% endif %}
     </div>
@@ -416,11 +436,34 @@
   Chart.defaults.font.size = 11;
   Chart.defaults.color = '#6b7280';
 
+  // Régression linéaire simple (moindres carrés) — tendance générale d'une série,
+  // affichée en ligne pointillée par-dessus les barres.
+  function linearTrend(values) {
+    var n = values.length;
+    if (n < 2) return values.slice();
+    var sumX = 0, sumY = 0, sumXY = 0, sumXX = 0;
+    for (var i = 0; i < n; i++) { sumX += i; sumY += values[i]; sumXY += i * values[i]; sumXX += i * i; }
+    var denom = n * sumXX - sumX * sumX;
+    if (!denom) return values.slice();
+    var slope = (n * sumXY - sumX * sumY) / denom;
+    var intercept = (sumY - slope * sumX) / n;
+    return values.map(function (_, idx) { return slope * idx + intercept; });
+  }
+
+  function trendDataset(label, values) {
+    return {
+      type: 'line', label: label, data: linearTrend(values),
+      borderColor: '#111827', borderDash: [6, 4], borderWidth: 2,
+      pointRadius: 0, tension: 0, fill: false,
+    };
+  }
+
   function bar(id, labels, datasets, opts) {
     var el = document.getElementById(id);
     if (!el) return;
     opts = opts || {};
     datasets.forEach(function (d) {
+      if (d.type === 'line') return;
       d.borderRadius = 4;
       d.borderSkipped = 'start';
       d.maxBarThickness = opts.thick || 42;
@@ -458,6 +501,7 @@
   bar('effectifChart', yearLabels, [
     { label: 'Frères', data: col('freres'), backgroundColor: C.blue },
     { label: 'Sœurs', data: col('soeurs'), backgroundColor: C.orange },
+    trendDataset('Tendance', col('members')),
   ], { stacked: true });
 
   bar('gradesChart', yearLabels, [
@@ -474,26 +518,46 @@
 
   // Progression annuelle : bleu si l'effectif croît, orange s'il baisse (+ signe dans l'étiquette)
   var grown = years.filter(function (y) { return y.growth_pct !== null; });
-  bar('growthChart', grown.map(function (y) { return y.label + (y.is_current ? ' (à date)' : ''); }), [{
-    label: 'Progression',
-    data: grown.map(function (y) { return y.growth_pct; }),
-    backgroundColor: grown.map(function (y) { return y.growth_pct >= 0 ? C.blue : C.orange; }),
-  }], { suffix: ' %' });
+  var growthValues = grown.map(function (y) { return y.growth_pct; });
+  bar('growthChart', grown.map(function (y) { return y.label + (y.is_current ? ' (à date)' : ''); }), [
+    {
+      label: 'Progression',
+      data: growthValues,
+      backgroundColor: grown.map(function (y) { return y.growth_pct >= 0 ? C.blue : C.orange; }),
+    },
+    trendDataset('Tendance', growthValues),
+  ], { suffix: ' %' });
 
   // Projection de fin d'année
   var proj = document.getElementById('projection');
   if (proj) {
     var base = +proj.dataset.base, previous = +proj.dataset.previous;
+    var avgAge = proj.dataset.avgAge ? +proj.dataset.avgAge : null;
+    var agesKnown = +proj.dataset.agesKnown || 0;
     var inEl = proj.querySelector('[data-proj="in"]'), outEl = proj.querySelector('[data-proj="out"]');
+    var ageInEl = proj.querySelector('[data-proj="age-in"]');
     var update = function () {
-      var total = base + (+inEl.value || 0) - (+outEl.value || 0);
+      var arrivals = +inEl.value || 0, departures = +outEl.value || 0;
+      var total = base + arrivals - departures;
       var pct = previous ? (total - previous) * 100 / previous : 0;
       proj.querySelector('[data-proj="total"]').textContent = total;
       proj.querySelector('[data-proj="pct"]').textContent =
         (pct > 0 ? '+' : '') + pct.toFixed(1).replace('.', ',') + ' %';
+
+      // Âge moyen projeté : n'intègre que l'effet des nouveaux arrivants (âge
+      // renseigné) — l'âge des éventuels partants n'est pas connu à l'avance.
+      var ageOut = proj.querySelector('[data-proj="age"]');
+      var newAge = +ageInEl.value || 0;
+      if (avgAge && agesKnown && arrivals > 0 && newAge) {
+        var projAvg = (avgAge * agesKnown + arrivals * newAge) / (agesKnown + arrivals);
+        ageOut.textContent = projAvg.toFixed(1).replace('.', ',') + ' ans';
+      } else {
+        ageOut.textContent = avgAge ? avgAge + ' ans' : '—';
+      }
     };
     inEl.addEventListener('input', update);
     outEl.addEventListener('input', update);
+    ageInEl.addEventListener('input', update);
     update();
   }
 
