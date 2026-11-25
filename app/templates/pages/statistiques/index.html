@@ -615,7 +615,11 @@
     { label: 'Départs', data: col('departures'), backgroundColor: C.aqua },
   ]);
 
-  // Progression annuelle : bleu si l'effectif croît, orange s'il baisse (+ signe dans l'étiquette)
+  // Progression annuelle : bleu si l'effectif croît, orange s'il baisse (+ signe dans l'étiquette).
+  // Pas de courbe de tendance ici : le % de croissance d'une année sur l'autre est
+  // un dérivé, bien plus volatile que l'effectif brut (cf. effectifChart) — sur
+  // seulement 3-4 ans, une régression dessus suggère visuellement une décroissance
+  // continue même quand les années alternent hausse/baisse, ce qui induit en erreur.
   var grown = years.filter(function (y) { return y.growth_pct !== null; });
   var growthValues = grown.map(function (y) { return y.growth_pct; });
   var growthChartInstance = bar('growthChart', grown.map(function (y) { return y.label + (y.is_current ? ' (à date)' : ''); }), [
@@ -625,7 +629,6 @@
       backgroundColor: grown.map(function (y) { return y.growth_pct >= 0 ? C.blue : C.orange; }),
     },
     projectionBarDataset('Projection fin d\'année', growthValues.length, growthValues[growthValues.length - 1]),
-    trendDataset('Tendance', growthValues),
   ], { suffix: ' %' });
 
   // Évolution de l'âge moyen & de l'ancienneté — un point « projeté » en
@@ -678,13 +681,13 @@
       }
 
       if (effectifChartInstance) {
-        var ds = effectifChartInstance.data.datasets;
-        ds[ds.length - 2].data[membersCount.length - 1] = total;
+        var ds = effectifChartInstance.data.datasets.find(function (d) { return d.isProjection; });
+        if (ds) ds.data[membersCount.length - 1] = total;
         effectifChartInstance.update();
       }
       if (growthChartInstance) {
-        var gds = growthChartInstance.data.datasets;
-        gds[gds.length - 2].data[growthValues.length - 1] = Math.round(pct * 10) / 10;
+        var gds = growthChartInstance.data.datasets.find(function (d) { return d.isProjection; });
+        if (gds) gds.data[growthValues.length - 1] = Math.round(pct * 10) / 10;
         growthChartInstance.update();
       }
       if (ageEvolChartInstance) {
