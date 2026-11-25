@@ -510,19 +510,33 @@
     };
   }
 
+  // Barre « Projection » (fin d'année, pointillé) — ne pas écraser son style
+  // avec les réglages par défaut d'une vraie barre de données.
+  function projectionBarDataset(label, n, lastValue) {
+    var data = new Array(n).fill(null);
+    data[n - 1] = lastValue;
+    return {
+      label: label, data: data, isProjection: true, stack: 'projection',
+      backgroundColor: 'rgba(44,122,123,0.22)', borderColor: C.loge,
+      borderWidth: 2, borderDash: [5, 3], borderSkipped: false,
+      maxBarThickness: 42, borderRadius: 4,
+    };
+  }
+
   function bar(id, labels, datasets, opts) {
     var el = document.getElementById(id);
-    if (!el) return;
+    if (!el) return null;
     opts = opts || {};
     datasets.forEach(function (d) {
-      if (d.type === 'line') return;
+      if (d.type === 'line' || d.isProjection) return;
       d.borderRadius = 4;
       d.borderSkipped = 'start';
       d.maxBarThickness = opts.thick || 42;
       d.borderColor = '#ffffff';
       d.borderWidth = opts.stacked ? { top: 2 } : 0;
+      if (opts.stacked) d.stack = d.stack || 'real';
     });
-    new Chart(el.getContext('2d'), {
+    return new Chart(el.getContext('2d'), {
       type: 'bar',
       data: { labels: labels, datasets: datasets },
       options: {
@@ -548,7 +562,7 @@
 
   function lineChart(id, labels, datasets, opts) {
     var el = document.getElementById(id);
-    if (!el) return;
+    if (!el) return null;
     opts = opts || {};
     datasets.forEach(function (d) {
       d.borderWidth = d.borderWidth || 2;
@@ -556,7 +570,7 @@
       d.tension = d.tension != null ? d.tension : 0.25;
       d.spanGaps = true;
     });
-    new Chart(el.getContext('2d'), {
+    return new Chart(el.getContext('2d'), {
       type: 'line',
       data: { labels: labels, datasets: datasets },
       options: {
@@ -581,10 +595,12 @@
   var yearLabels = years.map(function (y) { return y.label + (y.is_current ? ' (en cours)' : ''); });
   var col = function (k) { return years.map(function (y) { return y[k]; }); };
 
-  bar('effectifChart', yearLabels, [
+  var membersCount = col('members');
+  var effectifChartInstance = bar('effectifChart', yearLabels, [
     { label: 'Frères', data: col('freres'), backgroundColor: C.blue },
     { label: 'Sœurs', data: col('soeurs'), backgroundColor: C.orange },
-    trendDataset('Tendance', col('members')),
+    projectionBarDataset('Projection fin d\'année', membersCount.length, membersCount[membersCount.length - 1]),
+    trendDataset('Tendance', membersCount),
   ], { stacked: true });
 
   bar('gradesChart', yearLabels, [
@@ -602,16 +618,38 @@
   // Progression annuelle : bleu si l'effectif croît, orange s'il baisse (+ signe dans l'étiquette)
   var grown = years.filter(function (y) { return y.growth_pct !== null; });
   var growthValues = grown.map(function (y) { return y.growth_pct; });
-  bar('growthChart', grown.map(function (y) { return y.label + (y.is_current ? ' (à date)' : ''); }), [
+  var growthChartInstance = bar('growthChart', grown.map(function (y) { return y.label + (y.is_current ? ' (à date)' : ''); }), [
     {
       label: 'Progression',
       data: growthValues,
       backgroundColor: grown.map(function (y) { return y.growth_pct >= 0 ? C.blue : C.orange; }),
     },
+    projectionBarDataset('Projection fin d\'année', growthValues.length, growthValues[growthValues.length - 1]),
     trendDataset('Tendance', growthValues),
   ], { suffix: ' %' });
 
-  // Projection de fin d'année
+  // Évolution de l'âge moyen & de l'ancienneté — un point « projeté » en
+  // pointillé est ajouté en fin de ligne d'âge moyen, mis à jour en direct
+  // par la simulation ci-dessous (créé ici pour être disponible avant elle).
+  function nextYearLabel(label) {
+    var m = /^(\d+)-(\d+)$/.exec(label || '');
+    if (!m) return 'Projection';
+    return (parseInt(m[1], 10) + 1) + '-' + (parseInt(m[2], 10) + 1);
+  }
+  var avgAgeSeries = col('avg_age');
+  var avgMasonicSeries = col('avg_masonic');
+  var projLabel = (years.length ? nextYearLabel(years[years.length - 1].label) : 'Projection') + ' (projeté)';
+  var ageEvolChartInstance = lineChart('ageEvolChart', yearLabels.concat([projLabel]), [
+    {
+      label: 'Âge moyen', data: avgAgeSeries.concat([null]), borderColor: C.loge, backgroundColor: C.loge, fill: false,
+      segment: { borderDash: function (ctx) { return ctx.p1DataIndex === avgAgeSeries.length ? [6, 4] : undefined; } },
+    },
+    { label: 'Ancienneté maçonnique moyenne', data: avgMasonicSeries.concat([null]), borderColor: C.orange, backgroundColor: C.orange, fill: false },
+  ], { suffix: ' ans' });
+
+  // Projection de fin d'année — met aussi à jour, en direct, la barre
+  // « Projection » des graphiques d'effectif/progression et le point projeté
+  // du graphique d'évolution de l'âge moyen.
   var proj = document.getElementById('projection');
   if (proj) {
     var base = +proj.dataset.base, previous = +proj.dataset.previous;
@@ -631,11 +669,27 @@
       // renseigné) — l'âge des éventuels partants n'est pas connu à l'avance.
       var ageOut = proj.querySelector('[data-proj="age"]');
       var newAge = +ageInEl.value || 0;
+      var projAvg = null;
       if (avgAge && agesKnown && arrivals > 0 && newAge) {
-        var projAvg = (avgAge * agesKnown + arrivals * newAge) / (agesKnown + arrivals);
+        projAvg = (avgAge * agesKnown + arrivals * newAge) / (agesKnown + arrivals);
         ageOut.textContent = projAvg.toFixed(1).replace('.', ',') + ' ans';
       } else {
         ageOut.textContent = avgAge ? avgAge + ' ans' : '—';
+      }
+
+      if (effectifChartInstance) {
+        var ds = effectifChartInstance.data.datasets;
+        ds[ds.length - 2].data[membersCount.length - 1] = total;
+        effectifChartInstance.update();
+      }
+      if (growthChartInstance) {
+        var gds = growthChartInstance.data.datasets;
+        gds[gds.length - 2].data[growthValues.length - 1] = Math.round(pct * 10) / 10;
+        growthChartInstance.update();
+      }
+      if (ageEvolChartInstance) {
+        ageEvolChartInstance.data.datasets[0].data[avgAgeSeries.length] = projAvg;
+        ageEvolChartInstance.update();
       }
     };
     inEl.addEventListener('input', update);
@@ -648,11 +702,6 @@
   bar('ageChart', age.labels, [{ label: 'Membres', data: age.values, backgroundColor: C.loge }]);
   var mas = {{ masonic_dist | tojson }};
   bar('masonicChart', mas.labels, [{ label: 'Membres', data: mas.values, backgroundColor: C.loge }]);
-
-  lineChart('ageEvolChart', yearLabels, [
-    { label: 'Âge moyen', data: col('avg_age'), borderColor: C.loge, backgroundColor: C.loge, fill: false },
-    { label: 'Ancienneté maçonnique moyenne', data: col('avg_masonic'), borderColor: C.orange, backgroundColor: C.orange, fill: false },
-  ], { suffix: ' ans' });
 
   // Tenue après tenue
   var tl = {{ timeline | tojson }};
